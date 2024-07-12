@@ -9,9 +9,8 @@ import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IE
 import "src/interfaces/IERC7540.sol"; // IERC7540 from centrifuge
 
 contract RWAVault is ERC4626 {
-    constructor(
-        address _asset,
-        string memory _name,
-        string memory _symbol
-    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) {}
+    constructor(address _asset, string memory _name, string memory _symbol)
+        ERC20(_name, _symbol)
+        ERC4626(IERC20Metadata(_asset))
+    {}
 }
