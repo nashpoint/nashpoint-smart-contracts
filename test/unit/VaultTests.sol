@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import {ERC4626Vault} from "../../src/Issuer.sol";
+import {Issuer} from "../../src/Issuer.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 import {Test, console2} from "lib/forge-std/src/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
@@ -17,12 +17,12 @@ contract VaultTests is Test {
     uint256 public constant BALANCE = 1000e18;
 
     // CONTRACTS
-    ERC4626Vault public immutable bestia;
+    Issuer public immutable bestia;
     MockERC20 public immutable usdc;
 
     constructor() {
         usdc = new MockERC20("Mock USDC", "USDC");
-        bestia = new ERC4626Vault(address(usdc), "Bestia", "BEST");
+        bestia = new Issuer(address(usdc), "Bestia", "BEST");
     }
 
     function setUp() public {
@@ -41,5 +41,9 @@ contract VaultTests is Test {
         
         assertEq(usdc.balanceOf(address(bestia)), BALANCE);
         assertEq(bestia.convertToAssets(shares), BALANCE);
+    }
+
+    function mathTests() public {
+
     }
 }
