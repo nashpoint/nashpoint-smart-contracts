@@ -36,8 +36,10 @@ contract VaultTests is Test {
         vm.startPrank(user1);
         bestia.deposit(BALANCE, address(user1));
         vm.stopPrank();
+
+        uint256 shares = bestia.balanceOf(user1);
         
         assertEq(usdc.balanceOf(address(bestia)), BALANCE);
-        assertEq(bestia.balanceOf(user1), BALANCE);
+        assertEq(bestia.convertToAssets(shares), BALANCE);
     }
 }
