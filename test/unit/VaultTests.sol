@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import {ERC4626Vault} from "../../src/4626Vault.sol";
+import {ERC4626Vault} from "../../src/Issuer.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 import {Test, console2} from "lib/forge-std/src/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
