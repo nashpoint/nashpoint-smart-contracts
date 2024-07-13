@@ -86,7 +86,7 @@ contract VaultTests is Test {
         assertEq(sUSDC.balanceOf(address(bestia)), DEPOSIT - targetReserve);
     }
 
-    function testGetReservePercentage() public {
+    function testGetReservePercent() public {
         // user1 deposits 100 USDC
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT, address(user1));
@@ -106,12 +106,36 @@ contract VaultTests is Test {
 
         uint256 currentReserve = usdc.balanceOf(address(bestia));
         uint256 assets = bestia.totalAssets();
-        uint256 reservePercentage = bestia.getReservePercentage();
+        uint256 reservePercent = bestia.getReservePercent();
 
         console2.log("Bestia currentReserve", currentReserve);
         console2.log("Bestia totalAssets", assets);
-        console2.log("Bestia reservePercentage", reservePercentage);
+        console2.log("Bestia reservePercent", reservePercent);
 
-        assertEq(reservePercentage, Math.mulDiv(currentReserve, 1e16, assets));
+        assertEq(reservePercent, Math.mulDiv(currentReserve, 1e18, assets));
+    }
+
+    function testGetRemainingReservePercent() public {
+        // user1 deposits 100 USDC
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+
+        // banker invests 90 USDC
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
+        vm.stopPrank();
+
+        uint256 remainingReserve = bestia.getRemainingReservePercent();
+        console2.log("Bestia remainingReserve", remainingReserve);
+
+        assertEq(remainingReserve, 1e18 - bestia.getReservePercent());
+        assertEq(1e18, bestia.getReservePercent() + remainingReserve);
+
+
     }
 }

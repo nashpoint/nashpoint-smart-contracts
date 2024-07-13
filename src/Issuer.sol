@@ -75,13 +75,17 @@ contract Issuer is ERC4626, Ownable {
         return Math.mulDiv(assets, targetReserveRatio, 100);
     }
 
-    function getReservePercentage() public view returns (uint256) {
+    function getReservePercent() public view returns (uint256) {
         // returns reserve percentage in 1e18 = 100% level of precision
         uint256 currentReserve = usdc.balanceOf(address(this));
         uint256 assets = totalAssets();
-        uint256 reservePercentage = Math.mulDiv(currentReserve, 1e16, assets);
+        uint256 reservePercent = Math.mulDiv(currentReserve, 1e18, assets);
 
-        return reservePercentage;
+        return reservePercent;
+    }
+
+    function getRemainingReservePercent() public view returns (uint256) {
+        return 1e18 - getReservePercent();
     }
 
     function getMaxDiscount() public view returns (uint256) {
