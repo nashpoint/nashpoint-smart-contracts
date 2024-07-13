@@ -59,7 +59,7 @@ contract VaultTests is Test {
         assertEq(bestia.totalAssets(), BALANCE);
     }
 
-    function testMath() public {
+    function testBasicMath() public {
         vm.startPrank(user1);
         bestia.deposit(BALANCE, address(user1));
         vm.stopPrank();
@@ -68,8 +68,8 @@ contract VaultTests is Test {
         uint256 _targetReserve = bestia.getTargetReserve();
         uint256 _maxDiscount = bestia.getMaxDiscount();
 
-        assertEq(_totalAssets, _targetReserve * 10);
-        assertEq(_totalAssets, _maxDiscount * 100);
+        assertEq(_totalAssets, _targetReserve * 100 / bestia.targetReserveRatio());
+        assertEq(_totalAssets, _maxDiscount * 100 / bestia.maxDiscount());
     }
 
     function testBestiaCanStake() public {

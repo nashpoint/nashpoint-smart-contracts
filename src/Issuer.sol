@@ -15,6 +15,7 @@ contract Issuer is ERC4626, Ownable {
     uint256 public constant maxDiscount = 2; // percentage
     address public banker;
     IERC4626 public sUSDC;
+    IERC20Metadata public usdc;    
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
@@ -25,21 +26,19 @@ contract Issuer is ERC4626, Ownable {
         _;
     }
     // CONSTRUCTOR
-
     constructor(address _asset, string memory _name, string memory _symbol, address _susdc, address _banker)
         ERC20(_name, _symbol)
         ERC4626(IERC20Metadata(_asset))
         Ownable(msg.sender)
     {
         sUSDC = IERC4626(_susdc);
+        usdc = IERC20Metadata(_asset);
         banker = _banker;
     }
 
     // total assets override function
-    function totalAssets() public view override returns (uint256) {
-        IERC20Metadata depositAsset = IERC20Metadata(asset());
-        uint256 depositAssetBalance = depositAsset.balanceOf(address(this));
-
+    function totalAssets() public view override returns (uint256) {        
+        uint256 depositAssetBalance = usdc.balanceOf(address(this));
         uint256 shares = sUSDC.balanceOf(address(this));
         uint256 investedAssets = sUSDC.convertToAssets(shares);
 
@@ -76,9 +75,10 @@ contract Issuer is ERC4626, Ownable {
         return Math.mulDiv(assets, targetReserveRatio, 100);
     }
 
-    function getActualReservePercentage() public view returns (uint256) {
+    // function getActualReservePercentage() public view returns (uint256) {
+    //     uint256 currentReserve = usdc.balanceOf(address(this));
         
-    }
+    // }
 
     function getMaxDiscount() public view returns (uint256) {
         uint256 assets = totalAssets();
