@@ -45,4 +45,9 @@ contract Issuer is ERC4626 {
         uint256 assets = totalAssets();
         return Math.mulDiv(assets, targetReserveRatio, 100);
     }
+
+    function getMaxDiscount() public view returns (uint256) {
+        uint256 assets = totalAssets();
+        return Math.mulDiv(assets, maxDiscount, 100);
+    }
 }

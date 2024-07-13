@@ -59,6 +59,9 @@ contract VaultTests is Test {
 
         uint256 _totalAssets = bestia.totalAssets();
         uint256 _targetReserve = bestia.getTargetReserve();
+        uint256 _maxDiscount = bestia.getMaxDiscount();
+
         assertEq(_totalAssets, _targetReserve * 10);
+        assertEq(_totalAssets, _maxDiscount * 100);
     }
 }
