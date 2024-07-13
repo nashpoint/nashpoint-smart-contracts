@@ -135,7 +135,5 @@ contract VaultTests is Test {
 
         assertEq(remainingReserve, 1e18 - bestia.getReservePercent());
         assertEq(1e18, bestia.getReservePercent() + remainingReserve);
-
-
     }
 }
