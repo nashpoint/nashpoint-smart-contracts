@@ -6,6 +6,7 @@ libs = ["lib"]
 remappings = [
     'forge-std/=lib/forge-std/src/',
     '@openzeppelin/=lib/openzeppelin-contracts/',
+    '@prb/math/=lib/prb-math/'
 ]
 
 solc = '0.8.26'

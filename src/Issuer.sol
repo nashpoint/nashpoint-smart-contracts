@@ -7,11 +7,12 @@ import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IE
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {UD60x18, exp} from "lib/prb-math/src/UD60x18.sol";
 
 contract Issuer is ERC4626, Ownable {
     // STATE VARIABLES & CONSTANTS
     uint256 public constant targetReserveRatio = 10; // percentage
-    uint256 public constant maxDiscount = 1; // percentage
+    uint256 public constant maxDiscount = 2; // percentage
     address public banker;
     IERC4626 public sUSDC;
 
@@ -55,6 +56,16 @@ contract Issuer is ERC4626, Ownable {
         return cashForInvestment;
     }
 
+    // implement this after you can get the actual reserve percentage
+    function getSwingPriceDiscount() public view returns (UD60x18 result) {
+        // result = maxDiscount * exp(-5)
+    }
+
+    // delete later, just example of using PRBMath
+    function unsignedLog2(UD60x18 x) external pure returns (UD60x18 result) {
+        result = x.log2();
+    }
+
     // exchange rate
     function getExchangeRate() internal pure returns (uint256) {
         // change this later to read oracles
@@ -63,6 +74,10 @@ contract Issuer is ERC4626, Ownable {
     function getTargetReserve() public view returns (uint256) {
         uint256 assets = totalAssets();
         return Math.mulDiv(assets, targetReserveRatio, 100);
+    }
+
+    function getActualReservePercentage() public view returns (uint256) {
+        
     }
 
     function getMaxDiscount() public view returns (uint256) {
