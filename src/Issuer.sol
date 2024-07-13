@@ -9,20 +9,22 @@ import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
+import {console2} from "lib/forge-std/src/Test.sol";
 
 contract Issuer is ERC4626, Ownable {
-    // STATE VARIABLES & CONSTANTS
-    uint256 public constant targetReserveRatio = 10; // percentage
-    uint256 public constant maxDiscount = 2; // percentage
-    int256 public constant scalingFactor = -5;
+    // State Constants
+    uint256 public constant maxDiscount = 2e16; // percentage
+    uint256 public constant targetReserveRatio = 10e16; // percentage    
+    int256 public constant scalingFactor = -5e18; // negative integer
+    
+    // PRBMath Types and Conversions
+    UD60x18 maxDiscountUD = ud(maxDiscount);
+    SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
+    SD59x18 scalingFactorSD = sd(scalingFactor);
+
     address public banker;
     IERC4626 public sUSDC;
-    IERC20Metadata public usdc;
-
-    // PRBMath Types and Conversions
-    UD60x18 maxDiscountUD = ud(maxDiscount * 1e18);
-    SD59x18 scalingFactorSD = sd(scalingFactor * 1e18);
-    SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio * 1e18));
+    IERC20Metadata public usdc;    
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
@@ -64,16 +66,22 @@ contract Issuer is ERC4626, Ownable {
 
     // implement this after you can get the actual reserve percentage
     function getSwingPriceDiscount() public view returns (UD60x18 result) {
-        uint256 remainingReservePercent = getRemainingReservePercent();
+    uint256 remainingReservePercent = getRemainingReservePercent();
+    console2.log("remainingReservePercent", remainingReservePercent);
 
-        SD59x18 remainingReservePercentSD = sd(int256(remainingReservePercent));
-        
-        SD59x18 expResult = exp(scalingFactorSD.div(targetReserveRatioSD).mul(remainingReservePercentSD));
+    SD59x18 remainingReservePercentSD = sd(int256(remainingReservePercent));
+    console2.log("remainingReservePercentSD", remainingReservePercentSD.unwrap());
 
-        result = maxDiscountUD.mul(ud(uint256(expResult.unwrap())));
+    SD59x18 intermediateValue = scalingFactorSD.div(targetReserveRatioSD).mul(remainingReservePercentSD);
+    console2.log("intermediateValue", intermediateValue.unwrap());
 
-        // result = MAX_DISCOUNT_UD.mul(ud(uint256(expResult.unwrap())));
-    }
+    SD59x18 expResult = exp(intermediateValue);
+    console2.log("expResult", expResult.unwrap());
+
+    result = maxDiscountUD.mul(ud(uint256(expResult.unwrap())));
+    console2.log("result", result.unwrap());
+}
+
 
     // exchange rate
     function getExchangeRate() internal pure returns (uint256) {
@@ -82,7 +90,7 @@ contract Issuer is ERC4626, Ownable {
 
     function getTargetReserve() public view returns (uint256) {
         uint256 assets = totalAssets();
-        return Math.mulDiv(assets, targetReserveRatio, 100);
+        return Math.mulDiv(assets, targetReserveRatio, 1e18);
     }
 
     function getReservePercent() public view returns (uint256) {
@@ -100,7 +108,7 @@ contract Issuer is ERC4626, Ownable {
 
     function getMaxDiscount() public view returns (uint256) {
         uint256 assets = totalAssets();
-        return Math.mulDiv(assets, maxDiscount, 100);
+        return Math.mulDiv(assets, maxDiscount, 1e18);
     }
 
     function setBanker(address _banker) public onlyOwner {

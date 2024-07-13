@@ -69,8 +69,9 @@ contract VaultTests is Test {
         uint256 _targetReserve = bestia.getTargetReserve();
         uint256 _maxDiscount = bestia.getMaxDiscount();
 
-        assertEq(_totalAssets, _targetReserve * 100 / bestia.targetReserveRatio());
-        assertEq(_totalAssets, _maxDiscount * 100 / bestia.maxDiscount());
+        // Adjust the assertions to account for the 18 decimal places precision
+        assertEq(_totalAssets, _targetReserve * 1e18 / bestia.targetReserveRatio());
+        assertEq(_totalAssets, _maxDiscount * 1e18 / bestia.maxDiscount());
     }
 
     function testBestiaCanStake() public {
