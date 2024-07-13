@@ -7,16 +7,22 @@ import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IE
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {UD60x18, exp, ud} from "lib/prb-math/src/UD60x18.sol";
+import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
+import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 contract Issuer is ERC4626, Ownable {
     // STATE VARIABLES & CONSTANTS
     uint256 public constant targetReserveRatio = 10; // percentage
     uint256 public constant maxDiscount = 2; // percentage
-    uint256 public constant scalingFactor = 5;
+    int256 public constant scalingFactor = -5;
     address public banker;
     IERC4626 public sUSDC;
     IERC20Metadata public usdc;
+
+    // PRBMath Types and Conversions
+    UD60x18 maxDiscountUD = ud(maxDiscount * 1e18);
+    SD59x18 scalingFactorSD = sd(scalingFactor * 1e18);
+    SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio * 1e18));
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
@@ -59,18 +65,14 @@ contract Issuer is ERC4626, Ownable {
     // implement this after you can get the actual reserve percentage
     function getSwingPriceDiscount() public view returns (UD60x18 result) {
         uint256 remainingReservePercent = getRemainingReservePercent();
-        UD60x18 maxDiscountUD = ud(maxDiscount * 1e18);
-        UD60x18 scalingFactorUD = ud(scalingFactor * 1e18);
-        UD60x18 targetReserveRatioUD = ud(targetReserveRatio * 1e18);
-        UD60x18 remainingReservePercentUD = ud(remainingReservePercent);
 
-        // Perform the calculation using UD60x18 types
-        result = maxDiscountUD.mul(exp(scalingFactorUD.div(targetReserveRatioUD).mul(remainingReservePercentUD)));
-    }
+        SD59x18 remainingReservePercentSD = sd(int256(remainingReservePercent));
+        
+        SD59x18 expResult = exp(scalingFactorSD.div(targetReserveRatioSD).mul(remainingReservePercentSD));
 
-    // delete later, just example of using PRBMath
-    function unsignedLog2(UD60x18 x) external pure returns (UD60x18 result) {
-        result = x.log2();
+        result = maxDiscountUD.mul(ud(uint256(expResult.unwrap())));
+
+        // result = MAX_DISCOUNT_UD.mul(ud(uint256(expResult.unwrap())));
     }
 
     // exchange rate

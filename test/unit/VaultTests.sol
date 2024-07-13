@@ -100,6 +100,7 @@ contract VaultTests is Test {
         uint256 investedAssets = sUSDC.totalAssets();
         console2.log("sUSDC Assets", investedAssets);
 
+        // user1 withdraws 5 USDC
         vm.startPrank(user1);
         bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
         vm.stopPrank();
@@ -126,6 +127,7 @@ contract VaultTests is Test {
         bestia.investCash();
         vm.stopPrank();
 
+        // user1 withdraws 5 USDC
         vm.startPrank(user1);
         bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
         vm.stopPrank();
@@ -135,5 +137,26 @@ contract VaultTests is Test {
 
         assertEq(remainingReserve, 1e18 - bestia.getReservePercent());
         assertEq(1e18, bestia.getReservePercent() + remainingReserve);
+    }
+
+    function testGetSwingPriceDiscount() public {
+        // user1 deposits 100 USDC
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+
+        // banker invests 90 USDC
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        // user1 withdraws 5 USDC
+        vm.startPrank(user1);
+        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
+        vm.stopPrank();
+
+        // Unwrap the UD60x18 value to uint256 for logging
+        uint256 swingPriceDiscount = bestia.getSwingPriceDiscount().unwrap();
+        console2.log("Bestia getSwingPriceDiscount", swingPriceDiscount);
     }
 }
