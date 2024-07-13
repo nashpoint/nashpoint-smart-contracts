@@ -15,7 +15,7 @@ contract Issuer is ERC4626, Ownable {
     uint256 public constant maxDiscount = 2; // percentage
     address public banker;
     IERC4626 public sUSDC;
-    IERC20Metadata public usdc;    
+    IERC20Metadata public usdc;
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
@@ -25,7 +25,7 @@ contract Issuer is ERC4626, Ownable {
         require(msg.sender == banker, "Issuer: Only banker can call this function");
         _;
     }
-    // CONSTRUCTOR
+
     constructor(address _asset, string memory _name, string memory _symbol, address _susdc, address _banker)
         ERC20(_name, _symbol)
         ERC4626(IERC20Metadata(_asset))
@@ -37,7 +37,7 @@ contract Issuer is ERC4626, Ownable {
     }
 
     // total assets override function
-    function totalAssets() public view override returns (uint256) {        
+    function totalAssets() public view override returns (uint256) {
         uint256 depositAssetBalance = usdc.balanceOf(address(this));
         uint256 shares = sUSDC.balanceOf(address(this));
         uint256 investedAssets = sUSDC.convertToAssets(shares);
@@ -75,10 +75,14 @@ contract Issuer is ERC4626, Ownable {
         return Math.mulDiv(assets, targetReserveRatio, 100);
     }
 
-    // function getActualReservePercentage() public view returns (uint256) {
-    //     uint256 currentReserve = usdc.balanceOf(address(this));
-        
-    // }
+    function getReservePercentage() public view returns (uint256) {
+        // returns reserve percentage in 1e18 = 100% level of precision
+        uint256 currentReserve = usdc.balanceOf(address(this));
+        uint256 assets = totalAssets();
+        uint256 reservePercentage = Math.mulDiv(currentReserve, 1e16, assets);
+
+        return reservePercentage;
+    }
 
     function getMaxDiscount() public view returns (uint256) {
         uint256 assets = totalAssets();

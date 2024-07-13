@@ -17,6 +17,7 @@ contract VaultTests is Test {
     address public constant banker = address(0x5);
 
     uint256 public constant BALANCE = 1000e18;
+    uint256 public constant DEPOSIT = 100e18;
 
     // CONTRACTS
     Issuer public immutable bestia;
@@ -42,26 +43,26 @@ contract VaultTests is Test {
 
     function testDeposit() public {
         vm.startPrank(user1);
-        bestia.deposit(BALANCE, address(user1));
+        bestia.deposit(DEPOSIT, address(user1));
         vm.stopPrank();
 
         uint256 shares = bestia.balanceOf(user1);
 
-        assertEq(usdc.balanceOf(address(bestia)), BALANCE);
-        assertEq(bestia.convertToAssets(shares), BALANCE);
+        assertEq(usdc.balanceOf(address(bestia)), DEPOSIT);
+        assertEq(bestia.convertToAssets(shares), DEPOSIT);
     }
 
     function testTotalAssets() public {
         vm.startPrank(user1);
-        bestia.deposit(BALANCE, address(user1));
+        bestia.deposit(DEPOSIT, address(user1));
         vm.stopPrank();
 
-        assertEq(bestia.totalAssets(), BALANCE);
+        assertEq(bestia.totalAssets(), DEPOSIT);
     }
 
     function testBasicMath() public {
         vm.startPrank(user1);
-        bestia.deposit(BALANCE, address(user1));
+        bestia.deposit(DEPOSIT, address(user1));
         vm.stopPrank();
 
         uint256 _totalAssets = bestia.totalAssets();
@@ -74,7 +75,7 @@ contract VaultTests is Test {
 
     function testBestiaCanStake() public {
         vm.startPrank(user1);
-        bestia.deposit(BALANCE, address(user1));
+        bestia.deposit(DEPOSIT, address(user1));
         vm.stopPrank();
 
         vm.startPrank(banker);
@@ -82,6 +83,35 @@ contract VaultTests is Test {
         bestia.investCash();
         vm.stopPrank();
 
-        assertEq(sUSDC.balanceOf(address(bestia)), BALANCE - targetReserve);
+        assertEq(sUSDC.balanceOf(address(bestia)), DEPOSIT - targetReserve);
+    }
+
+    function testGetReservePercentage() public {
+        // user1 deposits 100 USDC
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+
+        // banker invests 90 USDC
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        uint256 investedAssets = sUSDC.totalAssets();
+        console2.log("sUSDC Assets", investedAssets);
+
+        vm.startPrank(user1);
+        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
+        vm.stopPrank();
+
+        uint256 currentReserve = usdc.balanceOf(address(bestia));
+        uint256 assets = bestia.totalAssets();
+        uint256 reservePercentage = bestia.getReservePercentage();
+
+        console2.log("Bestia currentReserve", currentReserve);
+        console2.log("Bestia totalAssets", assets);
+        console2.log("Bestia reservePercentage", reservePercentage);
+
+        assertEq(reservePercentage, Math.mulDiv(currentReserve, 1e16, assets));
     }
 }
