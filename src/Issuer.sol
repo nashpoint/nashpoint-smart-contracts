@@ -4,17 +4,18 @@ pragma solidity ^0.8.20;
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 contract Issuer is ERC4626 {
-    uint256 public constant targetReserveRatio = 10e18;
-    uint256 public constant maxDiscount = 1e18;
+    uint256 public constant targetReserveRatio = 10;
+    uint256 public constant maxDiscount = 1;
 
     constructor(address _asset, string memory _name, string memory _symbol)
         ERC20(_name, _symbol)
         ERC4626(IERC20Metadata(_asset))
     {}
 
-    // total assets function
+    // total assets override function
     function totalAssets() public view override returns (uint256) {
         IERC20Metadata depositAsset = IERC20Metadata(asset());
         uint256 depositAssetBalance = depositAsset.balanceOf(address(this));
@@ -38,5 +39,10 @@ contract Issuer is ERC4626 {
     // exchange rate
     function getExchangeRate() internal pure returns (uint256) {
         return 950000000000000000; // This represents 0.95 in fixed-point arithmetic with 18 decimal places
+    }
+
+    function getTargetReserve() public view returns (uint256) {
+        uint256 assets = totalAssets();
+        return Math.mulDiv(assets, targetReserveRatio, 100);
     }
 }

@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 
 import {Issuer} from "../../src/Issuer.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
-import {Test, console2} from "lib/forge-std/src/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract VaultTests is Test {
     address public constant user1 = address(0x1);
@@ -51,5 +52,13 @@ contract VaultTests is Test {
         assertEq(bestia.totalAssets(), BALANCE);
     }
 
-    function mathTests() public {}
+    function testMath() public {
+        vm.startPrank(user1);
+        bestia.deposit(BALANCE, address(user1));
+        vm.stopPrank();
+
+        uint256 _totalAssets = bestia.totalAssets();
+        uint256 _targetReserve = bestia.getTargetReserve();
+        assertEq(_totalAssets, _targetReserve * 10);
+    }
 }
