@@ -14,9 +14,9 @@ import {console2} from "lib/forge-std/src/Test.sol";
 contract Issuer is ERC4626, Ownable {
     // State Constants
     uint256 public constant maxDiscount = 2e16; // percentage
-    uint256 public constant targetReserveRatio = 10e16; // percentage    
+    uint256 public constant targetReserveRatio = 10e16; // percentage
     int256 public constant scalingFactor = -5e18; // negative integer
-    
+
     // PRBMath Types and Conversions
     UD60x18 maxDiscountUD = ud(maxDiscount);
     SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
@@ -24,7 +24,7 @@ contract Issuer is ERC4626, Ownable {
 
     address public banker;
     IERC4626 public sUSDC;
-    IERC20Metadata public usdc;    
+    IERC20Metadata public usdc;
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
@@ -54,6 +54,45 @@ contract Issuer is ERC4626, Ownable {
         return depositAssetBalance + investedAssets;
     }
 
+    function getReservePercent() public view returns (uint256) {
+        // returns reserve percentage in 1e18 = 100% level of precision
+        uint256 currentReserve = usdc.balanceOf(address(this));
+        uint256 assets = totalAssets();
+        uint256 reservePercent = Math.mulDiv(currentReserve, 1e18, assets);
+
+        console2.log("Bestia reservePercent", reservePercent);
+        return reservePercent;
+    }
+
+    // swing price curve equation
+    //
+    function getSwingPriceDiscount() public view returns (UD60x18 result) {
+        uint256 currentReserveRatio = getReservePercent(); // correct
+        SD59x18 currentReserveRatioSD = sd(int256(currentReserveRatio)); // correct
+        // result: 52631578947368421
+
+        // Scaling factor / target reserve ratio * current reserve ratio
+        SD59x18 intermediateValue = scalingFactorSD.div(targetReserveRatioSD).mul(currentReserveRatioSD); // wrong
+        // result: -2631578947368421050
+        // expected: -2.5e18 (I think)
+
+        // console2.log("Bestia intermediateValue", intermediateValue.unwrap());
+
+        SD59x18 expResult = exp(intermediateValue);
+
+        result = maxDiscountUD.mul(ud(uint256(expResult.unwrap())));
+    }
+
+    function getTargetReserve() public view returns (uint256) {
+        uint256 assets = totalAssets();
+        return Math.mulDiv(assets, targetReserveRatio, 1e18);
+    }
+
+    function getRemainingReservePercent() public view returns (uint256) {
+        console2.log("Bestia getRemainingReservePercent", 1e18 - getReservePercent());
+        return 1e18 - getReservePercent();
+    }
+
     // invest function
     function investCash() external onlyBanker returns (uint256) {
         uint256 cashForInvestment = totalAssets() - getTargetReserve();
@@ -62,53 +101,6 @@ contract Issuer is ERC4626, Ownable {
         emit CashInvested(cashForInvestment, address(sUSDC));
 
         return cashForInvestment;
-    }
-
-    // implement this after you can get the actual reserve percentage
-    function getSwingPriceDiscount() public view returns (UD60x18 result) {
-    uint256 remainingReservePercent = getRemainingReservePercent();
-    console2.log("remainingReservePercent", remainingReservePercent);
-
-    SD59x18 remainingReservePercentSD = sd(int256(remainingReservePercent));
-    console2.log("remainingReservePercentSD", remainingReservePercentSD.unwrap());
-
-    SD59x18 intermediateValue = scalingFactorSD.div(targetReserveRatioSD).mul(remainingReservePercentSD);
-    console2.log("intermediateValue", intermediateValue.unwrap());
-
-    SD59x18 expResult = exp(intermediateValue);
-    console2.log("expResult", expResult.unwrap());
-
-    result = maxDiscountUD.mul(ud(uint256(expResult.unwrap())));
-    console2.log("result", result.unwrap());
-}
-
-
-    // exchange rate
-    function getExchangeRate() internal pure returns (uint256) {
-        // change this later to read oracles
-    }
-
-    function getTargetReserve() public view returns (uint256) {
-        uint256 assets = totalAssets();
-        return Math.mulDiv(assets, targetReserveRatio, 1e18);
-    }
-
-    function getReservePercent() public view returns (uint256) {
-        // returns reserve percentage in 1e18 = 100% level of precision
-        uint256 currentReserve = usdc.balanceOf(address(this));
-        uint256 assets = totalAssets();
-        uint256 reservePercent = Math.mulDiv(currentReserve, 1e18, assets);
-
-        return reservePercent;
-    }
-
-    function getRemainingReservePercent() public view returns (uint256) {
-        return 1e18 - getReservePercent();
-    }
-
-    function getMaxDiscount() public view returns (uint256) {
-        uint256 assets = totalAssets();
-        return Math.mulDiv(assets, maxDiscount, 1e18);
     }
 
     function setBanker(address _banker) public onlyOwner {

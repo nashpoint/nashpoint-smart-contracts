@@ -67,11 +67,9 @@ contract VaultTests is Test {
 
         uint256 _totalAssets = bestia.totalAssets();
         uint256 _targetReserve = bestia.getTargetReserve();
-        uint256 _maxDiscount = bestia.getMaxDiscount();
 
         // Adjust the assertions to account for the 18 decimal places precision
         assertEq(_totalAssets, _targetReserve * 1e18 / bestia.targetReserveRatio());
-        assertEq(_totalAssets, _maxDiscount * 1e18 / bestia.maxDiscount());
     }
 
     function testBestiaCanStake() public {
@@ -159,5 +157,28 @@ contract VaultTests is Test {
         // Unwrap the UD60x18 value to uint256 for logging
         uint256 swingPriceDiscount = bestia.getSwingPriceDiscount().unwrap();
         console2.log("Bestia getSwingPriceDiscount", swingPriceDiscount);
+    }
+
+    function testSwingPriceLoop() public {
+        // user1 deposits 100 USDC
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+
+        // banker invests 90 USDC
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        // user1 withdraws 1 USDC at a time in a loop
+        for (uint256 i = 0; i < 10; i++) {
+            vm.startPrank(user1);
+            bestia.withdraw(1e18, address(user1), address(user1)); // Assuming 1 USDC is represented as 1e6 in the contract
+            vm.stopPrank();
+
+            // Unwrap the UD60x18 value to uint256 for logging
+            uint256 swingPriceDiscount = bestia.getSwingPriceDiscount().unwrap();
+            console2.log("Bestia getSwingPriceDiscount after withdrawal", swingPriceDiscount);
+        }
     }
 }
