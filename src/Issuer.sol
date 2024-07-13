@@ -8,21 +8,21 @@ import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IE
 contract Issuer is ERC4626 {
     uint256 public constant targetReserveRatio = 10e18;
     uint256 public constant maxDiscount = 1e18;
-    // address private immutable asset;
-    constructor(
-        address _asset,
-        string memory _name,
-        string memory _symbol
-    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) {
-        // asset = _asset;
-    }
+
+    constructor(address _asset, string memory _name, string memory _symbol)
+        ERC20(_name, _symbol)
+        ERC4626(IERC20Metadata(_asset))
+    {}
 
     // total assets function
     function totalAssets() public view override returns (uint256) {
-        // override function that grabs the total value of the deposited assets
-        // and the total value of the invested assets
-        // and returns the sum of the two
-        // uint256 _depositAssetBalance = asset.balanceOf(address(this));
+        IERC20Metadata depositAsset = IERC20Metadata(asset());
+        uint256 depositAssetBalance = depositAsset.balanceOf(address(this));
+
+        // need to get the invested assets and the exchange rate
+        // sum them to get the total assets
+
+        return depositAssetBalance; // replace this with the correct total assets
     }
 
     // price curve function
@@ -32,7 +32,7 @@ contract Issuer is ERC4626 {
 
     // invest function
     function invest(uint256 _amount) public { // make this onlyBanker
-        // function that allows the banker to invest
+            // function that allows the banker to invest
     }
 
     // exchange rate

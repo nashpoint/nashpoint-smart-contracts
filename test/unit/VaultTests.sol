@@ -38,12 +38,18 @@ contract VaultTests is Test {
         vm.stopPrank();
 
         uint256 shares = bestia.balanceOf(user1);
-        
+
         assertEq(usdc.balanceOf(address(bestia)), BALANCE);
         assertEq(bestia.convertToAssets(shares), BALANCE);
     }
 
-    function mathTests() public {
+    function testTotalAssets() public {
+        vm.startPrank(user1);
+        bestia.deposit(BALANCE, address(user1));
+        vm.stopPrank();
 
+        assertEq(bestia.totalAssets(), BALANCE);
     }
+
+    function mathTests() public {}
 }
