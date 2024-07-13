@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 
 import {Issuer} from "../../src/Issuer.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
+import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -20,16 +21,22 @@ contract VaultTests is Test {
     // CONTRACTS
     Issuer public immutable bestia;
     MockERC20 public immutable usdc;
+    ERC4626Mock public immutable sUSDC;
 
     constructor() {
         usdc = new MockERC20("Mock USDC", "USDC");
-        bestia = new Issuer(address(usdc), "Bestia", "BEST");
+        sUSDC = new ERC4626Mock(address(usdc));
+        bestia = new Issuer(address(usdc), "Bestia", "BEST", address(sUSDC), address(banker));
     }
 
     function setUp() public {
         vm.startPrank(user1);
         usdc.approve(address(bestia), type(uint256).max);
         usdc.mint(user1, BALANCE);
+        vm.stopPrank();
+
+        vm.startPrank(address(bestia));
+        usdc.approve(address(sUSDC), type(uint256).max);
         vm.stopPrank();
     }
 
@@ -63,5 +70,18 @@ contract VaultTests is Test {
 
         assertEq(_totalAssets, _targetReserve * 10);
         assertEq(_totalAssets, _maxDiscount * 100);
+    }
+
+    function testBestiaCanStake() public {
+        vm.startPrank(user1);
+        bestia.deposit(BALANCE, address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        uint256 targetReserve = bestia.getTargetReserve();
+        bestia.investCash();
+        vm.stopPrank();
+
+        assertEq(sUSDC.balanceOf(address(bestia)), BALANCE - targetReserve);
     }
 }
