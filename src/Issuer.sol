@@ -7,12 +7,13 @@ import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IE
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {UD60x18, exp} from "lib/prb-math/src/UD60x18.sol";
+import {UD60x18, exp, ud} from "lib/prb-math/src/UD60x18.sol";
 
 contract Issuer is ERC4626, Ownable {
     // STATE VARIABLES & CONSTANTS
     uint256 public constant targetReserveRatio = 10; // percentage
     uint256 public constant maxDiscount = 2; // percentage
+    uint256 public constant scalingFactor = 5;
     address public banker;
     IERC4626 public sUSDC;
     IERC20Metadata public usdc;
@@ -57,7 +58,14 @@ contract Issuer is ERC4626, Ownable {
 
     // implement this after you can get the actual reserve percentage
     function getSwingPriceDiscount() public view returns (UD60x18 result) {
-        // result = maxDiscount * exp(-5)
+        uint256 remainingReservePercent = getRemainingReservePercent();
+        UD60x18 maxDiscountUD = ud(maxDiscount * 1e18);
+        UD60x18 scalingFactorUD = ud(scalingFactor * 1e18);
+        UD60x18 targetReserveRatioUD = ud(targetReserveRatio * 1e18);
+        UD60x18 remainingReservePercentUD = ud(remainingReservePercent);
+
+        // Perform the calculation using UD60x18 types
+        result = maxDiscountUD.mul(exp(scalingFactorUD.div(targetReserveRatioUD).mul(remainingReservePercentUD)));
     }
 
     // delete later, just example of using PRBMath
