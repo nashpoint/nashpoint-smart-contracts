@@ -45,20 +45,26 @@ contract Issuer is ERC4626, Ownable {
         banker = _banker;
     }
 
-    // function deposit(uint256 assets, address receiver) public override returns (uint256) {
-    //     uint256 maxAssets = maxDeposit(receiver);
-    //     if (assets > maxAssets) {
-    //         revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
-    //     }
+    // use instead of normal deposit function
 
-    //     uint256 discount = getSwingPriceDiscount().unwrap();
-    //     uint256 adjustedAssets = Math.mulDiv(assets, discount, 1e18);
-    //     uint256 shares = previewDeposit(adjustedAssets);
+    function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {
+        uint256 maxAssets = maxDeposit(receiver);
+        if (assets > maxAssets) {
+            revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+        }
 
-    //     _deposit(_msgSender(), receiver, assets, shares);
+        uint256 discount = getSwingPriceDiscount().unwrap();
+        uint256 adjustedAssets = assets - discount;
+        uint256 shares = previewDeposit(adjustedAssets);
 
-    //     return shares;
-    // }
+        console2.log("previewDeposit(assets)", previewDeposit(assets));
+        console2.log("previewDeposit(adjustedAssets)", previewDeposit(adjustedAssets));
+        console2.log("difference", previewDeposit(assets) - previewDeposit(adjustedAssets));
+
+        _deposit(_msgSender(), receiver, assets, shares);
+
+        return shares;
+    }
 
     function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256) {
         uint256 maxAssets = maxWithdraw(owner);

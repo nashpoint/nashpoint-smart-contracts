@@ -198,4 +198,26 @@ contract VaultTests is Test {
         bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));        
         vm.stopPrank();
     }
+
+    function testAdjustedDeposit() public {
+        // user1 deposits 100 USDC
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+
+        // banker invests 90 USDC
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        // user1 withdraws 5 USDC (half of the available reserve)
+        vm.startPrank(user1);
+        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
+        vm.stopPrank();
+
+        // user1 deposits 100 USDC
+        vm.startPrank(user1);
+        bestia.adjustedDeposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+    }
 }
