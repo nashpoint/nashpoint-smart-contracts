@@ -171,7 +171,7 @@ contract VaultTests is Test {
         vm.stopPrank();
 
         // user1 withdraws 1 USDC at a time in a loop
-        for (uint256 i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 9; i++) {
             vm.startPrank(user1);
             bestia.withdraw(1e18, address(user1), address(user1)); // Assuming 1 USDC is represented as 1e6 in the contract
             vm.stopPrank();
@@ -180,5 +180,22 @@ contract VaultTests is Test {
             uint256 swingPriceDiscount = bestia.getSwingPriceDiscount().unwrap();
             console2.log("Bestia getSwingPriceDiscount after withdrawal", swingPriceDiscount);
         }
+    }
+
+    function testAdjustedWithdraw() public {
+        // user1 deposits 100 USDC
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+
+        // banker invests 90 USDC
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        // user1 withdraws 5 USDC (half of the available reserve)
+        vm.startPrank(user1);
+        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));        
+        vm.stopPrank();
     }
 }

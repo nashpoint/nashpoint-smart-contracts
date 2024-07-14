@@ -45,6 +45,40 @@ contract Issuer is ERC4626, Ownable {
         banker = _banker;
     }
 
+    // function deposit(uint256 assets, address receiver) public override returns (uint256) {
+    //     uint256 maxAssets = maxDeposit(receiver);
+    //     if (assets > maxAssets) {
+    //         revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+    //     }
+
+    //     uint256 discount = getSwingPriceDiscount().unwrap();
+    //     uint256 adjustedAssets = Math.mulDiv(assets, discount, 1e18);
+    //     uint256 shares = previewDeposit(adjustedAssets);
+
+    //     _deposit(_msgSender(), receiver, assets, shares);
+
+    //     return shares;
+    // }
+
+    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256) {
+        uint256 maxAssets = maxWithdraw(owner);
+        if (assets > maxAssets) {
+            revert ERC4626ExceededMaxWithdraw(owner, assets, maxAssets);
+        }       
+
+        uint256 discount = getSwingPriceDiscount().unwrap();
+        uint256 adjustedAssets = assets - discount ;
+        uint256 shares = previewWithdraw(adjustedAssets);
+
+        console2.log("previewWithdraw(assets)", previewWithdraw(assets));
+        console2.log("previewWithdraw(adjustedAssets)", previewWithdraw(adjustedAssets));
+        console2.log("difference", previewWithdraw(assets) - previewWithdraw(adjustedAssets));
+
+        _withdraw(_msgSender(), receiver, owner, assets, shares);
+
+        return shares;
+    }
+
     // total assets override function
     function totalAssets() public view override returns (uint256) {
         uint256 depositAssetBalance = usdc.balanceOf(address(this));
@@ -86,6 +120,11 @@ contract Issuer is ERC4626, Ownable {
     function getTargetReserve() public view returns (uint256) {
         uint256 assets = totalAssets();
         return Math.mulDiv(assets, targetReserveRatio, 1e18);
+
+        // ALTERNATIVE IMPLEMENTATION FROM MARCO
+        // totalBalanceVaultUSD = sUSDC balance x sUSDC price + USDC balance x price
+        // currentRatiosUSDC = sUSDC balace x price / totalBalanceVaultUSD
+        // delta = abs(currentRatiosUSDC - targetReserveRatio)
     }
 
     function getRemainingReservePercent() public view returns (uint256) {
