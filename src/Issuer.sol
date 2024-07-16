@@ -70,10 +70,10 @@ contract Issuer is ERC4626, Ownable {
         uint256 maxAssets = maxWithdraw(owner);
         if (assets > maxAssets) {
             revert ERC4626ExceededMaxWithdraw(owner, assets, maxAssets);
-        }       
+        }
 
         uint256 discount = getSwingPriceDiscount().unwrap();
-        uint256 adjustedAssets = assets - discount ;
+        uint256 adjustedAssets = assets - discount;
         uint256 shares = previewWithdraw(adjustedAssets);
 
         console2.log("previewWithdraw(assets)", previewWithdraw(assets));

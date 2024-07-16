@@ -8,6 +8,8 @@ import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4
 import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
+import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 contract VaultTests is Test {
     address public constant user1 = address(0x1);
@@ -195,7 +197,7 @@ contract VaultTests is Test {
 
         // user1 withdraws 5 USDC (half of the available reserve)
         vm.startPrank(user1);
-        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));        
+        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
         vm.stopPrank();
     }
 
@@ -220,4 +222,31 @@ contract VaultTests is Test {
         bestia.adjustedDeposit(DEPOSIT, address(user1));
         vm.stopPrank();
     }
+
+
+
+
+    function testMathTypes() public {
+        // 1. work on these until they make sense
+        // 2. then try some more difficult ones
+
+
+        uint256 testUint100 = 100;
+        UD60x18 testUD100 = ud(testUint100 * 1e18);
+
+        // Unwrap the UD60x18 value to get the underlying uint256 representation
+        uint256 testUD100Uint = testUD100.unwrap();
+
+        console2.log("testUint100 (original uint256)", testUint100);
+        console2.log("testUD100 (wrapped UD60x18 as uint256)", testUD100Uint);
+
+        // Additional test: Arithmetic operations
+        UD60x18 multiplied = testUD100.mul(ud(2)); // Multiply by 2
+        UD60x18 divided = testUD100.div(ud(2)); // Divide by 2
+
+        console2.log("testUD100 * 2 (UD60x18)", multiplied.unwrap());
+        console2.log("testUD100 / 2 (UD60x18)", divided.unwrap());
+    }
 }
+
+
