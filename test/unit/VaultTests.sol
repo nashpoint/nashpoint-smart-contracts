@@ -38,6 +38,16 @@ contract VaultTests is Test {
         usdc.mint(user1, BALANCE);
         vm.stopPrank();
 
+        vm.startPrank(user2);
+        usdc.approve(address(bestia), type(uint256).max);
+        usdc.mint(user2, BALANCE);
+        vm.stopPrank();
+
+        vm.startPrank(user3);
+        usdc.approve(address(bestia), type(uint256).max);
+        usdc.mint(user3, BALANCE);
+        vm.stopPrank();
+
         vm.startPrank(address(bestia));
         usdc.approve(address(sUSDC), type(uint256).max);
         vm.stopPrank();
@@ -62,191 +72,55 @@ contract VaultTests is Test {
         assertEq(bestia.totalAssets(), DEPOSIT);
     }
 
-    function testBasicMath() public {
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
-        vm.stopPrank();
-
-        uint256 _totalAssets = bestia.totalAssets();
-        uint256 _targetReserve = bestia.getTargetReserve();
-
-        // Adjust the assertions to account for the 18 decimal places precision
-        assertEq(_totalAssets, _targetReserve * 1e18 / bestia.targetReserveRatio());
-    }
-
-    function testBestiaCanStake() public {
+    function testInvestCash() public {
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT, address(user1));
         vm.stopPrank();
 
         vm.startPrank(banker);
-        uint256 targetReserve = bestia.getTargetReserve();
         bestia.investCash();
         vm.stopPrank();
 
-        assertEq(sUSDC.balanceOf(address(bestia)), DEPOSIT - targetReserve);
-    }
+        // test that the cash reserve after investCash == the targetReserveRatio
+        uint256 expectedCashReserve = DEPOSIT * bestia.targetReserveRatio() / 1e18;
+        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
 
-    function testGetReservePercent() public {
-        // user1 deposits 100 USDC
+        // remove some cash from reserve
         vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
+        bestia.withdraw(2e18, address(user1), address(user1));
         vm.stopPrank();
 
-        // banker invests 90 USDC
+        // mint cash so invested assets = 100
+        usdc.mint(address(sUSDC), 10e18 + 1);
+
+        // expect revert
+        vm.startPrank(banker);
+        vm.expectRevert(); // error CashBelowTargetRatio();
+        bestia.investCash();
+        vm.stopPrank();
+
+        // user 2 deposits 4 tokens to bring cash reserve to 12 tokens
+        vm.startPrank(user2);
+        bestia.deposit(4e18, address(user2));
+        vm.stopPrank();
+
         vm.startPrank(banker);
         bestia.investCash();
         vm.stopPrank();
 
-        uint256 investedAssets = sUSDC.totalAssets();
-        console2.log("sUSDC Assets", investedAssets);
+        // asserts cash reserve == target reserve
+        expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
 
-        // user1 withdraws 5 USDC
-        vm.startPrank(user1);
-        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
+        // test large deposit of 1000e18 (about 10x total assets)
+        vm.startPrank(user3);
+        bestia.deposit(BALANCE, address(user3));
         vm.stopPrank();
 
-        uint256 currentReserve = usdc.balanceOf(address(bestia));
-        uint256 assets = bestia.totalAssets();
-        uint256 reservePercent = bestia.getReservePercent();
-
-        console2.log("Bestia currentReserve", currentReserve);
-        console2.log("Bestia totalAssets", assets);
-        console2.log("Bestia reservePercent", reservePercent);
-
-        assertEq(reservePercent, Math.mulDiv(currentReserve, 1e18, assets));
-    }
-
-    function testGetRemainingReservePercent() public {
-        // user1 deposits 100 USDC
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
-        vm.stopPrank();
-
-        // banker invests 90 USDC
         vm.startPrank(banker);
         bestia.investCash();
         vm.stopPrank();
 
-        // user1 withdraws 5 USDC
-        vm.startPrank(user1);
-        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
-        vm.stopPrank();
-
-        uint256 remainingReserve = bestia.getRemainingReservePercent();
-        console2.log("Bestia remainingReserve", remainingReserve);
-
-        assertEq(remainingReserve, 1e18 - bestia.getReservePercent());
-        assertEq(1e18, bestia.getReservePercent() + remainingReserve);
-    }
-
-    function testGetSwingPriceDiscount() public {
-        // user1 deposits 100 USDC
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
-        vm.stopPrank();
-
-        // banker invests 90 USDC
-        vm.startPrank(banker);
-        bestia.investCash();
-        vm.stopPrank();
-
-        // user1 withdraws 5 USDC
-        vm.startPrank(user1);
-        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
-        vm.stopPrank();
-
-        // Unwrap the UD60x18 value to uint256 for logging
-        uint256 swingPriceDiscount = bestia.getSwingPriceDiscount().unwrap();
-        console2.log("Bestia getSwingPriceDiscount", swingPriceDiscount);
-    }
-
-    function testSwingPriceLoop() public {
-        // user1 deposits 100 USDC
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
-        vm.stopPrank();
-
-        // banker invests 90 USDC
-        vm.startPrank(banker);
-        bestia.investCash();
-        vm.stopPrank();
-
-        // user1 withdraws 1 USDC at a time in a loop
-        for (uint256 i = 0; i < 9; i++) {
-            vm.startPrank(user1);
-            bestia.withdraw(1e18, address(user1), address(user1)); // Assuming 1 USDC is represented as 1e6 in the contract
-            vm.stopPrank();
-
-            // Unwrap the UD60x18 value to uint256 for logging
-            uint256 swingPriceDiscount = bestia.getSwingPriceDiscount().unwrap();
-            console2.log("Bestia getSwingPriceDiscount after withdrawal", swingPriceDiscount);
-        }
-    }
-
-    function testAdjustedWithdraw() public {
-        // user1 deposits 100 USDC
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
-        vm.stopPrank();
-
-        // banker invests 90 USDC
-        vm.startPrank(banker);
-        bestia.investCash();
-        vm.stopPrank();
-
-        // user1 withdraws 5 USDC (half of the available reserve)
-        vm.startPrank(user1);
-        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
-        vm.stopPrank();
-    }
-
-    function testAdjustedDeposit() public {
-        // user1 deposits 100 USDC
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
-        vm.stopPrank();
-
-        // banker invests 90 USDC
-        vm.startPrank(banker);
-        bestia.investCash();
-        vm.stopPrank();
-
-        // user1 withdraws 5 USDC (half of the available reserve)
-        vm.startPrank(user1);
-        bestia.withdraw(DEPOSIT / 20, address(user1), address(user1));
-        vm.stopPrank();
-
-        // user1 deposits 100 USDC
-        vm.startPrank(user1);
-        bestia.adjustedDeposit(DEPOSIT, address(user1));
-        vm.stopPrank();
-    }
-
-
-
-
-    function testMathTypes() public {
-        // 1. work on these until they make sense
-        // 2. then try some more difficult ones
-
-
-        uint256 testUint100 = 100;
-        UD60x18 testUD100 = ud(testUint100 * 1e18);
-
-        // Unwrap the UD60x18 value to get the underlying uint256 representation
-        uint256 testUD100Uint = testUD100.unwrap();
-
-        console2.log("testUint100 (original uint256)", testUint100);
-        console2.log("testUD100 (wrapped UD60x18 as uint256)", testUD100Uint);
-
-        // Additional test: Arithmetic operations
-        UD60x18 multiplied = testUD100.mul(ud(2)); // Multiply by 2
-        UD60x18 divided = testUD100.div(ud(2)); // Divide by 2
-
-        console2.log("testUD100 * 2 (UD60x18)", multiplied.unwrap());
-        console2.log("testUD100 / 2 (UD60x18)", divided.unwrap());
+        // asserts cash reserve == target reserve
+        expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
     }
 }
-
-

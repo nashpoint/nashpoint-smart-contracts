@@ -29,6 +29,9 @@ contract Issuer is ERC4626, Ownable {
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
 
+    // ERRORS
+    error CashBelowTargetRatio();
+
     // MODIFIERS
     modifier onlyBanker() {
         require(msg.sender == banker, "Issuer: Only banker can call this function");
@@ -66,7 +69,7 @@ contract Issuer is ERC4626, Ownable {
         return shares;
     }
 
-    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256) {
+    function adjustedWithdraw(uint256 assets, address receiver, address owner) public returns (uint256) {
         uint256 maxAssets = maxWithdraw(owner);
         if (assets > maxAssets) {
             revert ERC4626ExceededMaxWithdraw(owner, assets, maxAssets);
@@ -96,56 +99,27 @@ contract Issuer is ERC4626, Ownable {
 
     function getReservePercent() public view returns (uint256) {
         // returns reserve percentage in 1e18 = 100% level of precision
-        uint256 currentReserve = usdc.balanceOf(address(this));
-        uint256 assets = totalAssets();
-        uint256 reservePercent = Math.mulDiv(currentReserve, 1e18, assets);
-
-        console2.log("Bestia reservePercent", reservePercent);
-        return reservePercent;
     }
 
     // swing price curve equation
     //
-    function getSwingPriceDiscount() public view returns (UD60x18 result) {
-        uint256 currentReserveRatio = getReservePercent(); // correct
-        SD59x18 currentReserveRatioSD = sd(int256(currentReserveRatio)); // correct
-        // result: 52631578947368421
-
-        // Scaling factor / target reserve ratio * current reserve ratio
-        SD59x18 intermediateValue = scalingFactorSD.div(targetReserveRatioSD).mul(currentReserveRatioSD); // wrong
-        // result: -2631578947368421050
-        // expected: -2.5e18 (I think)
-
-        // console2.log("Bestia intermediateValue", intermediateValue.unwrap());
-
-        SD59x18 expResult = exp(intermediateValue);
-
-        result = maxDiscountUD.mul(ud(uint256(expResult.unwrap())));
-    }
-
-    function getTargetReserve() public view returns (uint256) {
-        uint256 assets = totalAssets();
-        return Math.mulDiv(assets, targetReserveRatio, 1e18);
-
-        // ALTERNATIVE IMPLEMENTATION FROM MARCO
-        // totalBalanceVaultUSD = sUSDC balance x sUSDC price + USDC balance x price
-        // currentRatiosUSDC = sUSDC balace x price / totalBalanceVaultUSD
-        // delta = abs(currentRatiosUSDC - targetReserveRatio)
-    }
-
-    function getRemainingReservePercent() public view returns (uint256) {
-        console2.log("Bestia getRemainingReservePercent", 1e18 - getReservePercent());
-        return 1e18 - getReservePercent();
-    }
+    function getSwingPriceDiscount() public view returns (UD60x18 result) {}
 
     // invest function
-    function investCash() external onlyBanker returns (uint256) {
-        uint256 cashForInvestment = totalAssets() - getTargetReserve();
-        require(cashForInvestment > 0, "Issuer: No cash available for investment");
-        sUSDC.deposit(cashForInvestment, address(this));
-        emit CashInvested(cashForInvestment, address(sUSDC));
+    function investCash() external onlyBanker returns (uint256 cashInvested) {
+        uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;
+        console2.log("totalAssets", totalAssets());
+        console2.log("idealCashReserve", idealCashReserve);
 
-        return cashForInvestment;
+        if (usdc.balanceOf(address(this)) < idealCashReserve) {
+            revert CashBelowTargetRatio();
+        } else {
+            uint256 investableCash = usdc.balanceOf(address(this)) - idealCashReserve;
+            sUSDC.deposit(investableCash, address(this));
+
+            emit CashInvested(investableCash, address(sUSDC));
+            return (investableCash);
+        }
     }
 
     function setBanker(address _banker) public onlyOwner {
