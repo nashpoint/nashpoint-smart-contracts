@@ -3,7 +3,7 @@
 pragma solidity ^0.8.20;
 
 import {Issuer} from "../../src/Issuer.sol";
-import {MockERC20} from "test/mocks/MockERC20.sol";
+import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
@@ -23,11 +23,11 @@ contract VaultTests is Test {
 
     // CONTRACTS
     Issuer public immutable bestia;
-    MockERC20 public immutable usdc;
+    ERC20Mock public immutable usdc;
     ERC4626Mock public immutable sUSDC;
 
     constructor() {
-        usdc = new MockERC20("Mock USDC", "USDC");
+        usdc = new ERC20Mock("Mock USDC", "USDC");
         sUSDC = new ERC4626Mock(address(usdc));
         bestia = new Issuer(address(usdc), "Bestia", "BEST", address(sUSDC), address(banker));
     }
