@@ -31,7 +31,7 @@ contract Issuer is ERC4626, Ownable {
 
     // ERRORS
     error ReserveBelowTargetRatio();
-    error ExceedsAvailableReserve();
+    error WithdrawExceedsAvailableReserve();
 
     // MODIFIERS
     modifier onlyBanker() {
@@ -63,13 +63,11 @@ contract Issuer is ERC4626, Ownable {
     function adjustedWithdraw(uint256 assets, address receiver, address owner) public returns (uint256) {}
 
     // swing price curve equation
-    // function needs to not accept
-    function getSwingFactor(uint256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
-        // uint256 reserveRatioAfterTX = _reserveRatioAfterTX;
-
-        if (_reserveRatioAfterTX < 0) {
-            revert ExceedsAvailableReserve();
-        } else if (_reserveRatioAfterTX > targetReserveRatio) {
+    // TODO: change to private internal later and change test to use deposit and withdraw functions
+    function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
+        if (_reserveRatioAfterTX <= 0) {
+            revert WithdrawExceedsAvailableReserve();
+        } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
             return 0;
         } else {
             SD59x18 reserveRatioAfterTX = sd(int256(_reserveRatioAfterTX));

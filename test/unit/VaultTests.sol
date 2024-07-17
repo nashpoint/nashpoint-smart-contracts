@@ -125,4 +125,31 @@ contract VaultTests is Test {
         expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;
         assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
     }
+
+    function testGetSwingFactor() public {
+        // reverts on withdrawal exceeds available reserve
+        vm.expectRevert();
+        bestia.getSwingFactor(0);
+
+        vm.expectRevert();
+        bestia.getSwingFactor(-1e16);
+
+        // assert swing factor is zero if reserve target is met or exceeded
+        uint256 swingFactor = bestia.getSwingFactor(int256(bestia.targetReserveRatio()));
+        assertEq(swingFactor, 0);
+
+        swingFactor = bestia.getSwingFactor(int256(bestia.targetReserveRatio()) + 1e16);
+        assertEq(swingFactor, 0);
+
+        // assert that swing factor approaches maxDiscount when reserve approaches zero
+        int256 minReservePossible = 1;
+        swingFactor = bestia.getSwingFactor(minReservePossible);
+        assertEq(swingFactor, bestia.maxDiscount() - 1);
+
+        // assert that 0 < swing factor < 0.1% when reserve approaches
+        int256 maxReservePossible = int256(bestia.targetReserveRatio()) - 1;
+        swingFactor = bestia.getSwingFactor(maxReservePossible);
+        assertGt(swingFactor, 0);
+        assertLt(swingFactor, 1e15); // 0.1%                
+    }
 }
