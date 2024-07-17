@@ -18,7 +18,7 @@ contract Issuer is ERC4626, Ownable {
     int256 public constant scalingFactor = -5e18; // negative integer
 
     // PRBMath Types and Conversions
-    UD60x18 maxDiscountUD = ud(maxDiscount);
+    SD59x18 maxDiscountSD = sd(int256(maxDiscount));
     SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
     SD59x18 scalingFactorSD = sd(scalingFactor);
 
@@ -30,7 +30,8 @@ contract Issuer is ERC4626, Ownable {
     event CashInvested(uint256 amount, address depositedTo);
 
     // ERRORS
-    error CashBelowTargetRatio();
+    error ReserveBelowTargetRatio();
+    error ExceedsAvailableReserve();
 
     // MODIFIERS
     modifier onlyBanker() {
@@ -48,46 +49,6 @@ contract Issuer is ERC4626, Ownable {
         banker = _banker;
     }
 
-    // use instead of normal deposit function
-
-    function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {
-        uint256 maxAssets = maxDeposit(receiver);
-        if (assets > maxAssets) {
-            revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
-        }
-
-        uint256 discount = getSwingPriceDiscount().unwrap();
-        uint256 adjustedAssets = assets - discount;
-        uint256 shares = previewDeposit(adjustedAssets);
-
-        console2.log("previewDeposit(assets)", previewDeposit(assets));
-        console2.log("previewDeposit(adjustedAssets)", previewDeposit(adjustedAssets));
-        console2.log("difference", previewDeposit(assets) - previewDeposit(adjustedAssets));
-
-        _deposit(_msgSender(), receiver, assets, shares);
-
-        return shares;
-    }
-
-    function adjustedWithdraw(uint256 assets, address receiver, address owner) public returns (uint256) {
-        uint256 maxAssets = maxWithdraw(owner);
-        if (assets > maxAssets) {
-            revert ERC4626ExceededMaxWithdraw(owner, assets, maxAssets);
-        }
-
-        uint256 discount = getSwingPriceDiscount().unwrap();
-        uint256 adjustedAssets = assets - discount;
-        uint256 shares = previewWithdraw(adjustedAssets);
-
-        console2.log("previewWithdraw(assets)", previewWithdraw(assets));
-        console2.log("previewWithdraw(adjustedAssets)", previewWithdraw(adjustedAssets));
-        console2.log("difference", previewWithdraw(assets) - previewWithdraw(adjustedAssets));
-
-        _withdraw(_msgSender(), receiver, owner, assets, shares);
-
-        return shares;
-    }
-
     // total assets override function
     function totalAssets() public view override returns (uint256) {
         uint256 depositAssetBalance = usdc.balanceOf(address(this));
@@ -97,22 +58,34 @@ contract Issuer is ERC4626, Ownable {
         return depositAssetBalance + investedAssets;
     }
 
-    function getReservePercent() public view returns (uint256) {
-        // returns reserve percentage in 1e18 = 100% level of precision
-    }
+    function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {}
+
+    function adjustedWithdraw(uint256 assets, address receiver, address owner) public returns (uint256) {}
 
     // swing price curve equation
-    //
-    function getSwingPriceDiscount() public view returns (UD60x18 result) {}
+    // function needs to not accept
+    function getSwingFactor(uint256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
+        // uint256 reserveRatioAfterTX = _reserveRatioAfterTX;
+
+        if (_reserveRatioAfterTX < 0) {
+            revert ExceedsAvailableReserve();
+        } else if (_reserveRatioAfterTX > targetReserveRatio) {
+            return 0;
+        } else {
+            SD59x18 reserveRatioAfterTX = sd(int256(_reserveRatioAfterTX));
+
+            SD59x18 result = maxDiscountSD * exp(scalingFactorSD.div(targetReserveRatioSD).mul(reserveRatioAfterTX));
+
+            return uint256(result.unwrap());
+        }
+    }
 
     // invest function
     function investCash() external onlyBanker returns (uint256 cashInvested) {
         uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;
-        console2.log("totalAssets", totalAssets());
-        console2.log("idealCashReserve", idealCashReserve);
 
         if (usdc.balanceOf(address(this)) < idealCashReserve) {
-            revert CashBelowTargetRatio();
+            revert ReserveBelowTargetRatio();
         } else {
             uint256 investableCash = usdc.balanceOf(address(this)) - idealCashReserve;
             sUSDC.deposit(investableCash, address(this));
@@ -126,3 +99,5 @@ contract Issuer is ERC4626, Ownable {
         banker = _banker;
     }
 }
+
+// use instead of normal deposit function
