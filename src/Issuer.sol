@@ -58,21 +58,21 @@ contract Issuer is ERC4626, Ownable {
         return depositAssetBalance + investedAssets;
     }
     // TODO: override deposit function
+
     function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {}
 
     // TODO: override withdraw function
     function adjustedWithdraw(uint256 assets, address receiver, address owner) public returns (uint256) {
         if (assets > usdc.balanceOf(address(this))) {
             revert NotEnoughReserveCash();
-        }
-        else {
+        } else {
             uint256 totalAssetsAfterTX = totalAssets() - assets;
             console2.log("totalAssetsAfterTX", totalAssetsAfterTX / 1e18);
-            
-            uint256 reserveAfterTX = usdc.balanceOf(address(this)) - assets; 
+
+            uint256 reserveAfterTX = usdc.balanceOf(address(this)) - assets;
             console2.log("reserveAfterTX", reserveAfterTX / 1e18);
 
-            int256 reserveRatioAfterTX = int(Math.mulDiv(reserveAfterTX, 1e18, totalAssetsAfterTX));
+            int256 reserveRatioAfterTX = int256(Math.mulDiv(reserveAfterTX, 1e18, totalAssetsAfterTX));
             console2.log("targetReserveRatio", targetReserveRatio);
             console2.log("reserveRatioAfterTX", reserveRatioAfterTX);
 
@@ -83,6 +83,11 @@ contract Issuer is ERC4626, Ownable {
             // temp variable delete later
             uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - swingFactor), 1e18);
             console2.log("adjustedAssets", adjustedAssets);
+
+            uint256 shares = previewDeposit(adjustedAssets);
+            console2.log("usdc.allowance(msg.sender, address(this))", usdc.allowance(msg.sender, address(this)));
+
+            withdraw(adjustedAssets, receiver, owner);            
         }
     }
 

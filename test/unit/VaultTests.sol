@@ -35,6 +35,7 @@ contract VaultTests is Test {
     function setUp() public {
         vm.startPrank(user1);
         usdc.approve(address(bestia), type(uint256).max);
+        bestia.approve(address(bestia), type(uint256).max);
         usdc.mint(user1, BALANCE);
         vm.stopPrank();
 
@@ -150,7 +151,7 @@ contract VaultTests is Test {
         int256 maxReservePossible = int256(bestia.targetReserveRatio()) - 1;
         swingFactor = bestia.getSwingFactor(maxReservePossible);
         assertGt(swingFactor, 0);
-        assertLt(swingFactor, 1e15); // 0.1%                
+        assertLt(swingFactor, 1e15); // 0.1%
     }
 
     function testAdjustedWithdraw() public {
@@ -163,17 +164,18 @@ contract VaultTests is Test {
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
-        uint256 reserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());        
+        uint256 reserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
         usdc.mint(address(sUSDC), 10e18 + 1);
 
-        console2.log("usdc.balanceOf(address(bestia)))", usdc.balanceOf(address(bestia)) / 1e18);    
-        console2.log("bestia.totalAssets())", bestia.totalAssets() / 1e18); 
-        console2.log("sUSDC.totalAssets()", sUSDC.totalAssets() / 1e18);  
-        
+        console2.log("usdc.balanceOf(address(bestia)))", usdc.balanceOf(address(bestia)) / 1e18);
+        console2.log("bestia.totalAssets())", bestia.totalAssets() / 1e18);
+        console2.log("sUSDC.totalAssets()", sUSDC.totalAssets() / 1e18);
+
         vm.startPrank(user1);
-        bestia.adjustedWithdraw(5e18, msg.sender, msg.sender);
+        bestia.adjustedWithdraw(1e18, msg.sender, msg.sender);
+        vm.stopPrank();
     }
 }
