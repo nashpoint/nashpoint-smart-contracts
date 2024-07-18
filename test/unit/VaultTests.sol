@@ -152,4 +152,28 @@ contract VaultTests is Test {
         assertGt(swingFactor, 0);
         assertLt(swingFactor, 1e15); // 0.1%                
     }
+
+    function testAdjustedWithdraw() public {
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());        
+        assertEq(reserveRatio, bestia.targetReserveRatio());
+
+        // mint cash so invested assets = 100
+        usdc.mint(address(sUSDC), 10e18 + 1);
+
+        console2.log("usdc.balanceOf(address(bestia)))", usdc.balanceOf(address(bestia)) / 1e18);    
+        console2.log("bestia.totalAssets())", bestia.totalAssets() / 1e18); 
+        console2.log("sUSDC.totalAssets()", sUSDC.totalAssets() / 1e18);  
+        
+        vm.startPrank(user1);
+        bestia.adjustedWithdraw(5e18, msg.sender, msg.sender);
+    }
 }

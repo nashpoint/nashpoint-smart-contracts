@@ -31,7 +31,7 @@ contract Issuer is ERC4626, Ownable {
 
     // ERRORS
     error ReserveBelowTargetRatio();
-    error WithdrawExceedsAvailableReserve();
+    error NotEnoughReserveCash();
 
     // MODIFIERS
     modifier onlyBanker() {
@@ -57,16 +57,40 @@ contract Issuer is ERC4626, Ownable {
 
         return depositAssetBalance + investedAssets;
     }
-
+    // TODO: override deposit function
     function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {}
 
-    function adjustedWithdraw(uint256 assets, address receiver, address owner) public returns (uint256) {}
+    // TODO: override withdraw function
+    function adjustedWithdraw(uint256 assets, address receiver, address owner) public returns (uint256) {
+        if (assets > usdc.balanceOf(address(this))) {
+            revert NotEnoughReserveCash();
+        }
+        else {
+            uint256 totalAssetsAfterTX = totalAssets() - assets;
+            console2.log("totalAssetsAfterTX", totalAssetsAfterTX / 1e18);
+            
+            uint256 reserveAfterTX = usdc.balanceOf(address(this)) - assets; 
+            console2.log("reserveAfterTX", reserveAfterTX / 1e18);
+
+            int256 reserveRatioAfterTX = int(Math.mulDiv(reserveAfterTX, 1e18, totalAssetsAfterTX));
+            console2.log("targetReserveRatio", targetReserveRatio);
+            console2.log("reserveRatioAfterTX", reserveRatioAfterTX);
+
+            // dont give it assets, give it the reserve ratio after tx
+            uint256 swingFactor = getSwingFactor(reserveRatioAfterTX);
+            console2.log("swingFactor", swingFactor);
+
+            // temp variable delete later
+            uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - swingFactor), 1e18);
+            console2.log("adjustedAssets", adjustedAssets);
+        }
+    }
 
     // swing price curve equation
-    // TODO: change to private internal later and change test to use deposit and withdraw functions
+    // TODO: change to private internal later and change test use a wrapper function in test contract
     function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
         if (_reserveRatioAfterTX <= 0) {
-            revert WithdrawExceedsAvailableReserve();
+            revert NotEnoughReserveCash();
         } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
             return 0;
         } else {
