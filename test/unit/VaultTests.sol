@@ -175,7 +175,17 @@ contract VaultTests is Test {
         console2.log("sUSDC.totalAssets()", sUSDC.totalAssets() / 1e18);
 
         vm.startPrank(user1);
-        bestia.adjustedWithdraw(1e18, msg.sender, msg.sender);
+        uint256 startingBalanceBestia = bestia.balanceOf(address(user1));
+        uint256 startingBalanceUSDC = usdc.balanceOf(address(user1));
+        bestia.adjustedWithdraw(1e18, address(user1), address(user1));
+        uint256 closingBalanceBestia = bestia.balanceOf(address(user1));
+        uint256 closingBalanceUSDC = usdc.balanceOf(address(user1)) - startingBalanceUSDC;
         vm.stopPrank();
+
+        // console2.log("closingBalanceBestia", closingBalanceBestia);
+        console2.log("closingBalance", closingBalanceUSDC);
+        console2.log("startingBalanceBestia", startingBalanceBestia);
+        console2.log("closingBalanceBestia", closingBalanceBestia);
+
     }
 }

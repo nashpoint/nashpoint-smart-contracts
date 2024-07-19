@@ -84,7 +84,7 @@ contract Issuer is ERC4626, Ownable {
             uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - swingFactor), 1e18);
             console2.log("adjustedAssets", adjustedAssets);
 
-            uint256 shares = previewDeposit(adjustedAssets);
+            // uint256 shares = previewDeposit(adjustedAssets);
             console2.log("usdc.allowance(msg.sender, address(this))", usdc.allowance(msg.sender, address(this)));
 
             withdraw(adjustedAssets, receiver, owner);            
