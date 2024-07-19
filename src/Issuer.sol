@@ -62,7 +62,7 @@ contract Issuer is ERC4626, Ownable {
     function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {}
 
     // TODO: override withdraw function
-    function adjustedWithdraw(uint256 assets, address receiver, address owner) public returns (uint256) {
+    function adjustedWithdraw(uint256 assets, address receiver, address _owner) public returns (uint256) {
         if (assets > usdc.balanceOf(address(this))) {
             revert NotEnoughReserveCash();
         } else {
@@ -87,7 +87,16 @@ contract Issuer is ERC4626, Ownable {
             // uint256 shares = previewDeposit(adjustedAssets);
             console2.log("usdc.allowance(msg.sender, address(this))", usdc.allowance(msg.sender, address(this)));
 
-            withdraw(adjustedAssets, receiver, owner);            
+            uint256 maxAssets = maxWithdraw(_owner);
+            if (assets > maxAssets) {
+                revert ERC4626ExceededMaxWithdraw(_owner, assets, maxAssets);
+            }
+
+            uint256 shares = previewWithdraw(assets);
+            _withdraw(_msgSender(), receiver, _owner, adjustedAssets, shares);
+
+            return shares;
+            // withdraw(adjustedAssets, receiver, owner);
         }
     }
 

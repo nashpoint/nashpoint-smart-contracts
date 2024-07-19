@@ -186,6 +186,5 @@ contract VaultTests is Test {
         console2.log("closingBalance", closingBalanceUSDC);
         console2.log("startingBalanceBestia", startingBalanceBestia);
         console2.log("closingBalanceBestia", closingBalanceBestia);
-
     }
 }
