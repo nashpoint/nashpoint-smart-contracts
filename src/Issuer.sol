@@ -119,6 +119,8 @@ contract Issuer is ERC4626, Ownable {
     // invest function
     function investCash() external onlyBanker returns (uint256 cashInvested) {
         uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;
+        console2.log("actual cash", usdc.balanceOf(address(this)));
+        console2.log("idealCashReserve", idealCashReserve);
 
         if (usdc.balanceOf(address(this)) < idealCashReserve) {
             revert ReserveBelowTargetRatio();

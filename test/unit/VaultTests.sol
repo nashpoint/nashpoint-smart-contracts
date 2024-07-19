@@ -18,8 +18,9 @@ contract VaultTests is Test {
     address public constant user4 = address(0x4);
     address public constant banker = address(0x5);
 
-    uint256 public constant BALANCE = 1000e18;
-    uint256 public constant DEPOSIT = 100e18;
+    uint256 public constant START_BALANCE = 1000e18;
+    uint256 public constant DEPOSIT_100 = 100e18;
+    uint256 public constant DEPOSIT_10 = 10e18;
 
     // CONTRACTS
     Issuer public immutable bestia;
@@ -36,17 +37,17 @@ contract VaultTests is Test {
         vm.startPrank(user1);
         usdc.approve(address(bestia), type(uint256).max);
         bestia.approve(address(bestia), type(uint256).max);
-        usdc.mint(user1, BALANCE);
+        usdc.mint(user1, START_BALANCE);
         vm.stopPrank();
 
         vm.startPrank(user2);
         usdc.approve(address(bestia), type(uint256).max);
-        usdc.mint(user2, BALANCE);
+        usdc.mint(user2, START_BALANCE);
         vm.stopPrank();
 
         vm.startPrank(user3);
         usdc.approve(address(bestia), type(uint256).max);
-        usdc.mint(user3, BALANCE);
+        usdc.mint(user3, START_BALANCE);
         vm.stopPrank();
 
         vm.startPrank(address(bestia));
@@ -56,26 +57,26 @@ contract VaultTests is Test {
 
     function testDeposit() public {
         vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
+        bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         uint256 shares = bestia.balanceOf(user1);
 
-        assertEq(usdc.balanceOf(address(bestia)), DEPOSIT);
-        assertEq(bestia.convertToAssets(shares), DEPOSIT);
+        assertEq(usdc.balanceOf(address(bestia)), DEPOSIT_100);
+        assertEq(bestia.convertToAssets(shares), DEPOSIT_100);
     }
 
     function testTotalAssets() public {
         vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
+        bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
-        assertEq(bestia.totalAssets(), DEPOSIT);
+        assertEq(bestia.totalAssets(), DEPOSIT_100);
     }
 
     function testInvestCash() public {
         vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
+        bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         vm.startPrank(banker);
@@ -83,7 +84,7 @@ contract VaultTests is Test {
         vm.stopPrank();
 
         // test that the cash reserve after investCash == the targetReserveRatio
-        uint256 expectedCashReserve = DEPOSIT * bestia.targetReserveRatio() / 1e18;
+        uint256 expectedCashReserve = DEPOSIT_100 * bestia.targetReserveRatio() / 1e18;
         assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
 
         // remove some cash from reserve
@@ -115,7 +116,7 @@ contract VaultTests is Test {
 
         // test large deposit of 1000e18 (about 10x total assets)
         vm.startPrank(user3);
-        bestia.deposit(BALANCE, address(user3));
+        bestia.deposit(START_BALANCE, address(user3));
         vm.stopPrank();
 
         vm.startPrank(banker);
@@ -156,7 +157,7 @@ contract VaultTests is Test {
 
     function testAdjustedWithdraw() public {
         vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
+        bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         vm.startPrank(banker);
@@ -190,7 +191,7 @@ contract VaultTests is Test {
 
     function testWithdraw() public {
         vm.startPrank(user1);
-        bestia.deposit(DEPOSIT, address(user1));
+        bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         vm.startPrank(banker);
@@ -198,7 +199,7 @@ contract VaultTests is Test {
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
-        uint256 reserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
+        uint256 reserveRatio = getCurrentReserveRatio();
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
@@ -207,6 +208,31 @@ contract VaultTests is Test {
         console2.log("usdc.balanceOf(address(bestia))) :", usdc.balanceOf(address(bestia)) / 1e18);
         console2.log("bestia.totalAssets()) :", bestia.totalAssets() / 1e18);
         console2.log("sUSDC.totalAssets() :", sUSDC.totalAssets() / 1e18);
-        console2.log("reserveRatio / 1e16 :", reserveRatio / 1e16);
+        console2.log("Current reserveRatio :", reserveRatio / 1e16);
+
+        // user 2 deposits 1e18 to bestia
+        vm.startPrank(user2);
+        bestia.deposit(DEPOSIT_10, address(user2));
+        vm.stopPrank();
+
+        reserveRatio = getCurrentReserveRatio();
+        console2.log("excess reserve ratio", reserveRatio - bestia.targetReserveRatio());
+
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        uint256 user2BestiaBalance = bestia.balanceOf(address(user2));
+        console2.log("bestia.balanceOf(address(user2))", bestia.balanceOf(address(user2)));
+
+        
+    }
+
+    // HELPER FUNCTIONS
+
+    function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
+        uint256 currentReserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
+
+        return(currentReserveRatio);
     }
 }
