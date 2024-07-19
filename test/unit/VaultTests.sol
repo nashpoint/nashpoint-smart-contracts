@@ -147,7 +147,7 @@ contract VaultTests is Test {
         swingFactor = bestia.getSwingFactor(minReservePossible);
         assertEq(swingFactor, bestia.maxDiscount() - 1);
 
-        // assert that 0 < swing factor < 0.1% when reserve approaches
+        // assert that 0.0% < swing factor < 0.1% when reserve approaches
         int256 maxReservePossible = int256(bestia.targetReserveRatio()) - 1;
         swingFactor = bestia.getSwingFactor(maxReservePossible);
         assertGt(swingFactor, 0);
@@ -186,5 +186,27 @@ contract VaultTests is Test {
         console2.log("closingBalance", closingBalanceUSDC);
         console2.log("startingBalanceBestia", startingBalanceBestia);
         console2.log("closingBalanceBestia", closingBalanceBestia);
+    }
+
+    function testWithdraw() public {
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT, address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
+        assertEq(reserveRatio, bestia.targetReserveRatio());
+
+        // mint cash so invested assets = 100
+        usdc.mint(address(sUSDC), 10e18 + 1);
+
+        console2.log("usdc.balanceOf(address(bestia))) :", usdc.balanceOf(address(bestia)) / 1e18);
+        console2.log("bestia.totalAssets()) :", bestia.totalAssets() / 1e18);
+        console2.log("sUSDC.totalAssets() :", sUSDC.totalAssets() / 1e18);
+        console2.log("reserveRatio / 1e16 :", reserveRatio / 1e16);
     }
 }
