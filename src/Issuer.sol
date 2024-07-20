@@ -67,25 +67,25 @@ contract Issuer is ERC4626, Ownable {
             revert NotEnoughReserveCash();
         } else {
             uint256 totalAssetsAfterTX = totalAssets() - assets;
-            console2.log("totalAssetsAfterTX", totalAssetsAfterTX / 1e18);
+            // console2.log("totalAssetsAfterTX", totalAssetsAfterTX / 1e18);
 
             uint256 reserveAfterTX = usdc.balanceOf(address(this)) - assets;
-            console2.log("reserveAfterTX", reserveAfterTX / 1e18);
+            // console2.log("reserveAfterTX", reserveAfterTX / 1e18);
 
             int256 reserveRatioAfterTX = int256(Math.mulDiv(reserveAfterTX, 1e18, totalAssetsAfterTX));
-            console2.log("targetReserveRatio", targetReserveRatio);
-            console2.log("reserveRatioAfterTX", reserveRatioAfterTX);
+            // console2.log("targetReserveRatio", targetReserveRatio);
+            // console2.log("reserveRatioAfterTX", reserveRatioAfterTX);
 
             // dont give it assets, give it the reserve ratio after tx
             uint256 swingFactor = getSwingFactor(reserveRatioAfterTX);
-            console2.log("swingFactor", swingFactor);
+            // console2.log("swingFactor", swingFactor);
 
             // temp variable delete later
             uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - swingFactor), 1e18);
-            console2.log("adjustedAssets", adjustedAssets);
+            // console2.log("adjustedAssets", adjustedAssets);
 
             // uint256 shares = previewDeposit(adjustedAssets);
-            console2.log("usdc.allowance(msg.sender, address(this))", usdc.allowance(msg.sender, address(this)));
+            // console2.log("usdc.allowance(msg.sender, address(this))", usdc.allowance(msg.sender, address(this)));
 
             uint256 maxAssets = maxWithdraw(_owner);
             if (assets > maxAssets) {
