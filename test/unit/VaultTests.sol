@@ -171,7 +171,7 @@ contract VaultTests is Test {
         // mint cash so invested assets = 100
         usdc.mint(address(sUSDC), 10e18 + 1);
 
-        // user 2 deposits 1e18 to bestia and burns the rest of their usdc
+        // user 2 deposits 10e18 to bestia and burns the rest of their usdc
         vm.startPrank(user2);
         bestia.deposit(DEPOSIT_10, address(user2));
         usdc.transfer(0x000000000000000000000000000000000000dEaD, usdc.balanceOf(address(user2)));
@@ -194,14 +194,15 @@ contract VaultTests is Test {
         uint256 user2BestiaClosingBalance = bestia.balanceOf(address(user2));
         assertEq(user2BestiaClosingBalance, 0);
 
-        // assert that user2 received less USDC back than they deposited 
+        // assert that user2 received less USDC back than they deposited
         uint256 usdcReturned = usdc.balanceOf(address(user2));
         assertLt(usdcReturned, DEPOSIT_10);
+
+        console2.log("delta :", DEPOSIT_10 - usdcReturned);
 
         // this test does not check if the correct amount was returned
         // only that is was less than originally deposited
         // check for correct swing factor is in that test
-        
     }
 
     // HELPER FUNCTIONS

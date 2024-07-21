@@ -63,41 +63,30 @@ contract Issuer is ERC4626, Ownable {
 
     // TODO: override withdraw function
     function adjustedWithdraw(uint256 assets, address receiver, address _owner) public returns (uint256) {
-        if (assets > usdc.balanceOf(address(this))) {
+        uint256 balance = usdc.balanceOf(address(this));
+        if (assets > balance) {
             revert NotEnoughReserveCash();
-        } else {
-            uint256 totalAssetsAfterTX = totalAssets() - assets;
-            // console2.log("totalAssetsAfterTX", totalAssetsAfterTX / 1e18);
-
-            uint256 reserveAfterTX = usdc.balanceOf(address(this)) - assets;
-            // console2.log("reserveAfterTX", reserveAfterTX / 1e18);
-
-            int256 reserveRatioAfterTX = int256(Math.mulDiv(reserveAfterTX, 1e18, totalAssetsAfterTX));
-            // console2.log("targetReserveRatio", targetReserveRatio);
-            // console2.log("reserveRatioAfterTX", reserveRatioAfterTX);
-
-            // dont give it assets, give it the reserve ratio after tx
-            uint256 swingFactor = getSwingFactor(reserveRatioAfterTX);
-            // console2.log("swingFactor", swingFactor);
-
-            // temp variable delete later
-            uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - swingFactor), 1e18);
-            // console2.log("adjustedAssets", adjustedAssets);
-
-            // uint256 shares = previewDeposit(adjustedAssets);
-            // console2.log("usdc.allowance(msg.sender, address(this))", usdc.allowance(msg.sender, address(this)));
-
-            uint256 maxAssets = maxWithdraw(_owner);
-            if (assets > maxAssets) {
-                revert ERC4626ExceededMaxWithdraw(_owner, assets, maxAssets);
-            }
-
-            uint256 shares = previewWithdraw(assets);
-            _withdraw(_msgSender(), receiver, _owner, adjustedAssets, shares);
-
-            return shares;
-            // withdraw(adjustedAssets, receiver, owner);
         }
+
+        uint256 maxAssets = maxWithdraw(_owner);
+        if (assets > maxAssets) {
+            revert ERC4626ExceededMaxWithdraw(_owner, assets, maxAssets);
+        }
+
+        // gets the expected reserve ratio after tx
+        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+
+        // gets the assets to be returned to the user after applying swingfactor
+        // getSwingFactor converts from int to uint
+        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
+
+        // cache the share value associated with no swing factor
+        uint256 sharesBurned = previewWithdraw(assets);
+        
+        // returns the adjustedAssets to user but burns the correct amount of shares
+        _withdraw(_msgSender(), receiver, _owner, adjustedAssets, sharesBurned);
+
+        return sharesBurned;
     }
 
     // swing price curve equation
@@ -118,9 +107,7 @@ contract Issuer is ERC4626, Ownable {
 
     // invest function
     function investCash() external onlyBanker returns (uint256 cashInvested) {
-        uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;
-        console2.log("actual cash", usdc.balanceOf(address(this)));
-        console2.log("idealCashReserve", idealCashReserve);
+        uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;        
 
         if (usdc.balanceOf(address(this)) < idealCashReserve) {
             revert ReserveBelowTargetRatio();
