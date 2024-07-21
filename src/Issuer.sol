@@ -59,7 +59,37 @@ contract Issuer is ERC4626, Ownable {
     }
     // TODO: override deposit function
 
-    function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {}
+    function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {
+        uint256 maxAssets = maxDeposit(receiver);
+        if (assets > maxAssets) {
+            revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+        }
+
+        // delete this later
+        int256 reserveRatioBeforeTX = int256(Math.mulDiv(usdc.balanceOf(address(this)), 1e18, totalAssets()));
+        
+        // gets the expected reserve ratio after tx
+        int256 reserveRatioAfterTX = int256(Math.mulDiv(usdc.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));        
+        
+        console2.log("reserveRatioBeforeTX", reserveRatioBeforeTX );
+        console2.log("reserveRatioAfterTX", reserveRatioAfterTX);
+
+        // gets the assets to be returned to the user after applying swingfactor to tx
+        // getSwingFactor converts from int to uint
+        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
+        
+        console2.log("getSwingFactor(reserveRatioAfterTX)", getSwingFactor(reserveRatioAfterTX));
+        console2.log("assets", assets);
+        console2.log("adjustedAssets", adjustedAssets);
+
+        uint256 sharesToMint = convertToShares(adjustedAssets);
+
+        console2.log("convertToShares(assets) ", convertToShares(assets));
+        console2.log("convertToShares(adjustedAssets))", convertToShares(adjustedAssets));
+        console2.log("delta :", convertToShares(adjustedAssets) - convertToShares(assets));
+
+        // to test do someting with preview deposit vs shares received
+    }
 
     // TODO: override withdraw function
     function adjustedWithdraw(uint256 assets, address receiver, address _owner) public returns (uint256) {
@@ -76,17 +106,17 @@ contract Issuer is ERC4626, Ownable {
         // gets the expected reserve ratio after tx
         int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
 
-        // gets the assets to be returned to the user after applying swingfactor
+        // gets the assets to be returned to the user after applying swingfactor to tx
         // getSwingFactor converts from int to uint
         uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the share value associated with no swing factor
-        uint256 sharesBurned = previewWithdraw(assets);
+        uint256 sharesToBurn = previewWithdraw(assets);
         
         // returns the adjustedAssets to user but burns the correct amount of shares
-        _withdraw(_msgSender(), receiver, _owner, adjustedAssets, sharesBurned);
+        _withdraw(_msgSender(), receiver, _owner, adjustedAssets, sharesToBurn);
 
-        return sharesBurned;
+        return sharesToBurn;
     }
 
     // swing price curve equation
@@ -94,8 +124,10 @@ contract Issuer is ERC4626, Ownable {
     function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
         if (_reserveRatioAfterTX <= 0) {
             revert NotEnoughReserveCash();
-        } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
-            return 0;
+
+        // causes test failure elsewhere. think through why this check is here    
+        // } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
+        //     return 0;
         } else {
             SD59x18 reserveRatioAfterTX = sd(int256(_reserveRatioAfterTX));
 

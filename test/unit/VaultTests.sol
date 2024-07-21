@@ -155,7 +155,7 @@ contract VaultTests is Test {
         assertLt(swingFactor, 1e15); // 0.1%
     }
 
-    function testWithdraw() public {
+    function testAdjustedWithdraw() public {
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
@@ -203,6 +203,33 @@ contract VaultTests is Test {
         // this test does not check if the correct amount was returned
         // only that is was less than originally deposited
         // check for correct swing factor is in that test
+    }
+
+    function testAdjustedDeposit() public {
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT_100, address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = getCurrentReserveRatio();
+        assertEq(reserveRatio, bestia.targetReserveRatio());
+
+        // mint cash so invested assets = 100
+        usdc.mint(address(sUSDC), 10e18 + 1);
+
+        // user 2 deposits 10e18 to bestia and burns the rest of their usdc
+        vm.startPrank(user2);
+        bestia.adjustedDeposit(DEPOSIT_10, address(user2));
+        usdc.transfer(0x000000000000000000000000000000000000dEaD, usdc.balanceOf(address(user2)));
+        vm.stopPrank();
+
+        // assert user2 has zero usdc balance
+        assertEq(usdc.balanceOf(address(user2)), 0);
+
     }
 
     // HELPER FUNCTIONS
