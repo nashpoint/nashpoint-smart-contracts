@@ -57,38 +57,26 @@ contract Issuer is ERC4626, Ownable {
 
         return depositAssetBalance + investedAssets;
     }
+    
     // TODO: override deposit function
-
     function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {
         uint256 maxAssets = maxDeposit(receiver);
         if (assets > maxAssets) {
             revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
-        }
-
-        // delete this later
-        int256 reserveRatioBeforeTX = int256(Math.mulDiv(usdc.balanceOf(address(this)), 1e18, totalAssets()));
+        }        
         
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(Math.mulDiv(usdc.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));        
+        int256 reserveRatioAfterTX = int256(Math.mulDiv(usdc.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));   
         
-        console2.log("reserveRatioBeforeTX", reserveRatioBeforeTX );
-        console2.log("reserveRatioAfterTX", reserveRatioAfterTX);
-
         // gets the assets to be returned to the user after applying swingfactor to tx
-        // getSwingFactor converts from int to uint
-        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
-        
-        console2.log("getSwingFactor(reserveRatioAfterTX)", getSwingFactor(reserveRatioAfterTX));
-        console2.log("assets", assets);
-        console2.log("adjustedAssets", adjustedAssets);
+        // getSwingFactor() converts from int to uint
+        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);              
 
-        uint256 sharesToMint = convertToShares(adjustedAssets);
+        // cache the shares to mint for swing factor applied
+        uint256 sharesToMint = convertToShares(adjustedAssets);       
 
-        console2.log("convertToShares(assets) ", convertToShares(assets));
-        console2.log("convertToShares(adjustedAssets))", convertToShares(adjustedAssets));
-        console2.log("delta :", convertToShares(adjustedAssets) - convertToShares(assets));
-
-        // to test do someting with preview deposit vs shares received
+        // recieves deposited assets but mints more shares based on swing factor applied
+        _deposit(_msgSender(), receiver, assets, sharesToMint);        
     }
 
     // TODO: override withdraw function
@@ -107,7 +95,7 @@ contract Issuer is ERC4626, Ownable {
         int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        // getSwingFactor converts from int to uint
+        // getSwingFactor() converts from int to uint
         uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the share value associated with no swing factor

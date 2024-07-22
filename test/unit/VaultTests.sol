@@ -221,15 +221,18 @@ contract VaultTests is Test {
         // mint cash so invested assets = 100
         usdc.mint(address(sUSDC), 10e18 + 1);
 
-        // user 2 deposits 10e18 to bestia and burns the rest of their usdc
+        // get the shares to be minted from a tx with no swing factor
+        // this will break later when you complete 4626 conversion
+        uint256 nonAdjustedShares = bestia.previewDeposit(DEPOSIT_10);        
+
+        // user 2 deposits 10e18 to bestia 
         vm.startPrank(user2);
         bestia.adjustedDeposit(DEPOSIT_10, address(user2));
-        usdc.transfer(0x000000000000000000000000000000000000dEaD, usdc.balanceOf(address(user2)));
-        vm.stopPrank();
+        vm.stopPrank();        
 
-        // assert user2 has zero usdc balance
-        assertEq(usdc.balanceOf(address(user2)), 0);
-
+        // get the actual shares received and assert they are greater than
+        uint256 sharesReceived =  bestia.balanceOf(address(user2));
+        assertGt(sharesReceived, nonAdjustedShares);
     }
 
     // HELPER FUNCTIONS
