@@ -70,7 +70,6 @@ contract Issuer is ERC4626, Ownable {
             int256(Math.mulDiv(usdc.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        // getSwingFactor() converts from int to uint
         uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the shares to mint for swing factor applied
@@ -98,7 +97,6 @@ contract Issuer is ERC4626, Ownable {
         int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        // getSwingFactor() converts from int to uint
         uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the share value associated with no swing factor
@@ -111,14 +109,18 @@ contract Issuer is ERC4626, Ownable {
     }
 
     // swing price curve equation
+    // getSwingFactor() converts from int to uint
     // TODO: change to private internal later and change test use a wrapper function in test contract
     function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
+        // checks if withdrawal will exceed available reserve
         if (_reserveRatioAfterTX <= 0) {
             revert NotEnoughReserveCash();
-
-            // causes test failure elsewhere. think through why this check is here
+        
+        // else if reserve exceeds target after deposit no swing factor is applied
         } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
             return 0;
+
+        // else swing factor is applied    
         } else {
             SD59x18 reserveRatioAfterTX = sd(int256(_reserveRatioAfterTX));
 
@@ -128,10 +130,11 @@ contract Issuer is ERC4626, Ownable {
         }
     }
 
-    // invest function
+    // called by banker to deposit excess reserve into strategies
     function investCash() external onlyBanker returns (uint256 cashInvested) {
         uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;
 
+        // checks if available reserve exceeds target ratio
         if (usdc.balanceOf(address(this)) < idealCashReserve) {
             revert ReserveBelowTargetRatio();
         } else {
