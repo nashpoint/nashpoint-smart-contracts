@@ -57,26 +57,29 @@ contract Issuer is ERC4626, Ownable {
 
         return depositAssetBalance + investedAssets;
     }
-    
+
     // TODO: override deposit function
     function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {
         uint256 maxAssets = maxDeposit(receiver);
         if (assets > maxAssets) {
             revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
-        }        
-        
+        }
+
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(Math.mulDiv(usdc.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));   
-        
+        int256 reserveRatioAfterTX =
+            int256(Math.mulDiv(usdc.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));
+
         // gets the assets to be returned to the user after applying swingfactor to tx
         // getSwingFactor() converts from int to uint
-        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);              
+        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the shares to mint for swing factor applied
-        uint256 sharesToMint = convertToShares(adjustedAssets);       
+        uint256 sharesToMint = convertToShares(adjustedAssets);
 
         // recieves deposited assets but mints more shares based on swing factor applied
-        _deposit(_msgSender(), receiver, assets, sharesToMint);        
+        _deposit(_msgSender(), receiver, assets, sharesToMint);
+
+        return (sharesToMint);
     }
 
     // TODO: override withdraw function
@@ -100,7 +103,7 @@ contract Issuer is ERC4626, Ownable {
 
         // cache the share value associated with no swing factor
         uint256 sharesToBurn = previewWithdraw(assets);
-        
+
         // returns the adjustedAssets to user but burns the correct amount of shares
         _withdraw(_msgSender(), receiver, _owner, adjustedAssets, sharesToBurn);
 
@@ -113,9 +116,9 @@ contract Issuer is ERC4626, Ownable {
         if (_reserveRatioAfterTX <= 0) {
             revert NotEnoughReserveCash();
 
-        // causes test failure elsewhere. think through why this check is here    
-        // } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
-        //     return 0;
+            // causes test failure elsewhere. think through why this check is here
+        } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
+            return 0;
         } else {
             SD59x18 reserveRatioAfterTX = sd(int256(_reserveRatioAfterTX));
 
@@ -127,7 +130,7 @@ contract Issuer is ERC4626, Ownable {
 
     // invest function
     function investCash() external onlyBanker returns (uint256 cashInvested) {
-        uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;        
+        uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;
 
         if (usdc.balanceOf(address(this)) < idealCashReserve) {
             revert ReserveBelowTargetRatio();

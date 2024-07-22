@@ -223,15 +223,48 @@ contract VaultTests is Test {
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
-        uint256 nonAdjustedShares = bestia.previewDeposit(DEPOSIT_10);        
+        uint256 nonAdjustedShares = bestia.previewDeposit(DEPOSIT_10);
 
-        // user 2 deposits 10e18 to bestia 
+        // user 2 deposits 10e18 to bestia
         vm.startPrank(user2);
         bestia.adjustedDeposit(DEPOSIT_10, address(user2));
-        vm.stopPrank();        
+        vm.stopPrank();
 
-        // get the actual shares received and assert they are greater than
-        uint256 sharesReceived =  bestia.balanceOf(address(user2));
+        // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
+
+        // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
+        uint256 reserveRatioAfterTX = getCurrentReserveRatio();
+        assertGt(reserveRatioAfterTX, bestia.targetReserveRatio());
+
+        // get the actual shares received and assert they are the same i.e. no swing factor applied
+        uint256 sharesReceived = bestia.balanceOf(address(user2));
+        assertEq(sharesReceived, nonAdjustedShares);
+
+        // invest cash to return reserve ratio to 100%
+        vm.startPrank(banker);
+        bestia.investCash();
+        vm.stopPrank();
+
+        // withdraw usdc to bring reserve ratio below 100%
+        vm.startPrank(user2);
+        bestia.withdraw(5e18, (address(user2)), address((user2)));
+        vm.stopPrank();
+
+        // get the shares to be minted from a deposit with no swing factor applied
+        nonAdjustedShares = bestia.previewDeposit(2e18);
+
+        vm.startPrank(user3);
+        bestia.adjustedDeposit(2e18, address(user3));
+        vm.stopPrank();
+
+        // TEST 2: test that swing factor is applied with reserve ratio is below target
+
+        // get the reserve ratio after the deposit and assert it is less than target reserve ratio
+        reserveRatioAfterTX = getCurrentReserveRatio();
+        assertLt(reserveRatioAfterTX, bestia.targetReserveRatio());
+
+        // get the actual shares received and assert they are greater than & have swing factor applied
+        sharesReceived = bestia.balanceOf(address(user3));
         assertGt(sharesReceived, nonAdjustedShares);
     }
 
