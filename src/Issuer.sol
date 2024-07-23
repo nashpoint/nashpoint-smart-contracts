@@ -115,12 +115,12 @@ contract Issuer is ERC4626, Ownable {
         // checks if withdrawal will exceed available reserve
         if (_reserveRatioAfterTX <= 0) {
             revert NotEnoughReserveCash();
-        
-        // else if reserve exceeds target after deposit no swing factor is applied
+
+            // else if reserve exceeds target after deposit no swing factor is applied
         } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
             return 0;
 
-        // else swing factor is applied    
+            // else swing factor is applied
         } else {
             SD59x18 reserveRatioAfterTX = sd(int256(_reserveRatioAfterTX));
 
