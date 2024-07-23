@@ -6,11 +6,7 @@ import {BaseTest} from "test/BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-
 contract VaultTests is BaseTest {
-
-
-
     function testDeposit() public {
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));

@@ -32,9 +32,8 @@ contract ERC7540Mock is ERC4626, ERC165 {
     );
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
-    
-    // When requestId==0, the Vault MUST use purely the controller to discriminate the request state. 
-    // The Pending and Claimable state of multiple requests from the same controller would be aggregated. 
+    // When requestId==0, the Vault MUST use purely the controller to discriminate the request state.
+    // The Pending and Claimable state of multiple requests from the same controller would be aggregated.
     // If a Vault returns 0 for the requestId of any request, it MUST return 0 for all requests.
     uint256 public currentRequestId = 0;
 
@@ -42,7 +41,6 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
     // ERC-7540 specific functions
     function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256 requestId) {
-
         // Transfers assets from owner into the Vault and submits a Request for asynchronous deposit.
         // This places the Request in Pending state,
         // with a corresponding increase in pendingDepositRequest for the amount assets.
@@ -68,27 +66,25 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return _pendingDepositRequests[requestId][controller];
     }
 
-    function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
-        return _claimableDepositRequests[requestId][controller];
-    }
+    // function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
+    //     return _claimableDepositRequests[requestId][controller];
+    // }
 
-    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
-        // Implementation
-    }
+    // function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
+    //     // Implementation
+    // }
 
-    function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
-        return _pendingRedeemRequests[requestId][controller];
-    }
+    // function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
+    //     return _pendingRedeemRequests[requestId][controller];
+    // }
 
-    function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
-        return _claimableRedeemRequests[requestId][controller];
-    }
+    // function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
+    //     return _claimableRedeemRequests[requestId][controller];
+    // }
 
     function isOperator(address controller, address operator) public view returns (bool) {
         return _operators[controller][operator];
     }
-
-    
 
     function setOperator(address operator, bool approved) external returns (bool) {
         _operators[msg.sender][operator] = approved;
@@ -97,54 +93,54 @@ contract ERC7540Mock is ERC4626, ERC165 {
     }
 
     // Overrides for ERC-4626 functions
-    function deposit(uint256 assets, address receiver) public virtual override returns (uint256) {
-        return deposit(assets, receiver, msg.sender);
-    }
+    // function deposit(uint256 assets, address receiver) public virtual override returns (uint256) {
+    //     return deposit(assets, receiver, msg.sender);
+    // }
 
-    function deposit(uint256 assets, address receiver, address controller) public virtual returns (uint256) {
-        require(controller == msg.sender || _operators[controller][msg.sender], "Not authorized");
-        // Implementation (don't transfer assets, use claimable amount)
-        return super.deposit(assets, receiver);
-    }
+    // function deposit(uint256 assets, address receiver, address controller) public virtual returns (uint256) {
+    //     require(controller == msg.sender || _operators[controller][msg.sender], "Not authorized");
+    //     // Implementation (don't transfer assets, use claimable amount)
+    //     return super.deposit(assets, receiver);
+    // }
 
-    function mint(uint256 shares, address receiver) public virtual override returns (uint256) {
-        return mint(shares, receiver, msg.sender);
-    }
+    // function mint(uint256 shares, address receiver) public virtual override returns (uint256) {
+    //     return mint(shares, receiver, msg.sender);
+    // }
 
-    function mint(uint256 shares, address receiver, address controller) public virtual returns (uint256) {
-        require(controller == msg.sender || _operators[controller][msg.sender], "Not authorized");
-        // Implementation (don't transfer assets, use claimable amount)
-        return super.mint(shares, receiver);
-    }
+    // function mint(uint256 shares, address receiver, address controller) public virtual returns (uint256) {
+    //     require(controller == msg.sender || _operators[controller][msg.sender], "Not authorized");
+    //     // Implementation (don't transfer assets, use claimable amount)
+    //     return super.mint(shares, receiver);
+    // }
 
-    function withdraw(uint256 assets, address receiver, address owner) public virtual override returns (uint256) {
-        require(owner == msg.sender || _operators[owner][msg.sender], "Not authorized");
-        // Implementation (don't transfer shares, use claimable amount)
-        return super.withdraw(assets, receiver, owner);
-    }
+    // function withdraw(uint256 assets, address receiver, address owner) public virtual override returns (uint256) {
+    //     require(owner == msg.sender || _operators[owner][msg.sender], "Not authorized");
+    //     // Implementation (don't transfer shares, use claimable amount)
+    //     return super.withdraw(assets, receiver, owner);
+    // }
 
-    function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256) {
-        require(owner == msg.sender || _operators[owner][msg.sender], "Not authorized");
-        // Implementation (don't transfer shares, use claimable amount)
-        return super.redeem(shares, receiver, owner);
-    }
+    // function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256) {
+    //     require(owner == msg.sender || _operators[owner][msg.sender], "Not authorized");
+    //     // Implementation (don't transfer shares, use claimable amount)
+    //     return super.redeem(shares, receiver, owner);
+    // }
 
     // Override preview functions to revert for async flows
-    function previewDeposit(uint256 assets) public view virtual override returns (uint256) {
-        revert("Async deposit: preview not available");
-    }
+    // function previewDeposit(uint256 assets) public view virtual override returns (uint256) {
+    //     revert("Async deposit: preview not available");
+    // }
 
-    function previewMint(uint256 shares) public view virtual override returns (uint256) {
-        revert("Async mint: preview not available");
-    }
+    // function previewMint(uint256 shares) public view virtual override returns (uint256) {
+    //     revert("Async mint: preview not available");
+    // }
 
-    function previewWithdraw(uint256 assets) public view virtual override returns (uint256) {
-        revert("Async withdraw: preview not available");
-    }
+    // function previewWithdraw(uint256 assets) public view virtual override returns (uint256) {
+    //     revert("Async withdraw: preview not available");
+    // }
 
-    function previewRedeem(uint256 shares) public view virtual override returns (uint256) {
-        revert("Async redeem: preview not available");
-    }
+    // function previewRedeem(uint256 shares) public view virtual override returns (uint256) {
+    //     revert("Async redeem: preview not available");
+    // }
 
     // ERC-165 support
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
