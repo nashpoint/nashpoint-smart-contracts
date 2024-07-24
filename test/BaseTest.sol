@@ -18,6 +18,7 @@ contract BaseTest is Test {
     address public constant user3 = address(0x3);
     address public constant user4 = address(0x4);
     address public constant banker = address(0x5);
+    address public constant poolManager = address(0x6);
 
     uint256 public constant START_BALANCE = 1000e18;
     uint256 public constant DEPOSIT_100 = 100e18;
@@ -33,7 +34,7 @@ contract BaseTest is Test {
         usdc = new ERC20Mock("Mock USDC", "USDC");
         sUSDC = new ERC4626Mock(address(usdc));
         bestia = new Issuer(address(usdc), "Bestia", "BEST", address(sUSDC), address(banker));
-        liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540");
+        liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(poolManager));
     }
 
     function setUp() public {

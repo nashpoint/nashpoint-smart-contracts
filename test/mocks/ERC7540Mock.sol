@@ -8,19 +8,10 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 // operator: manages the request on the behalf of a controller
 
 contract ERC7540Mock is ERC4626, ERC165 {
-    // Mapping to store operators for each controller
+    // Mappings
     mapping(address => mapping(address => bool)) private _operators;
-
-    // Mapping to store pending deposit requests
-    mapping(uint256 => mapping(address => uint256)) private _pendingDepositRequests;
-
-    // Mapping to store claimable deposit requests
     mapping(uint256 => mapping(address => uint256)) private _claimableDepositRequests;
-
-    // Mapping to store pending redeem requests
     mapping(uint256 => mapping(address => uint256)) private _pendingRedeemRequests;
-
-    // Mapping to store claimable redeem requests
     mapping(uint256 => mapping(address => uint256)) private _claimableRedeemRequests;
 
     // Events
@@ -32,12 +23,35 @@ contract ERC7540Mock is ERC4626, ERC165 {
     );
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
+    // structs
+    struct PendingDepositRequest {
+        address controller;
+        uint256 assets;
+        uint256 requestId;
+    }
+
+    PendingDepositRequest[] public pendingDepositRequests;
+    mapping(address => uint256) public controllerToIndex;
+
+    uint256 public currentRequestId = 0; // matches centrifuge implementation
+    address public poolManager;
+
     // When requestId==0, the Vault MUST use purely the controller to discriminate the request state.
     // The Pending and Claimable state of multiple requests from the same controller would be aggregated.
     // If a Vault returns 0 for the requestId of any request, it MUST return 0 for all requests.
-    uint256 public currentRequestId = 0;
 
-    constructor(IERC20 _asset, string memory _name, string memory _symbol) ERC4626(_asset) ERC20(_name, _symbol) {}
+    // Modifiers
+    modifier onlyManager() {
+        require(msg.sender == poolManager, "only poolManager can execute");
+        _;
+    }
+
+    constructor(IERC20 _asset, string memory _name, string memory _symbol, address _manager)
+        ERC4626(_asset)
+        ERC20(_name, _symbol)
+    {
+        poolManager = _manager;
+    }
 
     // ERC-7540 specific functions
     function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256 requestId) {
@@ -53,8 +67,17 @@ contract ERC7540Mock is ERC4626, ERC165 {
         // Transfer assets from owner to vault
         require(IERC20(asset()).transferFrom(owner, address(this), assets), "Transfer failed");
 
-        // Update pending deposit requests
-        _pendingDepositRequests[requestId][controller] += assets;
+        uint256 index = controllerToIndex[controller];
+
+        if (index > 0) {
+            pendingDepositRequests[index - 1].assets += assets;
+        } else {
+            PendingDepositRequest memory newRequest =
+                PendingDepositRequest({controller: controller, assets: assets, requestId: requestId});
+
+            pendingDepositRequests.push(newRequest);
+            controllerToIndex[controller] = pendingDepositRequests.length;
+        }
 
         // Emit DepositRequest event
         emit DepositRequest(controller, owner, requestId, msg.sender, assets);
@@ -62,13 +85,17 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return requestId;
     }
 
-    function pendingDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
-        return _pendingDepositRequests[requestId][controller];
+    // requestId commented out as unused. This might break standard
+    // TODO: check this later
+    function pendingDepositRequest(/* uint256 RequestId, */ address controller) external view returns (uint256 assets) {
+        uint256 index = controllerToIndex[controller];
+        require(index > 0, "No pending deposit for controller");
+        return pendingDepositRequests[index - 1].assets;
     }
 
-    // function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
-    //     return _claimableDepositRequests[requestId][controller];
-    // }
+    function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
+        return _claimableDepositRequests[requestId][controller];
+    }
 
     // function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
     //     // Implementation
@@ -90,6 +117,12 @@ contract ERC7540Mock is ERC4626, ERC165 {
         _operators[msg.sender][operator] = approved;
         emit OperatorSet(msg.sender, operator, approved);
         return true;
+    }
+
+    // Pool Manager Functions
+    function processDepositRequests() external onlyManager {
+        // manager can update the pending and claimable requests for users to enable them to mint
+        // their own shares. does not mint / transfer etc on behalf of user
     }
 
     // Overrides for ERC-4626 functions
