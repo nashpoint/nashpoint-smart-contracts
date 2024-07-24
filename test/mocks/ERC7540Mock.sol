@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 // controller: own the request, can claim assets or shares
 // operator: manages the request on the behalf of a controller
@@ -10,7 +11,7 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract ERC7540Mock is ERC4626, ERC165 {
     // Mappings
     mapping(address => mapping(address => bool)) private _operators;
-    mapping(uint256 => mapping(address => uint256)) private _claimableDepositRequests;
+    mapping(uint256 => mapping(address => uint256)) public claimableDepositRequests;
     mapping(uint256 => mapping(address => uint256)) private _pendingRedeemRequests;
     mapping(uint256 => mapping(address => uint256)) private _claimableRedeemRequests;
 
@@ -87,14 +88,18 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
     // requestId commented out as unused. This might break standard
     // TODO: check this later
-    function pendingDepositRequest(/* uint256 RequestId, */ address controller) external view returns (uint256 assets) {
+    function pendingDepositRequest( /* uint256 RequestId, */ address controller)
+        external
+        view
+        returns (uint256 assets)
+    {
         uint256 index = controllerToIndex[controller];
         require(index > 0, "No pending deposit for controller");
         return pendingDepositRequests[index - 1].assets;
     }
 
     function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
-        return _claimableDepositRequests[requestId][controller];
+        return claimableDepositRequests[requestId][controller];
     }
 
     // function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
@@ -105,9 +110,9 @@ contract ERC7540Mock is ERC4626, ERC165 {
     //     return _pendingRedeemRequests[requestId][controller];
     // }
 
-    // function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
-    //     return _claimableRedeemRequests[requestId][controller];
-    // }
+    function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
+        return _claimableRedeemRequests[requestId][controller];
+    }
 
     function isOperator(address controller, address operator) public view returns (bool) {
         return _operators[controller][operator];
@@ -120,9 +125,36 @@ contract ERC7540Mock is ERC4626, ERC165 {
     }
 
     // Pool Manager Functions
-    function processDepositRequests() external onlyManager {
-        // manager can update the pending and claimable requests for users to enable them to mint
-        // their own shares. does not mint / transfer etc on behalf of user
+    function processPendingDeposits() external onlyManager {
+        uint256 totalPendingAssets = 0;
+        uint256 pendingDepositCount = pendingDepositRequests.length;
+
+        // Sum up total pending assets
+        for (uint256 i = 0; i < pendingDepositCount; i++) {
+            totalPendingAssets += pendingDepositRequests[i].assets;
+        }
+
+        // Calculate total shares to mint
+        uint256 totalShares = convertToShares(totalPendingAssets);
+
+        // Calculate share/asset ratio
+        // uint256 sharePerAsset = totalShares * 1e18 / totalPendingAssets; // Use 1e18 for precision
+        uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets);
+
+        // Allocate shares to each depositor
+        for (uint256 i = 0; i < pendingDepositCount; i++) {
+            PendingDepositRequest memory request = pendingDepositRequests[i];
+            // uint256 shares = (request.assets * sharePerAsset) / 1e18;
+            uint256 shares = Math.mulDiv(request.assets, sharePerAsset, 1e18);
+
+            claimableDepositRequests[request.requestId][request.controller] += shares;
+
+            // Clear the controllerToIndex entry for this controller
+            delete controllerToIndex[request.controller];
+        }
+
+        // Clear all processed data
+        delete pendingDepositRequests;
     }
 
     // Overrides for ERC-4626 functions

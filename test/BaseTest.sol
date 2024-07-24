@@ -17,8 +17,8 @@ contract BaseTest is Test {
     address public constant user2 = address(0x2);
     address public constant user3 = address(0x3);
     address public constant user4 = address(0x4);
-    address public constant banker = address(0x5);
-    address public constant poolManager = address(0x6);
+    address public constant banker = address(0x5); // Bestia Banker
+    address public constant manager = address(0x6); // 7450 Manager
 
     uint256 public constant START_BALANCE = 1000e18;
     uint256 public constant DEPOSIT_100 = 100e18;
@@ -34,7 +34,7 @@ contract BaseTest is Test {
         usdc = new ERC20Mock("Mock USDC", "USDC");
         sUSDC = new ERC4626Mock(address(usdc));
         bestia = new Issuer(address(usdc), "Bestia", "BEST", address(sUSDC), address(banker));
-        liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(poolManager));
+        liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
     }
 
     function setUp() public {
@@ -52,11 +52,17 @@ contract BaseTest is Test {
 
         vm.startPrank(user3);
         usdc.approve(address(bestia), type(uint256).max);
+        usdc.approve(address(liquidityPool), type(uint256).max);
         usdc.mint(user3, START_BALANCE);
         vm.stopPrank();
 
         vm.startPrank(address(bestia));
         usdc.approve(address(sUSDC), type(uint256).max);
         vm.stopPrank();
+
+        vm.startPrank(address(manager));
+        usdc.approve(address(liquidityPool), type(uint256).max);
+        usdc.mint(manager, START_BALANCE);
+        liquidityPool.deposit(DEPOSIT_100, address(manager));
     }
 }

@@ -34,4 +34,26 @@ contract ERC7540Tests is BaseTest {
         uint256 user1ClaimableDeposits = liquidityPool.claimableDepositRequest(0, address(user1));
         assertEq(user1ClaimableDeposits, 0);
     }
+
+    function testProcessPendingDeposits() public {
+        vm.startPrank(user1);
+        liquidityPool.requestDeposit(DEPOSIT_10, address(user1), address(user1));
+        vm.stopPrank();
+
+        // get shares user should get after 4626 mint occurs
+        uint256 sharesDue = liquidityPool.convertToShares(DEPOSIT_10);
+
+        vm.startPrank(manager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+
+        // get shares made claimable to user after deposits processed
+        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user1));
+
+        // assert shares claimable are accurate to 0.01% margin of error
+        assertApproxEqRel(sharesDue, sharesClaimable, 1e12);
+
+        // assert any rounding is in favour of the vault
+        assertGt(sharesDue, sharesClaimable);
+    }
 }
