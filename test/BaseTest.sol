@@ -56,6 +56,12 @@ contract BaseTest is Test {
         usdc.mint(user3, START_BALANCE);
         vm.stopPrank();
 
+        vm.startPrank(user4);
+        usdc.approve(address(bestia), type(uint256).max);
+        usdc.approve(address(liquidityPool), type(uint256).max);
+        usdc.mint(user4, START_BALANCE);
+        vm.stopPrank();
+
         vm.startPrank(address(bestia));
         usdc.approve(address(sUSDC), type(uint256).max);
         vm.stopPrank();
