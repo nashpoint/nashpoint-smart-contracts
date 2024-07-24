@@ -166,6 +166,8 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
         emit Deposit(msg.sender, receiver, assets, shares);
 
+        // TODO: need to delete allowance for user after mint
+
         // Mint shares to the receiver
         _mint(receiver, shares);
     }
