@@ -88,5 +88,9 @@ contract ERC7540Tests is BaseTest {
         assertEq(index1, 0);
         assertEq(index2, 0);
         assertEq(index3, 0);
+
+        vm.startPrank(user1);
+        liquidityPool.mint(sharesClaimable, address(user1));
+        vm.stopPrank();
     }
 }

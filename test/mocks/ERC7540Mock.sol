@@ -53,7 +53,6 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
     // ERC-7540 specific functions
     function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256 requestId) {
-
         require(assets > 0, "Cannot request deposit of 0 assets");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
 
@@ -80,7 +79,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return requestId;
     }
 
-    // requestId commented out as unused and causing erro. 
+    // requestId commented out as unused and causing erro.
     // TODO: check this later as this might break standard
     function pendingDepositRequest( /* uint256 RequestId, */ address controller)
         external
@@ -149,6 +148,26 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
         // Clear all processed data
         delete pendingDepositRequests;
+    }
+
+    // ERC4626 overrides
+
+    function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
+        uint256 requestId = currentRequestId;
+        address controller = msg.sender;
+
+        // replace these with custom errors
+        require(claimableDepositRequests[requestId][controller] > 0, "No claimableDeposit for address");
+        require(shares <= claimableDepositRequests[requestId][controller]);
+        require(msg.sender == controller || isOperator(controller, msg.sender), "Address is not controller or operater");
+
+        // Calculate assets based on shares 
+        assets = convertToAssets(shares);
+
+        emit Deposit(msg.sender, receiver, assets, shares);
+
+        // Mint shares to the receiver
+        _mint(receiver, shares);
     }
 
     // ERC-165 support
