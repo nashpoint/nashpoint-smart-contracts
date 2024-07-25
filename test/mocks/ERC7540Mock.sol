@@ -99,7 +99,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     }
 
     function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
-        require(shares > 0, "Cannot request deposit of 0 shares");
+        require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(owner) >= shares, "Insufficient shares");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
 
