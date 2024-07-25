@@ -9,8 +9,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // Mappings
     mapping(address => mapping(address => bool)) private _operators;
     mapping(uint256 => mapping(address => uint256)) public claimableDepositRequests;
-    mapping(uint256 => mapping(address => uint256)) private _pendingRedeemRequests;
-    mapping(uint256 => mapping(address => uint256)) private _claimableRedeemRequests;
+    mapping(uint256 => mapping(address => uint256)) private claimableRedeemRequests;
 
     // Events
     event DepositRequest(
@@ -22,7 +21,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
     // structs
-    struct PendingDepositRequest {
+    struct PendingRequest {
         address controller;
         uint256 assets;
         uint256 requestId;
@@ -32,15 +31,11 @@ contract ERC7540Mock is ERC4626, ERC165 {
     error NoPendingDepositAvailable();
     error ExceedsPendingDeposit();
 
-    PendingDepositRequest[] public pendingDepositRequests;
+    PendingRequest[] public pendingDepositRequests;
     mapping(address => uint256) public controllerToIndex;
 
     uint256 public currentRequestId = 0; // matches centrifuge implementation
     address public poolManager;
-
-    // When requestId==0, the Vault MUST use purely the controller to discriminate the request state.
-    // The Pending and Claimable state of multiple requests from the same controller would be aggregated.
-    // If a Vault returns 0 for the requestId of any request, it MUST return 0 for all requests.
 
     // Modifiers
     modifier onlyManager() {
@@ -70,8 +65,8 @@ contract ERC7540Mock is ERC4626, ERC165 {
         if (index > 0) {
             pendingDepositRequests[index - 1].assets += assets;
         } else {
-            PendingDepositRequest memory newRequest =
-                PendingDepositRequest({controller: controller, assets: assets, requestId: requestId});
+            PendingRequest memory newRequest =
+                PendingRequest({controller: controller, assets: assets, requestId: requestId});
 
             pendingDepositRequests.push(newRequest);
             controllerToIndex[controller] = pendingDepositRequests.length;
@@ -108,7 +103,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // }
 
     function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
-        return _claimableRedeemRequests[requestId][controller];
+        return claimableRedeemRequests[requestId][controller];
     }
 
     function isOperator(address controller, address operator) public view returns (bool) {
@@ -140,7 +135,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
         // Allocate shares to each depositor
         for (uint256 i = 0; i < pendingDepositCount; i++) {
-            PendingDepositRequest memory request = pendingDepositRequests[i];
+            PendingRequest memory request = pendingDepositRequests[i];
             // uint256 shares = (request.assets * sharePerAsset) / 1e18;
             uint256 shares = Math.mulDiv(request.assets, sharePerAsset, 1e18);
 
