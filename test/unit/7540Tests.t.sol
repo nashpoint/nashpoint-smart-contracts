@@ -89,8 +89,31 @@ contract ERC7540Tests is BaseTest {
         assertEq(index2, 0);
         assertEq(index3, 0);
 
+        // user1 mints all available share
         vm.startPrank(user1);
         liquidityPool.mint(sharesClaimable, address(user1));
         vm.stopPrank();
+
+        // assert no shares left to be minted
+        uint256 remainingShares = liquidityPool.claimableDepositRequest(0, address(user1));
+        assertEq(remainingShares, 0);
+
+        vm.startPrank(user2);
+        // user2 mints half their available shares
+        liquidityPool.mint(user2sharesClaimable / 2, (address(user2)));
+
+        // expect revert: ExceedsPendingDeposit
+        vm.expectRevert();
+        liquidityPool.mint(user2sharesClaimable * 2, (address(user2)));
+
+        // assert remaining shares are correct
+        uint256 user2remainingShares = liquidityPool.claimableDepositRequest(0, address(user2));
+        assertEq(user2sharesClaimable / 2, user2remainingShares);
+
+        // mint remaining shares
+        liquidityPool.mint(user2remainingShares, address(user2));
+
+        vm.expectRevert();
+        liquidityPool.mint(user2sharesClaimable, address(user2));
     }
 }
