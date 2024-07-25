@@ -113,7 +113,35 @@ contract ERC7540Tests is BaseTest {
         // mint remaining shares
         liquidityPool.mint(user2remainingShares, address(user2));
 
+        // expect revert: NoPendingDepositAvailable
         vm.expectRevert();
         liquidityPool.mint(user2sharesClaimable, address(user2));
+        vm.stopPrank();
+
+        // Test that function correctly increments claimable deposits
+        
+        vm.startPrank(user4);
+        liquidityPool.requestDeposit(DEPOSIT_10, address(user4), address(user4));
+        vm.stopPrank();
+        
+        vm.startPrank(manager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+
+        uint256 user4sharesClaimable_A = liquidityPool.claimableDepositRequest(0, address(user4));
+        
+        vm.startPrank(user4);
+        liquidityPool.requestDeposit(DEPOSIT_10, address(user4), address(user4));
+        vm.stopPrank();
+
+        vm.startPrank(manager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+
+        uint256 user4sharesClaimable_B = liquidityPool.claimableDepositRequest(0, address(user4));
+
+        // assert that claimableDepositRequests is incrementing processed requests
+        assertGt(user4sharesClaimable_B, user4sharesClaimable_A);
+
     }
 }
