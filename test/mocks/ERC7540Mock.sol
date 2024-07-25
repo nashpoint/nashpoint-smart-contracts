@@ -28,6 +28,10 @@ contract ERC7540Mock is ERC4626, ERC165 {
         uint256 requestId;
     }
 
+    // Errors
+    error NoPendingDepositAvailable();
+    error ExceedsPendingDeposit();
+
     PendingDepositRequest[] public pendingDepositRequests;
     mapping(address => uint256) public controllerToIndex;
 
@@ -156,20 +160,26 @@ contract ERC7540Mock is ERC4626, ERC165 {
         uint256 requestId = currentRequestId;
         address controller = msg.sender;
 
-        // replace these with custom errors
-        require(claimableDepositRequests[requestId][controller] > 0, "No claimableDeposit for address");
-        require(shares <= claimableDepositRequests[requestId][controller]);
-        require(msg.sender == controller || isOperator(controller, msg.sender), "Address is not controller or operater");
+        // Check if there's any claimable deposit for the controller
+        if (claimableDepositRequests[requestId][controller] == 0) {
+            revert NoPendingDepositAvailable();
+        }
 
-        // Calculate assets based on shares 
+        // Check if requested shares exceed the claimable amount
+        if (shares > claimableDepositRequests[requestId][controller]) {
+            revert ExceedsPendingDeposit();
+        }
+
+        // Calculate assets based on shares
         assets = convertToAssets(shares);
 
-        emit Deposit(msg.sender, receiver, assets, shares);
-
-        // TODO: need to delete allowance for user after mint
+        // Update claimable balance
+        claimableDepositRequests[requestId][controller] -= shares;
 
         // Mint shares to the receiver
         _mint(receiver, shares);
+
+        emit Deposit(msg.sender, receiver, assets, shares);
     }
 
     // ERC-165 support
