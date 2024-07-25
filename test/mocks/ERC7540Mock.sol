@@ -181,6 +181,37 @@ contract ERC7540Mock is ERC4626, ERC165 {
         delete pendingDepositRequests;
     }
 
+    function processPendingRedemptions() external onlyManager {
+        uint256 totalPendingShares = 0;
+        uint256 pendingRedeemCount = pendingRedeemRequests.length;
+
+        // Sum up total pending assets
+        for (uint256 i = 0; i < pendingRedeemCount; i++) {
+            totalPendingShares += pendingRedeemRequests[i].amount;
+        }
+
+        // Calculate total shares to mint
+        uint256 _totalAssets = convertToAssets(totalPendingShares);
+
+        // Calculate share/asset ratio
+        uint256 assetPerShare = Math.mulDiv(_totalAssets, 1e18, totalPendingShares);
+
+        // Allocate shares to each depositor
+        for (uint256 i = 0; i < pendingRedeemCount; i++) {
+            PendingRequest memory request = pendingRedeemRequests[i];
+
+            uint256 assets = Math.mulDiv(request.amount, assetPerShare, 1e18);
+
+            claimableRedeemRequests[request.requestId][request.controller] += assets;
+
+            // Clear the controllerToIndex entry for this controller
+            delete controllerToRedeemIndex[request.controller];
+        }
+
+        // Clear all processed data
+        delete pendingRedeemRequests;
+    }
+
     // ERC4626 overrides
 
     function mint(uint256 shares, address receiver) public override returns (uint256 assets) {

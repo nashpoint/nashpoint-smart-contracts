@@ -158,15 +158,22 @@ contract ERC7540Tests is BaseTest {
         // assert pendingRedemptions has all user shares
         assertEq(user1Shares, user1PendingRedemptions);
 
-        vm.expectRevert(); // revert: Insufficient shares
+        // expectRevert: Insufficient shares
+        vm.expectRevert();
         liquidityPool.requestRedeem(user1Shares, address(user1), address(user1));
 
-        // assert user has deposited all their shares
+        // assert user has transfered all their shares
         assertEq(0, liquidityPool.balanceOf(address(user1)));
 
-        vm.expectRevert(); // Cannot request redeem of 0 shares
+        // expectRevert: Cannot request redeem of 0 shares
+        vm.expectRevert();
         liquidityPool.requestRedeem(0, address(user1), address(user1));
 
+        vm.stopPrank();
+
+        // TODO: rework this into its own test tomorrow
+        vm.startPrank(manager);
+        liquidityPool.processPendingRedemptions();
         vm.stopPrank();
 
         // usdc.transfer(0x000000000000000000000000000000000000dEaD, usdc.balanceOf(address(user1)));
