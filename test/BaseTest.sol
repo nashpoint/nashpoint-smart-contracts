@@ -41,24 +41,28 @@ contract BaseTest is Test {
         vm.startPrank(user1);
         usdc.approve(address(bestia), type(uint256).max);
         usdc.approve(address(liquidityPool), type(uint256).max);
+        liquidityPool.approve(address(liquidityPool), type(uint256).max);
         usdc.mint(user1, START_BALANCE);
         vm.stopPrank();
 
         vm.startPrank(user2);
         usdc.approve(address(bestia), type(uint256).max);
         usdc.approve(address(liquidityPool), type(uint256).max);
+        liquidityPool.approve(address(liquidityPool), type(uint256).max);
         usdc.mint(user2, START_BALANCE);
         vm.stopPrank();
 
         vm.startPrank(user3);
         usdc.approve(address(bestia), type(uint256).max);
         usdc.approve(address(liquidityPool), type(uint256).max);
+        liquidityPool.approve(address(liquidityPool), type(uint256).max);
         usdc.mint(user3, START_BALANCE);
         vm.stopPrank();
 
         vm.startPrank(user4);
         usdc.approve(address(bestia), type(uint256).max);
         usdc.approve(address(liquidityPool), type(uint256).max);
+        liquidityPool.approve(address(liquidityPool), type(uint256).max);
         usdc.mint(user4, START_BALANCE);
         vm.stopPrank();
 

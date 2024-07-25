@@ -143,4 +143,38 @@ contract ERC7540Tests is BaseTest {
         // assert that claimableDepositRequests is incrementing processed requests
         assertGt(user4sharesClaimable_B, user4sharesClaimable_A);
     }
+
+    function testRequestRedeem() public {
+        user1DepositsAndMints();
+        uint256 user1Shares = liquidityPool.balanceOf(address(user1));
+        console2.log("user1Shares", user1Shares);
+
+        vm.startPrank(user1);
+        liquidityPool.requestRedeem(user1Shares, address(user1), address(user1));
+        vm.stopPrank();
+
+        uint256 user1PendingRedemptions = liquidityPool.pendingRedeemRequest(address(user1));
+        console2.log("user1PendingRedemptions", user1PendingRedemptions);
+
+        // usdc.transfer(0x000000000000000000000000000000000000dEaD, usdc.balanceOf(address(user1)));
+    }
+
+    // Helper Functions
+    function user1DepositsAndMints() public {
+        vm.startPrank(user1);
+        liquidityPool.requestDeposit(DEPOSIT_10, address(user1), address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(manager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+
+        // get shares made claimable to user after deposits processed
+        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user1));
+
+        // user1 mints all available share
+        vm.startPrank(user1);
+        liquidityPool.mint(sharesClaimable, address(user1));
+        vm.stopPrank();
+    }
 }

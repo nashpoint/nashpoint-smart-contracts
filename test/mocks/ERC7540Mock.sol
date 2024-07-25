@@ -11,7 +11,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     mapping(uint256 => mapping(address => uint256)) public claimableDepositRequests;
     mapping(uint256 => mapping(address => uint256)) private claimableRedeemRequests;
     mapping(address => uint256) public controllerToDepositIndex;
-    mapping(address => uint256) public controllerWithdrawalIndex;
+    mapping(address => uint256) public controllerToRedeemIndex;
 
     // Structs
     struct PendingRequest {
@@ -98,13 +98,42 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return claimableDepositRequests[requestId][controller];
     }
 
-    // function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
-    //     // Implementation
-    // }
+    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
+        require(shares > 0, "Cannot request deposit of 0 shares");
+        require(balanceOf(owner) >= shares, "Insufficient shares");
+        require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
 
-    // function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
-    //     return _pendingRedeemRequests[requestId][controller];
-    // }
+        requestId = currentRequestId;
+
+        // Transfer ERC4626 share tokens from owner back to vault
+        require(IERC20((address(this))).transferFrom(owner, address(this), shares), "Transfer failed");
+
+        uint256 index = controllerToRedeemIndex[controller];
+
+        if (index > 0) {
+            pendingRedeemRequests[index - 1].amount += shares;
+        } else {
+            PendingRequest memory newRequest =
+                PendingRequest({controller: controller, amount: shares, requestId: requestId});
+
+            pendingRedeemRequests.push(newRequest);
+            controllerToRedeemIndex[controller] = pendingRedeemRequests.length;
+        }
+
+        emit RedeemRequest(controller, owner, requestId, msg.sender, shares);
+
+        return requestId;
+    }
+
+    function pendingRedeemRequest( /* uint256 RequestId, */ address controller)
+        external
+        view
+        returns (uint256 shares)
+    {
+        uint256 index = controllerToRedeemIndex[controller];
+        require(index > 0, "No pending redemption for controller");
+        return pendingRedeemRequests[index - 1].amount;
+    }
 
     function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
         return claimableRedeemRequests[requestId][controller];
