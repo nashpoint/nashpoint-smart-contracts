@@ -82,9 +82,9 @@ contract ERC7540Tests is BaseTest {
         liquidityPool.pendingDepositRequest(address(user3));
 
         // assert controllerToIndex mapping has been cleared
-        uint256 index1 = liquidityPool.controllerToIndex(address(user1));
-        uint256 index2 = liquidityPool.controllerToIndex(address(user2));
-        uint256 index3 = liquidityPool.controllerToIndex(address(user3));
+        uint256 index1 = liquidityPool.controllerToDepositIndex(address(user1));
+        uint256 index2 = liquidityPool.controllerToDepositIndex(address(user2));
+        uint256 index3 = liquidityPool.controllerToDepositIndex(address(user3));
         assertEq(index1, 0);
         assertEq(index2, 0);
         assertEq(index3, 0);
@@ -119,17 +119,17 @@ contract ERC7540Tests is BaseTest {
         vm.stopPrank();
 
         // Test that function correctly increments claimable deposits
-        
+
         vm.startPrank(user4);
         liquidityPool.requestDeposit(DEPOSIT_10, address(user4), address(user4));
         vm.stopPrank();
-        
+
         vm.startPrank(manager);
         liquidityPool.processPendingDeposits();
         vm.stopPrank();
 
         uint256 user4sharesClaimable_A = liquidityPool.claimableDepositRequest(0, address(user4));
-        
+
         vm.startPrank(user4);
         liquidityPool.requestDeposit(DEPOSIT_10, address(user4), address(user4));
         vm.stopPrank();
@@ -142,6 +142,5 @@ contract ERC7540Tests is BaseTest {
 
         // assert that claimableDepositRequests is incrementing processed requests
         assertGt(user4sharesClaimable_B, user4sharesClaimable_A);
-
     }
 }

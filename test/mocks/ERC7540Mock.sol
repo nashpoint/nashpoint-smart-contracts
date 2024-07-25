@@ -10,6 +10,19 @@ contract ERC7540Mock is ERC4626, ERC165 {
     mapping(address => mapping(address => bool)) private _operators;
     mapping(uint256 => mapping(address => uint256)) public claimableDepositRequests;
     mapping(uint256 => mapping(address => uint256)) private claimableRedeemRequests;
+    mapping(address => uint256) public controllerToDepositIndex;
+    mapping(address => uint256) public controllerWithdrawalIndex;
+
+    // Structs
+    struct PendingRequest {
+        address controller;
+        uint256 amount;
+        uint256 requestId;
+    }
+
+    // Arrays
+    PendingRequest[] public pendingDepositRequests;
+    PendingRequest[] public pendingRedeemRequests;
 
     // Events
     event DepositRequest(
@@ -20,20 +33,11 @@ contract ERC7540Mock is ERC4626, ERC165 {
     );
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
-    // structs
-    struct PendingRequest {
-        address controller;
-        uint256 assets;
-        uint256 requestId;
-    }
-
     // Errors
     error NoPendingDepositAvailable();
     error ExceedsPendingDeposit();
 
-    PendingRequest[] public pendingDepositRequests;
-    mapping(address => uint256) public controllerToIndex;
-
+    // Variables
     uint256 public currentRequestId = 0; // matches centrifuge implementation
     address public poolManager;
 
@@ -60,16 +64,16 @@ contract ERC7540Mock is ERC4626, ERC165 {
         // Transfer assets from owner to vault
         require(IERC20(asset()).transferFrom(owner, address(this), assets), "Transfer failed");
 
-        uint256 index = controllerToIndex[controller];
+        uint256 index = controllerToDepositIndex[controller];
 
         if (index > 0) {
-            pendingDepositRequests[index - 1].assets += assets;
+            pendingDepositRequests[index - 1].amount += assets;
         } else {
             PendingRequest memory newRequest =
-                PendingRequest({controller: controller, assets: assets, requestId: requestId});
+                PendingRequest({controller: controller, amount: assets, requestId: requestId});
 
             pendingDepositRequests.push(newRequest);
-            controllerToIndex[controller] = pendingDepositRequests.length;
+            controllerToDepositIndex[controller] = pendingDepositRequests.length;
         }
 
         // Emit DepositRequest event
@@ -85,9 +89,9 @@ contract ERC7540Mock is ERC4626, ERC165 {
         view
         returns (uint256 assets)
     {
-        uint256 index = controllerToIndex[controller];
+        uint256 index = controllerToDepositIndex[controller];
         require(index > 0, "No pending deposit for controller");
-        return pendingDepositRequests[index - 1].assets;
+        return pendingDepositRequests[index - 1].amount;
     }
 
     function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
@@ -123,26 +127,25 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
         // Sum up total pending assets
         for (uint256 i = 0; i < pendingDepositCount; i++) {
-            totalPendingAssets += pendingDepositRequests[i].assets;
+            totalPendingAssets += pendingDepositRequests[i].amount;
         }
 
         // Calculate total shares to mint
         uint256 totalShares = convertToShares(totalPendingAssets);
 
         // Calculate share/asset ratio
-        // uint256 sharePerAsset = totalShares * 1e18 / totalPendingAssets; // Use 1e18 for precision
         uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets);
 
         // Allocate shares to each depositor
         for (uint256 i = 0; i < pendingDepositCount; i++) {
             PendingRequest memory request = pendingDepositRequests[i];
-            // uint256 shares = (request.assets * sharePerAsset) / 1e18;
-            uint256 shares = Math.mulDiv(request.assets, sharePerAsset, 1e18);
+
+            uint256 shares = Math.mulDiv(request.amount, sharePerAsset, 1e18);
 
             claimableDepositRequests[request.requestId][request.controller] += shares;
 
             // Clear the controllerToIndex entry for this controller
-            delete controllerToIndex[request.controller];
+            delete controllerToDepositIndex[request.controller];
         }
 
         // Clear all processed data
