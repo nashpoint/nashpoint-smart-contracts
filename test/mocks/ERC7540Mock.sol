@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract ERC7540Mock is ERC4626, ERC165 {
+    using Math for uint256;
+
     // Mappings
     mapping(address => mapping(address => bool)) private _operators;
     mapping(uint256 => mapping(address => uint256)) public claimableDepositRequests;
@@ -159,18 +161,8 @@ contract ERC7540Mock is ERC4626, ERC165 {
             totalPendingAssets += pendingDepositRequests[i].amount;
         }
 
-        // new shares = assets * totalShares / totalAssets
-
-        // convertToShares()
-        // shares = assets * totalSupply / totalAssets
-
-        // Calculate total shares to mint
-        
-        
-        // WRONG: uint256 totalShares = convertToShares(totalPendingAssets) * (1e18 + totalPendingAssets) / totalPendingAssets;
-
-       // create a new function here that converts pending assets to shares
-        uint256 totalShares = convertPendingToShares(totalPendingAssets);
+        // create a new function here that converts pending assets to shares
+        uint256 totalShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
 
         // Calculate share/asset ratio
         uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets);
@@ -179,7 +171,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
         for (uint256 i = 0; i < pendingDepositCount; i++) {
             PendingRequest memory request = pendingDepositRequests[i];
 
-            uint256 shares = Math.mulDiv(request.amount, sharePerAsset, 1e18);
+            uint256 shares = Math.mulDiv(request.amount, sharePerAsset, 1e18, Math.Rounding.Floor);
 
             claimableDepositRequests[request.requestId][request.controller] += shares;
 
@@ -250,10 +242,10 @@ contract ERC7540Mock is ERC4626, ERC165 {
         emit Deposit(msg.sender, receiver, assets, shares);
     }
 
-    function convertPendingToShares(uint256 _pendingAssets) internal view returns(uint256) {
-
-        return Math.mulDiv(_pendingAssets, totalSupply() + 10, (totalAssets() - _pendingAssets) + 1);
-        // return _pendingAssets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), totalAssets() + 1);
+    function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {
+        return _pendingAssets.mulDiv(
+            totalSupply() + 10 ** _decimalsOffset(), (totalAssets() - _pendingAssets) + 1, rounding
+        );
     }
 
     // ERC-165 support

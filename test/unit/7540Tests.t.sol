@@ -38,7 +38,7 @@ contract ERC7540Tests is BaseTest {
     function testProcessPendingDeposits() public {
         // get shares user should get after 4626 mint occurs
         uint256 sharesDue = liquidityPool.convertToShares(DEPOSIT_10);
-        
+
         vm.startPrank(user1);
         liquidityPool.requestDeposit(DEPOSIT_10, address(user1), address(user1));
         vm.stopPrank();
