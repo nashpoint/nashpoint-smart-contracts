@@ -217,7 +217,7 @@ contract ERC7540Tests is BaseTest {
         uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user));
         console2.log("sharesClaimable :", sharesClaimable);
 
-        // user1 mints all available share
+        // user mints all available share
         vm.startPrank(user);
         liquidityPool.mint(sharesClaimable, address(user));
         vm.stopPrank();
@@ -236,6 +236,26 @@ contract ERC7540Tests is BaseTest {
 
         // assert any delta is only due to rounding
         assertApproxEqAbs(delta, 0, 10);
+
+        vm.startPrank(user);
+        liquidityPool.requestRedeem(sharesReceived, user, user);
+        vm.stopPrank();
+
+        uint256 assetsRequested = liquidityPool.pendingRedeemRequest(user);
+        console2.log("assetsRequested :", assetsRequested);
+
+        // assert any delta is due to rounding
+        assertApproxEqAbs(assetsRequested, amount, 100);
+
+        vm.startPrank(manager);
+        liquidityPool.processPendingRedemptions();
+        vm.stopPrank();
+
+        uint256 assetsClaimable = liquidityPool.claimableRedeemRequest(0, user);
+        console2.log("assetsClaimable :", assetsClaimable);
+
+        // assert any delta is due to rounding
+        assertApproxEqAbs(assetsClaimable, amount, 100);
     }
 
     // Helper Functions
