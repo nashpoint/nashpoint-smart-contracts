@@ -68,6 +68,7 @@ contract BaseTest is Test {
 
         vm.startPrank(address(bestia));
         usdc.approve(address(sUSDC), type(uint256).max);
+        liquidityPool.approve(address(liquidityPool), type(uint256).max);
         vm.stopPrank();
 
         vm.startPrank(address(manager));

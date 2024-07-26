@@ -56,6 +56,7 @@ contract ERC7540Tests is BaseTest {
         // assert any rounding is in favour of the vault
         assertGt(sharesDue, sharesClaimable);
 
+        // users 2 and 3 depopsit and banker procesess deposits
         vm.startPrank(user2);
         liquidityPool.requestDeposit(DEPOSIT_10, address(user2), address(user2));
         vm.stopPrank();
@@ -145,7 +146,7 @@ contract ERC7540Tests is BaseTest {
     }
 
     function testRequestRedeem() public {
-        user1DepositsAndMints();
+        userDepositsAndMints(user1, DEPOSIT_10);
         uint256 user1Shares = liquidityPool.balanceOf(address(user1));
         console2.log("user1Shares", user1Shares);
 
@@ -170,19 +171,31 @@ contract ERC7540Tests is BaseTest {
         liquidityPool.requestRedeem(0, address(user1), address(user1));
 
         vm.stopPrank();
+    }
 
-        // TODO: rework this into its own test tomorrow
+    function testProcessPendingRememptions() public {
+        userDepositsAndMints(user1, DEPOSIT_10);
+
+        vm.startPrank(user1);
+        uint256 user1Shares = liquidityPool.balanceOf(address(user1));
+        liquidityPool.requestRedeem(user1Shares, address(user1), address(user1));
+        vm.stopPrank();
+
         vm.startPrank(manager);
         liquidityPool.processPendingRedemptions();
         vm.stopPrank();
 
-        // usdc.transfer(0x000000000000000000000000000000000000dEaD, usdc.balanceOf(address(user1)));
+        uint256 user1ClaimableAssets = liquidityPool.claimableRedeemRequest(0, address(user1));
+        console2.log(user1ClaimableAssets);
+
+        uint256 delta = DEPOSIT_10 - user1ClaimableAssets;
+        console2.log("delta ", delta);
     }
 
     // Helper Functions
-    function user1DepositsAndMints() public {
-        vm.startPrank(user1);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user1), address(user1));
+    function userDepositsAndMints(address user, uint256 amount) public {
+        vm.startPrank(user);
+        liquidityPool.requestDeposit(amount, address(user), address(user));
         vm.stopPrank();
 
         vm.startPrank(manager);
@@ -190,11 +203,11 @@ contract ERC7540Tests is BaseTest {
         vm.stopPrank();
 
         // get shares made claimable to user after deposits processed
-        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user1));
+        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user));
 
         // user1 mints all available share
-        vm.startPrank(user1);
-        liquidityPool.mint(sharesClaimable, address(user1));
+        vm.startPrank(user);
+        liquidityPool.mint(sharesClaimable, address(user));
         vm.stopPrank();
     }
 }
