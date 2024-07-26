@@ -56,7 +56,7 @@ contract ERC7540Tests is BaseTest {
         // assert any rounding is in favour of the vault
         assertGt(sharesDue, sharesClaimable);
 
-        // users 2 and 3 depopsit and banker procesess deposits
+        // users 2 and 3 deposit and banker procesess deposits
         vm.startPrank(user2);
         liquidityPool.requestDeposit(DEPOSIT_10, address(user2), address(user2));
         vm.stopPrank();
@@ -174,7 +174,9 @@ contract ERC7540Tests is BaseTest {
     }
 
     function testProcessPendingRememptions() public {
-        userDepositsAndMints(user1, DEPOSIT_10);
+        uint256 depositedAssets = DEPOSIT_10;
+        console2.log("depositedAssets :", depositedAssets);
+        userDepositsAndMints(user1, depositedAssets);
 
         vm.startPrank(user1);
         uint256 user1Shares = liquidityPool.balanceOf(address(user1));
@@ -186,18 +188,66 @@ contract ERC7540Tests is BaseTest {
         vm.stopPrank();
 
         uint256 user1ClaimableAssets = liquidityPool.claimableRedeemRequest(0, address(user1));
-        console2.log(user1ClaimableAssets);
+        console2.log("user1ClaimableAssets :", user1ClaimableAssets);
 
-        uint256 delta = DEPOSIT_10 - user1ClaimableAssets;
-        console2.log("delta ", delta);
+        uint256 delta = depositedAssets - user1ClaimableAssets;
+        console2.log("delta :", delta);
     }
 
-    // Helper Functions
-    function userDepositsAndMints(address user, uint256 amount) public {
+    function testEndToEnd() public {
+        address user = address(user1);
+        uint256 amount = DEPOSIT_10;
+        uint256 startingAssets = liquidityPool.totalAssets();
+        uint256 managerShares = liquidityPool.balanceOf(address(manager));
+
+        // assert the starting balance of the vault = shares held by manager 1:1
+        assertEq(startingAssets, managerShares);
+
+        console2.log("startingAssets :", startingAssets);
+        console2.log("managerShares :", managerShares);
+        console2.log("original deposit :", amount);
+
         vm.startPrank(user);
         liquidityPool.requestDeposit(amount, address(user), address(user));
         vm.stopPrank();
 
+        vm.startPrank(manager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+
+        // get shares made claimable to user after deposits processed
+        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user));
+        console2.log("sharesClaimable :", sharesClaimable);
+
+        uint256 availableAssets = liquidityPool.convertToAssets(sharesClaimable);
+        console2.log("availableAssets :", availableAssets);
+
+        // user1 mints all available share
+        vm.startPrank(user);
+        liquidityPool.mint(sharesClaimable, address(user));
+        vm.stopPrank();
+
+        uint256 sharesReceived = liquidityPool.balanceOf(user);
+        console2.log("sharesReceived :", sharesReceived);
+
+        uint256 expectedReturnedAssets = liquidityPool.convertToAssets(sharesReceived);
+        console2.log("expectedReturnedAssets :", expectedReturnedAssets);
+
+        uint256 delta = amount - expectedReturnedAssets;
+        console2.log("delta :", delta);
+
+        // assert delta is only due to rounding
+        // assertApproxEqAbs(delta, 0, 10);
+    }
+
+    // Helper Functions
+    function userDepositsAndMints(address user, uint256 amount) public {
+        // user requests depost of amount
+        vm.startPrank(user);
+        liquidityPool.requestDeposit(amount, address(user), address(user));
+        vm.stopPrank();
+
+        // manager processes all pending deposits
         vm.startPrank(manager);
         liquidityPool.processPendingDeposits();
         vm.stopPrank();

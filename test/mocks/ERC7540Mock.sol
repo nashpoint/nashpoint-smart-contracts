@@ -159,7 +159,17 @@ contract ERC7540Mock is ERC4626, ERC165 {
             totalPendingAssets += pendingDepositRequests[i].amount;
         }
 
+        // new shares = assets * totalShares / totalAssets
+
+        // convertToShares()
+        // shares = assets * totalSupply / totalAssets
+
         // Calculate total shares to mint
+        
+        
+        // WRONG: uint256 totalShares = convertToShares(totalPendingAssets) * (1e18 + totalPendingAssets) / totalPendingAssets;
+
+       // create a new function here that converts pending assets to shares
         uint256 totalShares = convertToShares(totalPendingAssets);
 
         // Calculate share/asset ratio
