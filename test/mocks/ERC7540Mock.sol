@@ -170,7 +170,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
         // WRONG: uint256 totalShares = convertToShares(totalPendingAssets) * (1e18 + totalPendingAssets) / totalPendingAssets;
 
        // create a new function here that converts pending assets to shares
-        uint256 totalShares = convertToShares(totalPendingAssets);
+        uint256 totalShares = convertPendingToShares(totalPendingAssets);
 
         // Calculate share/asset ratio
         uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets);
@@ -248,6 +248,12 @@ contract ERC7540Mock is ERC4626, ERC165 {
         _mint(receiver, shares);
 
         emit Deposit(msg.sender, receiver, assets, shares);
+    }
+
+    function convertPendingToShares(uint256 _pendingAssets) internal view returns(uint256) {
+
+        return Math.mulDiv(_pendingAssets, totalSupply() + 10, (totalAssets() - _pendingAssets) + 1);
+        // return _pendingAssets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), totalAssets() + 1);
     }
 
     // ERC-165 support
