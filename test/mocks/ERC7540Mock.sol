@@ -165,7 +165,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
         uint256 totalShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
 
         // Calculate share/asset ratio
-        uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets);
+        uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets, Math.Rounding.Floor);
 
         // Allocate shares to each depositor
         for (uint256 i = 0; i < pendingDepositCount; i++) {

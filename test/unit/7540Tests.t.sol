@@ -14,6 +14,7 @@ contract ERC7540Tests is BaseTest {
         // assert user1 pendingDeposits = deposited amount
         uint256 user1PendingDeposits = liquidityPool.pendingDepositRequest(address(user1));
         assertEq(DEPOSIT_10, user1PendingDeposits);
+        console2.log("user1PendingDeposits :", user1PendingDeposits);
 
         vm.startPrank(user1);
         liquidityPool.requestDeposit(DEPOSIT_10, address(user1), address(user1));
@@ -26,9 +27,11 @@ contract ERC7540Tests is BaseTest {
         // basic math checks
         user1PendingDeposits = liquidityPool.pendingDepositRequest(address(user1));
         assertEq(user1PendingDeposits, DEPOSIT_10 * 2);
+        console2.log("user1PendingDeposits :", user1PendingDeposits);
 
         uint256 user2PendingDeposits = liquidityPool.pendingDepositRequest(address(user2));
         assertEq(user2PendingDeposits, DEPOSIT_10);
+        console2.log("user2PendingDeposits :", user2PendingDeposits);
 
         // assert user1 cannot claim yet
         uint256 user1ClaimableDeposits = liquidityPool.claimableDepositRequest(0, address(user1));
@@ -145,6 +148,7 @@ contract ERC7540Tests is BaseTest {
 
         // assert that claimableDepositRequests is incrementing processed requests
         assertGt(user4sharesClaimable_B, user4sharesClaimable_A);
+
     }
 
     function testRequestRedeem() public {
@@ -258,6 +262,70 @@ contract ERC7540Tests is BaseTest {
         assertApproxEqAbs(assetsClaimable, amount, 100);
     }
 
+    function testMultipleMints() public {
+        uint256 amount = DEPOSIT_10 - 1;
+
+        uint256 expectedShares = liquidityPool.convertToShares(amount);
+        console2.log("expectedShares :", expectedShares);
+
+        vm.startPrank(user1);
+        liquidityPool.requestDeposit(amount, address(user1), address(user1));
+        vm.stopPrank();
+
+        uint256 depositedAssets = liquidityPool.pendingDepositRequest((address(user1)));
+        console2.log("depositedAssets :", depositedAssets);
+
+        managerProcessesDeposits();
+
+        uint256 user1claimableShares = liquidityPool.claimableDepositRequest(0, address(user1));
+        console2.log("user1claimableShares :", user1claimableShares);
+
+        vm.startPrank(user1);
+        liquidityPool.mint(user1claimableShares, address(user1));
+        vm.stopPrank();
+
+        uint256 user1shares = liquidityPool.balanceOf(address(user1));
+        console2.log("user1shares :", user1shares);
+
+        console2.log("liquidityPool.totalAssets() :", liquidityPool.totalAssets());
+        console2.log("liquidityPool.totalSupply() :", liquidityPool.totalSupply());
+
+        // assert shares and assets are 1:1
+        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
+
+        uint256 user2expectedShares = liquidityPool.convertToShares(amount);
+        uint256 user3expectedShares = liquidityPool.convertToShares(amount);
+        uint256 user4expectedShares = liquidityPool.convertToShares(amount);
+        console2.log("expectedShares :", user2expectedShares);
+
+        userRequestsDeposit(user2, amount);
+        userRequestsDeposit(user3, amount);
+        userRequestsDeposit(user4, amount);
+
+        managerProcessesDeposits();
+
+        uint256 user2claimableShares = liquidityPool.claimableDepositRequest(0, user2);
+        uint256 user3claimableShares = liquidityPool.claimableDepositRequest(0, user3);
+        uint256 user4claimableShares = liquidityPool.claimableDepositRequest(0, user4);
+        console2.log("user2claimableShares :", user2claimableShares);
+        console2.log("user3claimableShares :", user3claimableShares);
+        console2.log("user4claimableShares :", user4claimableShares);
+
+        assertEq(user2expectedShares, user2claimableShares);
+        assertEq(user3expectedShares, user3claimableShares);
+        assertEq(user4expectedShares, user4claimableShares);
+
+        userMints(address(user2), user2claimableShares);
+        userMints(address(user3), user3claimableShares);
+        userMints(address(user4), user4claimableShares);
+
+        console2.log("liquidityPool.totalAssets() :", liquidityPool.totalAssets());
+        console2.log("liquidityPool.totalSupply() :", liquidityPool.totalSupply());
+
+        // assert shares and assets are 1:1
+        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
+    }
+
     // Helper Functions
     function userDepositsAndMints(address user, uint256 amount) public {
         // user requests depost of amount
@@ -276,6 +344,24 @@ contract ERC7540Tests is BaseTest {
         // user1 mints all available share
         vm.startPrank(user);
         liquidityPool.mint(sharesClaimable, address(user));
+        vm.stopPrank();
+    }
+
+    function userRequestsDeposit(address user, uint256 amount) public {
+        vm.startPrank(user);
+        liquidityPool.requestDeposit(amount, address(user), address(user));
+        vm.stopPrank();
+    }
+
+    function userMints(address user, uint256 amount) public {
+        vm.startPrank(user);
+        liquidityPool.mint(amount, address(user));
+        vm.stopPrank();
+    }
+
+    function managerProcessesDeposits() public {
+        vm.startPrank(manager);
+        liquidityPool.processPendingDeposits();
         vm.stopPrank();
     }
 }
