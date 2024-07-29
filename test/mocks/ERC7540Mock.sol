@@ -35,9 +35,11 @@ contract ERC7540Mock is ERC4626, ERC165 {
     );
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
-    // Errors
+    // Errors TODO: rename these shitty errors
     error NoPendingDepositAvailable();
+    error NoPendingRedeemAvailable();
     error ExceedsPendingDeposit();
+    error ExceedsPendingRedeem();
 
     // Variables
     uint256 public currentRequestId = 0; // matches centrifuge implementation
@@ -240,6 +242,31 @@ contract ERC7540Mock is ERC4626, ERC165 {
         _mint(receiver, shares);
 
         emit Deposit(msg.sender, receiver, assets, shares);
+    }
+
+    function withdraw(uint256 assets, address receiver) public returns (uint256 shares) {
+        uint256 requestId = currentRequestId;
+        address controller = msg.sender;
+
+        if (claimableRedeemRequests[requestId][controller] == 0) {
+            revert NoPendingRedeemAvailable();
+        }
+
+        if (assets > claimableRedeemRequests[requestId][controller]) {
+            revert ExceedsPendingRedeem();
+        }
+
+        shares = convertToAssets(assets);
+
+        claimableDepositRequests[requestId][controller] -= assets;
+
+        _burn(controller, shares);
+
+        // Transfer assets
+        IERC20(asset()).transfer(receiver, assets);
+
+        emit Withdraw(msg.sender, receiver, controller, assets, shares);
+        return shares;
     }
 
     function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {

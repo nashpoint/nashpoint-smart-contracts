@@ -61,7 +61,7 @@ contract ERC7540Tests is BaseTest {
             assertGt(sharesDue, sharesClaimable);
         }
 
-        // users 2 and 3 deposit and banker procesess deposits
+        // users 2 and 3 deposit and banker processes deposits
         vm.startPrank(user2);
         liquidityPool.requestDeposit(DEPOSIT_10, address(user2), address(user2));
         vm.stopPrank();
@@ -100,7 +100,7 @@ contract ERC7540Tests is BaseTest {
         liquidityPool.mint(sharesClaimable, address(user1));
         vm.stopPrank();
 
-        // assert no shares left to be minted
+        // assert no shares left to be minted for user1
         uint256 remainingShares = liquidityPool.claimableDepositRequest(0, address(user1));
         assertEq(remainingShares, 0);
 
@@ -263,6 +263,12 @@ contract ERC7540Tests is BaseTest {
 
         // assert any delta is due to rounding
         assertApproxEqAbs(assetsClaimable, amount, 100);
+
+        vm.startPrank(user);
+        liquidityPool.withdraw(assetsClaimable, user);
+        vm.stopPrank();
+
+        
     }
 
     function testMultipleMints() public {
