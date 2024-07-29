@@ -264,6 +264,9 @@ contract ERC7540Tests is BaseTest {
         // assert any delta is due to rounding
         assertApproxEqAbs(assetsClaimable, amount, 100);
 
+        uint256 vaultBalance = usdc.balanceOf(address(liquidityPool));
+        console2.log("vaultBalance :", vaultBalance);
+
         vm.startPrank(user);
         liquidityPool.withdraw(assetsClaimable, user);
         vm.stopPrank();

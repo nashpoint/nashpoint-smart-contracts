@@ -256,11 +256,11 @@ contract ERC7540Mock is ERC4626, ERC165 {
             revert ExceedsPendingRedeem();
         }
 
-        shares = convertToAssets(assets);
+        shares = convertToShares(assets);
 
-        claimableDepositRequests[requestId][controller] -= assets;
+        claimableRedeemRequests[requestId][controller] -= assets;
 
-        _burn(controller, shares);
+        _burn(address(this), shares);
 
         // Transfer assets
         IERC20(asset()).transfer(receiver, assets);
