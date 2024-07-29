@@ -148,7 +148,6 @@ contract ERC7540Tests is BaseTest {
 
         // assert that claimableDepositRequests is incrementing processed requests
         assertGt(user4sharesClaimable_B, user4sharesClaimable_A);
-
     }
 
     function testRequestRedeem() public {
@@ -180,24 +179,28 @@ contract ERC7540Tests is BaseTest {
     }
 
     function testProcessPendingRememptions() public {
+        // user deposits and mints 10 units
         uint256 depositedAssets = DEPOSIT_10;
-        console2.log("depositedAssets :", depositedAssets);
         userDepositsAndMints(user1, depositedAssets);
+        console2.log("depositedAssets :", depositedAssets);
 
+        // get full balance of user and request redeem
         vm.startPrank(user1);
         uint256 user1Shares = liquidityPool.balanceOf(address(user1));
         liquidityPool.requestRedeem(user1Shares, address(user1), address(user1));
         vm.stopPrank();
 
+        // manager processes pending redemptions
         vm.startPrank(manager);
         liquidityPool.processPendingRedemptions();
         vm.stopPrank();
 
-        uint256 user1ClaimableAssets = liquidityPool.claimableRedeemRequest(0, address(user1));
-        console2.log("user1ClaimableAssets :", user1ClaimableAssets);
+        // get claimable assets
+        uint256 claimableAssets = liquidityPool.claimableRedeemRequest(0, address(user1));
+        console2.log("user1ClaimableAssets :", claimableAssets);
 
-        uint256 delta = depositedAssets - user1ClaimableAssets;
-        console2.log("delta :", delta);
+        // assert the user assets that can be withdrawn == user assets deposited
+        assertEq(depositedAssets, claimableAssets);
     }
 
     function testEndToEnd() public {
