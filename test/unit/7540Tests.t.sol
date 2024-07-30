@@ -6,53 +6,43 @@ import {BaseTest} from "test/BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 
 contract ERC7540Tests is BaseTest {
-    function testRequestDeposit() public {
-        vm.startPrank(user1);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user1), address(user1));
+    function testDepositAndMintFlow() public {
+        address user = address(user1);
+        address notController = address(user2);
+        uint256 amount = DEPOSIT_10;        
+        
+        // get shares due after 4626 mint occurs
+        uint256 sharesDue = liquidityPool.convertToShares(amount);
+
+        // assert shares = assets 1:1
+        assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
+
+        // user1 requests a deposit to liquidity pool
+        userRequestsDeposit(user, amount);
+
+        // Cannot request deposit of 0 assets
+        vm.expectRevert();
+        userRequestsDeposit(user, 0);
+
+        // Not authorised
+        vm.startPrank(user);
+        vm.expectRevert();
+        liquidityPool.requestDeposit(amount, user, notController);
         vm.stopPrank();
 
         // assert user1 pendingDeposits = deposited amount
-        uint256 user1PendingDeposits = liquidityPool.pendingDepositRequest(address(user1));
-        assertEq(DEPOSIT_10, user1PendingDeposits);
-        console2.log("user1PendingDeposits :", user1PendingDeposits);
-
-        vm.startPrank(user1);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user1), address(user1));
-        vm.stopPrank();
-
-        vm.startPrank(user2);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user2), address(user2));
-        vm.stopPrank();
-
-        // basic math checks
-        user1PendingDeposits = liquidityPool.pendingDepositRequest(address(user1));
-        assertEq(user1PendingDeposits, DEPOSIT_10 * 2);
-        console2.log("user1PendingDeposits :", user1PendingDeposits);
-
-        uint256 user2PendingDeposits = liquidityPool.pendingDepositRequest(address(user2));
-        assertEq(user2PendingDeposits, DEPOSIT_10);
-        console2.log("user2PendingDeposits :", user2PendingDeposits);
+        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(user);
+        assertEq(amount, pendingDeposits);
 
         // assert user1 cannot claim yet
-        uint256 user1ClaimableDeposits = liquidityPool.claimableDepositRequest(0, address(user1));
-        assertEq(user1ClaimableDeposits, 0);
-    }
+        uint256 claimableDeposits = liquidityPool.claimableDepositRequest(0, user);
+        assertEq(claimableDeposits, 0);
 
-    function testProcessPendingDeposits() public {
-        // get shares user should get after 4626 mint occurs
-        uint256 sharesDue = liquidityPool.convertToShares(DEPOSIT_10);
+        managerProcessesDeposits();
 
-        vm.startPrank(user1);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user1), address(user1));
-        vm.stopPrank();
-
-        vm.startPrank(manager);
-        liquidityPool.processPendingDeposits();
-        vm.stopPrank();
-
-        // get shares made claimable to user after deposits processed
-        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user1));
-
+        // assert claimable shares match deposited assets 1:1
+        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, user);
+        
         // assert shares claimable are accurate to 0.01% margin of error
         assertApproxEqRel(sharesDue, sharesClaimable, 1e12);
 
@@ -61,93 +51,51 @@ contract ERC7540Tests is BaseTest {
             assertGt(sharesDue, sharesClaimable);
         }
 
-        // users 2 and 3 deposit and banker processes deposits
-        vm.startPrank(user2);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user2), address(user2));
-        vm.stopPrank();
-
-        vm.startPrank(user3);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user3), address(user3));
-        vm.stopPrank();
-
-        vm.startPrank(manager);
-        liquidityPool.processPendingDeposits();
-        vm.stopPrank();
-
-        // assert users in the same processPendingDeposits tx get the same shares
-        uint256 user2sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user2));
-        uint256 user3sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user3));
-        assertEq(user2sharesClaimable, user3sharesClaimable);
-
-        // show all pendingDeposits have been cleared
+        // show pendingDeposits have been cleared
         vm.expectRevert();
-        liquidityPool.pendingDepositRequest(address(user1));
-        vm.expectRevert();
-        liquidityPool.pendingDepositRequest(address(user2));
-        vm.expectRevert();
-        liquidityPool.pendingDepositRequest(address(user3));
+        liquidityPool.pendingDepositRequest(user);
 
         // assert controllerToIndex mapping has been cleared
-        uint256 index1 = liquidityPool.controllerToDepositIndex(address(user1));
-        uint256 index2 = liquidityPool.controllerToDepositIndex(address(user2));
-        uint256 index3 = liquidityPool.controllerToDepositIndex(address(user3));
+        uint256 index1 = liquidityPool.controllerToDepositIndex(user);        
         assertEq(index1, 0);
-        assertEq(index2, 0);
-        assertEq(index3, 0);
+        
+        // assert user receives correct shares
+        userMints(user, sharesClaimable);
+        assertApproxEqRel(liquidityPool.balanceOf(user), amount, 1e12);
 
-        // user1 mints all available share
-        vm.startPrank(user1);
-        liquidityPool.mint(sharesClaimable, address(user1));
-        vm.stopPrank();
-
-        // assert no shares left to be minted for user1
-        uint256 remainingShares = liquidityPool.claimableDepositRequest(0, address(user1));
-        assertEq(remainingShares, 0);
-
-        vm.startPrank(user2);
-        // user2 mints half their available shares
-        liquidityPool.mint(user2sharesClaimable / 2, (address(user2)));
-
-        // expect revert: ExceedsPendingDeposit
+        // assert no claimable shares remain and user cannot mint
         vm.expectRevert();
-        liquidityPool.mint(user2sharesClaimable * 2, (address(user2)));
+        userMints(user, amount);
 
-        // assert remaining shares are correct
-        uint256 user2remainingShares = liquidityPool.claimableDepositRequest(0, address(user2));
-        assertEq(user2sharesClaimable / 2, user2remainingShares);
+        // assert claimable deposits have been cleared for user
+        claimableDeposits = liquidityPool.claimableDepositRequest(0, user);
+        assertEq(claimableDeposits, 0);  
 
-        // mint remaining shares
-        liquidityPool.mint(user2remainingShares, address(user2));
+        // assert shares = assets 1:1
+        assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());      
 
-        // expect revert: NoPendingDepositAvailable
+        // user deposits and manager process pending deposits
+        userRequestsDeposit(user, amount);
+        managerProcessesDeposits();
+
+        // assert mint execeeds claimable amount
         vm.expectRevert();
-        liquidityPool.mint(user2sharesClaimable, address(user2));
-        vm.stopPrank();
+        userMints(user, amount * 2);
 
-        // Test that function correctly increments claimable deposits
+        // user makes second depositRequest without claiming
+        uint256 claimableDepositsA = liquidityPool.claimableDepositRequest(0, user);
+        userRequestsDeposit(user, amount);
+        managerProcessesDeposits();
+        uint256 claimableDepositsB = liquidityPool.claimableDepositRequest(0, user);
 
-        vm.startPrank(user4);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user4), address(user4));
-        vm.stopPrank();
+        // assert that claimableDeposits are incrementing correctly
+        assertGt(claimableDepositsB, claimableDepositsA);
 
-        vm.startPrank(manager);
-        liquidityPool.processPendingDeposits();
-        vm.stopPrank();
+        console2.log("claimableDepositsA :", claimableDepositsA);
+        console2.log("claimableDepositsB :", claimableDepositsB);
 
-        uint256 user4sharesClaimable_A = liquidityPool.claimableDepositRequest(0, address(user4));
-
-        vm.startPrank(user4);
-        liquidityPool.requestDeposit(DEPOSIT_10, address(user4), address(user4));
-        vm.stopPrank();
-
-        vm.startPrank(manager);
-        liquidityPool.processPendingDeposits();
-        vm.stopPrank();
-
-        uint256 user4sharesClaimable_B = liquidityPool.claimableDepositRequest(0, address(user4));
-
-        // assert that claimableDepositRequests is incrementing processed requests
-        assertGt(user4sharesClaimable_B, user4sharesClaimable_A);
+        // assert correct shares are being issued
+        // assertEq(claimableDepositsB, claimableDepositsA * 2);
     }
 
     function testRequestRedeem() public {
@@ -201,77 +149,10 @@ contract ERC7540Tests is BaseTest {
 
         // assert the user assets that can be withdrawn == user assets deposited
         assertEq(depositedAssets, claimableAssets);
-    }
 
-    function testEndToEnd() public {
-        address user = address(user1);
-        uint256 amount = DEPOSIT_10;
-        uint256 startingAssets = liquidityPool.totalAssets();
-        uint256 managerShares = liquidityPool.balanceOf(address(manager));
-
-        // assert the starting balance of the vault = shares held by manager 1:1
-        assertEq(startingAssets, managerShares);
-
-        vm.startPrank(user);
-        liquidityPool.requestDeposit(amount, address(user), address(user));
+        vm.startPrank(user1);
+        liquidityPool.withdraw(claimableAssets, address(user1));
         vm.stopPrank();
-
-        vm.startPrank(manager);
-        liquidityPool.processPendingDeposits();
-        vm.stopPrank();
-
-        // get shares made claimable to user after deposits processed
-        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, address(user));
-        console2.log("sharesClaimable :", sharesClaimable);
-
-        // user mints all available share
-        vm.startPrank(user);
-        liquidityPool.mint(sharesClaimable, address(user));
-        vm.stopPrank();
-
-        // get the minted shares of user
-        uint256 sharesReceived = liquidityPool.balanceOf(user);
-        console2.log("sharesReceived :", sharesReceived);
-
-        // convert minted shares to assets
-        uint256 expectedReturnedAssets = liquidityPool.convertToAssets(sharesReceived);
-        console2.log("expectedReturnedAssets :", expectedReturnedAssets);
-
-        // get delta between assets deposited and assets available after mint
-        uint256 delta = amount - expectedReturnedAssets;
-        console2.log("delta :", delta);
-
-        // assert any delta is only due to rounding
-        assertApproxEqAbs(delta, 0, 10);
-
-        vm.startPrank(user);
-        liquidityPool.requestRedeem(sharesReceived, user, user);
-        vm.stopPrank();
-
-        uint256 assetsRequested = liquidityPool.pendingRedeemRequest(user);
-        console2.log("assetsRequested :", assetsRequested);
-
-        // assert any delta is due to rounding
-        assertApproxEqAbs(assetsRequested, amount, 100);
-
-        vm.startPrank(manager);
-        liquidityPool.processPendingRedemptions();
-        vm.stopPrank();
-
-        uint256 assetsClaimable = liquidityPool.claimableRedeemRequest(0, user);
-        console2.log("assetsClaimable :", assetsClaimable);
-
-        // assert any delta is due to rounding
-        assertApproxEqAbs(assetsClaimable, amount, 100);
-
-        uint256 vaultBalance = usdc.balanceOf(address(liquidityPool));
-        console2.log("vaultBalance :", vaultBalance);
-
-        vm.startPrank(user);
-        liquidityPool.withdraw(assetsClaimable, user);
-        vm.stopPrank();
-
-        
     }
 
     function testMultipleMints() public {

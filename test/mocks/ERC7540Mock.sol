@@ -42,8 +42,10 @@ contract ERC7540Mock is ERC4626, ERC165 {
     error ExceedsPendingRedeem();
 
     // Variables
-    uint256 public currentRequestId = 0; // matches centrifuge implementation
+    uint256 public currentRequestId = 0; // matches centrifuge implementation    
     address public poolManager;
+
+    uint256 public totalClaimableShares; // represented as shares that can be minted
 
     // Modifiers
     modifier onlyManager() {
@@ -58,7 +60,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
         poolManager = _manager;
     }
 
-    // ERC-7540 specific functions
+    // DEPOSIT FLOW
     function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256 requestId) {
         require(assets > 0, "Cannot request deposit of 0 assets");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
@@ -86,7 +88,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return requestId;
     }
 
-    // requestId commented out as unused and causing erro.
+    // requestId commented out as unused and causing error.
     // TODO: check this later as this might break standard
     function pendingDepositRequest( /* uint256 RequestId, */ address controller)
         external
@@ -102,6 +104,38 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return claimableDepositRequests[requestId][controller];
     }
 
+    function processPendingDeposits() external onlyManager {
+        uint256 totalPendingAssets = 0;
+        uint256 pendingDepositCount = pendingDepositRequests.length;
+
+        // Sum up total pending assets
+        for (uint256 i = 0; i < pendingDepositCount; i++) {
+            totalPendingAssets += pendingDepositRequests[i].amount;
+        }
+
+        // create a new function here that converts pending assets to shares
+        uint256 totalShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
+
+        // Calculate share/asset ratio
+        uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets, Math.Rounding.Floor);
+
+        // Allocate shares to each depositor
+        for (uint256 i = 0; i < pendingDepositCount; i++) {
+            PendingRequest memory request = pendingDepositRequests[i];
+
+            uint256 shares = Math.mulDiv(request.amount, sharePerAsset, 1e18, Math.Rounding.Floor);
+
+            claimableDepositRequests[request.requestId][request.controller] += shares;
+
+            // Clear the controllerToIndex entry for this controller
+            delete controllerToDepositIndex[request.controller];
+        }
+
+        // Clear all processed data
+        delete pendingDepositRequests;
+    }
+
+    // REDEMPTION FLOW
     function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
         require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(owner) >= shares, "Insufficient shares");
@@ -143,48 +177,6 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return claimableRedeemRequests[requestId][controller];
     }
 
-    function isOperator(address controller, address operator) public view returns (bool) {
-        return _operators[controller][operator];
-    }
-
-    function setOperator(address operator, bool approved) external returns (bool) {
-        _operators[msg.sender][operator] = approved;
-        emit OperatorSet(msg.sender, operator, approved);
-        return true;
-    }
-
-    // Pool Manager Functions
-    function processPendingDeposits() external onlyManager {
-        uint256 totalPendingAssets = 0;
-        uint256 pendingDepositCount = pendingDepositRequests.length;
-
-        // Sum up total pending assets
-        for (uint256 i = 0; i < pendingDepositCount; i++) {
-            totalPendingAssets += pendingDepositRequests[i].amount;
-        }
-
-        // create a new function here that converts pending assets to shares
-        uint256 totalShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
-
-        // Calculate share/asset ratio
-        uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets, Math.Rounding.Floor);
-
-        // Allocate shares to each depositor
-        for (uint256 i = 0; i < pendingDepositCount; i++) {
-            PendingRequest memory request = pendingDepositRequests[i];
-
-            uint256 shares = Math.mulDiv(request.amount, sharePerAsset, 1e18, Math.Rounding.Floor);
-
-            claimableDepositRequests[request.requestId][request.controller] += shares;
-
-            // Clear the controllerToIndex entry for this controller
-            delete controllerToDepositIndex[request.controller];
-        }
-
-        // Clear all processed data
-        delete pendingDepositRequests;
-    }
-
     function processPendingRedemptions() external onlyManager {
         uint256 totalPendingShares = 0;
         uint256 pendingRedeemCount = pendingRedeemRequests.length;
@@ -214,6 +206,17 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
         // Clear all processed data
         delete pendingRedeemRequests;
+    }
+
+    // OPERATOR FUNCTIONS
+    function isOperator(address controller, address operator) public view returns (bool) {
+        return _operators[controller][operator];
+    }
+
+    function setOperator(address operator, bool approved) external returns (bool) {
+        _operators[msg.sender][operator] = approved;
+        emit OperatorSet(msg.sender, operator, approved);
+        return true;
     }
 
     // ERC4626 overrides
@@ -248,32 +251,40 @@ contract ERC7540Mock is ERC4626, ERC165 {
         uint256 requestId = currentRequestId;
         address controller = msg.sender;
 
+        // Check if there's any claimable redeem for the controller
         if (claimableRedeemRequests[requestId][controller] == 0) {
             revert NoPendingRedeemAvailable();
         }
 
+        // check if the requested assets exceed the claimable amount
         if (assets > claimableRedeemRequests[requestId][controller]) {
             revert ExceedsPendingRedeem();
         }
 
+        // calculate shares to burn
         shares = convertToShares(assets);
 
+        // update claimable balance
         claimableRedeemRequests[requestId][controller] -= assets;
 
+        // burn excess shares
         _burn(address(this), shares);
 
-        // Transfer assets
+        // Transfer assets back to user
         IERC20(asset()).transfer(receiver, assets);
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
         return shares;
     }
 
+    // HELPERS
     function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {
         return _pendingAssets.mulDiv(
             totalSupply() + 10 ** _decimalsOffset(), (totalAssets() - _pendingAssets) + 1, rounding
         );
     }
+
+    
 
     // ERC-165 support
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
