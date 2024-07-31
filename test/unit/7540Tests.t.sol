@@ -105,60 +105,61 @@ contract ERC7540Tests is BaseTest {
     }
 
     function testRequestRedeem() public {
-        userDepositsAndMints(user1, DEPOSIT_10);
-        uint256 user1Shares = liquidityPool.balanceOf(address(user1));
-        console2.log("user1Shares", user1Shares);
+        address user = address(user1);
+        address notController = address(user2);
+        uint256 amount = DEPOSIT_10;
 
-        vm.startPrank(user1);
-        liquidityPool.requestRedeem(user1Shares, address(user1), address(user1));
+        // user deposts and mints to set up the test
+        userDepositsAndMints(user, amount);
+        uint256 user1Shares = liquidityPool.balanceOf(user);
 
-        uint256 user1PendingRedemptions = liquidityPool.pendingRedeemRequest(address(user1));
-        console2.log("user1PendingRedemptions", user1PendingRedemptions);
+        // user requests redeem
+        userRequestsReedem(user, user1Shares);
+
+        uint256 pendingRedemptions = liquidityPool.pendingRedeemRequest(user);
 
         // assert pendingRedemptions has all user shares
-        assertEq(user1Shares, user1PendingRedemptions);
+        assertEq(user1Shares, pendingRedemptions);
+
+        vm.startPrank(user);
 
         // expectRevert: Insufficient shares
         vm.expectRevert();
-        liquidityPool.requestRedeem(user1Shares, address(user1), address(user1));
+        liquidityPool.requestRedeem(user1Shares, user, user);
 
         // assert user has transfered all their shares
-        assertEq(0, liquidityPool.balanceOf(address(user1)));
+        assertEq(0, liquidityPool.balanceOf(user));
 
         // expectRevert: Cannot request redeem of 0 shares
         vm.expectRevert();
-        liquidityPool.requestRedeem(0, address(user1), address(user1));
+        liquidityPool.requestRedeem(0, user, user);
+
+        // expectRevert: Not Authorized
+        vm.expectRevert();
+        liquidityPool.requestRedeem(0, user, notController);
 
         vm.stopPrank();
-    }
 
-    function testProcessPendingRememptions() public {
-        // user deposits and mints 10 units
-        uint256 depositedAssets = DEPOSIT_10;
-        userDepositsAndMints(user1, depositedAssets);
-        console2.log("depositedAssets :", depositedAssets);
-
-        // get full balance of user and request redeem
-        vm.startPrank(user1);
-        uint256 user1Shares = liquidityPool.balanceOf(address(user1));
-        liquidityPool.requestRedeem(user1Shares, address(user1), address(user1));
-        vm.stopPrank();
-
-        // manager processes pending redemptions
-        vm.startPrank(manager);
-        liquidityPool.processPendingRedemptions();
-        vm.stopPrank();
+        managerProcessesRedemptions();
 
         // get claimable assets
         uint256 claimableAssets = liquidityPool.claimableRedeemRequest(0, address(user1));
-        console2.log("user1ClaimableAssets :", claimableAssets);
 
         // assert the user assets that can be withdrawn == user assets deposited
-        assertEq(depositedAssets, claimableAssets);
+        assertEq(amount, claimableAssets);
 
-        vm.startPrank(user1);
-        liquidityPool.withdraw(claimableAssets, address(user1));
-        vm.stopPrank();
+        // user withdraws
+        userWithdraws(user, claimableAssets);
+
+        // assert user has full starting balance of asset again
+        assertEq(usdc.balanceOf(user), START_BALANCE);
+
+        // assert the vault is back in sync, shares == assets
+        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
+
+        // TODO: Test mutiple withdrawal requests without withdrawing
+
+        
     }
 
     function testMultipleMints() public {
@@ -258,9 +259,27 @@ contract ERC7540Tests is BaseTest {
         vm.stopPrank();
     }
 
+    function userRequestsReedem(address user, uint256 amount) public {
+        vm.startPrank(user);
+        liquidityPool.requestRedeem(amount, user, user);
+        vm.stopPrank();
+    }
+
+    function userWithdraws(address user, uint256 amount) public {
+        vm.startPrank(user);
+        liquidityPool.withdraw(amount, address(user));
+        vm.stopPrank();
+    }
+
     function managerProcessesDeposits() public {
         vm.startPrank(manager);
         liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+    }
+
+    function managerProcessesRedemptions() public {
+        vm.startPrank(manager);
+        liquidityPool.processPendingRedemptions();
         vm.stopPrank();
     }
 }

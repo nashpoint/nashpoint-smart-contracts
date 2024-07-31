@@ -25,7 +25,6 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // Arrays
     PendingRequest[] public pendingDepositRequests;
     PendingRequest[] public pendingRedeemRequests;
-    
 
     // Variables
     uint256 public currentRequestId = 0; // matches centrifuge implementation
@@ -222,7 +221,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return true;
     }
 
-    // ERC4626 overrides
+    // ERC4626 OVERRIDES
 
     function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
         uint256 requestId = currentRequestId;
