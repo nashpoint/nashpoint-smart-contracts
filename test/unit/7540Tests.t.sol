@@ -104,10 +104,11 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
     }
 
-    function testRequestRedeem() public {
+    function testRedeemAndWithdrawFlow() public {
         address user = address(user1);
         address notController = address(user2);
         uint256 amount = DEPOSIT_10;
+        uint256 startingBalance = START_BALANCE;
 
         // user deposts and mints to set up the test
         userDepositsAndMints(user, amount);
@@ -152,78 +153,80 @@ contract ERC7540Tests is BaseTest {
         userWithdraws(user, claimableAssets);
 
         // assert user has full starting balance of asset again
-        assertEq(usdc.balanceOf(user), START_BALANCE);
+        assertEq(usdc.balanceOf(user), startingBalance);
 
         // assert the vault is back in sync, shares == assets
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
 
-        // TODO: Test mutiple withdrawal requests without withdrawing
+        // user deposits and mints 3 x amount
+        userDepositsAndMints(user, amount * 3);
 
-        
+        // assert the vault is back in sync, shares == assets
+        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
+
+        // user requestsRedeem and manager processes
+        userRequestsReedem(user, amount);
+        managerProcessesRedemptions();
+
+        // assert the vault is back in sync, shares == assets
+        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
+
+        // user requestsRedeem and manager processes
+        userRequestsReedem(user, amount);
+        managerProcessesRedemptions();
+
+        // assert the vault is back in sync, shares == assets
+        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
+
+        // get claimable assets for user and assert they are right
+        claimableAssets = liquidityPool.claimableRedeemRequest(0, user);
+        assertEq(claimableAssets, amount * 2);
+
+        // user withdraws
+        userWithdraws(user, claimableAssets);
+
+        // assert the vault is back in sync, shares == assets
+        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
+
+        // user requestsRedeem and manager processes
+        userRequestsReedem(user, amount);
+        managerProcessesRedemptions();
+
+        // user withdraws
+        userWithdraws(user, amount);
+
+        // assert user has correct starting balance
+        assertEq(usdc.balanceOf(user), startingBalance);
+
+        // assert the vault is back in sync, shares == assets
+        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
     }
 
     function testMultipleMints() public {
-        uint256 amount = DEPOSIT_10 - 1;
+        uint256 amount = DEPOSIT_10;
+        uint256 startingAssets = DEPOSIT_100;
+        address[3] memory users = [user2, user3, user4];
 
-        uint256 expectedShares = liquidityPool.convertToShares(amount);
-        console2.log("expectedShares :", expectedShares);
+        // Initial deposit and mint for user1
+        userDepositsAndMints(user1, amount);
 
-        vm.startPrank(user1);
-        liquidityPool.requestDeposit(amount, address(user1), address(user1));
-        vm.stopPrank();
-
-        uint256 depositedAssets = liquidityPool.pendingDepositRequest((address(user1)));
-        console2.log("depositedAssets :", depositedAssets);
-
-        managerProcessesDeposits();
-
-        uint256 user1claimableShares = liquidityPool.claimableDepositRequest(0, address(user1));
-        console2.log("user1claimableShares :", user1claimableShares);
-
-        vm.startPrank(user1);
-        liquidityPool.mint(user1claimableShares, address(user1));
-        vm.stopPrank();
-
-        uint256 user1shares = liquidityPool.balanceOf(address(user1));
-        console2.log("user1shares :", user1shares);
-
-        console2.log("liquidityPool.totalAssets() :", liquidityPool.totalAssets());
-        console2.log("liquidityPool.totalSupply() :", liquidityPool.totalSupply());
-
-        // assert shares and assets are 1:1
-        assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
-
-        uint256 user2expectedShares = liquidityPool.convertToShares(amount);
-        uint256 user3expectedShares = liquidityPool.convertToShares(amount);
-        uint256 user4expectedShares = liquidityPool.convertToShares(amount);
-        console2.log("expectedShares :", user2expectedShares);
-
-        userRequestsDeposit(user2, amount);
-        userRequestsDeposit(user3, amount);
-        userRequestsDeposit(user4, amount);
+        // Multiple users deposit
+        for (uint256 i = 0; i < users.length; i++) {
+            userRequestsDeposit(users[i], amount);
+        }
 
         managerProcessesDeposits();
 
-        uint256 user2claimableShares = liquidityPool.claimableDepositRequest(0, user2);
-        uint256 user3claimableShares = liquidityPool.claimableDepositRequest(0, user3);
-        uint256 user4claimableShares = liquidityPool.claimableDepositRequest(0, user4);
-        console2.log("user2claimableShares :", user2claimableShares);
-        console2.log("user3claimableShares :", user3claimableShares);
-        console2.log("user4claimableShares :", user4claimableShares);
+        // Check and mint for multiple users
+        for (uint256 i = 0; i < users.length; i++) {
+            uint256 claimableShares = liquidityPool.claimableDepositRequest(0, users[i]);
+            userMints(users[i], claimableShares);
+            assertEq(liquidityPool.balanceOf(users[i]), claimableShares);
+        }
 
-        assertEq(user2expectedShares, user2claimableShares);
-        assertEq(user3expectedShares, user3claimableShares);
-        assertEq(user4expectedShares, user4claimableShares);
-
-        userMints(address(user2), user2claimableShares);
-        userMints(address(user3), user3claimableShares);
-        userMints(address(user4), user4claimableShares);
-
-        console2.log("liquidityPool.totalAssets() :", liquidityPool.totalAssets());
-        console2.log("liquidityPool.totalSupply() :", liquidityPool.totalSupply());
-
-        // assert shares and assets are 1:1
+        // Final assertions
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
+        assertEq(liquidityPool.totalSupply(), amount * 4 + startingAssets); // 1 initial + 3 additional users
     }
 
     // Helper Functions
