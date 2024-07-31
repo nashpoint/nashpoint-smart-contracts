@@ -223,7 +223,8 @@ contract ERC7540Mock is ERC4626, ERC165 {
     }
 
     // ERC4626 OVERRIDES
-
+    // TODO: Deposit
+    // TODO: Redeem
     function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
         uint256 requestId = currentRequestId;
         address controller = msg.sender;

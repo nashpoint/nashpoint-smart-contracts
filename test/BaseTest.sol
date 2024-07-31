@@ -74,6 +74,8 @@ contract BaseTest is Test {
         vm.startPrank(address(manager));
         usdc.approve(address(liquidityPool), type(uint256).max);
         usdc.mint(manager, START_BALANCE);
-        liquidityPool.deposit(DEPOSIT_100, address(manager));
+        liquidityPool.requestDeposit(DEPOSIT_100, address(manager), address(manager));
+        liquidityPool.processPendingDeposits();
+        liquidityPool.mint(DEPOSIT_100, address(manager));
     }
 }

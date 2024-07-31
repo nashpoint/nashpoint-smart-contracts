@@ -285,4 +285,11 @@ contract ERC7540Tests is BaseTest {
         liquidityPool.processPendingRedemptions();
         vm.stopPrank();
     }
+
+    function managerSeedsVault() public {
+        vm.startPrank(manager);
+        liquidityPool.requestDeposit(DEPOSIT_100, manager, manager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+    }
 }
