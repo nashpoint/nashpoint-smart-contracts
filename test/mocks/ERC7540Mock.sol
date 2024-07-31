@@ -25,6 +25,12 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // Arrays
     PendingRequest[] public pendingDepositRequests;
     PendingRequest[] public pendingRedeemRequests;
+    
+
+    // Variables
+    uint256 public currentRequestId = 0; // matches centrifuge implementation
+    address public poolManager;
+    uint256 public pendingShares; // represented as shares that can be minted
 
     // Events
     event DepositRequest(
@@ -40,12 +46,6 @@ contract ERC7540Mock is ERC4626, ERC165 {
     error NoPendingRedeemAvailable();
     error ExceedsPendingDeposit();
     error ExceedsPendingRedeem();
-
-    // Variables
-    uint256 public currentRequestId = 0; // matches centrifuge implementation    
-    address public poolManager;
-
-    uint256 public totalClaimableShares; // represented as shares that can be minted
 
     // Modifiers
     modifier onlyManager() {
@@ -126,6 +126,9 @@ contract ERC7540Mock is ERC4626, ERC165 {
             uint256 shares = Math.mulDiv(request.amount, sharePerAsset, 1e18, Math.Rounding.Floor);
 
             claimableDepositRequests[request.requestId][request.controller] += shares;
+
+            // keep a running total of shares to be minted by users
+            pendingShares += shares;
 
             // Clear the controllerToIndex entry for this controller
             delete controllerToDepositIndex[request.controller];
@@ -241,6 +244,9 @@ contract ERC7540Mock is ERC4626, ERC165 {
         // Update claimable balance
         claimableDepositRequests[requestId][controller] -= shares;
 
+        // subtract newly minted shares from pending shares
+        pendingShares -= shares;
+
         // Mint shares to the receiver
         _mint(receiver, shares);
 
@@ -280,11 +286,9 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // HELPERS
     function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {
         return _pendingAssets.mulDiv(
-            totalSupply() + 10 ** _decimalsOffset(), (totalAssets() - _pendingAssets) + 1, rounding
+            totalSupply() + pendingShares + 10 ** _decimalsOffset(), (totalAssets() - _pendingAssets) + 1, rounding
         );
     }
-
-    
 
     // ERC-165 support
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {

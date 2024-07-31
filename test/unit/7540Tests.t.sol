@@ -9,8 +9,8 @@ contract ERC7540Tests is BaseTest {
     function testDepositAndMintFlow() public {
         address user = address(user1);
         address notController = address(user2);
-        uint256 amount = DEPOSIT_10;        
-        
+        uint256 amount = DEPOSIT_10;
+
         // get shares due after 4626 mint occurs
         uint256 sharesDue = liquidityPool.convertToShares(amount);
 
@@ -20,11 +20,11 @@ contract ERC7540Tests is BaseTest {
         // user1 requests a deposit to liquidity pool
         userRequestsDeposit(user, amount);
 
-        // Cannot request deposit of 0 assets
+        // Revert: Cannot request deposit of 0 assets
         vm.expectRevert();
         userRequestsDeposit(user, 0);
 
-        // Not authorised
+        // Revert: Not authorised
         vm.startPrank(user);
         vm.expectRevert();
         liquidityPool.requestDeposit(amount, user, notController);
@@ -42,7 +42,7 @@ contract ERC7540Tests is BaseTest {
 
         // assert claimable shares match deposited assets 1:1
         uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, user);
-        
+
         // assert shares claimable are accurate to 0.01% margin of error
         assertApproxEqRel(sharesDue, sharesClaimable, 1e12);
 
@@ -56,9 +56,9 @@ contract ERC7540Tests is BaseTest {
         liquidityPool.pendingDepositRequest(user);
 
         // assert controllerToIndex mapping has been cleared
-        uint256 index1 = liquidityPool.controllerToDepositIndex(user);        
+        uint256 index1 = liquidityPool.controllerToDepositIndex(user);
         assertEq(index1, 0);
-        
+
         // assert user receives correct shares
         userMints(user, sharesClaimable);
         assertApproxEqRel(liquidityPool.balanceOf(user), amount, 1e12);
@@ -69,10 +69,10 @@ contract ERC7540Tests is BaseTest {
 
         // assert claimable deposits have been cleared for user
         claimableDeposits = liquidityPool.claimableDepositRequest(0, user);
-        assertEq(claimableDeposits, 0);  
+        assertEq(claimableDeposits, 0);
 
         // assert shares = assets 1:1
-        assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());      
+        assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
 
         // user deposits and manager process pending deposits
         userRequestsDeposit(user, amount);
@@ -91,11 +91,17 @@ contract ERC7540Tests is BaseTest {
         // assert that claimableDeposits are incrementing correctly
         assertGt(claimableDepositsB, claimableDepositsA);
 
-        console2.log("claimableDepositsA :", claimableDepositsA);
-        console2.log("claimableDepositsB :", claimableDepositsB);
-
         // assert correct shares are being issued
-        // assertEq(claimableDepositsB, claimableDepositsA * 2);
+        assertEq(claimableDepositsB, claimableDepositsA * 2);
+
+        // user mints all available shares
+        userMints(user, claimableDepositsB);
+
+        // assert user has correct number of shares for 3 deposits
+        assertEq(liquidityPool.balanceOf(user), amount * 3);
+
+        // assert shares = assets 1:1
+        assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
     }
 
     function testRequestRedeem() public {
