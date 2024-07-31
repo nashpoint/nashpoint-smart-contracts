@@ -30,6 +30,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     uint256 public currentRequestId = 0; // matches centrifuge implementation
     address public poolManager;
     uint256 public pendingShares; // represented as shares that can be minted
+    bool private initialized = false;
 
     // Events
     event DepositRequest(
@@ -282,6 +283,27 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
         return shares;
+    }
+
+    // 4626 OVERIDES THAT REVERT
+
+    function previewDeposit(uint256 assets) public view virtual override returns (uint256) {
+        if (initialized) {
+            revert("ERC7540: previewDeposit not available for async vault");
+        }
+        return super.previewDeposit(assets);
+    }
+
+    function previewMint(uint256) public view virtual override returns (uint256) {
+        revert("ERC7540: previewMint not available for async vault");
+    }
+
+    function previewWithdraw(uint256) public view virtual override returns (uint256) {
+        revert("ERC7540: previewWithdraw not available for async vault");
+    }
+
+    function previewRedeem(uint256) public view virtual override returns (uint256) {
+        revert("ERC7540: previewRedeem not available for async vault");
     }
 
     // HELPERS
