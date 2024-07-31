@@ -252,9 +252,11 @@ contract ERC7540Mock is ERC4626, ERC165 {
         emit Deposit(msg.sender, receiver, assets, shares);
     }
 
-    function withdraw(uint256 assets, address receiver) public returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {
         uint256 requestId = currentRequestId;
         address controller = msg.sender;
+
+        require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
 
         // Check if there's any claimable redeem for the controller
         if (claimableRedeemRequests[requestId][controller] == 0) {
@@ -278,7 +280,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
         // Transfer assets back to user
         IERC20(asset()).transfer(receiver, assets);
 
-        emit Withdraw(msg.sender, receiver, controller, assets, shares);
+        emit Withdraw(msg.sender, receiver, owner, assets, shares);
         return shares;
     }
 

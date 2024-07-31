@@ -270,7 +270,7 @@ contract ERC7540Tests is BaseTest {
 
     function userWithdraws(address user, uint256 amount) public {
         vm.startPrank(user);
-        liquidityPool.withdraw(amount, address(user));
+        liquidityPool.withdraw(amount, address(user), address(user));
         vm.stopPrank();
     }
 
