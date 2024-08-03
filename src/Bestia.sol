@@ -15,6 +15,7 @@ contract Bestia is ERC4626, Ownable {
     // State Constants
     uint256 public constant maxDiscount = 2e16; // percentage
     uint256 public constant targetReserveRatio = 10e16; // percentage
+    uint256 public constant maxDeviation = 1e16; // percentage
     int256 public constant scalingFactor = -5e18; // negative integer
 
     // PRBMath Types and Conversions
@@ -39,12 +40,14 @@ contract Bestia is ERC4626, Ownable {
     // ERRORS
     error ReserveBelowTargetRatio();
     error NotEnoughReserveCash();
+    error NotAComponent();
 
     // MODIFIERS
     modifier onlyBanker() {
         require(msg.sender == banker, "Issuer: Only banker can call this function");
         _;
     }
+
     constructor(
         address _asset,
         string memory _name,
@@ -57,7 +60,7 @@ contract Bestia is ERC4626, Ownable {
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
         vaultA = IERC4626(_vaultA);
         vaultB = IERC4626(_vaultB);
-        vaultC = IERC4626(_vaultC);        
+        vaultC = IERC4626(_vaultC);
         tempRWA = IERC4626(_tempRWA); // temp delete
         usdc = IERC20Metadata(_asset);
         banker = _banker;
@@ -66,8 +69,11 @@ contract Bestia is ERC4626, Ownable {
     // total assets override function
     function totalAssets() public view override returns (uint256) {
         uint256 depositAssetBalance = usdc.balanceOf(address(this));
-        uint256 shares = vaultA.balanceOf(address(this));
-        uint256 investedAssets = vaultA.convertToAssets(shares);
+
+        uint256 investedAssets = vaultA.convertToAssets(vaultA.balanceOf(address(this)))
+            + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
+            + vaultC.convertToAssets(vaultC.balanceOf(address(this)))
+            + tempRWA.convertToAssets(tempRWA.balanceOf(address(this)));
 
         return depositAssetBalance + investedAssets;
     }
@@ -145,19 +151,36 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // called by banker to deposit excess reserve into strategies
-    function investCash() external onlyBanker returns (uint256 cashInvested) {
+    function investCash(address _component) external onlyBanker returns (uint256 cashInvested) {
         uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;
 
         // checks if available reserve exceeds target ratio
         if (usdc.balanceOf(address(this)) < idealCashReserve) {
             revert ReserveBelowTargetRatio();
         } else {
-            uint256 investableCash = usdc.balanceOf(address(this)) - idealCashReserve;
-            vaultA.deposit(investableCash, address(this));
+            if (!isComponent(_component)) {
+                revert NotAComponent();
+            }
 
-            emit CashInvested(investableCash, address(vaultA));
-            return (investableCash);
+            uint256 depositAmount = getDepositAmount(_component);
+            ERC4626(_component).deposit(depositAmount, address(this));
+
+            emit CashInvested(depositAmount, address(vaultA));
+            console2.log("depositAmount ;", depositAmount);
+            return (depositAmount);
         }
+    }
+
+    function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
+        // calculate target holdings for that component
+        uint256 targetHoldings = totalAssets() * componentRatios[_component] / 1e18;
+        console2.log("targetHoldings", targetHoldings);
+
+        uint256 currentBalance = ERC20(_component).balanceOf(address(this));
+        uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
+        console2.log("delta :", delta);
+
+        return (delta);
     }
 
     function addComponent(address _component, uint256 _targetAssetRatio) public {
@@ -179,5 +202,3 @@ contract Bestia is ERC4626, Ownable {
         banker = _banker;
     }
 }
-
-// use instead of normal deposit function

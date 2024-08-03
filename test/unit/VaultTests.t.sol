@@ -32,7 +32,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // test that the cash reserve after investCash == the targetReserveRatio
@@ -50,7 +50,7 @@ contract VaultTests is BaseTest {
         // expect revert
         vm.startPrank(banker);
         vm.expectRevert(); // error CashBelowTargetRatio();
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // user 2 deposits 4 tokens to bring cash reserve to 12 tokens
@@ -59,7 +59,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // asserts cash reserve == target reserve
@@ -72,7 +72,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // asserts cash reserve == target reserve
@@ -113,7 +113,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -134,7 +134,7 @@ contract VaultTests is BaseTest {
 
         // banker invests excess reserve
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // user 2 withdraws the same amount they deposited
@@ -163,7 +163,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -194,7 +194,7 @@ contract VaultTests is BaseTest {
 
         // invest cash to return reserve ratio to 100%
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // withdraw usdc to bring reserve ratio below 100%
@@ -239,6 +239,7 @@ contract VaultTests is BaseTest {
         return (currentReserveRatio);
     }
 
+    // TODO: REFACTOR THIS LATER AND REMOVE HARDCODING FROM THE MAIN FILE
     function setStrategy() public {
         // add the 4626 Vaults
         bestia.addComponent(address(vaultA), 20e16);

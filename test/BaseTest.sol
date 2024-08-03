@@ -43,7 +43,14 @@ contract BaseTest is Test {
         vaultC = new ERC4626Mock(address(usdc));
         tempRWA = new ERC4626Mock(address(usdc));
         bestia = new Bestia(
-            address(usdc), "Bestia", "BEST", address(vaultA), address(vaultB), address(vaultC), address(tempRWA), address(banker)
+            address(usdc),
+            "Bestia",
+            "BEST",
+            address(vaultA),
+            address(vaultB),
+            address(vaultC),
+            address(tempRWA),
+            address(banker)
         );
         liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
     }
@@ -79,6 +86,9 @@ contract BaseTest is Test {
 
         vm.startPrank(address(bestia));
         usdc.approve(address(vaultA), type(uint256).max);
+        usdc.approve(address(vaultB), type(uint256).max);
+        usdc.approve(address(vaultC), type(uint256).max);
+        usdc.approve(address(tempRWA), type(uint256).max);
         liquidityPool.approve(address(liquidityPool), type(uint256).max);
         vm.stopPrank();
 
