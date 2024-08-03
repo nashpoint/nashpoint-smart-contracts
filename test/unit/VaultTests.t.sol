@@ -45,7 +45,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         // mint cash so invested assets = 100
-        usdc.mint(address(sUSDC), 10e18 + 1);
+        usdc.mint(address(vaultA), 10e18 + 1);
 
         // expect revert
         vm.startPrank(banker);
@@ -121,7 +121,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdc.mint(address(sUSDC), 10e18 + 1);
+        usdc.mint(address(vaultA), 10e18 + 1);
 
         // user 2 deposits 10e18 to bestia and burns the rest of their usdc
         vm.startPrank(user2);
@@ -171,7 +171,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdc.mint(address(sUSDC), 10e18 + 1);
+        usdc.mint(address(vaultA), 10e18 + 1);
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
@@ -220,10 +220,31 @@ contract VaultTests is BaseTest {
         assertGt(sharesReceived, nonAdjustedShares);
     }
 
+    function testAddComponent() public {
+        address component = address(vaultA);
+        uint256 targetRatio = 20e16;
+
+        // add the asset
+        bestia.addComponent(component, targetRatio);
+
+        // check it is there and has correct ratio
+        assertTrue(bestia.isComponent(component));
+        assertEq(bestia.getComponentRatio(component), targetRatio);
+    }
+
     // HELPER FUNCTIONS
     function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
         uint256 currentReserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
 
         return (currentReserveRatio);
+    }
+
+    function setStrategy() public {
+        // add the 4626 Vaults
+        bestia.addComponent(address(vaultA), 20e16);
+        bestia.addComponent(address(vaultB), 20e16);
+        bestia.addComponent(address(vaultC), 20e16);
+
+        // add the 7540 Vault (RWA)
     }
 }

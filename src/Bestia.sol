@@ -11,7 +11,7 @@ import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 import {console2} from "lib/forge-std/src/Test.sol";
 
-contract Issuer is ERC4626, Ownable {
+contract Bestia is ERC4626, Ownable {
     // State Constants
     uint256 public constant maxDiscount = 2e16; // percentage
     uint256 public constant targetReserveRatio = 10e16; // percentage
@@ -23,18 +23,17 @@ contract Issuer is ERC4626, Ownable {
     SD59x18 scalingFactorSD = sd(scalingFactor);
 
     address public banker;
-    IERC4626 public sUSDC;
-    IERC20Metadata public usdc;
+    IERC4626 public vaultA;
+    IERC4626 public vaultB;
+    IERC4626 public vaultC;
+    IERC20Metadata public usdc; // using 18 instead of 6 decimals here
 
-    struct Asset {
-        address token;
-        uint256 percentage;
-    }
-
-    Asset[] public assets;
+    mapping(address => uint256) public componentRatios;
+    address[] public componentAddresses;
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
+    event ComponentAdded(address _component, uint256 _ratio);
 
     // ERRORS
     error ReserveBelowTargetRatio();
@@ -46,12 +45,18 @@ contract Issuer is ERC4626, Ownable {
         _;
     }
 
-    constructor(address _asset, string memory _name, string memory _symbol, address _susdc, address _banker)
-        ERC20(_name, _symbol)
-        ERC4626(IERC20Metadata(_asset))
-        Ownable(msg.sender)
-    {
-        sUSDC = IERC4626(_susdc);
+    constructor(
+        address _asset,
+        string memory _name,
+        string memory _symbol,
+        address _vaultA,
+        address _vaultB,
+        address _vaultC,
+        address _banker
+    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
+        vaultA = IERC4626(_vaultA);
+        vaultB = IERC4626(_vaultB);
+        vaultC = IERC4626(_vaultC);
         usdc = IERC20Metadata(_asset);
         banker = _banker;
     }
@@ -59,8 +64,8 @@ contract Issuer is ERC4626, Ownable {
     // total assets override function
     function totalAssets() public view override returns (uint256) {
         uint256 depositAssetBalance = usdc.balanceOf(address(this));
-        uint256 shares = sUSDC.balanceOf(address(this));
-        uint256 investedAssets = sUSDC.convertToAssets(shares);
+        uint256 shares = vaultA.balanceOf(address(this));
+        uint256 investedAssets = vaultA.convertToAssets(shares);
 
         return depositAssetBalance + investedAssets;
     }
@@ -146,11 +151,26 @@ contract Issuer is ERC4626, Ownable {
             revert ReserveBelowTargetRatio();
         } else {
             uint256 investableCash = usdc.balanceOf(address(this)) - idealCashReserve;
-            sUSDC.deposit(investableCash, address(this));
+            vaultA.deposit(investableCash, address(this));
 
-            emit CashInvested(investableCash, address(sUSDC));
+            emit CashInvested(investableCash, address(vaultA));
             return (investableCash);
         }
+    }
+
+    function addComponent(address _component, uint256 _targetAssetRatio) public {
+        require(componentRatios[_component] == 0, "Asset already exists");
+
+        componentRatios[_component] = _targetAssetRatio;
+        componentAddresses.push(_component);
+    }
+
+    function isComponent(address _component) public view returns (bool) {
+        return componentRatios[_component] != 0;
+    }
+
+    function getComponentRatio(address _component) public view returns (uint256) {
+        return componentRatios[_component];
     }
 
     function setBanker(address _banker) public onlyOwner {
