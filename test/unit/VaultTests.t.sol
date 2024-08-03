@@ -246,5 +246,6 @@ contract VaultTests is BaseTest {
         bestia.addComponent(address(vaultC), 20e16);
 
         // add the 7540 Vault (RWA)
+        bestia.addComponent(address(tempRWA), 30e16); // temp delete
     }
 }

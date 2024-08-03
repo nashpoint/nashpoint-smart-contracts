@@ -32,13 +32,18 @@ contract BaseTest is Test {
     ERC4626Mock public immutable vaultC;
     ERC7540Mock public immutable liquidityPool;
 
+    // TEMP RWA POOL
+    // TODO: DELETE LATER AND REPLACE WITH 7540
+    ERC4626Mock public immutable tempRWA;
+
     constructor() {
         usdc = new ERC20Mock("Mock USDC", "USDC");
         vaultA = new ERC4626Mock(address(usdc));
         vaultB = new ERC4626Mock(address(usdc));
         vaultC = new ERC4626Mock(address(usdc));
+        tempRWA = new ERC4626Mock(address(usdc));
         bestia = new Bestia(
-            address(usdc), "Bestia", "BEST", address(vaultA), address(vaultB), address(vaultC), address(banker)
+            address(usdc), "Bestia", "BEST", address(vaultA), address(vaultB), address(vaultC), address(tempRWA), address(banker)
         );
         liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
     }

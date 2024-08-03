@@ -26,6 +26,7 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
+    IERC4626 public tempRWA; // temp file, replace with 7540
     IERC20Metadata public usdc; // using 18 instead of 6 decimals here
 
     mapping(address => uint256) public componentRatios;
@@ -44,7 +45,6 @@ contract Bestia is ERC4626, Ownable {
         require(msg.sender == banker, "Issuer: Only banker can call this function");
         _;
     }
-
     constructor(
         address _asset,
         string memory _name,
@@ -52,11 +52,13 @@ contract Bestia is ERC4626, Ownable {
         address _vaultA,
         address _vaultB,
         address _vaultC,
+        address _tempRWA, // temp delete
         address _banker
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
         vaultA = IERC4626(_vaultA);
         vaultB = IERC4626(_vaultB);
-        vaultC = IERC4626(_vaultC);
+        vaultC = IERC4626(_vaultC);        
+        tempRWA = IERC4626(_tempRWA); // temp delete
         usdc = IERC20Metadata(_asset);
         banker = _banker;
     }
