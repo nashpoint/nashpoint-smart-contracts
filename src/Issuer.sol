@@ -26,6 +26,13 @@ contract Issuer is ERC4626, Ownable {
     IERC4626 public sUSDC;
     IERC20Metadata public usdc;
 
+    struct Asset {
+        address token;
+        uint256 percentage;
+    }
+
+    Asset[] public assets;
+
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
 
@@ -59,48 +66,48 @@ contract Issuer is ERC4626, Ownable {
     }
 
     // TODO: override deposit function
-    function adjustedDeposit(uint256 assets, address receiver) public returns (uint256) {
+    function adjustedDeposit(uint256 _assets, address receiver) public returns (uint256) {
         uint256 maxAssets = maxDeposit(receiver);
-        if (assets > maxAssets) {
-            revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+        if (_assets > maxAssets) {
+            revert ERC4626ExceededMaxDeposit(receiver, _assets, maxAssets);
         }
 
         // gets the expected reserve ratio after tx
         int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(usdc.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));
+            int256(Math.mulDiv(usdc.balanceOf(address(this)) + _assets, 1e18, totalAssets() + _assets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
+        uint256 adjustedAssets = Math.mulDiv(_assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the shares to mint for swing factor applied
         uint256 sharesToMint = convertToShares(adjustedAssets);
 
         // recieves deposited assets but mints more shares based on swing factor applied
-        _deposit(_msgSender(), receiver, assets, sharesToMint);
+        _deposit(_msgSender(), receiver, _assets, sharesToMint);
 
         return (sharesToMint);
     }
 
     // TODO: override withdraw function
-    function adjustedWithdraw(uint256 assets, address receiver, address _owner) public returns (uint256) {
+    function adjustedWithdraw(uint256 _assets, address receiver, address _owner) public returns (uint256) {
         uint256 balance = usdc.balanceOf(address(this));
-        if (assets > balance) {
+        if (_assets > balance) {
             revert NotEnoughReserveCash();
         }
 
         uint256 maxAssets = maxWithdraw(_owner);
-        if (assets > maxAssets) {
-            revert ERC4626ExceededMaxWithdraw(_owner, assets, maxAssets);
+        if (_assets > maxAssets) {
+            revert ERC4626ExceededMaxWithdraw(_owner, _assets, maxAssets);
         }
 
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - _assets, 1e18, totalAssets() - _assets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
+        uint256 adjustedAssets = Math.mulDiv(_assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the share value associated with no swing factor
-        uint256 sharesToBurn = previewWithdraw(assets);
+        uint256 sharesToBurn = previewWithdraw(_assets);
 
         // returns the adjustedAssets to user but burns the correct amount of shares
         _withdraw(_msgSender(), receiver, _owner, adjustedAssets, sharesToBurn);
