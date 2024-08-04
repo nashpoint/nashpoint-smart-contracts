@@ -152,50 +152,50 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // called by banker to deposit excess reserve into strategies
+    // TODO: refactor this into something more efficient and include getDepositAmount logic
     function investCash(address _component) external onlyBanker returns (uint256 cashInvested) {
-        uint256 idealCashReserve = totalAssets() * targetReserveRatio / 1e18;
+        if (!isComponent(_component)) {
+            revert NotAComponent();
+        }
+
+        uint256 totalAssets_ = totalAssets();
+        uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
+        uint256 currentCash = usdc.balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
-        if (usdc.balanceOf(address(this)) < idealCashReserve) {
+        if (currentCash < idealCashReserve) {
             revert ReserveBelowTargetRatio();
-        } else {
-            // checks that asset is a component
-            if (!isComponent(_component)) {
-                revert NotAComponent();
-            }
+        }        
 
-            uint256 depositAmount = getDepositAmount(_component); 
+        // gets deposit amount
+        uint256 depositAmount = getDepositAmount(_component);
 
-            // checks if asset is within acceptable range of target
-            if (depositAmount < (totalAssets() * maxDeviation / 1e18)) {
-                revert ComponentWithinTargetRange();
-            }
-
-            // get max transaction size that will maintain reserve ratio
-            uint256 availableReserve = usdc.balanceOf(address(this)) - idealCashReserve;
-
-            // limits the depositAmount to this transaction size
-            if (depositAmount > availableReserve) {
-                depositAmount = availableReserve;
-            }
-
-            ERC4626(_component).deposit(depositAmount, address(this));
-
-            emit CashInvested(depositAmount, address(vaultA));
-            console2.log("depositAmount ;", depositAmount);
-            return (depositAmount);
+        // checks if asset is within acceptable range of target
+        if (depositAmount < (totalAssets_ * maxDeviation / 1e18)) {
+            revert ComponentWithinTargetRange();
         }
+
+        // get max transaction size that will maintain reserve ratio
+        uint256 availableReserve = currentCash - idealCashReserve;
+
+        // limits the depositAmount to this transaction size
+        if (depositAmount > availableReserve) {
+            depositAmount = availableReserve;
+        }
+
+        ERC4626(_component).deposit(depositAmount, address(this));
+
+        emit CashInvested(depositAmount, address(vaultA));
+        return (depositAmount);
     }
 
     // TODO: refactor this into investCash() and make it all more efficient
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         // calculate target holdings for that component
         uint256 targetHoldings = totalAssets() * componentRatios[_component] / 1e18;
-        console2.log("targetHoldings", targetHoldings);
-
         uint256 currentBalance = ERC20(_component).balanceOf(address(this));
+
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
-        console2.log("delta :", delta);
 
         return (delta);
     }
