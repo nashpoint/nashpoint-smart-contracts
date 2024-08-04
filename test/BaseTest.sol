@@ -23,6 +23,7 @@ contract BaseTest is Test {
     uint256 public constant START_BALANCE = 1000e18;
     uint256 public constant DEPOSIT_100 = 100e18;
     uint256 public constant DEPOSIT_10 = 10e18;
+    uint256 public constant DEPOSIT_1 = 1e18;
 
     // CONTRACTS
     Bestia public immutable bestia;

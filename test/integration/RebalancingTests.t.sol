@@ -16,17 +16,17 @@ contract RebalancingTests is BaseTest {
 
         // add the 7540 Vault (RWA)
         bestia.addComponent(address(tempRWA), 30e16); // temp delete
-        
-        // initial deposit 
+
+        // initial deposit
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
-        vm.stopPrank();        
+        vm.stopPrank();
 
         // banker rebalances bestia
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
-        bankerInvestsCash(address(tempRWA));        
+        bankerInvestsCash(address(tempRWA));
 
         // second deposit
         vm.startPrank(user1);
@@ -37,13 +37,35 @@ contract RebalancingTests is BaseTest {
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
-        bankerInvestsCash(address(tempRWA));      
-        
+        bankerInvestsCash(address(tempRWA));
+
         // assert the components are in the right proportion
-        assertEq(vaultA.balanceOf(address(bestia)) * 1e18 / bestia.totalAssets(), bestia.getComponentRatio(address(vaultA)));
-        assertEq(vaultB.balanceOf(address(bestia)) * 1e18 / bestia.totalAssets(), bestia.getComponentRatio(address(vaultB)));
-        assertEq(vaultC.balanceOf(address(bestia)) * 1e18 / bestia.totalAssets(), bestia.getComponentRatio(address(vaultC)));
-        assertEq(tempRWA.balanceOf(address(bestia)) * 1e18 / bestia.totalAssets(), bestia.getComponentRatio(address(tempRWA)));
+        assertEq(
+            vaultA.balanceOf(address(bestia)) * 1e18 / bestia.totalAssets(), bestia.getComponentRatio(address(vaultA))
+        );
+        assertEq(
+            vaultB.balanceOf(address(bestia)) * 1e18 / bestia.totalAssets(), bestia.getComponentRatio(address(vaultB))
+        );
+        assertEq(
+            vaultC.balanceOf(address(bestia)) * 1e18 / bestia.totalAssets(), bestia.getComponentRatio(address(vaultC))
+        );
+        assertEq(
+            tempRWA.balanceOf(address(bestia)) * 1e18 / bestia.totalAssets(), bestia.getComponentRatio(address(tempRWA))
+        );
+
+        // third deposit
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT_1 * 6, address(user1));
+        vm.stopPrank();
+
+        // expect revert as asset within range
+        vm.expectRevert();
+        bankerInvestsCash(address(vaultA));
+
+        // rebalances succeed as outside range, test would fail if these tx revert
+        bankerInvestsCash(address(vaultB));
+        bankerInvestsCash(address(vaultC));
+        bankerInvestsCash(address(tempRWA));
     }
 
     function bankerInvestsCash(address _component) public {

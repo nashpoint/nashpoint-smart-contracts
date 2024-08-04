@@ -27,7 +27,6 @@ contract VaultTests is BaseTest {
     }
 
     function testInvestCash() public {
-
         bestia.addComponent(address(vaultA), 90e16);
 
         vm.startPrank(user1);
@@ -66,8 +65,8 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         // asserts cash reserve == target reserve
-        expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;        
-        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);        
+        expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;
+        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
 
         // test large deposit of 1000e18 (about 10x total assets)
         vm.startPrank(user3);
@@ -166,7 +165,7 @@ contract VaultTests is BaseTest {
     function testAdjustedDeposit() public {
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16);
-        
+
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
