@@ -41,6 +41,7 @@ contract Bestia is ERC4626, Ownable {
     error ReserveBelowTargetRatio();
     error NotEnoughReserveCash();
     error NotAComponent();
+    error ComponentWithinTargetRange();
 
     // MODIFIERS
     modifier onlyBanker() {
@@ -158,11 +159,17 @@ contract Bestia is ERC4626, Ownable {
         if (usdc.balanceOf(address(this)) < idealCashReserve) {
             revert ReserveBelowTargetRatio();
         } else {
+            // checks that asset is a component
             if (!isComponent(_component)) {
                 revert NotAComponent();
             }
 
-            uint256 depositAmount = getDepositAmount(_component);
+            uint256 depositAmount = getDepositAmount(_component); // need to make sure you design this so it does not dip into target reserve
+
+            if (depositAmount < (totalAssets() * maxDeviation / 1e18)) {
+                revert ComponentWithinTargetRange();
+            }
+
             ERC4626(_component).deposit(depositAmount, address(this));
 
             emit CashInvested(depositAmount, address(vaultA));
