@@ -164,10 +164,19 @@ contract Bestia is ERC4626, Ownable {
                 revert NotAComponent();
             }
 
-            uint256 depositAmount = getDepositAmount(_component); // need to make sure you design this so it does not dip into target reserve
+            uint256 depositAmount = getDepositAmount(_component); 
 
+            // checks if asset is within acceptable range of target
             if (depositAmount < (totalAssets() * maxDeviation / 1e18)) {
                 revert ComponentWithinTargetRange();
+            }
+
+            // get max transaction size that will maintain reserve ratio
+            uint256 availableReserve = usdc.balanceOf(address(this)) - idealCashReserve;
+
+            // limits the depositAmount to this transaction size
+            if (depositAmount > availableReserve) {
+                depositAmount = availableReserve;
             }
 
             ERC4626(_component).deposit(depositAmount, address(this));
@@ -178,6 +187,7 @@ contract Bestia is ERC4626, Ownable {
         }
     }
 
+    // TODO: refactor this into investCash() and make it all more efficient
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         // calculate target holdings for that component
         uint256 targetHoldings = totalAssets() * componentRatios[_component] / 1e18;
