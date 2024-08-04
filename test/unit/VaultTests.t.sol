@@ -27,12 +27,15 @@ contract VaultTests is BaseTest {
     }
 
     function testInvestCash() public {
+
+        bestia.addComponent(address(vaultA), 90e16);
+
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // test that the cash reserve after investCash == the targetReserveRatio
@@ -45,12 +48,12 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         // mint cash so invested assets = 100
-        usdc.mint(address(sUSDC), 10e18 + 1);
+        usdc.mint(address(vaultA), 10e18 + 1);
 
         // expect revert
         vm.startPrank(banker);
         vm.expectRevert(); // error CashBelowTargetRatio();
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // user 2 deposits 4 tokens to bring cash reserve to 12 tokens
@@ -59,12 +62,12 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // asserts cash reserve == target reserve
-        expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;
-        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
+        expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;        
+        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);        
 
         // test large deposit of 1000e18 (about 10x total assets)
         vm.startPrank(user3);
@@ -72,7 +75,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // asserts cash reserve == target reserve
@@ -108,12 +111,15 @@ contract VaultTests is BaseTest {
     }
 
     function testAdjustedWithdraw() public {
+        // set the strategy to one asset at 90% holding
+        bestia.addComponent(address(vaultA), 90e16);
+
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -121,7 +127,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdc.mint(address(sUSDC), 10e18 + 1);
+        usdc.mint(address(vaultA), 10e18 + 1);
 
         // user 2 deposits 10e18 to bestia and burns the rest of their usdc
         vm.startPrank(user2);
@@ -134,7 +140,7 @@ contract VaultTests is BaseTest {
 
         // banker invests excess reserve
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // user 2 withdraws the same amount they deposited
@@ -158,12 +164,15 @@ contract VaultTests is BaseTest {
     }
 
     function testAdjustedDeposit() public {
+        // set the strategy to one asset at 90% holding
+        bestia.addComponent(address(vaultA), 90e16);
+        
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -171,7 +180,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdc.mint(address(sUSDC), 10e18 + 1);
+        usdc.mint(address(vaultA), 10e18 + 1);
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
@@ -194,7 +203,7 @@ contract VaultTests is BaseTest {
 
         // invest cash to return reserve ratio to 100%
         vm.startPrank(banker);
-        bestia.investCash();
+        bestia.investCash(address(vaultA));
         vm.stopPrank();
 
         // withdraw usdc to bring reserve ratio below 100%
@@ -220,10 +229,33 @@ contract VaultTests is BaseTest {
         assertGt(sharesReceived, nonAdjustedShares);
     }
 
+    function testAddComponent() public {
+        address component = address(vaultA);
+        uint256 targetRatio = 20e16;
+
+        // add the asset
+        bestia.addComponent(component, targetRatio);
+
+        // check it is there and has correct ratio
+        assertTrue(bestia.isComponent(component));
+        assertEq(bestia.getComponentRatio(component), targetRatio);
+    }
+
     // HELPER FUNCTIONS
     function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
         uint256 currentReserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
 
         return (currentReserveRatio);
+    }
+
+    // TODO: REFACTOR THIS LATER AND REMOVE HARDCODING FROM THE MAIN FILE
+    function setStrategy() public {
+        // add the 4626 Vaults
+        bestia.addComponent(address(vaultA), 20e16);
+        bestia.addComponent(address(vaultB), 20e16);
+        bestia.addComponent(address(vaultC), 20e16);
+
+        // add the 7540 Vault (RWA)
+        bestia.addComponent(address(tempRWA), 30e16); // temp delete
     }
 }

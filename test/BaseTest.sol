@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import {Issuer} from "../src/Issuer.sol";
+import {Bestia} from "../src/Bestia.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
@@ -25,15 +25,33 @@ contract BaseTest is Test {
     uint256 public constant DEPOSIT_10 = 10e18;
 
     // CONTRACTS
-    Issuer public immutable bestia;
+    Bestia public immutable bestia;
     ERC20Mock public immutable usdc;
-    ERC4626Mock public immutable sUSDC;
+    ERC4626Mock public immutable vaultA;
+    ERC4626Mock public immutable vaultB;
+    ERC4626Mock public immutable vaultC;
     ERC7540Mock public immutable liquidityPool;
+
+    // TEMP RWA POOL
+    // TODO: DELETE LATER AND REPLACE WITH 7540
+    ERC4626Mock public immutable tempRWA;
 
     constructor() {
         usdc = new ERC20Mock("Mock USDC", "USDC");
-        sUSDC = new ERC4626Mock(address(usdc));
-        bestia = new Issuer(address(usdc), "Bestia", "BEST", address(sUSDC), address(banker));
+        vaultA = new ERC4626Mock(address(usdc));
+        vaultB = new ERC4626Mock(address(usdc));
+        vaultC = new ERC4626Mock(address(usdc));
+        tempRWA = new ERC4626Mock(address(usdc));
+        bestia = new Bestia(
+            address(usdc),
+            "Bestia",
+            "BEST",
+            address(vaultA),
+            address(vaultB),
+            address(vaultC),
+            address(tempRWA),
+            address(banker)
+        );
         liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
     }
 
@@ -67,7 +85,10 @@ contract BaseTest is Test {
         vm.stopPrank();
 
         vm.startPrank(address(bestia));
-        usdc.approve(address(sUSDC), type(uint256).max);
+        usdc.approve(address(vaultA), type(uint256).max);
+        usdc.approve(address(vaultB), type(uint256).max);
+        usdc.approve(address(vaultC), type(uint256).max);
+        usdc.approve(address(tempRWA), type(uint256).max);
         liquidityPool.approve(address(liquidityPool), type(uint256).max);
         vm.stopPrank();
 
