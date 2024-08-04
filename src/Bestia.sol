@@ -27,7 +27,7 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
-    IERC4626 public tempRWA; // temp file, replace with 7540
+    IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540
     IERC20Metadata public usdc; // using 18 instead of 6 decimals here
 
     mapping(address => uint256) public componentRatios;
@@ -165,7 +165,7 @@ contract Bestia is ERC4626, Ownable {
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
             revert ReserveBelowTargetRatio();
-        }        
+        }
 
         // gets deposit amount
         uint256 depositAmount = getDepositAmount(_component);

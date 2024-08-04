@@ -58,12 +58,11 @@ contract RebalancingTests is BaseTest {
         bestia.deposit(DEPOSIT_1 * 6, address(user1));
         vm.stopPrank();
 
-        // banker rebalances bestia
         // expect revert as asset within range
         vm.expectRevert();
-        bankerInvestsCash(address(vaultA));   
+        bankerInvestsCash(address(vaultA));
 
-        // rebalances succeed as outside range
+        // rebalances succeed as outside range, test would fail if these tx revert
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
         bankerInvestsCash(address(tempRWA));
