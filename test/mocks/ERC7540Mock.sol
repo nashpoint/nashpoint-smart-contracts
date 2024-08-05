@@ -3,9 +3,10 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract ERC7540Mock is ERC4626, ERC165 {
+contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     using Math for uint256;
 
     // Mappings
@@ -234,6 +235,8 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // ERC4626 OVERRIDES
     // TODO: Deposit
     // TODO: Redeem
+
+    // TODO: overloads for all that use a seperate controller address
 
     function deposit(uint256 , address ) public pure override returns (uint256 ) {
         revert NotImplementedYet();
