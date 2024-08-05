@@ -46,6 +46,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     error NoPendingRedeemAvailable();
     error ExceedsPendingDeposit();
     error ExceedsPendingRedeem();
+    error NotImplementedYet();
 
     // Modifiers
     modifier onlyManager() {
@@ -225,6 +226,16 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // ERC4626 OVERRIDES
     // TODO: Deposit
     // TODO: Redeem
+
+    function deposit(uint256 , address ) public pure override returns (uint256 ) {
+        revert NotImplementedYet();
+    }
+
+    function redeem(uint256 , address , address ) public pure override returns (uint256) {
+        revert NotImplementedYet();
+    }
+
+
     function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
         uint256 requestId = currentRequestId;
         address controller = msg.sender;
