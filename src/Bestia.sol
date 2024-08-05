@@ -17,6 +17,7 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant maxDiscount = 2e16; // percentage
     uint256 public constant targetReserveRatio = 10e16; // percentage
     uint256 public constant maxDeviation = 1e16; // percentage
+    uint256 public constant rwaTrigger = 20e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
 
     // PRBMath Types and Conversions
@@ -28,17 +29,27 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
-    IERC7540 public liquidityPool;  
-    IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540  
+    IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540 
+    IERC7540 public liquidityPool;
     IERC20Metadata public usdc; // using 18 instead of 6 decimals here    
 
     mapping(address => uint256) public componentRatios;
     address[] public componentAddresses;
 
+    // components struct
+    struct Component {
+        address component;
+        uint256 targetRatio;
+        bool isAsynch; 
+    }
+
+    Component[] public components;
+    mapping(address => uint256) public componentIndex;
+
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
     event InvestedToRWA(uint256 amount, address depositedTo);
-    event ComponentAdded(address _component, uint256 _ratio);
+    event ComponentAdded(address _component, uint256 _ratio); // TODO: add bool
 
     // ERRORS
     error ReserveBelowTargetRatio();
@@ -212,12 +223,37 @@ contract Bestia is ERC4626, Ownable {
         componentAddresses.push(_component);
     }
 
-    function isComponent(address _component) public view returns (bool) {
-        return componentRatios[_component] != 0;
+    function addComponent_new(address _component, uint256 _targetRatio, bool _isAsynch) public {
+        uint256 index = componentIndex[_component];
+
+        if (index > 0) {
+            components[index - 1].targetRatio = _targetRatio;
+            components[index - 1].isAsynch = _isAsynch;
+        }
+
+        else {
+            Component memory newComponent =
+            Component({component: _component, targetRatio: _targetRatio, isAsynch: _isAsynch });
+
+            components.push(newComponent);
+            componentIndex[_component] = components.length;
+        }
+    }
+
+    function isComponent(address _component) public view returns (bool) {       
+        return componentIndex[_component] != 0;
     }
 
     function getComponentRatio(address _component) public view returns (uint256) {
-        return componentRatios[_component];
+        uint256 index = componentIndex[_component];
+        require(index != 0, "Component does not exist");
+        return components[index - 1].targetRatio;
+    }
+
+    function isAsynch(address _component) public view returns (bool) {
+        uint256 index = componentIndex[_component];
+        require(index != 0, "Component does not exist");
+        return components[index - 1].isAsynch;
     }
 
     function setBanker(address _banker) public onlyOwner {

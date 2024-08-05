@@ -240,6 +240,16 @@ contract VaultTests is BaseTest {
         assertEq(bestia.getComponentRatio(component), targetRatio);
     }
 
+    function testAddComponent_New() public {
+        address component = address(vaultA);
+        uint256 targetRatio = 20e16;
+        bestia.addComponent_new(component, targetRatio, false);
+
+        assertTrue(bestia.isComponent(component));
+        assertEq(bestia.getComponentRatio(component), targetRatio);
+        assertFalse(bestia.isAsynch(component));
+    }
+
     // HELPER FUNCTIONS
     function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
         uint256 currentReserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());

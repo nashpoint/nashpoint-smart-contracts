@@ -68,19 +68,25 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         require(assets > 0, "Cannot request deposit of 0 assets");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
 
+        // grabs global requestId
         requestId = currentRequestId;
 
         // Transfer assets from owner to vault
         require(IERC20(asset()).transferFrom(owner, address(this), assets), "Transfer failed");
 
+        // sets the index to the index of the controller if one exists
         uint256 index = controllerToDepositIndex[controller];
 
+        // if an index is found the assets are added to the pending request
         if (index > 0) {
             pendingDepositRequests[index - 1].amount += assets;
+        
+        // or it creates a new pending request struct
         } else {
             PendingRequest memory newRequest =
                 PendingRequest({controller: controller, amount: assets, requestId: requestId});
 
+            // and adds it to the pendingDepositRequests array and the controllerToDepositIndex
             pendingDepositRequests.push(newRequest);
             controllerToDepositIndex[controller] = pendingDepositRequests.length;
         }
