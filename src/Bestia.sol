@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
+import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
@@ -27,14 +28,16 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
-    IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540
-    IERC20Metadata public usdc; // using 18 instead of 6 decimals here
+    IERC7540 public liquidityPool;  
+    IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540  
+    IERC20Metadata public usdc; // using 18 instead of 6 decimals here    
 
     mapping(address => uint256) public componentRatios;
     address[] public componentAddresses;
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
+    event InvestedToRWA(uint256 amount, address depositedTo);
     event ComponentAdded(address _component, uint256 _ratio);
 
     // ERRORS
@@ -57,12 +60,14 @@ contract Bestia is ERC4626, Ownable {
         address _vaultB,
         address _vaultC,
         address _tempRWA, // temp delete
+        address _liquidityPool,
         address _banker
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
         vaultA = IERC4626(_vaultA);
         vaultB = IERC4626(_vaultB);
         vaultC = IERC4626(_vaultC);
         tempRWA = IERC4626(_tempRWA); // temp delete
+        liquidityPool = IERC7540(_liquidityPool);
         usdc = IERC20Metadata(_asset);
         banker = _banker;
     }

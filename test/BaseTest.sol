@@ -51,6 +51,7 @@ contract BaseTest is Test {
             address(vaultB),
             address(vaultC),
             address(tempRWA),
+            address(liquidityPool),
             address(banker)
         );
         liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
@@ -90,6 +91,7 @@ contract BaseTest is Test {
         usdc.approve(address(vaultB), type(uint256).max);
         usdc.approve(address(vaultC), type(uint256).max);
         usdc.approve(address(tempRWA), type(uint256).max);
+        usdc.approve(address(liquidityPool), type(uint256).max);
         liquidityPool.approve(address(liquidityPool), type(uint256).max);
         vm.stopPrank();
 

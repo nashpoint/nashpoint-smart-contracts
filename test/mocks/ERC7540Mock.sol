@@ -93,11 +93,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
     // requestId commented out as unused and causing error.
     // TODO: check this later as this might break standard
-    function pendingDepositRequest(uint256 requestId, address controller)
-        external
-        view
-        returns (uint256 assets)
-    {
+    function pendingDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
         if (requestId != currentRequestId) {
             revert WrongRequestID();
         }
@@ -172,15 +168,11 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         return requestId;
     }
 
-    function pendingRedeemRequest(uint256 requestId, address controller)
-        external
-        view
-        returns (uint256 shares)
-    {
+    function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
         if (requestId != currentRequestId) {
             revert WrongRequestID();
         }
-        
+
         uint256 index = controllerToRedeemIndex[controller];
         require(index > 0, "No pending redemption for controller");
         return pendingRedeemRequests[index - 1].amount;
@@ -236,16 +228,15 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     // TODO: Deposit
     // TODO: Redeem
 
-    // TODO: overloads for all that use a seperate controller address
+    // TODO: OVERLOADS for all that use an additional controller address
 
-    function deposit(uint256 , address ) public pure override returns (uint256 ) {
+    function deposit(uint256, address) public pure override returns (uint256) {
         revert NotImplementedYet();
     }
 
-    function redeem(uint256 , address , address ) public pure override returns (uint256) {
+    function redeem(uint256, address, address) public pure override returns (uint256) {
         revert NotImplementedYet();
     }
-
 
     function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
         uint256 requestId = currentRequestId;
