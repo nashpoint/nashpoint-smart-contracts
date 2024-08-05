@@ -44,6 +44,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // Errors TODO: rename these shitty errors
     error NoPendingDepositAvailable();
     error NoPendingRedeemAvailable();
+    error WrongRequestID();
     error ExceedsPendingDeposit();
     error ExceedsPendingRedeem();
     error NotImplementedYet();
@@ -91,11 +92,14 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
     // requestId commented out as unused and causing error.
     // TODO: check this later as this might break standard
-    function pendingDepositRequest( /* uint256 RequestId, */ address controller)
+    function pendingDepositRequest(uint256 requestId, address controller)
         external
         view
         returns (uint256 assets)
     {
+        if (requestId != currentRequestId) {
+            revert WrongRequestID();
+        }
         uint256 index = controllerToDepositIndex[controller];
         require(index > 0, "No pending deposit for controller");
         return pendingDepositRequests[index - 1].amount;
@@ -167,11 +171,15 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return requestId;
     }
 
-    function pendingRedeemRequest( /* uint256 RequestId, */ address controller)
+    function pendingRedeemRequest(uint256 requestId, address controller)
         external
         view
         returns (uint256 shares)
     {
+        if (requestId != currentRequestId) {
+            revert WrongRequestID();
+        }
+        
         uint256 index = controllerToRedeemIndex[controller];
         require(index > 0, "No pending redemption for controller");
         return pendingRedeemRequests[index - 1].amount;
