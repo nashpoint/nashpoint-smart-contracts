@@ -228,26 +228,14 @@ contract VaultTests is BaseTest {
         assertGt(sharesReceived, nonAdjustedShares);
     }
 
-    // function testAddComponent() public {
-    //     address component = address(vaultA);
-    //     uint256 targetRatio = 20e16;
-
-    //     // add the asset
-    //     bestia.addComponent(component, targetRatio);
-
-    //     // check it is there and has correct ratio
-    //     assertTrue(bestia.isComponent(component));
-    //     assertEq(bestia.getComponentRatio(component), targetRatio);
-    // }
-
-    function testAddComponent_New() public {
+    function testAddComponent() public {
         address component = address(vaultA);
         uint256 targetRatio = 20e16;
         bestia.addComponent(component, targetRatio, false);
 
         assertTrue(bestia.isComponent(component));
         assertEq(bestia.getComponentRatio(component), targetRatio);
-        assertFalse(bestia.isAsynch(component));
+        assertFalse(bestia.isAsync(component));
     }
 
     // HELPER FUNCTIONS
