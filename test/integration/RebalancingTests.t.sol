@@ -10,12 +10,12 @@ contract RebalancingTests is BaseTest {
     function testSimpleRebalance() public {
         // SET THE STRATEGY
         // add the 4626 Vaults
-        bestia.addComponent(address(vaultA), 18e16);
-        bestia.addComponent(address(vaultB), 20e16);
-        bestia.addComponent(address(vaultC), 22e16);
+        bestia.addComponent(address(vaultA), 18e16, false);
+        bestia.addComponent(address(vaultB), 20e16, false);
+        bestia.addComponent(address(vaultC), 22e16, false);
 
         // add the 7540 Vault (RWA)
-        bestia.addComponent(address(tempRWA), 30e16); // temp delete
+        bestia.addComponent(address(tempRWA), 30e16, false); // temp delete
 
         // initial deposit
         vm.startPrank(user1);

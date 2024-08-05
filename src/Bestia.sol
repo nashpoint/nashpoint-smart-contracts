@@ -29,18 +29,15 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
-    IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540 
+    IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540
     IERC7540 public liquidityPool;
-    IERC20Metadata public usdc; // using 18 instead of 6 decimals here    
+    IERC20Metadata public usdc; // using 18 instead of 6 decimals here
 
-    mapping(address => uint256) public componentRatios;
-    address[] public componentAddresses;
-
-    // components struct
+    // COMPONENTS DATA
     struct Component {
         address component;
         uint256 targetRatio;
-        bool isAsynch; 
+        bool isAsynch;
     }
 
     Component[] public components;
@@ -208,7 +205,7 @@ contract Bestia is ERC4626, Ownable {
     // TODO: refactor this into investCash() and make it all more efficient
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         // calculate target holdings for that component
-        uint256 targetHoldings = totalAssets() * componentRatios[_component] / 1e18;
+        uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
         uint256 currentBalance = ERC20(_component).balanceOf(address(this));
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
@@ -216,31 +213,22 @@ contract Bestia is ERC4626, Ownable {
         return (delta);
     }
 
-    function addComponent(address _component, uint256 _targetAssetRatio) public {
-        require(componentRatios[_component] == 0, "Asset already exists");
-
-        componentRatios[_component] = _targetAssetRatio;
-        componentAddresses.push(_component);
-    }
-
-    function addComponent_new(address _component, uint256 _targetRatio, bool _isAsynch) public {
+    function addComponent(address _component, uint256 _targetRatio, bool _isAsynch) public {
         uint256 index = componentIndex[_component];
 
         if (index > 0) {
             components[index - 1].targetRatio = _targetRatio;
             components[index - 1].isAsynch = _isAsynch;
-        }
-
-        else {
+        } else {
             Component memory newComponent =
-            Component({component: _component, targetRatio: _targetRatio, isAsynch: _isAsynch });
+                Component({component: _component, targetRatio: _targetRatio, isAsynch: _isAsynch});
 
             components.push(newComponent);
             componentIndex[_component] = components.length;
         }
     }
 
-    function isComponent(address _component) public view returns (bool) {       
+    function isComponent(address _component) public view returns (bool) {
         return componentIndex[_component] != 0;
     }
 

@@ -80,8 +80,8 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         // if an index is found the assets are added to the pending request
         if (index > 0) {
             pendingDepositRequests[index - 1].amount += assets;
-        
-        // or it creates a new pending request struct
+
+            // or it creates a new pending request struct
         } else {
             PendingRequest memory newRequest =
                 PendingRequest({controller: controller, amount: assets, requestId: requestId});

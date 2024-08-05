@@ -27,7 +27,7 @@ contract VaultTests is BaseTest {
     }
 
     function testInvestCash() public {
-        bestia.addComponent(address(vaultA), 90e16);
+        bestia.addComponent(address(vaultA), 90e16, false);
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -111,7 +111,7 @@ contract VaultTests is BaseTest {
 
     function testAdjustedWithdraw() public {
         // set the strategy to one asset at 90% holding
-        bestia.addComponent(address(vaultA), 90e16);
+        bestia.addComponent(address(vaultA), 90e16, false);
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -164,7 +164,7 @@ contract VaultTests is BaseTest {
 
     function testAdjustedDeposit() public {
         // set the strategy to one asset at 90% holding
-        bestia.addComponent(address(vaultA), 90e16);
+        bestia.addComponent(address(vaultA), 90e16, false);
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -228,22 +228,22 @@ contract VaultTests is BaseTest {
         assertGt(sharesReceived, nonAdjustedShares);
     }
 
-    function testAddComponent() public {
-        address component = address(vaultA);
-        uint256 targetRatio = 20e16;
+    // function testAddComponent() public {
+    //     address component = address(vaultA);
+    //     uint256 targetRatio = 20e16;
 
-        // add the asset
-        bestia.addComponent(component, targetRatio);
+    //     // add the asset
+    //     bestia.addComponent(component, targetRatio);
 
-        // check it is there and has correct ratio
-        assertTrue(bestia.isComponent(component));
-        assertEq(bestia.getComponentRatio(component), targetRatio);
-    }
+    //     // check it is there and has correct ratio
+    //     assertTrue(bestia.isComponent(component));
+    //     assertEq(bestia.getComponentRatio(component), targetRatio);
+    // }
 
     function testAddComponent_New() public {
         address component = address(vaultA);
         uint256 targetRatio = 20e16;
-        bestia.addComponent_new(component, targetRatio, false);
+        bestia.addComponent(component, targetRatio, false);
 
         assertTrue(bestia.isComponent(component));
         assertEq(bestia.getComponentRatio(component), targetRatio);
@@ -260,11 +260,11 @@ contract VaultTests is BaseTest {
     // TODO: REFACTOR THIS LATER AND REMOVE HARDCODING FROM THE MAIN FILE
     function setStrategy() public {
         // add the 4626 Vaults
-        bestia.addComponent(address(vaultA), 20e16);
-        bestia.addComponent(address(vaultB), 20e16);
-        bestia.addComponent(address(vaultC), 20e16);
+        bestia.addComponent(address(vaultA), 20e16, false);
+        bestia.addComponent(address(vaultB), 20e16, false);
+        bestia.addComponent(address(vaultC), 20e16, false);
 
         // add the 7540 Vault (RWA)
-        bestia.addComponent(address(tempRWA), 30e16); // temp delete
+        bestia.addComponent(address(tempRWA), 30e16, false); // temp delete
     }
 }
