@@ -78,7 +78,7 @@ contract RebalancingTests is BaseTest {
         // add the 7540 Vault (RWA)
         bestia.addComponent(address(liquidityPool), 30e16, true);
 
-        // initial deposit
+        // SEED VAULT WITH 100 UNITS
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
@@ -112,7 +112,7 @@ contract RebalancingTests is BaseTest {
         // assert that pendingDeposits tracked on Bestia == getAsyncAssets calls to liquidityPool
         assertEq(pendingDeposits, getAsyncAssets);
 
-        // second deposit
+        // FIRST DEPOSIT: 10 UNITS
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_10, address(user1));
         vm.stopPrank();
@@ -141,7 +141,7 @@ contract RebalancingTests is BaseTest {
         // assert that cash reserve has not been reduced below target by rebalance
         assertGt(usdc.balanceOf(address(bestia)), bestia.targetReserveRatio() * 1e18 / totalAssets);
 
-        // second deposit
+        // SECOND DEPOSIT: 10 UNITS
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_10, address(user1));
         vm.stopPrank();
@@ -178,7 +178,7 @@ contract RebalancingTests is BaseTest {
         assertEq(vaultCHoldings * 1e18 / totalAssets, 22e16);
 
         // assert that totalAssets = initial value + 2 deposits
-        assertEq(bestia.totalAssets(), DEPOSIT_100 + DEPOSIT_10 + DEPOSIT_10);
+        assertEq(totalAssets, DEPOSIT_100 + DEPOSIT_10 + DEPOSIT_10);
     }
 
     function bankerInvestsCash(address _component) public {

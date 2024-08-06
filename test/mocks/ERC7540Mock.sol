@@ -305,7 +305,15 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         return shares;
     }
 
-    // 4626 OVERIDES THAT REVERT
+    // 4626 OVERIDES
+
+    function balanceOf(address account) public view override(ERC20, IERC20, IERC7540) returns (uint256) {
+        return super.balanceOf(account);
+    }
+
+    function convertToAssets(uint256 shares) public view override(ERC4626, IERC7540) returns (uint256) {
+        return super.convertToAssets(shares);
+    }
 
     function previewDeposit(uint256 assets) public view virtual override returns (uint256) {
         if (initialized) {

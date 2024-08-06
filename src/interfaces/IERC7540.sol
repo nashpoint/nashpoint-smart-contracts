@@ -25,4 +25,10 @@ interface IERC7540 {
     function pendingShares() external view returns (uint256);
 
     function share() external view returns (address);
+
+    // IERC4626
+    function convertToAssets(uint256 shares) external view returns (uint256 assets);
+
+    // IERC20
+    function balanceOf(address account) external view returns (uint256);
 }

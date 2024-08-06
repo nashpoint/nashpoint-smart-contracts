@@ -102,6 +102,8 @@ contract ERC7540Tests is BaseTest {
 
         // assert shares = assets 1:1
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
+
+        console2.log(liquidityPool.convertToAssets(10e18));
     }
 
     function testRedeemAndWithdrawFlow() public {

@@ -96,6 +96,9 @@ contract Bestia is ERC4626, Ownable {
             + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
             + vaultC.convertToAssets(vaultC.balanceOf(address(this)))
             + tempRWA.convertToAssets(tempRWA.balanceOf(address(this))); // delete this after testing
+            
+            // TODO: FIX THIS. CREATES SOME KIND OF CIRCULAR DEPENDENCY
+            // + liquidityPool.convertToAssets(liquidityPool.balanceOf(address(this)));
 
         // returns these with the async asset pendingDeposits;
         return cashReserve + investedAssets + pendingDeposits;
