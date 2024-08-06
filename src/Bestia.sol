@@ -20,7 +20,7 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant asyncMaxDelta = 3e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
 
-    uint256 pendingDeposits;
+    uint256 public pendingDeposits;
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -200,7 +200,9 @@ contract Bestia is ERC4626, Ownable {
             revert IsAsyncVault();
         }
 
-        // breaks a bunch of tests
+        // THIS CHECK BREAKS A BUNCH OF TESTS
+        // TODO: REFACTOR YOU BASIC VAULT AND REBALANCE TESTS FOR THIS TO WORK
+
         // if (!isAsyncAssetsInRange(_component)) {
         //     revert AsyncAssetBelowMinimum();
         // }
@@ -236,6 +238,7 @@ contract Bestia is ERC4626, Ownable {
         return (depositAmount);
     }
 
+    // TODO: Create a buildTransaction() func that both investCash() and investInAsyncVault() can use
     function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();

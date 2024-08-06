@@ -96,19 +96,11 @@ contract RebalancingTests is BaseTest {
         bankerInvestsInAsyncVault(address(liquidityPool));
 
         uint256 totalAssets = bestia.totalAssets();
-        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, address(bestia));
+        uint256 pendingDeposits = bestia.pendingDeposits();
         uint256 vaultAHoldings = vaultA.balanceOf(address(bestia));
         uint256 vaultBHoldings = vaultB.balanceOf(address(bestia));
         uint256 vaultCHoldings = vaultC.balanceOf(address(bestia));
         uint256 getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));
-
-        // console2.log("VAULT SETUP");
-        // console2.log("totalAssets :", totalAssets / 1e16);
-        // console2.log("pendingDeposits :", pendingDeposits / 1e16);
-        // console2.log("vaultAHoldings :", vaultAHoldings / 1e16);
-        // console2.log("vaultBHoldings :", vaultBHoldings / 1e16);
-        // console2.log("vaultCHoldings :", vaultCHoldings / 1e16);
-        // console2.log("asyncAssets :", getAsyncAssets / 1e16);
 
         // assert that the protocol was rebalanced to the correct ratios
         assertEq(totalAssets, DEPOSIT_100);
@@ -117,7 +109,7 @@ contract RebalancingTests is BaseTest {
         assertEq(vaultBHoldings, 20e18);
         assertEq(vaultCHoldings, 22e18);
 
-        // assert that pendingDeposits == getAsyncAssets
+        // assert that pendingDeposits tracked on Bestia == getAsyncAssets calls to liquidityPool
         assertEq(pendingDeposits, getAsyncAssets);
 
         // second deposit
@@ -149,42 +141,44 @@ contract RebalancingTests is BaseTest {
         // assert that cash reserve has not been reduced below target by rebalance
         assertGt(usdc.balanceOf(address(bestia)), bestia.targetReserveRatio() * 1e18 / totalAssets);
 
-        // console2.log("FIRST DEPOSIT");
-        // console2.log("totalAssets :", totalAssets / 1e16);
-        // console2.log("pendingDeposits :", pendingDeposits / 1e16);
-        // console2.log("vaultAHoldings :", vaultAHoldings / 1e16);
-        // console2.log("vaultBHoldings :", vaultBHoldings / 1e16);
-        // console2.log("vaultCHoldings :", vaultCHoldings / 1e16);
-        // console2.log("asyncAssets :", getAsyncAssets / 1e16);
-
         // second deposit
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_10, address(user1));
         vm.stopPrank();
 
-        // need to write a check that blocks investInCash when RWAs below target
+        // TODO: need to write a check that blocks investInCash when RWAs below target
 
+        // should reject investCash as async vault is below threshold
         console2.log(bestia.isAsyncAssetsInRange(address(liquidityPool)));
 
+        // must invest in async first to ensure it gets full amount
         bankerInvestsInAsyncVault(address(liquidityPool));
+
+        // then invest in liquid asset
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
 
         totalAssets = bestia.totalAssets();
-        pendingDeposits = liquidityPool.pendingDepositRequest(0, address(bestia));
+        pendingDeposits = bestia.pendingDeposits();
         vaultAHoldings = vaultA.balanceOf(address(bestia));
         vaultBHoldings = vaultB.balanceOf(address(bestia));
         vaultCHoldings = vaultC.balanceOf(address(bestia));
         getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));
 
-        console2.log("SECOND DEPOSIT");
-        console2.log("totalAssets :", totalAssets / 1e16);
-        console2.log("pendingDeposits :", pendingDeposits / 1e16);
-        console2.log("vaultAHoldings :", vaultAHoldings / 1e16);
-        console2.log("vaultBHoldings :", vaultBHoldings / 1e16);
-        console2.log("vaultCHoldings :", vaultCHoldings / 1e16);
-        console2.log("asyncAssets :", getAsyncAssets / 1e16);
+        // assert that pendingDeposits tracked on Bestia == getAsyncAssets calls to liquidityPool
+        assertEq(pendingDeposits, getAsyncAssets);
+
+        // assert that pendingDeposits on liquidityPool == target ratio
+        assertEq(getAsyncAssets * 1e18 / totalAssets, 30e16);
+
+        // assert the liquid assets are all in the correct proportions
+        assertEq(vaultAHoldings * 1e18 / totalAssets, 18e16);
+        assertEq(vaultBHoldings * 1e18 / totalAssets, 20e16);
+        assertEq(vaultCHoldings * 1e18 / totalAssets, 22e16);
+
+        // assert that totalAssets = initial value + 2 deposits
+        assertEq(bestia.totalAssets(), DEPOSIT_100 + DEPOSIT_10 + DEPOSIT_10);
     }
 
     function bankerInvestsCash(address _component) public {
