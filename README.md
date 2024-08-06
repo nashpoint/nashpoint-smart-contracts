@@ -1,10 +1,10 @@
 # bestia_v0
 
-Bestia v0 is a prototype DeFi protocol designed to manage a diverse portfolio of liquid and illiquid assets, with a focus on Real World Assets (RWAs). It implements innovative mechanisms for efficient capital allocation and risk management.
+Bestia is an in-developement protocol that structures illiquid on chain credit assets into Liquid Yield Tokens, such as Real World Assets (RWAs). It implements innovative mechanisms for efficient capital allocation and risk management.
 
 For more detailed information about the first pool that will launch on Bestia see the draft [WHITEPAPER](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
 
-## Key Features
+## Key Features To Date
 
 ### 1. Asset Integration
 - Supports both ERC4626 vaults for liquid assets and ERC7540 for illiquid assets/RWAs
@@ -38,7 +38,7 @@ For more detailed information about the first pool that will launch on Bestia se
 
 ## Current Status
 
-This is a work-in-progress prototype. Many of the core mechanisms are in place, but further testing and refinement are needed, especially around the integration of ERC7540 assets.
+This is a work-in-progress prototype. Many of the core mechanisms are in place, but further testing and refinement are needed, especially around the integration of ERC7540 assets. As such, it is:
 
 - Not safe
 - Not gas optimized
@@ -46,11 +46,13 @@ This is a work-in-progress prototype. Many of the core mechanisms are in place, 
 ## Next Steps
 
 - Finalize and optimize the ERC7540 integration
-- More tests
-- Implement additional safety checks and emergency procedures
-- Improve the rebalancing and optimize
-- Integrate other RWA Protocols
-- Implement factory model so managers can permissionlessly create their own vault
+- Improve the rebalancing and optimize for capital efficiency & risk management
+- Integrate other RWA Protocols & Modular Architecture
+- Rebasing Token for yield distribution
+- Wrapped Token for defi integrations
+- Factory model for permissionless pool creation
+- Single vault contract for efficient rebalancing
+- Decentralize rebalancing with auctions/intents
 
 ## Contributions
 
