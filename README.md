@@ -4,7 +4,47 @@ Bestia is an in-developement protocol that structures illiquid on chain credit a
 
 For more detailed information about the first pool that will launch on Bestia see the draft [WHITEPAPER](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
 
-## Key Features To Date
+## Getting Started
+
+This project uses Foundry for development and testing. Follow these steps to get the project up and running on your local machine.
+
+### Prerequisites
+
+- Install [Foundry](https://book.getfoundry.sh/getting-started/installation.html)
+
+### Setup
+
+1. Clone the repository:
+
+```
+git clone [https://github.com/0xCSMNT/bestia_v0.git](https://github.com/0xCSMNT/bestia_v0)
+
+cd bestia-v0
+```
+Install dependencies:
+
+```
+forge install
+```
+Update Foundry:
+
+```
+foundryup
+```
+
+### Building
+Compile the contracts:
+```
+forge build
+```
+
+### Testing
+Run the test suite:
+```
+forge test
+```
+
+## Features
 
 ### 1. Asset Integration
 - Supports both ERC4626 vaults for liquid assets and ERC7540 for illiquid assets/RWAs
