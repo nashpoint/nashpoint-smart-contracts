@@ -2,7 +2,7 @@
 
 Bestia v0 is a prototype DeFi protocol designed to manage a diverse portfolio of liquid and illiquid assets, with a focus on Real World Assets (RWAs). It implements innovative mechanisms for efficient capital allocation and risk management.
 
-For more detailed information about the first pool that will launch on Bestia see the draft [White Paper](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
+For more detailed information about the first pool that will launch on Bestia see the draft [WHITEPAPER](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
 
 ## Key Features
 
