@@ -1,4 +1,4 @@
-# Bestia v0
+# bestia_v0
 
 Bestia v0 is a prototype DeFi protocol designed to manage a diverse portfolio of liquid and illiquid assets, with a focus on Real World Assets (RWAs). It implements innovative mechanisms for efficient capital allocation and risk management.
 
