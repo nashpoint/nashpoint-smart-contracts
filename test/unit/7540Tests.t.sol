@@ -31,7 +31,7 @@ contract ERC7540Tests is BaseTest {
         vm.stopPrank();
 
         // assert user1 pendingDeposits = deposited amount
-        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(user);
+        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, user);
         assertEq(amount, pendingDeposits);
 
         // assert user1 cannot claim yet
@@ -53,7 +53,7 @@ contract ERC7540Tests is BaseTest {
 
         // show pendingDeposits have been cleared
         vm.expectRevert();
-        liquidityPool.pendingDepositRequest(user);
+        liquidityPool.pendingDepositRequest(0, user);
 
         // assert controllerToIndex mapping has been cleared
         uint256 index1 = liquidityPool.controllerToDepositIndex(user);
@@ -102,6 +102,8 @@ contract ERC7540Tests is BaseTest {
 
         // assert shares = assets 1:1
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
+
+        console2.log(liquidityPool.convertToAssets(10e18));
     }
 
     function testRedeemAndWithdrawFlow() public {
@@ -117,7 +119,7 @@ contract ERC7540Tests is BaseTest {
         // user requests redeem
         userRequestsReedem(user, user1Shares);
 
-        uint256 pendingRedemptions = liquidityPool.pendingRedeemRequest(user);
+        uint256 pendingRedemptions = liquidityPool.pendingRedeemRequest(0, user);
 
         // assert pendingRedemptions has all user shares
         assertEq(user1Shares, pendingRedemptions);

@@ -3,9 +3,10 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract ERC7540Mock is ERC4626, ERC165 {
+contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     using Math for uint256;
 
     // Mappings
@@ -44,6 +45,7 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // Errors TODO: rename these shitty errors
     error NoPendingDepositAvailable();
     error NoPendingRedeemAvailable();
+    error WrongRequestID();
     error ExceedsPendingDeposit();
     error ExceedsPendingRedeem();
     error NotImplementedYet();
@@ -66,19 +68,25 @@ contract ERC7540Mock is ERC4626, ERC165 {
         require(assets > 0, "Cannot request deposit of 0 assets");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
 
+        // grabs global requestId
         requestId = currentRequestId;
 
         // Transfer assets from owner to vault
         require(IERC20(asset()).transferFrom(owner, address(this), assets), "Transfer failed");
 
+        // sets the index to the index of the controller if one exists
         uint256 index = controllerToDepositIndex[controller];
 
+        // if an index is found the assets are added to the pending request
         if (index > 0) {
             pendingDepositRequests[index - 1].amount += assets;
+
+            // or it creates a new pending request struct
         } else {
             PendingRequest memory newRequest =
                 PendingRequest({controller: controller, amount: assets, requestId: requestId});
 
+            // and adds it to the pendingDepositRequests array and the controllerToDepositIndex
             pendingDepositRequests.push(newRequest);
             controllerToDepositIndex[controller] = pendingDepositRequests.length;
         }
@@ -91,11 +99,10 @@ contract ERC7540Mock is ERC4626, ERC165 {
 
     // requestId commented out as unused and causing error.
     // TODO: check this later as this might break standard
-    function pendingDepositRequest( /* uint256 RequestId, */ address controller)
-        external
-        view
-        returns (uint256 assets)
-    {
+    function pendingDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
+        if (requestId != currentRequestId) {
+            revert WrongRequestID();
+        }
         uint256 index = controllerToDepositIndex[controller];
         require(index > 0, "No pending deposit for controller");
         return pendingDepositRequests[index - 1].amount;
@@ -167,11 +174,11 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return requestId;
     }
 
-    function pendingRedeemRequest( /* uint256 RequestId, */ address controller)
-        external
-        view
-        returns (uint256 shares)
-    {
+    function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
+        if (requestId != currentRequestId) {
+            revert WrongRequestID();
+        }
+
         uint256 index = controllerToRedeemIndex[controller];
         require(index > 0, "No pending redemption for controller");
         return pendingRedeemRequests[index - 1].amount;
@@ -227,14 +234,15 @@ contract ERC7540Mock is ERC4626, ERC165 {
     // TODO: Deposit
     // TODO: Redeem
 
-    function deposit(uint256 , address ) public pure override returns (uint256 ) {
+    // TODO: OVERLOADS for all that use an additional controller address
+
+    function deposit(uint256, address) public pure override returns (uint256) {
         revert NotImplementedYet();
     }
 
-    function redeem(uint256 , address , address ) public pure override returns (uint256) {
+    function redeem(uint256, address, address) public pure override returns (uint256) {
         revert NotImplementedYet();
     }
-
 
     function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
         uint256 requestId = currentRequestId;
@@ -297,7 +305,15 @@ contract ERC7540Mock is ERC4626, ERC165 {
         return shares;
     }
 
-    // 4626 OVERIDES THAT REVERT
+    // 4626 OVERIDES
+
+    function balanceOf(address account) public view override(ERC20, IERC20, IERC7540) returns (uint256) {
+        return super.balanceOf(account);
+    }
+
+    function convertToAssets(uint256 shares) public view override(ERC4626, IERC7540) returns (uint256) {
+        return super.convertToAssets(shares);
+    }
 
     function previewDeposit(uint256 assets) public view virtual override returns (uint256) {
         if (initialized) {

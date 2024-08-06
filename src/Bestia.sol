@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
+import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
@@ -15,8 +16,11 @@ contract Bestia is ERC4626, Ownable {
     // State Constants
     uint256 public constant maxDiscount = 2e16; // percentage
     uint256 public constant targetReserveRatio = 10e16; // percentage
-    uint256 public constant maxDeviation = 1e16; // percentage
+    uint256 public constant maxDelta = 1e16; // percentage
+    uint256 public constant asyncMaxDelta = 3e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
+
+    uint256 public pendingDeposits;
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -28,20 +32,33 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultB;
     IERC4626 public vaultC;
     IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540
+    IERC7540 public liquidityPool; // real rwa
     IERC20Metadata public usdc; // using 18 instead of 6 decimals here
 
-    mapping(address => uint256) public componentRatios;
-    address[] public componentAddresses;
+    // COMPONENTS DATA
+    struct Component {
+        address component;
+        uint256 targetRatio;
+        bool isAsync;
+    }
+
+    Component[] public components;
+    mapping(address => uint256) public componentIndex;
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
-    event ComponentAdded(address _component, uint256 _ratio);
+    event DepositRequested(uint256 amount, address depositedTo);
+    event InvestedToRWA(uint256 amount, address depositedTo);
+    event ComponentAdded(address _component, uint256 _ratio); // TODO: add bool
 
     // ERRORS
     error ReserveBelowTargetRatio();
+    error AsyncAssetBelowMinimum();
     error NotEnoughReserveCash();
     error NotAComponent();
     error ComponentWithinTargetRange();
+    error IsAsyncVault();
+    error IsNotAsyncVault();
 
     // MODIFIERS
     modifier onlyBanker() {
@@ -57,26 +74,50 @@ contract Bestia is ERC4626, Ownable {
         address _vaultB,
         address _vaultC,
         address _tempRWA, // temp delete
+        address _liquidityPool,
         address _banker
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
         vaultA = IERC4626(_vaultA);
         vaultB = IERC4626(_vaultB);
         vaultC = IERC4626(_vaultC);
         tempRWA = IERC4626(_tempRWA); // temp delete
+        liquidityPool = IERC7540(_liquidityPool);
         usdc = IERC20Metadata(_asset);
         banker = _banker;
     }
 
     // total assets override function
     function totalAssets() public view override returns (uint256) {
-        uint256 depositAssetBalance = usdc.balanceOf(address(this));
+        // gets the cash reserve
+        uint256 cashReserve = usdc.balanceOf(address(this));
 
+        // gets the liquid assets balances
         uint256 investedAssets = vaultA.convertToAssets(vaultA.balanceOf(address(this)))
             + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
             + vaultC.convertToAssets(vaultC.balanceOf(address(this)))
-            + tempRWA.convertToAssets(tempRWA.balanceOf(address(this)));
+            + tempRWA.convertToAssets(tempRWA.balanceOf(address(this))); // delete this after testing
+            
+            // TODO: FIX THIS. CREATES SOME KIND OF CIRCULAR DEPENDENCY
+            // + liquidityPool.convertToAssets(liquidityPool.balanceOf(address(this)));
 
-        return depositAssetBalance + investedAssets;
+        // returns these with the async asset pendingDeposits;
+        return cashReserve + investedAssets + pendingDeposits;
+    }
+
+    // not sure if I can use this function for anything
+    function getAsyncAssets(address _component) public view returns (uint256 assets) {
+        uint256 vaultAssets;
+
+        try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingAssets) {
+            vaultAssets += pendingAssets;
+        } catch {}
+
+        // TODO: get claimable deposits (shares)
+        // TODO: get pending redemptions (shares)
+        // TODO: get claimable redemptions (assets)
+        // TODO: ERC20 balanceOf() calls
+
+        return vaultAssets;
     }
 
     // TODO: override deposit function
@@ -158,6 +199,17 @@ contract Bestia is ERC4626, Ownable {
             revert NotAComponent();
         }
 
+        if (isAsync(_component)) {
+            revert IsAsyncVault();
+        }
+
+        // THIS CHECK BREAKS A BUNCH OF TESTS
+        // TODO: REFACTOR YOU BASIC VAULT AND REBALANCE TESTS FOR THIS TO WORK
+
+        // if (!isAsyncAssetsInRange(_component)) {
+        //     revert AsyncAssetBelowMinimum();
+        // }
+
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
         uint256 currentCash = usdc.balanceOf(address(this));
@@ -171,7 +223,7 @@ contract Bestia is ERC4626, Ownable {
         uint256 depositAmount = getDepositAmount(_component);
 
         // checks if asset is within acceptable range of target
-        if (depositAmount < (totalAssets_ * maxDeviation / 1e18)) {
+        if (depositAmount < (totalAssets_ * maxDelta / 1e18)) {
             revert ComponentWithinTargetRange();
         }
 
@@ -185,34 +237,104 @@ contract Bestia is ERC4626, Ownable {
 
         ERC4626(_component).deposit(depositAmount, address(this));
 
-        emit CashInvested(depositAmount, address(vaultA));
+        emit CashInvested(depositAmount, address(_component));
         return (depositAmount);
     }
 
-    // TODO: refactor this into investCash() and make it all more efficient
-    function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
-        // calculate target holdings for that component
-        uint256 targetHoldings = totalAssets() * componentRatios[_component] / 1e18;
-        uint256 currentBalance = ERC20(_component).balanceOf(address(this));
+    // TODO: Create a buildTransaction() func that both investCash() and investInAsyncVault() can use
+    function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
+        if (!isComponent(_component)) {
+            revert NotAComponent();
+        }
 
-        uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
+        if (!isAsync(_component)) {
+            revert IsNotAsyncVault();
+        }
 
-        return (delta);
+        uint256 totalAssets_ = totalAssets();
+        uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
+        uint256 currentCash = usdc.balanceOf(address(this));
+
+        // checks if available reserve exceeds target ratio
+        if (currentCash < idealCashReserve) {
+            revert ReserveBelowTargetRatio();
+        }
+
+        // gets deposit amount
+        uint256 depositAmount = getDepositAmount(_component);
+
+        // Check if the current allocation is below the lower bound
+        uint256 currentAllocation = (ERC20(_component).balanceOf(address(this)) + pendingDeposits) * 1e18 / totalAssets_;
+        uint256 lowerBound = getComponentRatio(_component) - asyncMaxDelta;
+
+        if (currentAllocation >= lowerBound) {
+            revert ComponentWithinTargetRange();
+        }
+
+        // get max transaction size that will maintain reserve ratio
+        uint256 availableReserve = currentCash - idealCashReserve;
+
+        // limits the depositAmount to this transaction size
+        if (depositAmount > availableReserve) {
+            depositAmount = availableReserve;
+        }
+
+        // append this value to pendingDeposits
+        pendingDeposits += depositAmount;
+
+        IERC7540(_component).requestDeposit(depositAmount, address(this), address(this));
+
+        emit DepositRequested(depositAmount, address(_component));
+        return (depositAmount);
     }
 
-    function addComponent(address _component, uint256 _targetAssetRatio) public {
-        require(componentRatios[_component] == 0, "Asset already exists");
+    function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
+        uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
+        uint256 currentBalance;
 
-        componentRatios[_component] = _targetAssetRatio;
-        componentAddresses.push(_component);
+        if (isAsync(_component)) {
+            currentBalance = ERC20(_component).balanceOf(address(this)) + pendingDeposits;
+        } else {
+            currentBalance = ERC20(_component).balanceOf(address(this));
+        }
+
+        uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
+        return delta;
+    }
+
+    function addComponent(address _component, uint256 _targetRatio, bool _isAsync) public {
+        uint256 index = componentIndex[_component];
+
+        if (index > 0) {
+            components[index - 1].targetRatio = _targetRatio;
+            components[index - 1].isAsync = _isAsync;
+        } else {
+            Component memory newComponent =
+                Component({component: _component, targetRatio: _targetRatio, isAsync: _isAsync});
+
+            components.push(newComponent);
+            componentIndex[_component] = components.length;
+        }
     }
 
     function isComponent(address _component) public view returns (bool) {
-        return componentRatios[_component] != 0;
+        return componentIndex[_component] != 0;
     }
 
     function getComponentRatio(address _component) public view returns (uint256) {
-        return componentRatios[_component];
+        uint256 index = componentIndex[_component];
+        require(index != 0, "Component does not exist");
+        return components[index - 1].targetRatio;
+    }
+
+    function isAsync(address _component) public view returns (bool) {
+        uint256 index = componentIndex[_component];
+        require(index != 0, "Component does not exist");
+        return components[index - 1].isAsync;
+    }
+
+    function isAsyncAssetsInRange(address _component) public view returns (bool) {
+        return getAsyncAssets(_component) * 1e18 / totalAssets() >= getComponentRatio(_component) - asyncMaxDelta;
     }
 
     function setBanker(address _banker) public onlyOwner {
