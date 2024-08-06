@@ -75,8 +75,6 @@ contract RebalancingTests is BaseTest {
         bestia.addComponent(address(vaultB), 20e16, false);
         bestia.addComponent(address(vaultC), 22e16, false);
 
-        // bestia.addComponent(address(tempRWA), 0, false);
-
         // add the 7540 Vault (RWA)
         bestia.addComponent(address(liquidityPool), 30e16, true);
 
@@ -102,25 +100,37 @@ contract RebalancingTests is BaseTest {
         uint256 vaultAHoldings = vaultA.balanceOf(address(bestia));
         uint256 vaultBHoldings = vaultB.balanceOf(address(bestia));
         uint256 vaultCHoldings = vaultC.balanceOf(address(bestia));
-        uint256 asyncAssets = bestia.getAsyncVaultAssets(address(liquidityPool));
+        uint256 getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));
 
-        console2.log("VAULT SETUP");
-        console2.log("totalAssets :", totalAssets / 1e16);
-        console2.log("pendingDeposits :", pendingDeposits / 1e16);
-        console2.log("vaultAHoldings :", vaultAHoldings / 1e16);
-        console2.log("vaultBHoldings :", vaultBHoldings / 1e16);
-        console2.log("vaultCHoldings :", vaultCHoldings / 1e16);
-        console2.log("asyncAssets :", asyncAssets / 1e16);
+        // console2.log("VAULT SETUP");
+        // console2.log("totalAssets :", totalAssets / 1e16);
+        // console2.log("pendingDeposits :", pendingDeposits / 1e16);
+        // console2.log("vaultAHoldings :", vaultAHoldings / 1e16);
+        // console2.log("vaultBHoldings :", vaultBHoldings / 1e16);
+        // console2.log("vaultCHoldings :", vaultCHoldings / 1e16);
+        // console2.log("asyncAssets :", getAsyncAssets / 1e16);
+
+        // assert that the protocol was rebalanced to the correct ratios
+        assertEq(totalAssets, DEPOSIT_100);
+        assertEq(pendingDeposits, 30e18);
+        assertEq(vaultAHoldings, 18e18);
+        assertEq(vaultBHoldings, 20e18);
+        assertEq(vaultCHoldings, 22e18);
+
+        // assert that pendingDeposits == getAsyncAssets
+        assertEq(pendingDeposits, getAsyncAssets);
 
         // second deposit
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_10, address(user1));
         vm.stopPrank();
 
+        // banker rebalances into liquid assets
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
 
+        // banker cannot rebalance into liquidityPool as lower threshold not breached
         vm.expectRevert();
         bankerInvestsInAsyncVault(address(liquidityPool));
 
@@ -129,15 +139,23 @@ contract RebalancingTests is BaseTest {
         vaultAHoldings = vaultA.balanceOf(address(bestia));
         vaultBHoldings = vaultB.balanceOf(address(bestia));
         vaultCHoldings = vaultC.balanceOf(address(bestia));
-        asyncAssets = bestia.getAsyncVaultAssets(address(liquidityPool));
+        getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));
 
-        console2.log("FIRST DEPOSIT");
-        console2.log("totalAssets :", totalAssets / 1e16);
-        console2.log("pendingDeposits :", pendingDeposits / 1e16);
-        console2.log("vaultAHoldings :", vaultAHoldings / 1e16);
-        console2.log("vaultBHoldings :", vaultBHoldings / 1e16);
-        console2.log("vaultCHoldings :", vaultCHoldings / 1e16);
-        console2.log("asyncAssets :", asyncAssets / 1e16);
+        // assert the liquid assets are all in the correct proportions
+        assertEq(vaultAHoldings * 1e18 / totalAssets, 18e16);
+        assertEq(vaultBHoldings * 1e18 / totalAssets, 20e16);
+        assertEq(vaultCHoldings * 1e18 / totalAssets, 22e16);
+
+        // assert that cash reserve has not been reduced below target by rebalance
+        assertGt(usdc.balanceOf(address(bestia)), bestia.targetReserveRatio() * 1e18 / totalAssets);
+
+        // console2.log("FIRST DEPOSIT");
+        // console2.log("totalAssets :", totalAssets / 1e16);
+        // console2.log("pendingDeposits :", pendingDeposits / 1e16);
+        // console2.log("vaultAHoldings :", vaultAHoldings / 1e16);
+        // console2.log("vaultBHoldings :", vaultBHoldings / 1e16);
+        // console2.log("vaultCHoldings :", vaultCHoldings / 1e16);
+        // console2.log("asyncAssets :", getAsyncAssets / 1e16);
 
         // second deposit
         vm.startPrank(user1);
@@ -145,6 +163,8 @@ contract RebalancingTests is BaseTest {
         vm.stopPrank();
 
         // need to write a check that blocks investInCash when RWAs below target
+
+        console2.log(bestia.isAsyncAssetsInRange(address(liquidityPool)));
 
         bankerInvestsInAsyncVault(address(liquidityPool));
         bankerInvestsCash(address(vaultA));
@@ -156,7 +176,7 @@ contract RebalancingTests is BaseTest {
         vaultAHoldings = vaultA.balanceOf(address(bestia));
         vaultBHoldings = vaultB.balanceOf(address(bestia));
         vaultCHoldings = vaultC.balanceOf(address(bestia));
-        asyncAssets = bestia.getAsyncVaultAssets(address(liquidityPool));
+        getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));
 
         console2.log("SECOND DEPOSIT");
         console2.log("totalAssets :", totalAssets / 1e16);
@@ -164,7 +184,7 @@ contract RebalancingTests is BaseTest {
         console2.log("vaultAHoldings :", vaultAHoldings / 1e16);
         console2.log("vaultBHoldings :", vaultBHoldings / 1e16);
         console2.log("vaultCHoldings :", vaultCHoldings / 1e16);
-        console2.log("asyncAssets :", asyncAssets / 1e16);
+        console2.log("asyncAssets :", getAsyncAssets / 1e16);
     }
 
     function bankerInvestsCash(address _component) public {

@@ -53,6 +53,7 @@ contract Bestia is ERC4626, Ownable {
 
     // ERRORS
     error ReserveBelowTargetRatio();
+    error AsyncAssetBelowMinimum();
     error NotEnoughReserveCash();
     error NotAComponent();
     error ComponentWithinTargetRange();
@@ -87,30 +88,31 @@ contract Bestia is ERC4626, Ownable {
 
     // total assets override function
     function totalAssets() public view override returns (uint256) {
-        uint256 depositAssetBalance = usdc.balanceOf(address(this));
+        // gets the cash reserve
+        uint256 cashReserve = usdc.balanceOf(address(this));
 
+        // gets the liquid assets balances
         uint256 investedAssets = vaultA.convertToAssets(vaultA.balanceOf(address(this)))
             + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
             + vaultC.convertToAssets(vaultC.balanceOf(address(this)))
-            + tempRWA.convertToAssets(tempRWA.balanceOf(address(this)))
-        // tracks the assets that are requested to be deposited
-        + pendingDeposits;
+            + tempRWA.convertToAssets(tempRWA.balanceOf(address(this))); // delete this after testing
 
-        return depositAssetBalance + investedAssets;
+        // returns these with the async asset pendingDeposits;
+        return cashReserve + investedAssets + pendingDeposits;
     }
 
-    function getAsyncVaultAssets(address _component) public view returns (uint256 assets) {
+    // not sure if I can use this function for anything
+    function getAsyncAssets(address _component) public view returns (uint256 assets) {
         uint256 vaultAssets;
 
         try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingAssets) {
             vaultAssets += pendingAssets;
         } catch {}
 
-        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
-            vaultAssets += claimableAssets;
-        } catch {}
-
-        // Add more try-catch blocks here for other asset types if needed
+        // TODO: get claimable deposits (shares)
+        // TODO: get pending redemptions (shares)
+        // TODO: get claimable redemptions (assets)
+        // TODO: ERC20 balanceOf() calls
 
         return vaultAssets;
     }
@@ -198,6 +200,11 @@ contract Bestia is ERC4626, Ownable {
             revert IsAsyncVault();
         }
 
+        // breaks a bunch of tests
+        // if (!isAsyncAssetsInRange(_component)) {
+        //     revert AsyncAssetBelowMinimum();
+        // }
+
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
         uint256 currentCash = usdc.balanceOf(address(this));
@@ -275,28 +282,6 @@ contract Bestia is ERC4626, Ownable {
         return (depositAmount);
     }
 
-    // TODO: refactor this into investCash() and make it all more efficient
-    // function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
-
-    //     if (!isAsync(_component)) {
-    //         // calculate target holdings for that component
-    //         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
-    //         uint256 currentBalance = ERC20(_component).balanceOf(address(this));
-
-    //         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
-    //         return (delta);
-    //     }
-
-    //     if (isAsync(_component)) {
-    //         // calculate target holdings for that component
-    //         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
-    //         uint256 currentBalance = ERC20(_component).balanceOf(address(this));
-
-    //         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
-    //         return (delta);
-    //     }
-    // }
-
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
         uint256 currentBalance;
@@ -340,6 +325,10 @@ contract Bestia is ERC4626, Ownable {
         uint256 index = componentIndex[_component];
         require(index != 0, "Component does not exist");
         return components[index - 1].isAsync;
+    }
+
+    function isAsyncAssetsInRange(address _component) public view returns (bool) {
+        return getAsyncAssets(_component) * 1e18 / totalAssets() >= getComponentRatio(_component) - asyncMaxDelta;
     }
 
     function setBanker(address _banker) public onlyOwner {
