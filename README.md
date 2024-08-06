@@ -78,7 +78,7 @@ This project uses Foundry for development and testing. Follow these steps to get
 ```
 git clone [https://github.com/0xCSMNT/bestia_v0.git](https://github.com/0xCSMNT/bestia_v0)
 
-cd bestia-v0
+cd bestia_v0
 ```
 Install dependencies:
 
