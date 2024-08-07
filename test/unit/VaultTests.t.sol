@@ -26,6 +26,14 @@ contract VaultTests is BaseTest {
         assertEq(bestia.totalAssets(), DEPOSIT_100);
     }
 
+    function testInvestedAssets() public view returns (uint256) {
+        console2.log(liquidityPool.balanceOf(address(bestia)));
+        console2.log(liquidityPool.convertToAssets(100));
+        console2.log(liquidityPool.convertToAssets(liquidityPool.balanceOf(address(bestia))));
+
+        return bestia.investedAssetsTesting();
+    }
+
     function testInvestCash() public {
         bestia.addComponent(address(vaultA), 90e16, false);
 

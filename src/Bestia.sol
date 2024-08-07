@@ -20,7 +20,10 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant asyncMaxDelta = 3e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
 
+    // short term solution, may cause a bug if out of sync with 
+    // async asset after
     uint256 public pendingDeposits;
+    uint256 public claimableDeposits;
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -95,13 +98,22 @@ contract Bestia is ERC4626, Ownable {
         uint256 investedAssets = vaultA.convertToAssets(vaultA.balanceOf(address(this)))
             + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
             + vaultC.convertToAssets(vaultC.balanceOf(address(this)))
-            + tempRWA.convertToAssets(tempRWA.balanceOf(address(this))); // delete this after testing
-            
-            // TODO: FIX THIS. CREATES SOME KIND OF CIRCULAR DEPENDENCY
-            // + liquidityPool.convertToAssets(liquidityPool.balanceOf(address(this)));
+            + tempRWA.convertToAssets(tempRWA.balanceOf(address(this))) // delete this after testing
+
+        // gets value of async assets that have been minted
+        + liquidityPool.convertToAssets(liquidityPool.balanceOf(address(this)));
 
         // returns these with the async asset pendingDeposits;
+        // TODO: replace this with a better system for tracking pending and claimable transactions
         return cashReserve + investedAssets + pendingDeposits;
+    }
+
+    function investedAssetsTesting() public view returns (uint256) {
+        uint256 balance = liquidityPool.balanceOf(address(this));
+        console2.log("Balance:", balance);
+        uint256 assets = liquidityPool.convertToAssets(balance);
+        console2.log("Converted assets:", assets);
+        return assets;
     }
 
     // not sure if I can use this function for anything

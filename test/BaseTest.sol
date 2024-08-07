@@ -43,6 +43,7 @@ contract BaseTest is Test {
         vaultB = new ERC4626Mock(address(usdc));
         vaultC = new ERC4626Mock(address(usdc));
         tempRWA = new ERC4626Mock(address(usdc));
+        liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
         bestia = new Bestia(
             address(usdc),
             "Bestia",
@@ -54,7 +55,7 @@ contract BaseTest is Test {
             address(liquidityPool),
             address(banker)
         );
-        liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
+        
     }
 
     function setUp() public {
