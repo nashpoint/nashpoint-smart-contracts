@@ -29,8 +29,8 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
-    IERC4626 public tempRWA; // temp file, leave here for tests until you replace with 7540
-    IERC7540 public liquidityPool; // real rwa
+
+    IERC7540 public liquidityPool;
     IERC20Metadata public usdc; // using 18 instead of 6 decimals here
 
     // COMPONENTS DATA
@@ -73,14 +73,13 @@ contract Bestia is ERC4626, Ownable {
         address _vaultA,
         address _vaultB,
         address _vaultC,
-        address _tempRWA, // temp delete
         address _liquidityPool,
         address _banker
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
         vaultA = IERC4626(_vaultA);
         vaultB = IERC4626(_vaultB);
         vaultC = IERC4626(_vaultC);
-        tempRWA = IERC4626(_tempRWA); // temp delete
+
         liquidityPool = IERC7540(_liquidityPool);
         usdc = IERC20Metadata(_asset);
         banker = _banker;
@@ -97,19 +96,9 @@ contract Bestia is ERC4626, Ownable {
         // gets the liquid assets balances
         uint256 liquidAssets = vaultA.convertToAssets(vaultA.balanceOf(address(this)))
             + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
-            + vaultC.convertToAssets(vaultC.balanceOf(address(this)))
-        // delete this after testing
-        + tempRWA.convertToAssets(tempRWA.balanceOf(address(this)));
+            + vaultC.convertToAssets(vaultC.balanceOf(address(this)));
 
         return cashReserve + asyncAssets + liquidAssets;
-    }
-
-    function investedAssetsTesting() public view returns (uint256) {
-        uint256 balance = liquidityPool.balanceOf(address(this));
-        console2.log("Balance:", balance);
-        uint256 assets = liquidityPool.convertToAssets(balance);
-        console2.log("Converted assets:", assets);
-        return assets;
     }
 
     // not sure if I can use this function for anything long term
