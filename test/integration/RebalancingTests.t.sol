@@ -95,7 +95,7 @@ contract RebalancingTests is BaseTest {
         // banker rebalances into illiquid vault
         bankerInvestsInAsyncVault(address(liquidityPool));
 
-        uint256 totalAssets = bestia.totalAssets();        
+        uint256 totalAssets = bestia.totalAssets();
         uint256 vaultAHoldings = vaultA.balanceOf(address(bestia));
         uint256 vaultBHoldings = vaultB.balanceOf(address(bestia));
         uint256 vaultCHoldings = vaultC.balanceOf(address(bestia));
@@ -106,7 +106,7 @@ contract RebalancingTests is BaseTest {
         assertEq(getAsyncAssets, 30e18);
         assertEq(vaultAHoldings, 18e18);
         assertEq(vaultBHoldings, 20e18);
-        assertEq(vaultCHoldings, 22e18);        
+        assertEq(vaultCHoldings, 22e18);
 
         // FIRST DEPOSIT: 10 UNITS
         vm.startPrank(user1);
@@ -122,7 +122,7 @@ contract RebalancingTests is BaseTest {
         vm.expectRevert();
         bankerInvestsInAsyncVault(address(liquidityPool));
 
-        totalAssets = bestia.totalAssets();        
+        totalAssets = bestia.totalAssets();
         vaultAHoldings = vaultA.balanceOf(address(bestia));
         vaultBHoldings = vaultB.balanceOf(address(bestia));
         vaultCHoldings = vaultC.balanceOf(address(bestia));
@@ -159,10 +159,10 @@ contract RebalancingTests is BaseTest {
         vaultAHoldings = vaultA.balanceOf(address(bestia));
         vaultBHoldings = vaultB.balanceOf(address(bestia));
         vaultCHoldings = vaultC.balanceOf(address(bestia));
-        getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));        
+        getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));
 
         // assert that asyncAssets on liquidityPool == target ratio
-        assertEq(getAsyncAssets * 1e18 / totalAssets, 30e16);        
+        assertEq(getAsyncAssets * 1e18 / totalAssets, 30e16);
 
         // assert the liquid assets are all in the correct proportions
         assertEq(vaultAHoldings * 1e18 / totalAssets, 18e16);
@@ -173,13 +173,13 @@ contract RebalancingTests is BaseTest {
         assertEq(totalAssets, DEPOSIT_100 + DEPOSIT_10 + DEPOSIT_10);
     }
 
-    function testGetAsyncAssets() public {        
+    function testGetAsyncAssets() public {
         // deposit 100 units to bestia and rebalance into correct target ratios
         seedBestia();
 
         // assert that the return value for getAsyncAssets == pendingDeposits on Liquidity Pool
-        uint256 asyncAssets = bestia.getAsyncAssets(address(liquidityPool));       
-        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, address(bestia));       
+        uint256 asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
+        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, address(bestia));
         assertEq(asyncAssets, pendingDeposits);
 
         // process pending deposits
@@ -202,7 +202,7 @@ contract RebalancingTests is BaseTest {
         uint256 valueOfShares = liquidityPool.convertToAssets(liquidityPool.balanceOf(address(bestia)));
         assertEq(asyncAssets, valueOfShares);
 
-        // assert pendingDepositRequest deleted 
+        // assert pendingDepositRequest deleted
         vm.expectRevert();
         liquidityPool.pendingDepositRequest(0, address(bestia));
 
@@ -211,8 +211,6 @@ contract RebalancingTests is BaseTest {
 
         // TODO: Finish this test to include redemptions
     }
-
-
 
     function bankerInvestsCash(address _component) public {
         vm.startPrank(banker);
@@ -244,7 +242,7 @@ contract RebalancingTests is BaseTest {
         // banker rebalances bestia instant vaults
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));        
+        bankerInvestsCash(address(vaultC));
 
         // banker rebalances into illiquid vault
         bankerInvestsInAsyncVault(address(liquidityPool));

@@ -55,7 +55,6 @@ contract BaseTest is Test {
             address(liquidityPool),
             address(banker)
         );
-        
     }
 
     function setUp() public {
