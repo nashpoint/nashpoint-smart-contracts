@@ -244,7 +244,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         revert NotImplementedYet();
     }
 
-    function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
+    function mint(uint256 shares, address receiver) public override(ERC4626, IERC7540) returns (uint256 assets) {
         uint256 requestId = currentRequestId;
         address controller = msg.sender;
 
@@ -273,7 +273,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         emit Deposit(msg.sender, receiver, assets, shares);
     }
 
-    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner) public override(ERC4626, IERC7540) returns (uint256 shares) {
         uint256 requestId = currentRequestId;
         address controller = msg.sender;
 

@@ -42,7 +42,7 @@ contract BaseTest is Test {
         vaultA = new ERC4626Mock(address(usdc));
         vaultB = new ERC4626Mock(address(usdc));
         vaultC = new ERC4626Mock(address(usdc));
-        tempRWA = new ERC4626Mock(address(usdc));
+        // tempRWA = new ERC4626Mock(address(usdc));
         liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
         bestia = new Bestia(
             address(usdc),
@@ -51,11 +51,10 @@ contract BaseTest is Test {
             address(vaultA),
             address(vaultB),
             address(vaultC),
-            address(tempRWA),
+            // address(tempRWA),
             address(liquidityPool),
             address(banker)
         );
-        
     }
 
     function setUp() public {
@@ -91,7 +90,7 @@ contract BaseTest is Test {
         usdc.approve(address(vaultA), type(uint256).max);
         usdc.approve(address(vaultB), type(uint256).max);
         usdc.approve(address(vaultC), type(uint256).max);
-        usdc.approve(address(tempRWA), type(uint256).max);
+        // usdc.approve(address(tempRWA), type(uint256).max);
         usdc.approve(address(liquidityPool), type(uint256).max);
         liquidityPool.approve(address(liquidityPool), type(uint256).max);
         vm.stopPrank();
