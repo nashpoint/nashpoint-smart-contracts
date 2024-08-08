@@ -18,12 +18,7 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant targetReserveRatio = 10e16; // percentage
     uint256 public constant maxDelta = 1e16; // percentage
     uint256 public constant asyncMaxDelta = 3e16; //percentage
-    int256 public constant scalingFactor = -5e18; // negative integer
-
-    // short term solution, may cause a bug if out of sync with 
-    // async asset after
-    uint256 public pendingDeposits;
-    uint256 public claimableDeposits;
+    int256 public constant scalingFactor = -5e18; // negative integer    
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -102,12 +97,10 @@ contract Bestia is ERC4626, Ownable {
             + vaultC.convertToAssets(vaultC.balanceOf(address(this)))
             + tempRWA.convertToAssets(tempRWA.balanceOf(address(this))) // delete this after testing
 
-        // gets value of async assets that have been minted
-        + liquidityPool.convertToAssets(liquidityPool.balanceOf(address(this)));
-
-        // returns these with the async asset pendingDeposits;
-        // TODO: replace this with a better system for tracking pending and claimable transactions
-        return cashReserve + investedAssets + pendingDeposits;
+        // gets value of async assets      
+        + getAsyncAssets(address(liquidityPool));
+        
+        return cashReserve + investedAssets; 
     }
 
     function investedAssetsTesting() public view returns (uint256) {
@@ -118,7 +111,7 @@ contract Bestia is ERC4626, Ownable {
         return assets;
     }
 
-    // not sure if I can use this function for anything 
+    // not sure if I can use this function for anything long term
     // use for now to make sure the accounting is all working and possibly remove later when you know how you want to handle redemptions
     function getAsyncAssets(address _component) public view returns (uint256 assets) {
         // get the asset value of any shares already minted
@@ -293,7 +286,8 @@ contract Bestia is ERC4626, Ownable {
         uint256 depositAmount = getDepositAmount(_component);
 
         // Check if the current allocation is below the lower bound
-        uint256 currentAllocation = (ERC20(_component).balanceOf(address(this)) + pendingDeposits) * 1e18 / totalAssets_;
+        // uint256 currentAllocation = (ERC20(_component).balanceOf(address(this)) + pendingDeposits) * 1e18 / totalAssets_;
+        uint256 currentAllocation = getAsyncAssets(_component) * 1e18 / totalAssets_;
         uint256 lowerBound = getComponentRatio(_component) - asyncMaxDelta;
 
         if (currentAllocation >= lowerBound) {
@@ -309,7 +303,7 @@ contract Bestia is ERC4626, Ownable {
         }
 
         // append this value to pendingDeposits
-        pendingDeposits += depositAmount;
+        // pendingDeposits += depositAmount;
 
         IERC7540(_component).requestDeposit(depositAmount, address(this), address(this));
 
@@ -322,7 +316,8 @@ contract Bestia is ERC4626, Ownable {
         uint256 currentBalance;
 
         if (isAsync(_component)) {
-            currentBalance = ERC20(_component).balanceOf(address(this)) + pendingDeposits;
+            // currentBalance = ERC20(_component).balanceOf(address(this)) + pendingDeposits;
+            currentBalance = getAsyncAssets(_component);
         } else {
             currentBalance = ERC20(_component).balanceOf(address(this));
         }

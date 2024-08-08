@@ -95,8 +95,7 @@ contract RebalancingTests is BaseTest {
         // banker rebalances into illiquid vault
         bankerInvestsInAsyncVault(address(liquidityPool));
 
-        uint256 totalAssets = bestia.totalAssets();
-        uint256 pendingDeposits = bestia.pendingDeposits();
+        uint256 totalAssets = bestia.totalAssets();        
         uint256 vaultAHoldings = vaultA.balanceOf(address(bestia));
         uint256 vaultBHoldings = vaultB.balanceOf(address(bestia));
         uint256 vaultCHoldings = vaultC.balanceOf(address(bestia));
@@ -104,13 +103,10 @@ contract RebalancingTests is BaseTest {
 
         // assert that the protocol was rebalanced to the correct ratios
         assertEq(totalAssets, DEPOSIT_100);
-        assertEq(pendingDeposits, 30e18);
+        assertEq(getAsyncAssets, 30e18);
         assertEq(vaultAHoldings, 18e18);
         assertEq(vaultBHoldings, 20e18);
-        assertEq(vaultCHoldings, 22e18);
-
-        // assert that pendingDeposits tracked on Bestia == getAsyncAssets calls to liquidityPool
-        assertEq(pendingDeposits, getAsyncAssets);
+        assertEq(vaultCHoldings, 22e18);        
 
         // FIRST DEPOSIT: 10 UNITS
         vm.startPrank(user1);
@@ -126,8 +122,7 @@ contract RebalancingTests is BaseTest {
         vm.expectRevert();
         bankerInvestsInAsyncVault(address(liquidityPool));
 
-        totalAssets = bestia.totalAssets();
-        pendingDeposits = liquidityPool.pendingDepositRequest(0, address(bestia));
+        totalAssets = bestia.totalAssets();        
         vaultAHoldings = vaultA.balanceOf(address(bestia));
         vaultBHoldings = vaultB.balanceOf(address(bestia));
         vaultCHoldings = vaultC.balanceOf(address(bestia));
@@ -160,16 +155,13 @@ contract RebalancingTests is BaseTest {
         bankerInvestsCash(address(vaultC));
 
         totalAssets = bestia.totalAssets();
-        pendingDeposits = bestia.pendingDeposits();
+        // pendingDeposits = bestia.pendingDeposits();
         vaultAHoldings = vaultA.balanceOf(address(bestia));
         vaultBHoldings = vaultB.balanceOf(address(bestia));
         vaultCHoldings = vaultC.balanceOf(address(bestia));
-        getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));
+        getAsyncAssets = bestia.getAsyncAssets(address(liquidityPool));        
 
-        // assert that pendingDeposits tracked on Bestia == getAsyncAssets calls to liquidityPool
-        assertEq(pendingDeposits, getAsyncAssets);
-
-        // assert that pendingDeposits on liquidityPool == target ratio
+        // assert that asyncAssets on liquidityPool == target ratio
         assertEq(getAsyncAssets * 1e18 / totalAssets, 30e16);        
 
         // assert the liquid assets are all in the correct proportions
