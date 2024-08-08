@@ -52,7 +52,8 @@ contract Bestia is ERC4626, Ownable {
     event CashInvested(uint256 amount, address depositedTo);
     event DepositRequested(uint256 amount, address depositedTo);
     event InvestedToRWA(uint256 amount, address depositedTo);
-    event ComponentAdded(address _component, uint256 _ratio); // TODO: add bool
+    event ComponentAdded(address component, uint256 ratio); // TODO: add bool
+    event AsyncSharesMinted(address component, uint256 shares);
 
     // ERRORS
     error ReserveBelowTargetRatio();
@@ -62,6 +63,7 @@ contract Bestia is ERC4626, Ownable {
     error ComponentWithinTargetRange();
     error IsAsyncVault();
     error IsNotAsyncVault();
+    error NoClaimableDeposit();
 
     // MODIFIERS
     modifier onlyBanker() {
@@ -116,20 +118,35 @@ contract Bestia is ERC4626, Ownable {
         return assets;
     }
 
-    // not sure if I can use this function for anything
+    // not sure if I can use this function for anything 
+    // use for now to make sure the accounting is all working and possibly remove later when you know how you want to handle redemptions
     function getAsyncAssets(address _component) public view returns (uint256 assets) {
-        uint256 vaultAssets;
+        // get the asset value of any shares already minted
+        uint256 vaultAssets = liquidityPool.convertToAssets(liquidityPool.balanceOf(address(this)));
 
+        // get the pending deposits value
         try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingAssets) {
             vaultAssets += pendingAssets;
         } catch {}
 
-        // TODO: get claimable deposits (shares)
+        // get the claimable deposits value
+        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
+            vaultAssets += claimableAssets;
+        } catch {}
+        
         // TODO: get pending redemptions (shares)
         // TODO: get claimable redemptions (assets)
         // TODO: ERC20 balanceOf() calls
 
         return vaultAssets;
+    }
+
+    function mintClaimableShares(address _component) public onlyBanker returns (uint256) {
+        uint256 claimableShares = liquidityPool.claimableDepositRequest(0, address(this));
+        if (claimableShares == 0) {
+            revert NoClaimableDeposit();
+        }
+        liquidityPool.mint(claimableShares, address(this));
     }
 
     // TODO: override deposit function
@@ -216,7 +233,7 @@ contract Bestia is ERC4626, Ownable {
         }
 
         // THIS CHECK BREAKS A BUNCH OF TESTS
-        // TODO: REFACTOR YOU BASIC VAULT AND REBALANCE TESTS FOR THIS TO WORK
+        // TODO: REFACTOR YOUR BASIC VAULT AND REBALANCE TESTS FOR THIS TO WORK
 
         // if (!isAsyncAssetsInRange(_component)) {
         //     revert AsyncAssetBelowMinimum();

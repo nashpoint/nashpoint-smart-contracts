@@ -170,7 +170,7 @@ contract RebalancingTests is BaseTest {
         assertEq(pendingDeposits, getAsyncAssets);
 
         // assert that pendingDeposits on liquidityPool == target ratio
-        assertEq(getAsyncAssets * 1e18 / totalAssets, 30e16);
+        assertEq(getAsyncAssets * 1e18 / totalAssets, 30e16);        
 
         // assert the liquid assets are all in the correct proportions
         assertEq(vaultAHoldings * 1e18 / totalAssets, 18e16);
@@ -180,6 +180,47 @@ contract RebalancingTests is BaseTest {
         // assert that totalAssets = initial value + 2 deposits
         assertEq(totalAssets, DEPOSIT_100 + DEPOSIT_10 + DEPOSIT_10);
     }
+
+    function testGetAsyncAssets() public {        
+        // deposit 100 units to bestia and rebalance into correct target ratios
+        seedBestia();
+
+        // assert that the return value for getAsyncAssets == pendingDeposits on Liquidity Pool
+        uint256 asyncAssets = bestia.getAsyncAssets(address(liquidityPool));       
+        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, address(bestia));       
+        assertEq(asyncAssets, pendingDeposits);
+
+        // process pending deposits
+        vm.startPrank(manager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+
+        // assert that the return value for getAsyncAssets == claimableDeposits on Liquidity Pool
+        asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
+        uint256 claimableDeposits = liquidityPool.claimableDepositRequest(0, address(bestia));
+        assertEq(asyncAssets, claimableDeposits);
+
+        // mint the claimable shares
+        vm.startPrank(banker);
+        bestia.mintClaimableShares(address(liquidityPool));
+        vm.stopPrank();
+
+        // assert that return value for getAsyncAssets == value of newly minted shares
+        asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
+        uint256 valueOfShares = liquidityPool.convertToAssets(liquidityPool.balanceOf(address(bestia)));
+        assertEq(asyncAssets, valueOfShares);
+
+        // assert pendingDepositRequest deleted 
+        vm.expectRevert();
+        liquidityPool.pendingDepositRequest(0, address(bestia));
+
+        // assert claimableDeposits requests fully exhausted
+        assertEq(liquidityPool.claimableDepositRequest(0, address(bestia)), 0);
+
+        // TODO: Finish this test to include redemptions
+    }
+
+
 
     function bankerInvestsCash(address _component) public {
         vm.startPrank(banker);
@@ -191,5 +232,29 @@ contract RebalancingTests is BaseTest {
         vm.startPrank(banker);
         bestia.investInAsyncVault(address(_component));
         vm.stopPrank();
+    }
+
+    function seedBestia() public {
+        // SET THE STRATEGY
+        // add the 4626 Vaults
+        bestia.addComponent(address(vaultA), 18e16, false);
+        bestia.addComponent(address(vaultB), 20e16, false);
+        bestia.addComponent(address(vaultC), 22e16, false);
+
+        // add the 7540 Vault (RWA)
+        bestia.addComponent(address(liquidityPool), 30e16, true);
+
+        // SEED VAULT WITH 100 UNITS
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT_100, address(user1));
+        vm.stopPrank();
+
+        // banker rebalances bestia instant vaults
+        bankerInvestsCash(address(vaultA));
+        bankerInvestsCash(address(vaultB));
+        bankerInvestsCash(address(vaultC));        
+
+        // banker rebalances into illiquid vault
+        bankerInvestsInAsyncVault(address(liquidityPool));
     }
 }
