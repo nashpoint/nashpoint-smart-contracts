@@ -137,18 +137,50 @@ contract RebalancingTests is BaseTest {
         vm.stopPrank();
 
         // assert that return value for getAsyncAssets == value of newly minted shares
-        asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
+        asyncAssets = bestia.getAsyncAssets(address(liquidityPool)); 
         uint256 valueOfShares = liquidityPool.convertToAssets(liquidityPool.balanceOf(address(bestia)));
-        assertEq(asyncAssets, valueOfShares);
+        assertEq(asyncAssets, valueOfShares);       
+        
+        // get amount of shares minted
+        uint256 mintedShares = liquidityPool.balanceOf(address(bestia));        
 
         // assert pendingDepositRequest deleted
         vm.expectRevert();
         liquidityPool.pendingDepositRequest(0, address(bestia));
 
-        // assert claimableDeposits requests fully exhausted
+        // assert claimableDeposits requests == 0
         assertEq(liquidityPool.claimableDepositRequest(0, address(bestia)), 0);
 
-        // TODO: Finish this test to include redemptions
+        // request async asset withdrawal
+        vm.startPrank(banker);
+        bestia.requestAsyncWithdrawal(address(liquidityPool), mintedShares);
+        vm.stopPrank();
+
+        // assert the asset value of the redeeming shares == async assets
+        asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
+        uint256 pendingWithdrawals = liquidityPool.convertToAssets(liquidityPool.pendingRedeemRequest(0, address(bestia)));
+        assertEq(asyncAssets, pendingWithdrawals);
+
+        // process pending deposits
+        vm.startPrank(manager);
+        liquidityPool.processPendingRedemptions();
+        vm.stopPrank();
+
+        // assert claimable assets == async assets
+        asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
+        uint256 claimableWithdrawals = liquidityPool.claimableRedeemRequest(0, address(bestia));
+        assertEq(asyncAssets, claimableWithdrawals);
+
+        // execute the withdrawal
+        vm.startPrank(banker);
+        bestia.executeAsyncWithdrawal(address(liquidityPool), claimableWithdrawals);
+        vm.stopPrank();
+
+        assertEq(bestia.getAsyncAssets(address(liquidityPool)), 0);
+
+        console2.log(bestia.totalAssets());
+
+        
     }
 
     function bankerInvestsCash(address _component) public {

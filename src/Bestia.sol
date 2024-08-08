@@ -29,7 +29,6 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
-
     IERC7540 public liquidityPool;
     IERC20Metadata public usdc; // using 18 instead of 6 decimals here
 
@@ -45,10 +44,11 @@ contract Bestia is ERC4626, Ownable {
 
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
-    event DepositRequested(uint256 amount, address depositedTo);
-    event InvestedToRWA(uint256 amount, address depositedTo);
-    event ComponentAdded(address component, uint256 ratio); // TODO: add bool
+    event DepositRequested(uint256 amount, address depositedTo);    
+    event ComponentAdded(address component, uint256 ratio, bool isAsync); 
     event AsyncSharesMinted(address component, uint256 shares);
+    event AsyncWithdrawalRequested(address component, uint256 shares);
+    event AsyncWithdrawalExecuted(address component, uint256 assets);
 
     // ERRORS
     error ReserveBelowTargetRatio();
@@ -59,6 +59,8 @@ contract Bestia is ERC4626, Ownable {
     error IsAsyncVault();
     error IsNotAsyncVault();
     error NoClaimableDeposit();
+    error TooManySharesRequested();
+    error TooManyAssetsRequested();
 
     // MODIFIERS
     modifier onlyBanker() {
@@ -79,7 +81,6 @@ contract Bestia is ERC4626, Ownable {
         vaultA = IERC4626(_vaultA);
         vaultB = IERC4626(_vaultB);
         vaultC = IERC4626(_vaultC);
-
         liquidityPool = IERC7540(_liquidityPool);
         usdc = IERC20Metadata(_asset);
         banker = _banker;
@@ -103,22 +104,41 @@ contract Bestia is ERC4626, Ownable {
 
     // not sure if I can use this function for anything long term
     // use for now to make sure the accounting is all working and possibly remove later when you know how you want to handle redemptions
+    // maybe you can safely cache this somehow ???
     function getAsyncAssets(address _component) public view returns (uint256 assets) {
         // get the asset value of any shares already minted
         uint256 vaultAssets = liquidityPool.convertToAssets(liquidityPool.balanceOf(address(this)));
 
         // get the pending deposits value
-        try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingAssets) {
-            vaultAssets += pendingAssets;
+        try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingDepositAssets) {
+            vaultAssets += pendingDepositAssets;
         } catch {}
 
         // get the claimable deposits value
-        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
-            vaultAssets += claimableAssets;
+        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableDepositAssets) {
+            vaultAssets += claimableDepositAssets; // definitely creates a bug. TODO: get the asset value of the claimable shares
         } catch {}
 
-        // TODO: get pending redemptions (shares)
-        // TODO: get claimable redemptions (assets)
+        // get pending redemptions (shares)
+        uint256 pendingRedeemShares;
+        try IERC7540(_component).pendingRedeemRequest(0, address(this)) returns (uint256 shares) {
+            pendingRedeemShares = shares;
+        } catch {
+            pendingRedeemShares = 0;
+        }
+
+        if (pendingRedeemShares > 0) {
+            try IERC7540(_component).convertToAssets(pendingRedeemShares) returns (uint256 pendingRedeemAssets) {
+                vaultAssets += pendingRedeemAssets;
+            } catch {}
+        }
+        
+        // get claimable redemptions (assets)
+        try IERC7540(_component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemAssets) {
+            vaultAssets += claimableRedeemAssets;
+        } catch {}
+
+
         // TODO: ERC20 balanceOf() calls
 
         return vaultAssets;
@@ -130,7 +150,41 @@ contract Bestia is ERC4626, Ownable {
             revert NoClaimableDeposit();
         }
         liquidityPool.mint(claimableShares, address(this));
+
+        emit AsyncSharesMinted(_component, claimableShares);
         return claimableShares;
+    }
+
+    function requestAsyncWithdrawal(address _component, uint256 _shares) public onlyBanker {
+        if (_shares > IERC7540(_component).balanceOf(address(this))) {
+            revert TooManySharesRequested();
+        }
+        if (!isComponent(_component)) {
+            revert NotAComponent();
+        }
+        if (!isAsync(_component)) {
+            revert IsNotAsyncVault();
+        }
+        IERC7540(_component).requestRedeem(_shares, address(this), (address(this)));
+
+        emit AsyncWithdrawalRequested(_component, _shares);
+
+        // anything I should return here?
+    }
+
+    function executeAsyncWithdrawal(address _component, uint256 _assets) public onlyBanker {
+        if (_assets > IERC7540(_component).claimableRedeemRequest(0, address(this))) {
+            revert TooManyAssetsRequested();
+        }
+        if (!isComponent(_component)) {
+            revert NotAComponent();
+        }
+        if (!isAsync(_component)) {
+            revert IsNotAsyncVault();
+        }
+        IERC7540(_component).withdraw(_assets, address(this), address(this));
+
+        emit AsyncWithdrawalExecuted(_component, _assets);
     }
 
     // TODO: override deposit function
@@ -325,6 +379,7 @@ contract Bestia is ERC4626, Ownable {
             components.push(newComponent);
             componentIndex[_component] = components.length;
         }
+        emit ComponentAdded(_component, _targetRatio, _isAsync);
     }
 
     function isComponent(address _component) public view returns (bool) {
