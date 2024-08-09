@@ -9,6 +9,8 @@ remappings = [
     '@prb/math/=lib/prb-math/'
 ]
 
+gas_reports = ["Bestia"]
+
 solc = '0.8.26'
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -28,12 +28,13 @@ contract VaultTests is BaseTest {
 
     function testInvestCash() public {
         bestia.addComponent(address(vaultA), 90e16, false);
+        bestia.addComponent(address(liquidityPool), 0, true); // added to test to prevent revert: Component does not exist 
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
-        vm.startPrank(banker);
+        vm.startPrank(banker);        
         bestia.investCash(address(vaultA));
         vm.stopPrank();
 
@@ -112,6 +113,7 @@ contract VaultTests is BaseTest {
     function testAdjustedWithdraw() public {
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false);
+        bestia.addComponent(address(liquidityPool), 0, true); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -165,6 +167,7 @@ contract VaultTests is BaseTest {
     function testAdjustedDeposit() public {
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false);
+        bestia.addComponent(address(liquidityPool), 0, true); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));

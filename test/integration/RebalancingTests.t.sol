@@ -22,17 +22,17 @@ contract RebalancingTests is BaseTest {
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
-        // banker rebalances bestia instant vaults
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
-
         // cannot use this function to invest in async vault
         vm.expectRevert();
         bankerInvestsCash(address(liquidityPool));
 
         // banker rebalances into illiquid vault
         bankerInvestsInAsyncVault(address(liquidityPool));
+
+        // banker rebalances bestia instant vaults
+        bankerInvestsCash(address(vaultA));
+        bankerInvestsCash(address(vaultB));
+        bankerInvestsCash(address(vaultC));        
 
         uint256 totalAssets = bestia.totalAssets();
         uint256 vaultAHoldings = vaultA.balanceOf(address(bestia));
@@ -80,10 +80,12 @@ contract RebalancingTests is BaseTest {
         bestia.deposit(DEPOSIT_10, address(user1));
         vm.stopPrank();
 
-        // TODO: need to write a check that blocks investInCash when RWAs below target
+        // check that blocks investInCash when RWAs below target
+        vm.expectRevert();
+        bankerInvestsCash(address(vaultA));
 
         // should reject investCash as async vault is below threshold
-        console2.log(bestia.isAsyncAssetsInRange(address(liquidityPool)));
+        console2.log(bestia.isAsyncAssetsBelowMinimum(address(liquidityPool)));
 
         // must invest in async first to ensure it gets full amount
         bankerInvestsInAsyncVault(address(liquidityPool));
@@ -128,7 +130,7 @@ contract RebalancingTests is BaseTest {
 
         // assert that the return value for getAsyncAssets == claimableDeposits on Liquidity Pool
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
-        uint256 claimableDeposits = liquidityPool.claimableDepositRequest(0, address(bestia));
+        uint256 claimableDeposits = liquidityPool.convertToAssets(liquidityPool.claimableDepositRequest(0, address(bestia)));
         assertEq(asyncAssets, claimableDeposits);
 
         // mint the claimable shares
@@ -137,12 +139,12 @@ contract RebalancingTests is BaseTest {
         vm.stopPrank();
 
         // assert that return value for getAsyncAssets == value of newly minted shares
-        asyncAssets = bestia.getAsyncAssets(address(liquidityPool)); 
+        asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
         uint256 valueOfShares = liquidityPool.convertToAssets(liquidityPool.balanceOf(address(bestia)));
-        assertEq(asyncAssets, valueOfShares);       
-        
+        assertEq(asyncAssets, valueOfShares);
+
         // get amount of shares minted
-        uint256 mintedShares = liquidityPool.balanceOf(address(bestia));        
+        uint256 mintedShares = liquidityPool.balanceOf(address(bestia));
 
         // assert pendingDepositRequest deleted
         vm.expectRevert();
@@ -158,7 +160,8 @@ contract RebalancingTests is BaseTest {
 
         // assert the asset value of the redeeming shares == async assets
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
-        uint256 pendingWithdrawals = liquidityPool.convertToAssets(liquidityPool.pendingRedeemRequest(0, address(bestia)));
+        uint256 pendingWithdrawals =
+            liquidityPool.convertToAssets(liquidityPool.pendingRedeemRequest(0, address(bestia)));
         assertEq(asyncAssets, pendingWithdrawals);
 
         // process pending deposits
@@ -179,8 +182,6 @@ contract RebalancingTests is BaseTest {
         assertEq(bestia.getAsyncAssets(address(liquidityPool)), 0);
 
         console2.log(bestia.totalAssets());
-
-        
     }
 
     function bankerInvestsCash(address _component) public {
@@ -210,12 +211,14 @@ contract RebalancingTests is BaseTest {
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
+        // banker rebalances into illiquid vault
+        bankerInvestsInAsyncVault(address(liquidityPool));
+
         // banker rebalances bestia instant vaults
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
 
-        // banker rebalances into illiquid vault
-        bankerInvestsInAsyncVault(address(liquidityPool));
+        
     }
 }
