@@ -128,7 +128,7 @@ contract RebalancingTests is BaseTest {
 
         // assert that the return value for getAsyncAssets == claimableDeposits on Liquidity Pool
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
-        uint256 claimableDeposits = liquidityPool.claimableDepositRequest(0, address(bestia));
+        uint256 claimableDeposits = liquidityPool.convertToAssets(liquidityPool.claimableDepositRequest(0, address(bestia)));
         assertEq(asyncAssets, claimableDeposits);
 
         // mint the claimable shares
@@ -137,12 +137,12 @@ contract RebalancingTests is BaseTest {
         vm.stopPrank();
 
         // assert that return value for getAsyncAssets == value of newly minted shares
-        asyncAssets = bestia.getAsyncAssets(address(liquidityPool)); 
+        asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
         uint256 valueOfShares = liquidityPool.convertToAssets(liquidityPool.balanceOf(address(bestia)));
-        assertEq(asyncAssets, valueOfShares);       
-        
+        assertEq(asyncAssets, valueOfShares);
+
         // get amount of shares minted
-        uint256 mintedShares = liquidityPool.balanceOf(address(bestia));        
+        uint256 mintedShares = liquidityPool.balanceOf(address(bestia));
 
         // assert pendingDepositRequest deleted
         vm.expectRevert();
@@ -158,7 +158,8 @@ contract RebalancingTests is BaseTest {
 
         // assert the asset value of the redeeming shares == async assets
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
-        uint256 pendingWithdrawals = liquidityPool.convertToAssets(liquidityPool.pendingRedeemRequest(0, address(bestia)));
+        uint256 pendingWithdrawals =
+            liquidityPool.convertToAssets(liquidityPool.pendingRedeemRequest(0, address(bestia)));
         assertEq(asyncAssets, pendingWithdrawals);
 
         // process pending deposits
@@ -179,8 +180,6 @@ contract RebalancingTests is BaseTest {
         assertEq(bestia.getAsyncAssets(address(liquidityPool)), 0);
 
         console2.log(bestia.totalAssets());
-
-        
     }
 
     function bankerInvestsCash(address _component) public {
