@@ -102,6 +102,7 @@ contract Bestia is ERC4626, Ownable {
         return cashReserve + asyncAssets + liquidAssets;
     }
 
+    // TODO: check how much gas this uses. might need to cache data instead
     function getAsyncAssets(address _component) public view returns (uint256 assets) {
         // Get the asset value of any shares already minted
         assets = IERC7540(_component).convertToAssets(IERC7540(_component).balanceOf(address(this)));
@@ -140,6 +141,7 @@ contract Bestia is ERC4626, Ownable {
         return claimableShares;
     }
 
+    // requests withdrawal from async vault
     function requestAsyncWithdrawal(address _component, uint256 _shares) public onlyBanker {
         if (_shares > IERC7540(_component).balanceOf(address(this))) {
             revert TooManySharesRequested();
@@ -157,6 +159,7 @@ contract Bestia is ERC4626, Ownable {
         // anything I should return here?
     }
 
+    // withdraws claimable assets from async vault
     function executeAsyncWithdrawal(address _component, uint256 _assets) public onlyBanker {
         if (_assets > IERC7540(_component).claimableRedeemRequest(0, address(this))) {
             revert TooManyAssetsRequested();
@@ -258,9 +261,9 @@ contract Bestia is ERC4626, Ownable {
         // THIS CHECK BREAKS A BUNCH OF TESTS
         // TODO: REFACTOR YOUR BASIC VAULT AND REBALANCE TESTS FOR THIS TO WORK
 
-        // if (!isAsyncAssetsInRange(_component)) {
-        //     revert AsyncAssetBelowMinimum();
-        // }
+        if (isAsyncAssetsBelowMinimum(address(liquidityPool))) {
+            revert AsyncAssetBelowMinimum();
+        }
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
@@ -383,8 +386,8 @@ contract Bestia is ERC4626, Ownable {
         return components[index - 1].isAsync;
     }
 
-    function isAsyncAssetsInRange(address _component) public view returns (bool) {
-        return getAsyncAssets(_component) * 1e18 / totalAssets() >= getComponentRatio(_component) - asyncMaxDelta;
+    function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
+        return getAsyncAssets(_component) * 1e18 / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
     }
 
     function setBanker(address _banker) public onlyOwner {
