@@ -387,6 +387,8 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
+        uint256 targetRatio = getComponentRatio(_component);
+        if (targetRatio == 0) return false; // Always in range if target is 0
         return getAsyncAssets(_component) * 1e18 / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
     }
 
