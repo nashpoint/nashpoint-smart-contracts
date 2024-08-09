@@ -41,14 +41,22 @@ This is a work-in-progress prototype. Many of the core mechanisms are in place, 
 
 ## Next Steps
 
-- Finalize and optimize the ERC7540 integration
-- Improve the rebalancing and optimize for capital efficiency & risk management
-- Integrate other RWA Protocols & Modular Architecture
-- Rebasing Token for yield distribution
-- Wrapped Token for defi integrations
-- Factory model for permissionless pool creation
-- Single vault contract for efficient rebalancing
-- Decentralize rebalancing with auctions/intents
+- [ ] Finalize and optimize the ERC7540 integration
+    - [ ] Make sure the 7540Mock is fair and complete its functions
+    - [ ] Fuzz & Invariant Testing
+- [ ] Create Separate User-Facing Token
+    - [ ] Rebasing Token for yield distribution
+    - [ ] Wrapped Token for defi integrations
+- [ ] Modular Architecture    
+    - [ ] Split Functionality over Modules and Libraries
+    - [ ] Integrate other RWA Protocols 
+    - [ ] Single vault contract for efficient rebalancing
+    - [ ] Factory model for permissionless pool creation
+
+### Post Launch
+
+- [ ] Improve the rebalancing and optimize for capital efficiency & risk management
+- [ ] Decentralize rebalancing with auctions/intents
 
 ## Contributions
 
