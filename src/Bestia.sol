@@ -10,7 +10,7 @@ import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
-import {console2} from "lib/forge-std/src/Test.sol";
+// import {console2} from "lib/forge-std/src/Test.sol";
 
 contract Bestia is ERC4626, Ownable {
     // State Constants
@@ -253,14 +253,9 @@ contract Bestia is ERC4626, Ownable {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }
-
         if (isAsync(_component)) {
             revert IsAsyncVault();
         }
-
-        // THIS CHECK BREAKS A BUNCH OF TESTS
-        // TODO: REFACTOR YOUR BASIC VAULT AND REBALANCE TESTS FOR THIS TO WORK
-
         if (isAsyncAssetsBelowMinimum(address(liquidityPool))) {
             revert AsyncAssetBelowMinimum();
         }

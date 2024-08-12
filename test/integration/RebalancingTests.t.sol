@@ -32,7 +32,7 @@ contract RebalancingTests is BaseTest {
         // banker rebalances bestia instant vaults
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));        
+        bankerInvestsCash(address(vaultC));
 
         uint256 totalAssets = bestia.totalAssets();
         uint256 vaultAHoldings = vaultA.balanceOf(address(bestia));
@@ -130,7 +130,8 @@ contract RebalancingTests is BaseTest {
 
         // assert that the return value for getAsyncAssets == claimableDeposits on Liquidity Pool
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
-        uint256 claimableDeposits = liquidityPool.convertToAssets(liquidityPool.claimableDepositRequest(0, address(bestia)));
+        uint256 claimableDeposits =
+            liquidityPool.convertToAssets(liquidityPool.claimableDepositRequest(0, address(bestia)));
         assertEq(asyncAssets, claimableDeposits);
 
         // mint the claimable shares
@@ -218,7 +219,5 @@ contract RebalancingTests is BaseTest {
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
-
-        
     }
 }
