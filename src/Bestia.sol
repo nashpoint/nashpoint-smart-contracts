@@ -253,14 +253,9 @@ contract Bestia is ERC4626, Ownable {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }
-
         if (isAsync(_component)) {
             revert IsAsyncVault();
         }
-
-        // THIS CHECK BREAKS A BUNCH OF TESTS
-        // TODO: REFACTOR YOUR BASIC VAULT AND REBALANCE TESTS FOR THIS TO WORK
-
         if (isAsyncAssetsBelowMinimum(address(liquidityPool))) {
             revert AsyncAssetBelowMinimum();
         }
