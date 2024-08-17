@@ -28,7 +28,7 @@ contract DeployContracts is Script {
         usdc = new ERC20Mock("Mock USDC", "USDC");
         vaultA = new ERC4626Mock(address(usdc));
         vaultB = new ERC4626Mock(address(usdc));
-        vaultC = new ERC4626Mock(address(usdc));        
+        vaultC = new ERC4626Mock(address(usdc));
         liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
         bestia = new Bestia(
             address(usdc),

@@ -102,8 +102,6 @@ contract ERC7540Tests is BaseTest {
 
         // assert shares = assets 1:1
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
-
-        console2.log(liquidityPool.convertToAssets(10e18));
     }
 
     function testRedeemAndWithdrawFlow() public {
@@ -117,7 +115,7 @@ contract ERC7540Tests is BaseTest {
         uint256 user1Shares = liquidityPool.balanceOf(user);
 
         // user requests redeem
-        userRequestsReedem(user, user1Shares);
+        userRequestsRedeem(user, user1Shares);
 
         uint256 pendingRedemptions = liquidityPool.pendingRedeemRequest(0, user);
 
@@ -167,14 +165,14 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
 
         // user requestsRedeem and manager processes
-        userRequestsReedem(user, amount);
+        userRequestsRedeem(user, amount);
         managerProcessesRedemptions();
 
         // assert the vault is back in sync, shares == assets
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
 
         // user requestsRedeem and manager processes
-        userRequestsReedem(user, amount);
+        userRequestsRedeem(user, amount);
         managerProcessesRedemptions();
 
         // assert the vault is back in sync, shares == assets
@@ -191,7 +189,7 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
 
         // user requestsRedeem and manager processes
-        userRequestsReedem(user, amount);
+        userRequestsRedeem(user, amount);
         managerProcessesRedemptions();
 
         // user withdraws
@@ -264,7 +262,7 @@ contract ERC7540Tests is BaseTest {
         vm.stopPrank();
     }
 
-    function userRequestsReedem(address user, uint256 amount) public {
+    function userRequestsRedeem(address user, uint256 amount) public {
         vm.startPrank(user);
         liquidityPool.requestRedeem(amount, user, user);
         vm.stopPrank();

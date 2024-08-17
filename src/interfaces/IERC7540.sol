@@ -20,11 +20,11 @@ interface IERC7540 {
     function isOperator(address controller, address operator) external view returns (bool);
     function setOperator(address operator, bool approved) external returns (bool);
 
-    function currentRequestId() external view returns (uint256);
-    function poolManager() external view returns (address);
-    function pendingShares() external view returns (uint256);
+    // function currentRequestId() external view returns (uint256);
+    // function poolManager() external view returns (address);
+    // function pendingShares() external view returns (uint256);
 
-    function share() external view returns (address);
+    // function share() external view returns (address);
 
     // IERC4626
     function convertToAssets(uint256 shares) external view returns (uint256 assets);

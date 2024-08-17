@@ -13,8 +13,8 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
     // Mappings
     mapping(address => mapping(address => bool)) private _operators;
-    mapping(uint256 => mapping(address => uint256)) public claimableDepositRequests;
-    mapping(uint256 => mapping(address => uint256)) private claimableRedeemRequests;
+    mapping(address => uint256) public claimableDepositRequests;
+    mapping(address => uint256) private claimableRedeemRequests;
     mapping(address => uint256) public controllerToDepositIndex;
     mapping(address => uint256) public controllerToRedeemIndex;
 
@@ -22,15 +22,16 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     struct PendingRequest {
         address controller;
         uint256 amount;
-        uint256 requestId;
     }
 
     // Arrays
     PendingRequest[] public pendingDepositRequests;
     PendingRequest[] public pendingRedeemRequests;
 
+    // @dev Requests for Centrifuge pool are non-fungible and all have ID = 0
+    uint256 private constant REQUEST_ID = 0;
+
     // Variables
-    uint256 public currentRequestId = 0; // matches centrifuge implementation
     address public poolManager;
     uint256 public pendingShares; // represented as shares that can be minted
     bool private initialized = false;
@@ -47,7 +48,6 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     // Errors TODO: rename these shitty errors
     error NoPendingDepositAvailable();
     error NoPendingRedeemAvailable();
-    error WrongRequestID();
     error ExceedsPendingDeposit();
     error ExceedsPendingRedeem();
     error NotImplementedYet();
@@ -66,12 +66,9 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // DEPOSIT FLOW
-    function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256 requestId) {
+    function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256) {
         require(assets > 0, "Cannot request deposit of 0 assets");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
-
-        // grabs global requestId
-        requestId = currentRequestId;
 
         // Transfer assets from owner to vault
         require(IERC20(asset()).transferFrom(owner, address(this), assets), "Transfer failed");
@@ -85,8 +82,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
             // or it creates a new pending request struct
         } else {
-            PendingRequest memory newRequest =
-                PendingRequest({controller: controller, amount: assets, requestId: requestId});
+            PendingRequest memory newRequest = PendingRequest({controller: controller, amount: assets});
 
             // and adds it to the pendingDepositRequests array and the controllerToDepositIndex
             pendingDepositRequests.push(newRequest);
@@ -94,24 +90,19 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         }
 
         // Emit DepositRequest event
-        emit DepositRequest(controller, owner, requestId, msg.sender, assets);
+        emit DepositRequest(controller, owner, REQUEST_ID, msg.sender, assets);
 
-        return requestId;
+        return REQUEST_ID;
     }
 
-    // requestId commented out as unused and causing error.
-    // TODO: check this later as this might break standard
-    function pendingDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
-        if (requestId != currentRequestId) {
-            revert WrongRequestID();
-        }
+    function pendingDepositRequest(uint256, address controller) external view returns (uint256 assets) {
         uint256 index = controllerToDepositIndex[controller];
         require(index > 0, "No pending deposit for controller");
         return pendingDepositRequests[index - 1].amount;
     }
 
-    function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets) {
-        return claimableDepositRequests[requestId][controller];
+    function claimableDepositRequest(uint256, address controller) external view returns (uint256 assets) {
+        return claimableDepositRequests[controller];
     }
 
     function processPendingDeposits() external onlyManager {
@@ -135,7 +126,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
             uint256 shares = Math.mulDiv(request.amount, sharePerAsset, 1e18, Math.Rounding.Floor);
 
-            claimableDepositRequests[request.requestId][request.controller] += shares;
+            claimableDepositRequests[request.controller] += shares;
 
             // keep a running total of shares to be minted by users
             pendingShares += shares;
@@ -149,12 +140,10 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // REDEMPTION FLOW
-    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
+    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(owner) >= shares, "Insufficient shares");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
-
-        requestId = currentRequestId;
 
         // Transfer ERC4626 share tokens from owner back to vault
         require(IERC20((address(this))).transferFrom(owner, address(this), shares), "Transfer failed");
@@ -164,30 +153,25 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         if (index > 0) {
             pendingRedeemRequests[index - 1].amount += shares;
         } else {
-            PendingRequest memory newRequest =
-                PendingRequest({controller: controller, amount: shares, requestId: requestId});
+            PendingRequest memory newRequest = PendingRequest({controller: controller, amount: shares});
 
             pendingRedeemRequests.push(newRequest);
             controllerToRedeemIndex[controller] = pendingRedeemRequests.length;
         }
 
-        emit RedeemRequest(controller, owner, requestId, msg.sender, shares);
+        emit RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
 
-        return requestId;
+        return REQUEST_ID;
     }
 
-    function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
-        if (requestId != currentRequestId) {
-            revert WrongRequestID();
-        }
-
+    function pendingRedeemRequest(uint256, address controller) external view returns (uint256 shares) {
         uint256 index = controllerToRedeemIndex[controller];
         require(index > 0, "No pending redemption for controller");
         return pendingRedeemRequests[index - 1].amount;
     }
 
-    function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
-        return claimableRedeemRequests[requestId][controller];
+    function claimableRedeemRequest(uint256, address controller) external view returns (uint256 shares) {
+        return claimableRedeemRequests[controller];
     }
 
     function processPendingRedemptions() external onlyManager {
@@ -211,7 +195,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
             uint256 assets = Math.mulDiv(request.amount, assetPerShare, 1e18);
 
-            claimableRedeemRequests[request.requestId][request.controller] += assets;
+            claimableRedeemRequests[request.controller] += assets;
 
             // Clear the controllerToIndex entry for this controller
             delete controllerToRedeemIndex[request.controller];
@@ -247,16 +231,15 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     function mint(uint256 shares, address receiver) public override(ERC4626, IERC7540) returns (uint256 assets) {
-        uint256 requestId = currentRequestId;
         address controller = msg.sender;
 
         // Check if there's any claimable deposit for the controller
-        if (claimableDepositRequests[requestId][controller] == 0) {
+        if (claimableDepositRequests[controller] == 0) {
             revert NoPendingDepositAvailable();
         }
 
         // Check if requested shares exceed the claimable amount
-        if (shares > claimableDepositRequests[requestId][controller]) {
+        if (shares > claimableDepositRequests[controller]) {
             revert ExceedsPendingDeposit();
         }
 
@@ -264,7 +247,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         assets = convertToAssets(shares);
 
         // Update claimable balance
-        claimableDepositRequests[requestId][controller] -= shares;
+        claimableDepositRequests[controller] -= shares;
 
         // subtract newly minted shares from pending shares
         pendingShares -= shares;
@@ -280,18 +263,17 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         override(ERC4626, IERC7540)
         returns (uint256 shares)
     {
-        uint256 requestId = currentRequestId;
         address controller = msg.sender;
 
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
 
         // Check if there's any claimable redeem for the controller
-        if (claimableRedeemRequests[requestId][controller] == 0) {
+        if (claimableRedeemRequests[controller] == 0) {
             revert NoPendingRedeemAvailable();
         }
 
         // check if the requested assets exceed the claimable amount
-        if (assets > claimableRedeemRequests[requestId][controller]) {
+        if (assets > claimableRedeemRequests[controller]) {
             revert ExceedsPendingRedeem();
         }
 
@@ -299,7 +281,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         shares = convertToShares(assets);
 
         // update claimable balance
-        claimableRedeemRequests[requestId][controller] -= assets;
+        claimableRedeemRequests[controller] -= assets;
 
         // burn excess shares
         _burn(address(this), shares);
