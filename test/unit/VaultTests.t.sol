@@ -247,15 +247,4 @@ contract VaultTests is BaseTest {
 
         return (currentReserveRatio);
     }
-
-    // TODO: REFACTOR THIS LATER AND REMOVE HARDCODING FROM THE MAIN FILE
-    function setStrategy() public {
-        // add the 4626 Vaults
-        bestia.addComponent(address(vaultA), 20e16, false);
-        bestia.addComponent(address(vaultB), 20e16, false);
-        bestia.addComponent(address(vaultC), 20e16, false);
-
-        // add the 7540 Vault (RWA)
-        bestia.addComponent(address(tempRWA), 30e16, false); // temp delete
-    }
 }
