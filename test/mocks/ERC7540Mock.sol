@@ -45,7 +45,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     );
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
-    // Errors TODO: rename these shitty errors
+    // Errors TODO: rename these errors to be more descriptive and include contract name
     error NoPendingDepositAvailable();
     error NoPendingRedeemAvailable();
     error ExceedsPendingDeposit();
