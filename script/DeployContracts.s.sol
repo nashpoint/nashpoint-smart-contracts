@@ -7,6 +7,7 @@ import {Bestia} from "../src/Bestia.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
+import {HelperConfig} from "script/HelperConfig.s.sol";
 
 contract DeployContracts is Script {
     // CONTRACTS
@@ -20,10 +21,14 @@ contract DeployContracts is Script {
     address manager;
     address banker;
 
+    HelperConfig public helperConfig;
+
     function run() external {
+        helperConfig = new HelperConfig();
+
         vm.startBroadcast();
-        manager = 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e; // or any specific address
-        banker = 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e; // or any specific address
+        manager = 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e;
+        banker = 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e;
 
         usdc = new ERC20Mock("Mock USDC", "USDC");
         vaultA = new ERC4626Mock(address(usdc));

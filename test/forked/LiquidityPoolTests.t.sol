@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import {Bestia} from "../src/Bestia.sol";
+import {Bestia} from "../../src/Bestia.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";

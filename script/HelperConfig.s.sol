@@ -1,32 +1,44 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
+import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
+import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 
 contract HelperConfig is Script {
     NetworkConfig public activeNetworkConfig;
 
-    uint8 public constant DECIMALS = 8;
-    int256 public constant INITIAL_PRICE = 2000e8;
-
     struct NetworkConfig {
+        address manager;
+        address banker;
+        address usdc;
+        address vaultA;
+        address vaultB;
+        address vaultC;
         address liquidityPool;
     }
 
+    // TODO: change this to include more info       
     event HelperConfig__CreatedMockLiquidityPool(address liquidityPool);
 
     constructor() {
-        if (block.chainid == 11155111) {
-            activeNetworkConfig = getSepoliaEthConfig();
+        if (block.chainid == 421614) {
+            activeNetworkConfig = getArbSepoliaConfig();
         } else {
             activeNetworkConfig = getOrCreateAnvilEthConfig();
         }
     }
 
-    function getSepoliaEthConfig() public pure returns (NetworkConfig memory sepoliaNetworkConfig) {
-        sepoliaNetworkConfig = NetworkConfig({
-            liquidityPool: 0x2dC69d1A0d012692B92b5E66A5E1525DA066B728 // ETH / USD
+    function getArbSepoliaConfig() public pure returns (NetworkConfig memory testNetworkConfig) {
+        testNetworkConfig = NetworkConfig({
+            banker: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
+            manager: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
+            usdc: 0x6755DDab5aA15Cef724Bf523676294DD06D712eb,
+            vaultA: 0x59AcD8815169Cc1A1C5959D087ECFEe9f282C150,
+            vaultB: 0xd795ecc98299EaF5255Df50Ae423F228Ec2Bf826,
+            vaultC: 0xde18b205FD9f31F8DC137cC9939D82d17AaD8739,
+            liquidityPool: 0x2dC69d1A0d012692B92b5E66A5E1525DA066B728
         });
     }
 
@@ -35,14 +47,18 @@ contract HelperConfig is Script {
         if (activeNetworkConfig.liquidityPool != address(0)) {
             return activeNetworkConfig;
         }
+        
         vm.startBroadcast();
-        // ERC7540Mock mockLiquidityPool = new ERC7540Mock(
-        //     DECIMALS,
-        //     INITIAL_PRICE
-        // );
-        vm.stopBroadcast();
-        // emit HelperConfig__CreatedMockLiquidityPool(address(mockLiquidityPool));
+        address banker = address(0x5);
+        address manager = address(0x6);        
+        ERC20Mock usdc = new ERC20Mock("Mock USDC", "USDC");
+        ERC4626Mock vaultA = new ERC4626Mock(address(usdc));
+        ERC4626Mock vaultB = new ERC4626Mock(address(usdc));
+        ERC4626Mock vaultC = new ERC4626Mock(address(usdc));
+        ERC7540Mock liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
 
-        // anvilNetworkConfig = NetworkConfig({liquidityPool: address(mockLiquidityPool)});
+        vm.stopBroadcast();
+        anvilNetworkConfig = NetworkConfig({banker: address(banker), manager: address(manager), usdc: address(usdc), vaultA: address(vaultA), vaultB: address(vaultB), vaultC: address(vaultC), liquidityPool: address(liquidityPool)});
+            
     }
 }
