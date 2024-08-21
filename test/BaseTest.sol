@@ -3,6 +3,8 @@
 pragma solidity ^0.8.20;
 
 import {Bestia} from "../src/Bestia.sol";
+import {DeployBestia} from "script/DeployBestia.s.sol";
+import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
@@ -13,45 +15,50 @@ import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 contract BaseTest is Test {
-    address public constant user1 = address(0x1);
-    address public constant user2 = address(0x2);
-    address public constant user3 = address(0x3);
-    address public constant user4 = address(0x4);
-    address public constant banker = address(0x5); // Bestia Banker
-    address public constant manager = address(0x6); // 7450 Manager
+    address public constant user1 = address(1);
+    address public constant user2 = address(2);
+    address public constant user3 = address(3);
+    address public constant user4 = address(4);
 
+    uint256 public constant MAX_ALLOWANCE = type(uint256).max;
     uint256 public constant START_BALANCE = 1000e18;
     uint256 public constant DEPOSIT_100 = 100e18;
     uint256 public constant DEPOSIT_10 = 10e18;
     uint256 public constant DEPOSIT_1 = 1e18;
 
-    // CONTRACTS
-    Bestia public immutable bestia;
-    ERC20Mock public immutable usdc;
-    ERC4626Mock public immutable vaultA;
-    ERC4626Mock public immutable vaultB;
-    ERC4626Mock public immutable vaultC;
-    ERC7540Mock public immutable liquidityPool;
+    Bestia public bestia;
+    HelperConfig public helperConfig;
+    ERC20Mock public usdc;
+    ERC4626Mock public vaultA;
+    ERC4626Mock public vaultB;
+    ERC4626Mock public vaultC;
+    ERC7540Mock public liquidityPool;
 
-    constructor() {
-        usdc = new ERC20Mock("Mock USDC", "USDC");
-        vaultA = new ERC4626Mock(address(usdc));
-        vaultB = new ERC4626Mock(address(usdc));
-        vaultC = new ERC4626Mock(address(usdc));
-        liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
-        bestia = new Bestia(
-            address(usdc),
-            "Bestia",
-            "BEST",
-            address(vaultA),
-            address(vaultB),
-            address(vaultC),
-            address(liquidityPool),
-            address(banker)
-        );
-    }
+    address public banker;
+    address public manager;
 
     function setUp() public {
+        DeployBestia deployer = new DeployBestia();
+        (bestia, helperConfig) = deployer.run();
+
+        (
+            address managerAddress,
+            address bankerAddress,
+            address usdcAddress,
+            address vaultAAddress,
+            address vaultBAddress,
+            address vaultCAddress,
+            address liquidityPoolAddress
+        ) = helperConfig.activeNetworkConfig();
+
+        banker = bankerAddress;
+        manager = managerAddress;
+        usdc = ERC20Mock(usdcAddress);
+        vaultA = ERC4626Mock(vaultAAddress);
+        vaultB = ERC4626Mock(vaultBAddress);
+        vaultC = ERC4626Mock(vaultCAddress);
+        liquidityPool = ERC7540Mock(liquidityPoolAddress);
+
         vm.startPrank(user1);
         usdc.approve(address(bestia), type(uint256).max);
         usdc.approve(address(liquidityPool), type(uint256).max);

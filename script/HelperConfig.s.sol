@@ -19,8 +19,15 @@ contract HelperConfig is Script {
         address liquidityPool;
     }
 
-    // TODO: change this to include more info       
-    event HelperConfig__CreatedMockLiquidityPool(address liquidityPool);
+    event HelperConfig__CreatedNetworkConfig(
+        address manager,
+        address banker,
+        address usdc,
+        address vaultA,
+        address vaultB,
+        address vaultC,
+        address liquidityPool
+    );
 
     constructor() {
         if (block.chainid == 421614) {
@@ -32,8 +39,8 @@ contract HelperConfig is Script {
 
     function getArbSepoliaConfig() public pure returns (NetworkConfig memory testNetworkConfig) {
         testNetworkConfig = NetworkConfig({
-            banker: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
             manager: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
+            banker: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
             usdc: 0x6755DDab5aA15Cef724Bf523676294DD06D712eb,
             vaultA: 0x59AcD8815169Cc1A1C5959D087ECFEe9f282C150,
             vaultB: 0xd795ecc98299EaF5255Df50Ae423F228Ec2Bf826,
@@ -47,10 +54,10 @@ contract HelperConfig is Script {
         if (activeNetworkConfig.liquidityPool != address(0)) {
             return activeNetworkConfig;
         }
-        
+
         vm.startBroadcast();
-        address banker = address(0x5);
-        address manager = address(0x6);        
+        address banker = address(5);
+        address manager = address(6);
         ERC20Mock usdc = new ERC20Mock("Mock USDC", "USDC");
         ERC4626Mock vaultA = new ERC4626Mock(address(usdc));
         ERC4626Mock vaultB = new ERC4626Mock(address(usdc));
@@ -58,7 +65,23 @@ contract HelperConfig is Script {
         ERC7540Mock liquidityPool = new ERC7540Mock(usdc, "7540 Token", "7540", address(manager));
 
         vm.stopBroadcast();
-        anvilNetworkConfig = NetworkConfig({banker: address(banker), manager: address(manager), usdc: address(usdc), vaultA: address(vaultA), vaultB: address(vaultB), vaultC: address(vaultC), liquidityPool: address(liquidityPool)});
-            
+        anvilNetworkConfig = NetworkConfig({
+            manager: address(manager),
+            banker: address(banker),
+            usdc: address(usdc),
+            vaultA: address(vaultA),
+            vaultB: address(vaultB),
+            vaultC: address(vaultC),
+            liquidityPool: address(liquidityPool)
+        });
+        emit HelperConfig__CreatedNetworkConfig(
+            address(manager),
+            address(banker),
+            address(usdc),
+            address(vaultA),
+            address(vaultB),
+            address(vaultC),
+            address(liquidityPool)
+        );
     }
 }

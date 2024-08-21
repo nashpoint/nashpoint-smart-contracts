@@ -11,17 +11,27 @@ import {Bestia} from "../src/Bestia.sol";
 contract DeployBestia is Script {
     function run() external returns (Bestia, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
-        (address banker, /* address manager */, address usdc, address vaultA, address vaultB, address vaultC, address liquidityPool) = helperConfig.activeNetworkConfig();
+        (
+            address manager, // Not used in this contract
+            address banker,
+            address usdc,
+            address vaultA,
+            address vaultB,
+            address vaultC,
+            address liquidityPool
+        ) = helperConfig.activeNetworkConfig();
 
         vm.startBroadcast();
-        Bestia bestia = new Bestia(address(usdc),
+        Bestia bestia = new Bestia(
+            address(usdc),
             "Bestia",
             "BEST",
             address(vaultA),
             address(vaultB),
             address(vaultC),
             address(liquidityPool),
-            address(banker));
+            address(banker)
+        );
         vm.stopBroadcast();
         return (bestia, helperConfig);
     }
