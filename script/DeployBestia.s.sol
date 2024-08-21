@@ -12,7 +12,7 @@ contract DeployBestia is Script {
     function run() external returns (Bestia, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
         (
-            address manager, // Not used in this contract
+            , // ignore manager
             address banker,
             address usdc,
             address vaultA,
