@@ -71,7 +71,7 @@ contract VaultTests is BaseTest {
 
         // test large deposit of 1000e18 (about 10x total assets)
         vm.startPrank(user3);
-        bestia.deposit(START_BALANCE, address(user3));
+        bestia.deposit(START_BALANCE_1000, address(user3));
         vm.stopPrank();
 
         vm.startPrank(banker);

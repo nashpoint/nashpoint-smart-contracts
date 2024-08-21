@@ -108,7 +108,7 @@ contract ERC7540Tests is BaseTest {
         address user = address(user1);
         address notController = address(user2);
         uint256 amount = DEPOSIT_10;
-        uint256 startingBalance = START_BALANCE;
+        uint256 startingBalance = START_BALANCE_1000;
 
         // user deposts and mints to set up the test
         userDepositsAndMints(user, amount);

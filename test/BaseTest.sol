@@ -21,7 +21,7 @@ contract BaseTest is Test {
     address public constant user4 = address(4);
 
     uint256 public constant MAX_ALLOWANCE = type(uint256).max;
-    uint256 public constant START_BALANCE = 1000e18;
+    uint256 public constant START_BALANCE_1000 = 1000e18;
     uint256 public constant DEPOSIT_100 = 100e18;
     uint256 public constant DEPOSIT_10 = 10e18;
     uint256 public constant DEPOSIT_1 = 1e18;
@@ -59,47 +59,45 @@ contract BaseTest is Test {
         vaultC = ERC4626Mock(vaultCAddress);
         liquidityPool = ERC7540Mock(liquidityPoolAddress);
 
-        vm.startPrank(user1);
-        usdc.approve(address(bestia), type(uint256).max);
-        usdc.approve(address(liquidityPool), type(uint256).max);
-        liquidityPool.approve(address(liquidityPool), type(uint256).max);
-        usdc.mint(user1, START_BALANCE);
-        vm.stopPrank();
+        _setupUserBalancesAndApprovals();
+        _setupBestiaApprovals();
+        _setupInitialLiquidity();
+    }
 
-        vm.startPrank(user2);
-        usdc.approve(address(bestia), type(uint256).max);
-        usdc.approve(address(liquidityPool), type(uint256).max);
-        liquidityPool.approve(address(liquidityPool), type(uint256).max);
-        usdc.mint(user2, START_BALANCE);
-        vm.stopPrank();
+    function _setupUserBalancesAndApprovals() internal {
+        address[] memory users = new address[](4);
+        users[0] = user1;
+        users[1] = user2;
+        users[2] = user3;
+        users[3] = user4;
 
-        vm.startPrank(user3);
-        usdc.approve(address(bestia), type(uint256).max);
-        usdc.approve(address(liquidityPool), type(uint256).max);
-        liquidityPool.approve(address(liquidityPool), type(uint256).max);
-        usdc.mint(user3, START_BALANCE);
-        vm.stopPrank();
+        for (uint256 i = 0; i < users.length; i++) {
+            vm.startPrank(users[i]);
+            usdc.approve(address(bestia), MAX_ALLOWANCE);
+            usdc.approve(address(liquidityPool), MAX_ALLOWANCE);
+            liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
+            usdc.mint(users[i], START_BALANCE_1000);
+            vm.stopPrank();
+        }
+    }
 
-        vm.startPrank(user4);
-        usdc.approve(address(bestia), type(uint256).max);
-        usdc.approve(address(liquidityPool), type(uint256).max);
-        liquidityPool.approve(address(liquidityPool), type(uint256).max);
-        usdc.mint(user4, START_BALANCE);
-        vm.stopPrank();
-
+    function _setupBestiaApprovals() internal {
         vm.startPrank(address(bestia));
-        usdc.approve(address(vaultA), type(uint256).max);
-        usdc.approve(address(vaultB), type(uint256).max);
-        usdc.approve(address(vaultC), type(uint256).max);
-        usdc.approve(address(liquidityPool), type(uint256).max);
-        liquidityPool.approve(address(liquidityPool), type(uint256).max);
+        usdc.approve(address(vaultA), MAX_ALLOWANCE);
+        usdc.approve(address(vaultB), MAX_ALLOWANCE);
+        usdc.approve(address(vaultC), MAX_ALLOWANCE);
+        usdc.approve(address(liquidityPool), MAX_ALLOWANCE);
+        liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
         vm.stopPrank();
+    }
 
+    function _setupInitialLiquidity() internal {
         vm.startPrank(address(manager));
-        usdc.approve(address(liquidityPool), type(uint256).max);
-        usdc.mint(manager, START_BALANCE);
+        usdc.approve(address(liquidityPool), MAX_ALLOWANCE);
+        usdc.mint(manager, START_BALANCE_1000);
         liquidityPool.requestDeposit(DEPOSIT_100, address(manager), address(manager));
         liquidityPool.processPendingDeposits();
         liquidityPool.mint(DEPOSIT_100, address(manager));
+        vm.stopPrank();
     }
 }
