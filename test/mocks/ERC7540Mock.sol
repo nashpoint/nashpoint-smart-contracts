@@ -295,12 +295,30 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
     // 4626 OVERIDES
 
+    function approve(address spender, uint256 amount) public override(ERC20, IERC20, IERC7540) returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, amount);
+        return true;
+    }
+
     function balanceOf(address account) public view override(ERC20, IERC20, IERC7540) returns (uint256) {
         return super.balanceOf(account);
     }
 
+    function totalSupply() public view override(IERC7540, ERC20, IERC20) returns (uint256) {
+        return super.totalSupply();
+    }
+
+    function totalAssets() public view override(IERC7540, ERC4626) returns (uint256 assets) {
+        return super.totalAssets();
+    }
+
     function convertToAssets(uint256 shares) public view override(ERC4626, IERC7540) returns (uint256) {
         return super.convertToAssets(shares);
+    }
+
+    function convertToShares(uint256 assets) public view override(ERC4626, IERC7540) returns (uint256) {
+        return super.convertToShares(assets);
     }
 
     function previewDeposit(uint256 assets) public view virtual override returns (uint256) {

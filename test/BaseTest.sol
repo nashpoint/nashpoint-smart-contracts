@@ -8,6 +8,7 @@ import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
+import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -38,6 +39,45 @@ contract BaseTest is Test {
     address public manager;
 
     function setUp() public {
+        if (block.chainid == 1) {
+            _setupMainnet();
+        } else if (block.chainid == 42161) {
+            _setupArbitrumSepolia();
+        } else {
+            _setupLocalAnvil();
+        }
+    }
+
+    function _setupMainnet() internal {}
+
+    function _setupArbitrumSepolia() internal {
+        DeployBestia deployer = new DeployBestia();
+        (bestia, helperConfig) = deployer.run();
+
+        (
+            address managerAddress,
+            address bankerAddress,
+            address usdcAddress,
+            address vaultAAddress,
+            address vaultBAddress,
+            address vaultCAddress,
+            address liquidityPoolAddress
+        ) = helperConfig.activeNetworkConfig();
+
+        banker = bankerAddress;
+        manager = managerAddress;
+        usdc = ERC20Mock(usdcAddress);
+        vaultA = ERC4626Mock(vaultAAddress);
+        vaultB = ERC4626Mock(vaultBAddress);
+        vaultC = ERC4626Mock(vaultCAddress);
+        liquidityPool = ERC7540Mock(liquidityPoolAddress);
+
+        _setupUserBalancesAndApprovals();
+        _setupBestiaApprovals();
+        _setupInitialLiquidity();
+    }
+
+    function _setupLocalAnvil() internal {
         DeployBestia deployer = new DeployBestia();
         (bestia, helperConfig) = deployer.run();
 
