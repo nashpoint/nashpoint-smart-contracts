@@ -33,7 +33,8 @@ contract BaseTest is Test {
     ERC4626Mock public vaultA;
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;
-    ERC7540Mock public liquidityPool;
+    IERC7540 public liquidityPool;
+    // ERC7540Mock public liquidityPool;
 
     address public banker;
     address public manager;
@@ -48,30 +49,7 @@ contract BaseTest is Test {
         }
     }
 
-    function _setupMainnet() internal {
-        // DeployBestia deployer = new DeployBestia();
-        // (bestia, helperConfig) = deployer.run();
-
-        // (
-        //     address managerAddress,
-        //     address bankerAddress,
-        //     address usdcAddress,
-        //     address vaultAAddress,
-        //     address vaultBAddress,
-        //     address vaultCAddress,
-        //     address liquidityPoolAddress
-        // ) = helperConfig.activeNetworkConfig();
-
-        // banker = bankerAddress;
-        // manager = managerAddress;
-        // usdc = ERC20Mock(usdcAddress);
-        // vaultA = ERC4626Mock(vaultAAddress);
-        // vaultB = ERC4626Mock(vaultBAddress);
-        // vaultC = ERC4626Mock(vaultCAddress);
-        // liquidityPool = IERC7540(liquidityPoolAddress);
-    }
-
-    function _setupArbitrumSepolia() internal {
+    function _setupLocalAnvil() internal {
         DeployBestia deployer = new DeployBestia();
         (bestia, helperConfig) = deployer.run();
 
@@ -98,7 +76,30 @@ contract BaseTest is Test {
         _setupInitialLiquidity();
     }
 
-    function _setupLocalAnvil() internal {
+    function _setupMainnet() internal {
+        DeployBestia deployer = new DeployBestia();
+        (bestia, helperConfig) = deployer.run();
+
+        (
+            address managerAddress,
+            address bankerAddress,
+            address usdcAddress,
+            address vaultAAddress,
+            address vaultBAddress,
+            address vaultCAddress,
+            address liquidityPoolAddress
+        ) = helperConfig.activeNetworkConfig();
+
+        banker = bankerAddress;
+        manager = managerAddress;
+        usdc = ERC20Mock(usdcAddress);
+        vaultA = ERC4626Mock(vaultAAddress);
+        vaultB = ERC4626Mock(vaultBAddress);
+        vaultC = ERC4626Mock(vaultCAddress);
+        liquidityPool = IERC7540(liquidityPoolAddress);
+    }
+
+    function _setupArbitrumSepolia() internal {
         DeployBestia deployer = new DeployBestia();
         (bestia, helperConfig) = deployer.run();
 
