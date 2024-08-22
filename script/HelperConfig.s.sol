@@ -32,20 +32,31 @@ contract HelperConfig is Script {
     constructor() {
         if (block.chainid == 421614) {
             activeNetworkConfig = getArbSepoliaConfig();
+        } else if (block.chainid == 1) {
+            activeNetworkConfig = getEthMainnetConfig();
         } else {
             activeNetworkConfig = getOrCreateAnvilEthConfig();
         }
     }
 
-    function getArbSepoliaConfig() public pure returns (NetworkConfig memory testNetworkConfig) {
-        testNetworkConfig = NetworkConfig({
-            manager: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
-            banker: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
-            usdc: 0x6755DDab5aA15Cef724Bf523676294DD06D712eb,
-            vaultA: 0x59AcD8815169Cc1A1C5959D087ECFEe9f282C150,
-            vaultB: 0xd795ecc98299EaF5255Df50Ae423F228Ec2Bf826,
-            vaultC: 0xde18b205FD9f31F8DC137cC9939D82d17AaD8739,
-            liquidityPool: 0x2dC69d1A0d012692B92b5E66A5E1525DA066B728
+    function getEthMainnetConfig() public returns (NetworkConfig memory ethNetworkConfig) {
+        vm.startBroadcast();
+        address banker = address(5);
+        address manager = address(6);
+        ERC20Mock usdc = new ERC20Mock("Mock USDC", "USDC");
+        ERC4626Mock vaultA = new ERC4626Mock(address(usdc));
+        ERC4626Mock vaultB = new ERC4626Mock(address(usdc));
+        ERC4626Mock vaultC = new ERC4626Mock(address(usdc));
+
+        vm.stopBroadcast();
+        ethNetworkConfig = NetworkConfig({
+            manager: address(manager),
+            banker: address(banker),
+            usdc: address(usdc),
+            vaultA: address(vaultA),
+            vaultB: address(vaultB),
+            vaultC: address(vaultC),
+            liquidityPool: 0x1d01Ef1997d44206d839b78bA6813f60F1B3A970
         });
     }
 
@@ -83,5 +94,17 @@ contract HelperConfig is Script {
             address(vaultC),
             address(liquidityPool)
         );
+    }
+
+    function getArbSepoliaConfig() public pure returns (NetworkConfig memory testNetworkConfig) {
+        testNetworkConfig = NetworkConfig({
+            manager: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
+            banker: 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e,
+            usdc: 0x6755DDab5aA15Cef724Bf523676294DD06D712eb,
+            vaultA: 0x59AcD8815169Cc1A1C5959D087ECFEe9f282C150,
+            vaultB: 0xd795ecc98299EaF5255Df50Ae423F228Ec2Bf826,
+            vaultC: 0xde18b205FD9f31F8DC137cC9939D82d17AaD8739,
+            liquidityPool: 0x2dC69d1A0d012692B92b5E66A5E1525DA066B728
+        });
     }
 }

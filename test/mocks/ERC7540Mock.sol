@@ -14,7 +14,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     // Mappings
     mapping(address => mapping(address => bool)) private _operators;
     mapping(address => uint256) public claimableDepositRequests;
-    mapping(address => uint256) private claimableRedeemRequests;
+    mapping(address => uint256) public claimableRedeemRequests;
     mapping(address => uint256) public controllerToDepositIndex;
     mapping(address => uint256) public controllerToRedeemIndex;
 

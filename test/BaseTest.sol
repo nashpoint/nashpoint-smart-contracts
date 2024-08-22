@@ -48,7 +48,28 @@ contract BaseTest is Test {
         }
     }
 
-    function _setupMainnet() internal {}
+    function _setupMainnet() internal {
+        // DeployBestia deployer = new DeployBestia();
+        // (bestia, helperConfig) = deployer.run();
+
+        // (
+        //     address managerAddress,
+        //     address bankerAddress,
+        //     address usdcAddress,
+        //     address vaultAAddress,
+        //     address vaultBAddress,
+        //     address vaultCAddress,
+        //     address liquidityPoolAddress
+        // ) = helperConfig.activeNetworkConfig();
+
+        // banker = bankerAddress;
+        // manager = managerAddress;
+        // usdc = ERC20Mock(usdcAddress);
+        // vaultA = ERC4626Mock(vaultAAddress);
+        // vaultB = ERC4626Mock(vaultBAddress);
+        // vaultC = ERC4626Mock(vaultCAddress);
+        // liquidityPool = IERC7540(liquidityPoolAddress);
+    }
 
     function _setupArbitrumSepolia() internal {
         DeployBestia deployer = new DeployBestia();
@@ -104,6 +125,7 @@ contract BaseTest is Test {
         _setupInitialLiquidity();
     }
 
+    // Helper functions for setup
     function _setupUserBalancesAndApprovals() internal {
         address[] memory users = new address[](4);
         users[0] = user1;
