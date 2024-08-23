@@ -15,6 +15,9 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
+import {IInvestmentManager} from "test/interfaces/centrifuge/IInvestmentManager.sol";
+import {ITranche} from "test/interfaces/centrifuge/ITranche.sol";
+
 contract BaseTest is Test {
     address public constant user1 = address(1);
     address public constant user2 = address(2);
@@ -34,7 +37,9 @@ contract BaseTest is Test {
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;
     IERC7540 public liquidityPool;
-    // ERC7540Mock public liquidityPool;
+
+    IInvestmentManager public cfgManager;
+    ITranche public share;
 
     address public banker;
     address public manager;
@@ -76,6 +81,7 @@ contract BaseTest is Test {
         _setupInitialLiquidity();
     }
 
+    // MAINNET SETUP FOR CFG TESTING
     function _setupMainnet() internal {
         DeployBestia deployer = new DeployBestia();
         (bestia, helperConfig) = deployer.run();
@@ -91,12 +97,14 @@ contract BaseTest is Test {
         ) = helperConfig.activeNetworkConfig();
 
         banker = bankerAddress;
-        manager = managerAddress;
+        cfgManager = IInvestmentManager(managerAddress);
         usdc = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
         vaultB = ERC4626Mock(vaultBAddress);
         vaultC = ERC4626Mock(vaultCAddress);
         liquidityPool = IERC7540(liquidityPoolAddress);
+        share = ITranche(0x8c213ee79581Ff4984583C6a801e5263418C4b86);
+
     }
 
     function _setupArbitrumSepolia() internal {

@@ -360,4 +360,8 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     function share() public view returns (address) {
         return address(this);
     }
+
+    function asset() public view override(ERC4626, IERC7540) returns (address)  {
+        return super.asset();
+    }
 }

@@ -39,10 +39,10 @@ contract HelperConfig is Script {
         }
     }
 
+    // MAINNET CONFIG FOR CFG TESTING
     function getEthMainnetConfig() public returns (NetworkConfig memory ethNetworkConfig) {
         vm.startBroadcast();
-        address banker = address(5);
-        address manager = address(6);
+        address banker = address(5);        
         ERC20Mock usdc = new ERC20Mock("Mock USDC", "USDC");
         ERC4626Mock vaultA = new ERC4626Mock(address(usdc));
         ERC4626Mock vaultB = new ERC4626Mock(address(usdc));
@@ -50,7 +50,7 @@ contract HelperConfig is Script {
 
         vm.stopBroadcast();
         ethNetworkConfig = NetworkConfig({
-            manager: address(manager),
+            manager: 0xE79f06573d6aF1B66166A926483ba00924285d20,
             banker: address(banker),
             usdc: address(usdc),
             vaultA: address(vaultA),

@@ -20,6 +20,9 @@ interface IERC7540 {
     function isOperator(address controller, address operator) external view returns (bool);
     function setOperator(address operator, bool approved) external returns (bool);
 
+    // IERC7575
+    function asset() external view returns (address assetTokenAddress);
+
     // Extended Functions: these do not match 7540 spec
     function claimableDepositRequests(address) external view returns (uint256);
     function claimableRedeemRequests(address) external view returns (uint256);
@@ -33,7 +36,7 @@ interface IERC7540 {
     function convertToShares(uint256 assets) external view returns (uint256 shares);
     function mint(uint256 shares, address receiver) external returns (uint256 assets);
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
-    
+
     // IERC20
     function balanceOf(address account) external view returns (uint256);
     function approve(address spender, uint256 amount) external returns (bool);

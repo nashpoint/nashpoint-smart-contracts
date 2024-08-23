@@ -22,9 +22,14 @@ contract ForkedTests is BaseTest {
         }
     }
 
-    function testGetTotalAssets() public view {
+    function testGetPoolData() public view {
         console2.log("Contract address:", address(liquidityPool));
-        uint256 totalAssets = liquidityPool.totalAssets();
-        console2.log("Total assets:", totalAssets);
+        console2.log("Asset address:", liquidityPool.asset());
+
+              
+        // console2.log("Share address:", liquidityPool.share());        
+        // console2.log("Total assets:", totalAssets);
+
+        // get manager and pool id
     }
 }
