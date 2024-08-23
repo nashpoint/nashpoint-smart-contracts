@@ -104,7 +104,6 @@ contract BaseTest is Test {
         vaultC = ERC4626Mock(vaultCAddress);
         liquidityPool = IERC7540(liquidityPoolAddress);
         share = ITranche(0x8c213ee79581Ff4984583C6a801e5263418C4b86);
-
     }
 
     function _setupArbitrumSepolia() internal {

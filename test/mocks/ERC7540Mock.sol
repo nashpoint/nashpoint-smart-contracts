@@ -293,6 +293,15 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         return shares;
     }
 
+    // VIEW FUNCTIONS
+    function manager() public view override(IERC7540) returns (address) {
+        return address(poolManager);
+    }
+
+    function poolId() public pure returns (uint64) {
+        return 1234; // dummy value
+    }
+
     // 4626 OVERIDES
 
     function approve(address spender, uint256 amount) public override(ERC20, IERC20, IERC7540) returns (bool) {
@@ -361,7 +370,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         return address(this);
     }
 
-    function asset() public view override(ERC4626, IERC7540) returns (address)  {
+    function asset() public view override(ERC4626, IERC7540) returns (address) {
         return super.asset();
     }
 }

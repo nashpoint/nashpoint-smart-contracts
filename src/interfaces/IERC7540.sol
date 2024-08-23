@@ -20,8 +20,12 @@ interface IERC7540 {
     function isOperator(address controller, address operator) external view returns (bool);
     function setOperator(address operator, bool approved) external returns (bool);
 
+    function manager() external view returns (address);
+    function poolId() external view returns (uint64);
+
     // IERC7575
     function asset() external view returns (address assetTokenAddress);
+    function share() external view returns (address vaultShareAddress);
 
     // Extended Functions: these do not match 7540 spec
     function claimableDepositRequests(address) external view returns (uint256);
