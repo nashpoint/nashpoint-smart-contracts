@@ -17,6 +17,7 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 import {IInvestmentManager} from "test/interfaces/centrifuge/IInvestmentManager.sol";
 import {ITranche} from "test/interfaces/centrifuge/ITranche.sol";
+import {IRestrictionManager} from "test/interfaces/centrifuge/IRestrictionManager.sol";
 
 contract BaseTest is Test {
     address public constant user1 = address(1);
@@ -37,12 +38,15 @@ contract BaseTest is Test {
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;
     IERC7540 public liquidityPool;
-
-    IInvestmentManager public cfgManager;
-    ITranche public share;
-
     address public banker;
     address public manager;
+
+    // fork test contracts and addresses
+    IInvestmentManager public cfgManager;
+    ITranche public share;
+    IRestrictionManager public RestrictionManager;
+
+    address public root;
 
     function setUp() public {
         if (block.chainid == 1) {
@@ -97,13 +101,16 @@ contract BaseTest is Test {
         ) = helperConfig.activeNetworkConfig();
 
         banker = bankerAddress;
-        cfgManager = IInvestmentManager(managerAddress);
+        cfgManager = IInvestmentManager(managerAddress); // diff 7540 manager from local tests
         usdc = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
         vaultB = ERC4626Mock(vaultBAddress);
         vaultC = ERC4626Mock(vaultCAddress);
         liquidityPool = IERC7540(liquidityPoolAddress);
         share = ITranche(0x8c213ee79581Ff4984583C6a801e5263418C4b86);
+        RestrictionManager = IRestrictionManager(0x4737C3f62Cc265e786b280153fC666cEA2fBc0c0);
+
+        root = 0x0C1fDfd6a1331a875EA013F3897fc8a76ada5DfC;
     }
 
     function _setupArbitrumSepolia() internal {
