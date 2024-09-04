@@ -302,6 +302,11 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         return 1234; // dummy value
     }
 
+    function trancheId() public pure returns (bytes16) {
+        return bytes16(0x1234567890abcdef1234567890abcdef); // dummy value
+    }
+
+
     // 4626 OVERIDES
 
     function approve(address spender, uint256 amount) public override(ERC20, IERC20, IERC7540) returns (bool) {

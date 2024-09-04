@@ -13,7 +13,7 @@ import {IERC7540} from "src/interfaces/IERC7540.sol";
 // evm version: shanghai
 
 // TESTING COMMAND:
-// forge test --match-test testGetPoolData --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version shanghai
+// forge test --match-test testGetPoolData --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun
 
 // ASSET TOKEN FOR VAULT
 // temporarily using "asset" instead of "usdc" for testing so as not to break unit test
@@ -107,5 +107,25 @@ contract ForkedTests is BaseTest {
         asset.approve(address(liquidityPool), MAX_ALLOWANCE);
         liquidityPool.requestDeposit(100, address(user1), address(user1));
         vm.stopPrank();
+
+        vm.startPrank(address(root));
+
+        // uint64 poolId,
+        // bytes16 trancheId,
+        // address user,
+        // uint128 assetId,
+        // uint128 assets,
+        // uint128 shares
+
+
+        investmentManager.fulfillDepositRequest(liquidityPool.poolId(), liquidityPool.trancheId(), address(user1), poolManager.assetToId(liquidityPool.asset()), 100, 100);
+
+        vm.stopPrank();
+
+        vm.startPrank(address(user1));
+        liquidityPool.mint(100, address(user1));
+        vm.stopPrank();
+
+        assertEq(share.balanceOf(address(user1)), 100);
     }
 }

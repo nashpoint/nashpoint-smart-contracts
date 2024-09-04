@@ -22,6 +22,7 @@ interface IERC7540 {
 
     function manager() external view returns (address);
     function poolId() external view returns (uint64);
+    function trancheId() external view returns (bytes16);
 
     // IERC7575
     function asset() external view returns (address assetTokenAddress);
