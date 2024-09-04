@@ -52,7 +52,7 @@ contract HelperConfig is Script {
         ethNetworkConfig = NetworkConfig({
             manager: 0xE79f06573d6aF1B66166A926483ba00924285d20,
             banker: address(banker),
-            usdc: address(usdc),
+            usdc: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,
             vaultA: address(vaultA),
             vaultB: address(vaultB),
             vaultC: address(vaultC),

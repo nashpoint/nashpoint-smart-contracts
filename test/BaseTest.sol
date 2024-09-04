@@ -6,6 +6,7 @@ import {Bestia} from "../src/Bestia.sol";
 import {DeployBestia} from "script/DeployBestia.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {IERC7540} from "src/interfaces/IERC7540.sol";
@@ -16,8 +17,10 @@ import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 import {IInvestmentManager} from "test/interfaces/centrifuge/IInvestmentManager.sol";
-import {ITranche} from "test/interfaces/centrifuge/ITranche.sol";
+import {IPoolManager} from "test/interfaces/centrifuge/IPoolManager.sol";
 import {IRestrictionManager} from "test/interfaces/centrifuge/IRestrictionManager.sol";
+import {ITranche} from "test/interfaces/centrifuge/ITranche.sol";
+import {IGateway} from "test/interfaces/centrifuge/IGateway.sol";
 
 contract BaseTest is Test {
     address public constant user1 = address(1);
@@ -42,11 +45,16 @@ contract BaseTest is Test {
     address public manager;
 
     // fork test contracts and addresses
-    IInvestmentManager public cfgManager;
-    ITranche public share;
-    IRestrictionManager public RestrictionManager;
+    IInvestmentManager public investmentManager;
+    IRestrictionManager public restrictionManager;
+    IPoolManager public poolManager;
+    IGateway public gateway;
 
+    ITranche public share;
     address public root;
+
+    // using this instead of usdc address for mainnet fork tests
+    IERC20 public asset;
 
     function setUp() public {
         if (block.chainid == 1) {
@@ -101,16 +109,24 @@ contract BaseTest is Test {
         ) = helperConfig.activeNetworkConfig();
 
         banker = bankerAddress;
-        cfgManager = IInvestmentManager(managerAddress); // diff 7540 manager from local tests
+        manager = managerAddress;
+        // diff 7540 manager from local tests
         usdc = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
         vaultB = ERC4626Mock(vaultBAddress);
         vaultC = ERC4626Mock(vaultCAddress);
         liquidityPool = IERC7540(liquidityPoolAddress);
+
         share = ITranche(0x8c213ee79581Ff4984583C6a801e5263418C4b86);
-        RestrictionManager = IRestrictionManager(0x4737C3f62Cc265e786b280153fC666cEA2fBc0c0);
+        restrictionManager = IRestrictionManager(0x4737C3f62Cc265e786b280153fC666cEA2fBc0c0);
+        investmentManager = IInvestmentManager(0xE79f06573d6aF1B66166A926483ba00924285d20);
+        poolManager = IPoolManager(0x91808B5E2F6d7483D41A681034D7c9DbB64B9E29);
+        gateway = IGateway(0x7829E5ca4286Df66e9F58160544097dB517a3B8c);
 
         root = 0x0C1fDfd6a1331a875EA013F3897fc8a76ada5DfC;
+
+        // using this instead of usdc address for mainnet fork tests
+        asset = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     }
 
     function _setupArbitrumSepolia() internal {
