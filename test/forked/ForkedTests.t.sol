@@ -10,14 +10,14 @@ import {IERC7540} from "src/interfaces/IERC7540.sol";
 // CONTRACT & STATE:
 // https://etherscan.io/address/0x1d01ef1997d44206d839b78ba6813f60f1b3a970
 // taken from block 20591573
-// evm version: shanghai
+// evm version: cancun
 
 // TESTING COMMAND:
-// forge test --match-test testGetPoolData --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun
+// forge test --match-contract ForkedTests --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun
 
 // ASSET TOKEN FOR VAULT
 // temporarily using "asset" instead of "usdc" for testing so as not to break unit test
-// TODO: config later to have easier
+// TODO: config later to make this just work with usdc
 
 contract ForkedTests is BaseTest {
     // setup test to confirm network config, block and smart contract
@@ -46,7 +46,7 @@ contract ForkedTests is BaseTest {
 
         // replace this check later when using not hard-coded asset (USDC) address
         assertEq(
-            poolManager.assetToId(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48), 242333941209166991950178742833476896417
+            poolManager.assetToId(address(asset)), 242333941209166991950178742833476896417
         );
 
         // assert correct usdc balance for user1
@@ -83,9 +83,11 @@ contract ForkedTests is BaseTest {
         // test can approve usdc
         asset.approve(address(bestia), MAX_ALLOWANCE);
         assertEq(asset.allowance(whale, address(bestia)), MAX_ALLOWANCE);
+
+        vm.stopPrank();
     }
 
-    function testCanAddAddressToVault() public {
+    function testVaultUserCanDepositWithdrawTransfer() public {
         uint256 currentChainId = block.chainid;
         // Arbitrum Sepolia
         if (currentChainId == 421614) {
@@ -96,36 +98,58 @@ contract ForkedTests is BaseTest {
             return;
         }
 
+        // as the root account, add user to whitelist
         vm.startPrank(address(root));
         restrictionManager.updateMember(address(share), user1, type(uint64).max);
+        restrictionManager.updateMember(address(share), user2, type(uint64).max);
         vm.stopPrank();
 
+        // assert user has been whitelisted successfully
         (bool isMember,) = restrictionManager.isMember(address(share), user1);
         assertTrue(isMember);
 
+        // user requests deposit to cfg pool
         vm.startPrank(user1);
         asset.approve(address(liquidityPool), MAX_ALLOWANCE);
         liquidityPool.requestDeposit(100, address(user1), address(user1));
         vm.stopPrank();
 
-        vm.startPrank(address(root));
-
-        // uint64 poolId,
-        // bytes16 trancheId,
-        // address user,
-        // uint128 assetId,
-        // uint128 assets,
-        // uint128 shares
-
-
+        // cfg root address uses manager to process the deposit request
+        vm.startPrank(address(root));   
         investmentManager.fulfillDepositRequest(liquidityPool.poolId(), liquidityPool.trancheId(), address(user1), poolManager.assetToId(liquidityPool.asset()), 100, 100);
-
         vm.stopPrank();
 
+        // user mints
         vm.startPrank(address(user1));
         liquidityPool.mint(100, address(user1));
         vm.stopPrank();
 
+        // assert user has received correct shares
         assertEq(share.balanceOf(address(user1)), 100);
+
+        // assert user can transfer share to whitelisted user
+        vm.startPrank(user1);
+        share.transfer(address(user2), 50);
+        assertEq(share.balanceOf(address(user2)), 50);
+
+        // user1 requests redeem
+        share.approve(address(liquidityPool), MAX_ALLOWANCE);
+        liquidityPool.requestRedeem(50, address(user1), address(user1));
+        vm.stopPrank();
+
+        
+        // cfg root address uses manager to process the redeem request
+        vm.startPrank(address(root));
+        investmentManager.fulfillRedeemRequest(liquidityPool.poolId(), liquidityPool.trancheId(), address(user1), poolManager.assetToId(liquidityPool.asset()), 50, 50);
+        vm.stopPrank();
+
+        // user withdraws available tokens
+        vm.startPrank(user1);
+        uint256 balBefore = asset.balanceOf(address(user1));
+        liquidityPool.withdraw(50, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert user balance has increased by 50 
+        assertEq(asset.balanceOf(address(user1)), balBefore + 50);
     }
 }
