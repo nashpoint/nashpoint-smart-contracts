@@ -70,7 +70,7 @@ contract HelperConfig is Script {
         vm.startBroadcast();
         address banker = address(5);
         address manager = address(6);
-        ERC20Mock usdc = new ERC20Mock("Mock USDC", "USDC");
+        ERC20Mock usdc = new ERC20Mock("Mock USDC", "USDC", 18);
         ERC4626Mock vaultA = new ERC4626Mock(address(usdc));
         ERC4626Mock vaultB = new ERC4626Mock(address(usdc));
         ERC4626Mock vaultC = new ERC4626Mock(address(usdc));

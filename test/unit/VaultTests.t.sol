@@ -8,10 +8,10 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract VaultTests is BaseTest {
     function testDeposit() public {
-        vm.startPrank(user1);
         // test fails unless you add an async asset
         // bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
         
+        vm.startPrank(user1);  
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
@@ -22,11 +22,11 @@ contract VaultTests is BaseTest {
     }
 
     // TODO: write a test to get total assets even when you have no async assets
-
-    function testTotalAssets() public {
-        vm.startPrank(user1);
+    function testTotalAssets() public {        
         // test fails unless you add an async asset
         // bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
+
+        vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
@@ -34,7 +34,9 @@ contract VaultTests is BaseTest {
     }
 
     function testPrecisionConverstion() public {
-        
+        console2.log(usdcMock.decimals());
+        usdcMock.setDecimalValue(6);
+        console2.log(usdcMock.decimals());
     }
 
     function testInvestCash() public {

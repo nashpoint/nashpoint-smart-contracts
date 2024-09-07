@@ -30,7 +30,7 @@ contract DeployContracts is Script {
         manager = 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e;
         banker = 0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e;
 
-        usdc = new ERC20Mock("Mock USDC", "USDC");
+        usdc = new ERC20Mock("Mock USDC", "USDC", 18);
         vaultA = new ERC4626Mock(address(usdc));
         vaultB = new ERC4626Mock(address(usdc));
         vaultC = new ERC4626Mock(address(usdc));

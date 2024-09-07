@@ -7,6 +7,7 @@ import {DeployBestia} from "script/DeployBestia.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {IERC7540} from "src/interfaces/IERC7540.sol";
@@ -30,10 +31,11 @@ contract BaseTest is Test {
     address public constant user4 = address(4);
 
     uint256 public constant MAX_ALLOWANCE = type(uint256).max;
-    uint256 public constant START_BALANCE_1000 = 1000e18;
-    uint256 public constant DEPOSIT_100 = 100e18;
-    uint256 public constant DEPOSIT_10 = 10e18;
-    uint256 public constant DEPOSIT_1 = 1e18;
+    uint256 public constant DECIMALS = 1e18;
+    uint256 public constant START_BALANCE_1000 = 1000 * DECIMALS;
+    uint256 public constant DEPOSIT_100 = 100 * DECIMALS;
+    uint256 public constant DEPOSIT_10 = 10 * DECIMALS;
+    uint256 public constant DEPOSIT_1 = 1 * DECIMALS;
 
     Bestia public bestia;
     HelperConfig public helperConfig;
