@@ -4,7 +4,8 @@ pragma solidity ^0.8.20;
 import {Script} from "forge-std/Script.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
-import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 
 contract HelperConfig is Script {
     NetworkConfig public activeNetworkConfig;
@@ -43,7 +44,7 @@ contract HelperConfig is Script {
     function getEthMainnetConfig() public returns (NetworkConfig memory ethNetworkConfig) {
         vm.startBroadcast();
         address banker = address(5);
-        ERC20Mock usdc = new ERC20Mock("Mock USDC", "USDC");
+        IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
         ERC4626Mock vaultA = new ERC4626Mock(address(usdc));
         ERC4626Mock vaultB = new ERC4626Mock(address(usdc));
         ERC4626Mock vaultC = new ERC4626Mock(address(usdc));
@@ -52,7 +53,7 @@ contract HelperConfig is Script {
         ethNetworkConfig = NetworkConfig({
             manager: 0xE79f06573d6aF1B66166A926483ba00924285d20,
             banker: address(banker),
-            usdc: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,
+            usdc: address(usdc),
             vaultA: address(vaultA),
             vaultB: address(vaultB),
             vaultC: address(vaultC),

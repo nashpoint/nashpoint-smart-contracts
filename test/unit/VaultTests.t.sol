@@ -9,26 +9,37 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 contract VaultTests is BaseTest {
     function testDeposit() public {
         vm.startPrank(user1);
+        // test fails unless you add an async asset
+        // bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
+        
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         uint256 shares = bestia.balanceOf(user1);
 
-        assertEq(usdc.balanceOf(address(bestia)), DEPOSIT_100);
+        assertEq(usdcMock.balanceOf(address(bestia)), DEPOSIT_100);
         assertEq(bestia.convertToAssets(shares), DEPOSIT_100);
     }
 
+    // TODO: write a test to get total assets even when you have no async assets
+
     function testTotalAssets() public {
         vm.startPrank(user1);
+        // test fails unless you add an async asset
+        // bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         assertEq(bestia.totalAssets(), DEPOSIT_100);
     }
 
+    function testPrecisionConverstion() public {
+        
+    }
+
     function testInvestCash() public {
-        bestia.addComponent(address(vaultA), 90e16, false);
-        bestia.addComponent(address(liquidityPool), 0, true); // added to test to prevent revert: Component does not exist
+        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -40,7 +51,7 @@ contract VaultTests is BaseTest {
 
         // test that the cash reserve after investCash == the targetReserveRatio
         uint256 expectedCashReserve = DEPOSIT_100 * bestia.targetReserveRatio() / 1e18;
-        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
+        assertEq(usdcMock.balanceOf(address(bestia)), expectedCashReserve);
 
         // remove some cash from reserve
         vm.startPrank(user1);
@@ -48,7 +59,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         // mint cash so invested assets = 100
-        usdc.mint(address(vaultA), 10e18 + 1);
+        usdcMock.mint(address(vaultA), 10e18 + 1);
 
         // expect revert
         vm.startPrank(banker);
@@ -67,7 +78,7 @@ contract VaultTests is BaseTest {
 
         // asserts cash reserve == target reserve
         expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;
-        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
+        assertEq(usdcMock.balanceOf(address(bestia)), expectedCashReserve);
 
         // test large deposit of 1000e18 (about 10x total assets)
         vm.startPrank(user3);
@@ -80,7 +91,7 @@ contract VaultTests is BaseTest {
 
         // asserts cash reserve == target reserve
         expectedCashReserve = bestia.totalAssets() * bestia.targetReserveRatio() / 1e18;
-        assertEq(usdc.balanceOf(address(bestia)), expectedCashReserve);
+        assertEq(usdcMock.balanceOf(address(bestia)), expectedCashReserve);
     }
 
     function testGetSwingFactor() public {
@@ -112,8 +123,8 @@ contract VaultTests is BaseTest {
 
     function testAdjustedWithdraw() public {
         // set the strategy to one asset at 90% holding
-        bestia.addComponent(address(vaultA), 90e16, false);
-        bestia.addComponent(address(liquidityPool), 0, true); // added to test to prevent revert: Component does not exist
+        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -128,16 +139,16 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdc.mint(address(vaultA), 10e18 + 1);
+        usdcMock.mint(address(vaultA), 10e18 + 1);
 
         // user 2 deposits 10e18 to bestia and burns the rest of their usdc
         vm.startPrank(user2);
         bestia.deposit(DEPOSIT_10, address(user2));
-        usdc.transfer(0x000000000000000000000000000000000000dEaD, usdc.balanceOf(address(user2)));
+        usdcMock.transfer(0x000000000000000000000000000000000000dEaD, usdcMock.balanceOf(address(user2)));
         vm.stopPrank();
 
         // assert user2 has zero usdc balance
-        assertEq(usdc.balanceOf(address(user2)), 0);
+        assertEq(usdcMock.balanceOf(address(user2)), 0);
 
         // banker invests excess reserve
         vm.startPrank(banker);
@@ -154,7 +165,7 @@ contract VaultTests is BaseTest {
         assertEq(user2BestiaClosingBalance, 0);
 
         // assert that user2 received less USDC back than they deposited
-        uint256 usdcReturned = usdc.balanceOf(address(user2));
+        uint256 usdcReturned = usdcMock.balanceOf(address(user2));
         assertLt(usdcReturned, DEPOSIT_10);
 
         console2.log("delta :", DEPOSIT_10 - usdcReturned);
@@ -166,8 +177,8 @@ contract VaultTests is BaseTest {
 
     function testAdjustedDeposit() public {
         // set the strategy to one asset at 90% holding
-        bestia.addComponent(address(vaultA), 90e16, false);
-        bestia.addComponent(address(liquidityPool), 0, true); // added to test to prevent revert: Component does not exist
+        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -182,7 +193,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdc.mint(address(vaultA), 10e18 + 1);
+        usdcMock.mint(address(vaultA), 10e18 + 1);
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
@@ -234,7 +245,7 @@ contract VaultTests is BaseTest {
     function testAddComponent() public {
         address component = address(vaultA);
         uint256 targetRatio = 20e16;
-        bestia.addComponent(component, targetRatio, false);
+        bestia.addComponent(component, targetRatio, false, component);
 
         assertTrue(bestia.isComponent(component));
         assertEq(bestia.getComponentRatio(component), targetRatio);
@@ -243,7 +254,7 @@ contract VaultTests is BaseTest {
 
     // HELPER FUNCTIONS
     function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        uint256 currentReserveRatio = Math.mulDiv(usdc.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
+        uint256 currentReserveRatio = Math.mulDiv(usdcMock.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
 
         return (currentReserveRatio);
     }

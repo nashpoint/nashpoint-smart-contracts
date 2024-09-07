@@ -45,9 +45,7 @@ contract ForkedTests is BaseTest {
         assertEq(share.hook(), 0x4737C3f62Cc265e786b280153fC666cEA2fBc0c0);
 
         // replace this check later when using not hard-coded asset (USDC) address
-        assertEq(
-            poolManager.assetToId(address(asset)), 242333941209166991950178742833476896417
-        );
+        assertEq(poolManager.assetToId(address(asset)), 242333941209166991950178742833476896417);
 
         // assert correct usdc balance for user1
         assertEq(asset.balanceOf(address(user1)), 27413316046);
@@ -59,7 +57,6 @@ contract ForkedTests is BaseTest {
     }
 
     function testUsdcFork() public {
-        address whale = 0x4B16c5dE96EB2117bBE5fd171E4d203624B014aa;
         uint256 currentChainId = block.chainid;
         // Arbitrum Sepolia
         if (currentChainId == 421614) {
@@ -69,6 +66,8 @@ contract ForkedTests is BaseTest {
         if (currentChainId == 31337) {
             return;
         }
+
+        address whale = 0x4B16c5dE96EB2117bBE5fd171E4d203624B014aa;
 
         // assert correct whale address
         assertEq(asset.balanceOf(whale), 1000000000016900);
@@ -115,8 +114,15 @@ contract ForkedTests is BaseTest {
         vm.stopPrank();
 
         // cfg root address uses manager to process the deposit request
-        vm.startPrank(address(root));   
-        investmentManager.fulfillDepositRequest(liquidityPool.poolId(), liquidityPool.trancheId(), address(user1), poolManager.assetToId(liquidityPool.asset()), 100, 100);
+        vm.startPrank(address(root));
+        investmentManager.fulfillDepositRequest(
+            liquidityPool.poolId(),
+            liquidityPool.trancheId(),
+            address(user1),
+            poolManager.assetToId(liquidityPool.asset()),
+            100,
+            100
+        );
         vm.stopPrank();
 
         // user mints
@@ -137,10 +143,16 @@ contract ForkedTests is BaseTest {
         liquidityPool.requestRedeem(50, address(user1), address(user1));
         vm.stopPrank();
 
-        
         // cfg root address uses manager to process the redeem request
         vm.startPrank(address(root));
-        investmentManager.fulfillRedeemRequest(liquidityPool.poolId(), liquidityPool.trancheId(), address(user1), poolManager.assetToId(liquidityPool.asset()), 50, 50);
+        investmentManager.fulfillRedeemRequest(
+            liquidityPool.poolId(),
+            liquidityPool.trancheId(),
+            address(user1),
+            poolManager.assetToId(liquidityPool.asset()),
+            50,
+            50
+        );
         vm.stopPrank();
 
         // user withdraws available tokens
@@ -149,7 +161,50 @@ contract ForkedTests is BaseTest {
         liquidityPool.withdraw(50, address(user1), address(user1));
         vm.stopPrank();
 
-        // assert user balance has increased by 50 
+        // assert user balance has increased by 50
         assertEq(asset.balanceOf(address(user1)), balBefore + 50);
     }
+
+    function testAddCfgToBestia() public {
+        uint256 currentChainId = block.chainid;
+        // Arbitrum Sepolia
+        if (currentChainId == 421614) {
+            return;
+        }
+        // Anvil
+        if (currentChainId == 31337) {
+            return;
+        }
+
+        // assert bestia and cfg vault have usdc deposit asset
+        assertEq(bestia.asset(), address(asset));
+        assertEq(liquidityPool.asset(), address(asset));
+
+        // add liquidityPool as component to Bestia with 90% allocation (10% is reserve cash)
+        bestia.addComponent(address(liquidityPool), 90, true, liquidityPool.share());
+
+        // user approves and deposits to bestia
+        vm.startPrank(user1);
+        asset.approve(address(bestia), MAX_ALLOWANCE);
+        bestia.deposit(100, address(user1));
+        vm.stopPrank();
+
+        // assert bestia has issued correct shares to user for 100 deposit
+        assertEq(bestia.convertToAssets(bestia.balanceOf(user1)), 100);
+
+        vm.startPrank(address(root));
+        restrictionManager.updateMember(address(share), address(bestia), type(uint64).max);
+        
+        vm.stopPrank();
+
+        // assert user has been whitelisted successfully
+        (bool isMember,) = restrictionManager.isMember(address(share), address(bestia));
+        assertTrue(isMember);
+
+        vm.startPrank(banker);
+        bestia.investInAsyncVault(address(liquidityPool));
+        vm.stopPrank();
+    }
+
+    
 }

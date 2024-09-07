@@ -5,6 +5,7 @@ import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -18,6 +19,7 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant maxDelta = 1e16; // percentage
     uint256 public constant asyncMaxDelta = 3e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
+    uint256 public constant precision = 1e18; // convert all assets to this precision    
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -36,6 +38,7 @@ contract Bestia is ERC4626, Ownable {
         address component;
         uint256 targetRatio;
         bool isAsync;
+        address shareToken;
     }
 
     Component[] public components;
@@ -44,7 +47,7 @@ contract Bestia is ERC4626, Ownable {
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
     event DepositRequested(uint256 amount, address depositedTo);
-    event ComponentAdded(address component, uint256 ratio, bool isAsync);
+    event ComponentAdded(address component, uint256 ratio, bool isAsync, address shareToken);
     event AsyncSharesMinted(address component, uint256 shares);
     event AsyncWithdrawalRequested(address component, uint256 shares);
     event AsyncWithdrawalExecuted(address component, uint256 assets);
@@ -86,6 +89,8 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // total assets override function
+    // must add async component for call to bestia.totalAssets to succeed
+    // todo: refactor totalAssets to avoid this issue later
     function totalAssets() public view override returns (uint256) {
         // gets the cash reserve
         uint256 cashReserve = usdc.balanceOf(address(this));
@@ -104,7 +109,9 @@ contract Bestia is ERC4626, Ownable {
     // TODO: check how much gas this uses. might need to cache data instead
     function getAsyncAssets(address _component) public view returns (uint256 assets) {
         // Get the asset value of any shares already minted
-        assets = IERC7540(_component).convertToAssets(IERC7540(_component).balanceOf(address(this)));
+        IERC20 shareToken = IERC20(getComponentShareAddress(_component));
+        uint256 shareBalance = shareToken.balanceOf(address(this));
+        assets = IERC7540(_component).convertToAssets(shareBalance);
 
         // Add pending deposits (in assets)
         try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingDepositAssets) {
@@ -348,20 +355,24 @@ contract Bestia is ERC4626, Ownable {
         return delta;
     }
 
-    function addComponent(address _component, uint256 _targetRatio, bool _isAsync) public {
+    function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken) public {
         uint256 index = componentIndex[_component];
 
         if (index > 0) {
             components[index - 1].targetRatio = _targetRatio;
             components[index - 1].isAsync = _isAsync;
         } else {
-            Component memory newComponent =
-                Component({component: _component, targetRatio: _targetRatio, isAsync: _isAsync});
+            Component memory newComponent = Component({
+                component: _component,
+                targetRatio: _targetRatio,
+                isAsync: _isAsync,
+                shareToken: _shareToken
+            });
 
             components.push(newComponent);
             componentIndex[_component] = components.length;
         }
-        emit ComponentAdded(_component, _targetRatio, _isAsync);
+        emit ComponentAdded(_component, _targetRatio, _isAsync, _shareToken);
     }
 
     function isComponent(address _component) public view returns (bool) {
@@ -372,6 +383,12 @@ contract Bestia is ERC4626, Ownable {
         uint256 index = componentIndex[_component];
         require(index != 0, "Component does not exist");
         return components[index - 1].targetRatio;
+    }
+
+    function getComponentShareAddress(address _component) public view returns (address) {
+        uint256 index = componentIndex[_component];
+        require(index!= 0, "Component does not exist");
+        return components[index-1].shareToken;
     }
 
     function isAsync(address _component) public view returns (bool) {

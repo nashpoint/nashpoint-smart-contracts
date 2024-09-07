@@ -153,7 +153,7 @@ contract ERC7540Tests is BaseTest {
         userWithdraws(user, claimableAssets);
 
         // assert user has full starting balance of asset again
-        assertEq(usdc.balanceOf(user), startingBalance);
+        assertEq(usdcMock.balanceOf(user), startingBalance);
 
         // assert the vault is back in sync, shares == assets
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
@@ -196,7 +196,7 @@ contract ERC7540Tests is BaseTest {
         userWithdraws(user, amount);
 
         // assert user has correct starting balance
-        assertEq(usdc.balanceOf(user), startingBalance);
+        assertEq(usdcMock.balanceOf(user), startingBalance);
 
         // assert the vault is back in sync, shares == assets
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());

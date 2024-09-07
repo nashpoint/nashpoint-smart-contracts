@@ -10,12 +10,12 @@ contract RebalancingTests is BaseTest {
     function testRebalance() public {
         // SET THE STRATEGY
         // add the 4626 Vaults
-        bestia.addComponent(address(vaultA), 18e16, false);
-        bestia.addComponent(address(vaultB), 20e16, false);
-        bestia.addComponent(address(vaultC), 22e16, false);
+        bestia.addComponent(address(vaultA), 18e16, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 20e16, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 22e16, false, address(vaultC));
 
         // add the 7540 Vault (RWA)
-        bestia.addComponent(address(liquidityPool), 30e16, true);
+        bestia.addComponent(address(liquidityPool), 30e16, true, address(liquidityPool));
 
         // SEED VAULT WITH 100 UNITS
         vm.startPrank(user1);
@@ -73,7 +73,7 @@ contract RebalancingTests is BaseTest {
         assertEq(vaultCHoldings * 1e18 / totalAssets, 22e16);
 
         // assert that cash reserve has not been reduced below target by rebalance
-        assertGt(usdc.balanceOf(address(bestia)), bestia.targetReserveRatio() * 1e18 / totalAssets);
+        assertGt(usdcMock.balanceOf(address(bestia)), bestia.targetReserveRatio() * 1e18 / totalAssets);
 
         // SECOND DEPOSIT: 10 UNITS
         vm.startPrank(user1);
@@ -200,12 +200,12 @@ contract RebalancingTests is BaseTest {
     function seedBestia() public {
         // SET THE STRATEGY
         // add the 4626 Vaults
-        bestia.addComponent(address(vaultA), 18e16, false);
-        bestia.addComponent(address(vaultB), 20e16, false);
-        bestia.addComponent(address(vaultC), 22e16, false);
+        bestia.addComponent(address(vaultA), 18e16, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 20e16, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 22e16, false, address(vaultC));
 
         // add the 7540 Vault (RWA)
-        bestia.addComponent(address(liquidityPool), 30e16, true);
+        bestia.addComponent(address(liquidityPool), 30e16, true, address(liquidityPool));
 
         // SEED VAULT WITH 100 UNITS
         vm.startPrank(user1);

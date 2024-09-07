@@ -37,7 +37,8 @@ contract BaseTest is Test {
 
     Bestia public bestia;
     HelperConfig public helperConfig;
-    ERC20Mock public usdc;
+    IERC20 public usdc;
+    ERC20Mock public usdcMock;    
     ERC4626Mock public vaultA;
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;
@@ -83,7 +84,7 @@ contract BaseTest is Test {
 
         banker = bankerAddress;
         manager = managerAddress;
-        usdc = ERC20Mock(usdcAddress);
+        usdcMock = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
         vaultB = ERC4626Mock(vaultBAddress);
         vaultC = ERC4626Mock(vaultCAddress);
@@ -112,7 +113,7 @@ contract BaseTest is Test {
         banker = bankerAddress;
         manager = managerAddress;
         // diff 7540 manager from local tests
-        usdc = ERC20Mock(usdcAddress);
+        usdc = IERC20(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
         vaultB = ERC4626Mock(vaultBAddress);
         vaultC = ERC4626Mock(vaultCAddress);
@@ -146,7 +147,7 @@ contract BaseTest is Test {
 
         banker = bankerAddress;
         manager = managerAddress;
-        usdc = ERC20Mock(usdcAddress);
+        usdcMock = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
         vaultB = ERC4626Mock(vaultBAddress);
         vaultC = ERC4626Mock(vaultCAddress);
@@ -167,28 +168,28 @@ contract BaseTest is Test {
 
         for (uint256 i = 0; i < users.length; i++) {
             vm.startPrank(users[i]);
-            usdc.approve(address(bestia), MAX_ALLOWANCE);
-            usdc.approve(address(liquidityPool), MAX_ALLOWANCE);
+            usdcMock.approve(address(bestia), MAX_ALLOWANCE);
+            usdcMock.approve(address(liquidityPool), MAX_ALLOWANCE);
             liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
-            usdc.mint(users[i], START_BALANCE_1000);
+            usdcMock.mint(users[i], START_BALANCE_1000);
             vm.stopPrank();
         }
     }
 
     function _setupBestiaApprovals() internal {
         vm.startPrank(address(bestia));
-        usdc.approve(address(vaultA), MAX_ALLOWANCE);
-        usdc.approve(address(vaultB), MAX_ALLOWANCE);
-        usdc.approve(address(vaultC), MAX_ALLOWANCE);
-        usdc.approve(address(liquidityPool), MAX_ALLOWANCE);
+        usdcMock.approve(address(vaultA), MAX_ALLOWANCE);
+        usdcMock.approve(address(vaultB), MAX_ALLOWANCE);
+        usdcMock.approve(address(vaultC), MAX_ALLOWANCE);
+        usdcMock.approve(address(liquidityPool), MAX_ALLOWANCE);
         liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
         vm.stopPrank();
     }
 
     function _setupInitialLiquidity() internal {
         vm.startPrank(address(manager));
-        usdc.approve(address(liquidityPool), MAX_ALLOWANCE);
-        usdc.mint(manager, START_BALANCE_1000);
+        usdcMock.approve(address(liquidityPool), MAX_ALLOWANCE);
+        usdcMock.mint(manager, START_BALANCE_1000);
         liquidityPool.requestDeposit(DEPOSIT_100, address(manager), address(manager));
         liquidityPool.processPendingDeposits();
         liquidityPool.mint(DEPOSIT_100, address(manager));
