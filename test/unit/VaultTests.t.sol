@@ -253,17 +253,20 @@ contract VaultTests is BaseTest {
         bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool));
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
 
-        // set decimals to 6
+        // set decimals to 6 for deposit asset
         usdcMock.setDecimalValue(6);
+        uint256 usdcDeposit = 1e6;        
 
+        // execute the deposit
         vm.startPrank(user1);
-        bestia.deposit(1e6, address(user1));
-        vm.stopPrank();
+        bestia.deposit(usdcDeposit, address(user1));
+        vm.stopPrank();       
 
+        // assert that 1e6 based deposit has been normalized to 1e18
         uint256 userShares = bestia.balanceOf(address(user1));
-        console2.log("userShares :", userShares);
+        assertEq(usdcDeposit * 1e12, userShares);
 
-        // TODO: finish this test after refactoring adjusted deposit and adjusted withdral to override those functions
+        
     }
 
     // HELPER FUNCTIONS

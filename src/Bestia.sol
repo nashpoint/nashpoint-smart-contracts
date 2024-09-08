@@ -31,7 +31,7 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultB;
     IERC4626 public vaultC;
     IERC7540 public liquidityPool;
-    IERC20Metadata public usdc; // using 18 instead of 6 decimals here
+    IERC20Metadata public usdc; 
 
     // COMPONENTS DATA
     struct Component {
@@ -200,7 +200,7 @@ contract Bestia is ERC4626, Ownable {
         uint256 sharesToMint = convertToShares(adjustedAssets);
 
         // recieves deposited assets but mints more shares based on swing factor applied
-        _deposit(_msgSender(), receiver, internalAssets, sharesToMint);
+        _deposit(_msgSender(), receiver, _assets, sharesToMint);
 
         return (sharesToMint);
     }
