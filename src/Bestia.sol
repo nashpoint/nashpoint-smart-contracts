@@ -19,7 +19,7 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant maxDelta = 1e16; // percentage
     uint256 public constant asyncMaxDelta = 3e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
-    uint256 public constant precision = 1e18; // convert all assets to this precision    
+    uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -182,24 +182,25 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // TODO: override deposit function
-    function adjustedDeposit(uint256 _assets, address receiver) public returns (uint256) {
+    function deposit(uint256 _assets, address receiver) public override returns (uint256) {
+        uint256 internalAssets = toInternalPrecision(_assets);
         uint256 maxAssets = maxDeposit(receiver);
-        if (_assets > maxAssets) {
+        if (internalAssets > maxAssets) {
             revert ERC4626ExceededMaxDeposit(receiver, _assets, maxAssets);
         }
 
         // gets the expected reserve ratio after tx
         int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(usdc.balanceOf(address(this)) + _assets, 1e18, totalAssets() + _assets));
+            int256(Math.mulDiv(usdc.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = Math.mulDiv(_assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
+        uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the shares to mint for swing factor applied
         uint256 sharesToMint = convertToShares(adjustedAssets);
 
         // recieves deposited assets but mints more shares based on swing factor applied
-        _deposit(_msgSender(), receiver, _assets, sharesToMint);
+        _deposit(_msgSender(), receiver, internalAssets, sharesToMint);
 
         return (sharesToMint);
     }
@@ -387,8 +388,8 @@ contract Bestia is ERC4626, Ownable {
 
     function getComponentShareAddress(address _component) public view returns (address) {
         uint256 index = componentIndex[_component];
-        require(index!= 0, "Component does not exist");
-        return components[index-1].shareToken;
+        require(index != 0, "Component does not exist");
+        return components[index - 1].shareToken;
     }
 
     function isAsync(address _component) public view returns (bool) {
@@ -405,5 +406,15 @@ contract Bestia is ERC4626, Ownable {
 
     function setBanker(address _banker) public onlyOwner {
         banker = _banker;
+    }
+
+    function toInternalPrecision(uint256 amount) internal view returns (uint256) {
+        return amount * internalPrecision / (10 ** IERC20Metadata(asset()).decimals());
+    }
+
+    // temp
+    // todo: delete after testing
+    function _toInternalPrecision(uint256 amount) public view returns (uint256) {
+        return toInternalPrecision(amount);
     }
 }

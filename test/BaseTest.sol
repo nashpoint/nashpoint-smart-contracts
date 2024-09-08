@@ -40,7 +40,7 @@ contract BaseTest is Test {
     Bestia public bestia;
     HelperConfig public helperConfig;
     IERC20 public usdc;
-    ERC20Mock public usdcMock;    
+    ERC20Mock public usdcMock;
     ERC4626Mock public vaultA;
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;

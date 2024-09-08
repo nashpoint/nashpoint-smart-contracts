@@ -194,7 +194,7 @@ contract ForkedTests is BaseTest {
 
         vm.startPrank(address(root));
         restrictionManager.updateMember(address(share), address(bestia), type(uint64).max);
-        
+
         vm.stopPrank();
 
         // assert user has been whitelisted successfully
@@ -205,6 +205,4 @@ contract ForkedTests is BaseTest {
         bestia.investInAsyncVault(address(liquidityPool));
         vm.stopPrank();
     }
-
-    
 }

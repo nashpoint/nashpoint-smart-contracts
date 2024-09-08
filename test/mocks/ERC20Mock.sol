@@ -6,6 +6,7 @@ import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol"
 
 contract ERC20Mock is ERC20 {
     uint8 private decimalValue;
+
     constructor(string memory name_, string memory symbol_, uint8 _decimalValue) ERC20(name_, symbol_) {
         decimalValue = _decimalValue;
     }
@@ -15,7 +16,7 @@ contract ERC20Mock is ERC20 {
     }
 
     function decimals() public view virtual override returns (uint8) {
-        return decimalValue; 
+        return decimalValue;
     }
 
     function setDecimalValue(uint8 _newValue) public returns (uint8) {

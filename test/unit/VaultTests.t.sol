@@ -10,8 +10,8 @@ contract VaultTests is BaseTest {
     function testDeposit() public {
         // test fails unless you add an async asset
         // bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
-        
-        vm.startPrank(user1);  
+
+        vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
@@ -22,7 +22,7 @@ contract VaultTests is BaseTest {
     }
 
     // TODO: write a test to get total assets even when you have no async assets
-    function testTotalAssets() public {        
+    function testTotalAssets() public {
         // test fails unless you add an async asset
         // bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
 
@@ -31,12 +31,6 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         assertEq(bestia.totalAssets(), DEPOSIT_100);
-    }
-
-    function testPrecisionConverstion() public {
-        console2.log(usdcMock.decimals());
-        usdcMock.setDecimalValue(6);
-        console2.log(usdcMock.decimals());
     }
 
     function testInvestCash() public {
@@ -203,7 +197,7 @@ contract VaultTests is BaseTest {
 
         // user 2 deposits 10e18 to bestia
         vm.startPrank(user2);
-        bestia.adjustedDeposit(DEPOSIT_10, address(user2));
+        bestia.deposit(DEPOSIT_10, address(user2));
         vm.stopPrank();
 
         // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
@@ -230,7 +224,7 @@ contract VaultTests is BaseTest {
         nonAdjustedShares = bestia.previewDeposit(2e18);
 
         vm.startPrank(user3);
-        bestia.adjustedDeposit(2e18, address(user3));
+        bestia.deposit(2e18, address(user3));
         vm.stopPrank();
 
         // TEST 2: test that swing factor is applied with reserve ratio is below target
@@ -252,6 +246,24 @@ contract VaultTests is BaseTest {
         assertTrue(bestia.isComponent(component));
         assertEq(bestia.getComponentRatio(component), targetRatio);
         assertFalse(bestia.isAsync(component));
+    }
+
+    function testPrecisionConverstion() public {
+        // added to test to prevent revert: Component does not exist
+        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool));
+        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
+
+        // set decimals to 6
+        usdcMock.setDecimalValue(6);
+
+        vm.startPrank(user1);
+        bestia.deposit(1e6, address(user1));
+        vm.stopPrank();
+
+        uint256 userShares = bestia.balanceOf(address(user1));
+        console2.log("userShares :", userShares);
+
+        // TODO: finish this test after refactoring adjusted deposit and adjusted withdral to override those functions
     }
 
     // HELPER FUNCTIONS
