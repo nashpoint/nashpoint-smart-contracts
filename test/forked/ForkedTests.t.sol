@@ -220,8 +220,11 @@ contract ForkedTests is BaseTest {
 
         console2.log("bestia.totalAssets() :", bestia.totalAssets());
 
-        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, address(bestia));
-        console2.log("PendingDeposits", pendingDeposits);
+        uint256 pendingDeposit = liquidityPool.pendingDepositRequest(0, address(bestia));
+        console2.log("PendingDeposit", pendingDeposit);
+
+        uint256 sharesToMint = liquidityPool.convertToShares(pendingDeposit);
+        console2.log("sharesToMint :", sharesToMint);        
 
         // cfg root address uses manager to process the deposit request
         vm.startPrank(address(root));
@@ -230,16 +233,21 @@ contract ForkedTests is BaseTest {
             liquidityPool.trancheId(),
             address(bestia),
             poolManager.assetToId(liquidityPool.asset()),
-            uint128(pendingDeposits),
-            uint128(pendingDeposits)
+            uint128(pendingDeposit),
+            uint128(sharesToMint)
         );
         vm.stopPrank();
+
+        console2.log("claimableDepositRequest :", liquidityPool.claimableDepositRequest(0, address(bestia)));
+
+        console2.log("share.balanceOf(address(bestia)) : ", share.balanceOf(address(bestia)));
+        console2.log("bestia.totalAssets() :", bestia.totalAssets());
 
         vm.startPrank(banker);
         bestia.mintClaimableShares(address(liquidityPool));
         vm.stopPrank();
 
-        console2.log("share.balanceOf(address(bestia)) :, ", share.balanceOf(address(bestia)));
+        console2.log("share.balanceOf(address(bestia)) : ", share.balanceOf(address(bestia)));
         console2.log("bestia.totalAssets() :", bestia.totalAssets());
 
     }

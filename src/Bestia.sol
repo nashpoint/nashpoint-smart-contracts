@@ -139,10 +139,11 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function mintClaimableShares(address _component) public onlyBanker returns (uint256) {
-        uint256 claimableShares = IERC7540(_component).claimableDepositRequest(0, address(this));
-        if (claimableShares == 0) {
+        uint256 claimableAssets = IERC7540(_component).claimableDepositRequest(0, address(this));
+        if (claimableAssets == 0) {
             revert NoClaimableDeposit();
         }
+        uint256 claimableShares = liquidityPool.convertToShares(claimableAssets);
         liquidityPool.mint(claimableShares, address(this));
 
         emit AsyncSharesMinted(_component, claimableShares);
