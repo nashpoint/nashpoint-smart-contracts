@@ -31,7 +31,7 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultB;
     IERC4626 public vaultC;
     IERC7540 public liquidityPool;
-    IERC20Metadata public usdc; 
+    IERC20Metadata public usdc;
 
     // COMPONENTS DATA
     struct Component {
@@ -181,7 +181,7 @@ contract Bestia is ERC4626, Ownable {
         emit AsyncWithdrawalExecuted(_component, _assets);
     }
 
-    // TODO: override deposit function
+    
     function deposit(uint256 _assets, address receiver) public override returns (uint256) {
         uint256 internalAssets = toInternalPrecision(_assets);
         uint256 maxAssets = maxDeposit(receiver);
@@ -191,7 +191,7 @@ contract Bestia is ERC4626, Ownable {
 
         // gets the expected reserve ratio after tx
         int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(usdc.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets));
+            int256(Math.mulDiv(toInternalPrecision(usdc.balanceOf(address(this))) + internalAssets, 1e18, toInternalPrecision(totalAssets()) + internalAssets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
         uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
@@ -199,7 +199,7 @@ contract Bestia is ERC4626, Ownable {
         // cache the shares to mint for swing factor applied
         uint256 sharesToMint = convertToShares(adjustedAssets);
 
-        // recieves deposited assets but mints more shares based on swing factor applied
+        // recieves deposited assets but mints adjusted shares based on swing factor applied
         _deposit(_msgSender(), receiver, _assets, sharesToMint);
 
         return (sharesToMint);
@@ -412,9 +412,18 @@ contract Bestia is ERC4626, Ownable {
         return amount * internalPrecision / (10 ** IERC20Metadata(asset()).decimals());
     }
 
+    function toTokenPrecision(uint256 amount) internal view returns (uint256) {
+        return amount * (10 ** IERC20Metadata(asset()).decimals()) / internalPrecision;
+    }
+
     // temp
     // todo: delete after testing
     function _toInternalPrecision(uint256 amount) public view returns (uint256) {
         return toInternalPrecision(amount);
+    }
+
+    function previewDeposit(uint256 assets) public view override returns (uint256) {
+        uint256 internalAssets = toInternalPrecision(assets);
+        return _convertToShares(internalAssets, Math.Rounding.Floor);
     }
 }

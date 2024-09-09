@@ -31,7 +31,7 @@ contract BaseTest is Test {
     address public constant user4 = address(4);
 
     uint256 public constant MAX_ALLOWANCE = type(uint256).max;
-    uint256 public constant DECIMALS = 1e18;
+    uint256 public constant DECIMALS = 1e6;
     uint256 public constant START_BALANCE_1000 = 1000 * DECIMALS;
     uint256 public constant DEPOSIT_100 = 100 * DECIMALS;
     uint256 public constant DEPOSIT_10 = 10 * DECIMALS;

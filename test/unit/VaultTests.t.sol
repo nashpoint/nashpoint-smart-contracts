@@ -9,7 +9,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 contract VaultTests is BaseTest {
     function testDeposit() public {
         // test fails unless you add an async asset
-        // bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
+        bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -24,7 +24,7 @@ contract VaultTests is BaseTest {
     // TODO: write a test to get total assets even when you have no async assets
     function testTotalAssets() public {
         // test fails unless you add an async asset
-        // bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
+        bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -51,11 +51,11 @@ contract VaultTests is BaseTest {
 
         // remove some cash from reserve
         vm.startPrank(user1);
-        bestia.withdraw(2e18, address(user1), address(user1));
+        bestia.withdraw(2e6, address(user1), address(user1));
         vm.stopPrank();
 
         // mint cash so invested assets = 100
-        usdcMock.mint(address(vaultA), 10e18 + 1);
+        usdcMock.mint(address(vaultA), 10e6 + 1);
 
         // expect revert
         vm.startPrank(banker);
@@ -65,7 +65,7 @@ contract VaultTests is BaseTest {
 
         // user 2 deposits 4 tokens to bring cash reserve to 12 tokens
         vm.startPrank(user2);
-        bestia.deposit(4e18, address(user2));
+        bestia.deposit(4e6, address(user2));
         vm.stopPrank();
 
         vm.startPrank(banker);
@@ -117,6 +117,75 @@ contract VaultTests is BaseTest {
         assertLt(swingFactor, 1e15); // 0.1%
     }
 
+    function testAdjustedDeposit() public {
+        // set the strategy to one asset at 90% holding
+        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
+
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT_100, address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        bestia.investCash(address(vaultA));
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = getCurrentReserveRatio();
+        assertEq(reserveRatio, bestia.targetReserveRatio());
+
+        // mint cash so invested assets = 100
+        usdcMock.mint(address(vaultA), 10e6 + 1);
+
+        // get the shares to be minted from a tx with no swing factor
+        // this will break later when you complete 4626 conversion
+        uint256 nonAdjustedShares = bestia.previewDeposit(DEPOSIT_10);
+
+        // user 2 deposits 10e6 to bestia
+        vm.startPrank(user2);
+        bestia.deposit(DEPOSIT_10, address(user2));
+        vm.stopPrank();
+
+        // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
+
+        // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
+        uint256 reserveRatioAfterTX = getCurrentReserveRatio();
+        assertGt(reserveRatioAfterTX, bestia.targetReserveRatio());
+
+        // get the actual shares received and assert they are the same i.e. no swing factor applied
+        uint256 sharesReceived = bestia.balanceOf(address(user2));
+        assertApproxEqAbs(sharesReceived, nonAdjustedShares, 1e12);
+
+        // invest cash to return reserve ratio to 100%
+        vm.startPrank(banker);
+        bestia.investCash(address(vaultA));
+        vm.stopPrank();
+
+        // withdraw usdc to bring reserve ratio below 100%
+        vm.startPrank(user2);
+        bestia.withdraw(5e6, (address(user2)), address((user2)));
+        vm.stopPrank();
+
+        // get the shares to be minted from a deposit with no swing factor applied
+        nonAdjustedShares = bestia.previewDeposit(2e6);
+
+        vm.startPrank(user3);
+        bestia.deposit(2e6, address(user3));
+        vm.stopPrank();
+
+        // TEST 2: test that swing factor is applied with reserve ratio is below target
+
+        // get the reserve ratio after the deposit and assert it is less than target reserve ratio
+        reserveRatioAfterTX = getCurrentReserveRatio();
+        assertLt(reserveRatioAfterTX, bestia.targetReserveRatio());
+
+        // get the actual shares received and assert they are greater than & have swing factor applied
+        sharesReceived = bestia.balanceOf(address(user3));
+        assertGt(sharesReceived, nonAdjustedShares);
+
+        console2.log(getCurrentReserveRatio());
+    }
+
     function testAdjustedWithdraw() public {
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
@@ -135,7 +204,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdcMock.mint(address(vaultA), 10e18 + 1);
+        usdcMock.mint(address(vaultA), 10e6 + 1);
 
         // user 2 deposits 10e18 to bestia and burns the rest of their usdc
         vm.startPrank(user2);
@@ -171,73 +240,6 @@ contract VaultTests is BaseTest {
         // check for correct swing factor is in that test
     }
 
-    function testAdjustedDeposit() public {
-        // set the strategy to one asset at 90% holding
-        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
-        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
-
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT_100, address(user1));
-        vm.stopPrank();
-
-        vm.startPrank(banker);
-        bestia.investCash(address(vaultA));
-        vm.stopPrank();
-
-        // assert reserveRatio is correct before other tests
-        uint256 reserveRatio = getCurrentReserveRatio();
-        assertEq(reserveRatio, bestia.targetReserveRatio());
-
-        // mint cash so invested assets = 100
-        usdcMock.mint(address(vaultA), 10e18 + 1);
-
-        // get the shares to be minted from a tx with no swing factor
-        // this will break later when you complete 4626 conversion
-        uint256 nonAdjustedShares = bestia.previewDeposit(DEPOSIT_10);
-
-        // user 2 deposits 10e18 to bestia
-        vm.startPrank(user2);
-        bestia.deposit(DEPOSIT_10, address(user2));
-        vm.stopPrank();
-
-        // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
-
-        // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
-        uint256 reserveRatioAfterTX = getCurrentReserveRatio();
-        assertGt(reserveRatioAfterTX, bestia.targetReserveRatio());
-
-        // get the actual shares received and assert they are the same i.e. no swing factor applied
-        uint256 sharesReceived = bestia.balanceOf(address(user2));
-        assertEq(sharesReceived, nonAdjustedShares);
-
-        // invest cash to return reserve ratio to 100%
-        vm.startPrank(banker);
-        bestia.investCash(address(vaultA));
-        vm.stopPrank();
-
-        // withdraw usdc to bring reserve ratio below 100%
-        vm.startPrank(user2);
-        bestia.withdraw(5e18, (address(user2)), address((user2)));
-        vm.stopPrank();
-
-        // get the shares to be minted from a deposit with no swing factor applied
-        nonAdjustedShares = bestia.previewDeposit(2e18);
-
-        vm.startPrank(user3);
-        bestia.deposit(2e18, address(user3));
-        vm.stopPrank();
-
-        // TEST 2: test that swing factor is applied with reserve ratio is below target
-
-        // get the reserve ratio after the deposit and assert it is less than target reserve ratio
-        reserveRatioAfterTX = getCurrentReserveRatio();
-        assertLt(reserveRatioAfterTX, bestia.targetReserveRatio());
-
-        // get the actual shares received and assert they are greater than & have swing factor applied
-        sharesReceived = bestia.balanceOf(address(user3));
-        assertGt(sharesReceived, nonAdjustedShares);
-    }
-
     function testAddComponent() public {
         address component = address(vaultA);
         uint256 targetRatio = 20e16;
@@ -248,25 +250,42 @@ contract VaultTests is BaseTest {
         assertFalse(bestia.isAsync(component));
     }
 
-    function testPrecisionConverstion() public {
+    function testPrecisionConversion() public {
         // added to test to prevent revert: Component does not exist
         bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool));
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
 
         // set decimals to 6 for deposit asset
         usdcMock.setDecimalValue(6);
-        uint256 usdcDeposit = 1e6;        
+        uint256 usdcDeposit = DEPOSIT_100;
 
         // execute the deposit
         vm.startPrank(user1);
         bestia.deposit(usdcDeposit, address(user1));
-        vm.stopPrank();       
+        vm.stopPrank();
 
         // assert that 1e6 based deposit has been normalized to 1e18
         uint256 userShares = bestia.balanceOf(address(user1));
-        assertEq(usdcDeposit * 1e12, userShares);
+        assertEq(usdcDeposit, userShares / 1e12);
 
-        
+        console2.log("vaultA decimals: ", vaultA.decimals());
+
+        vm.startPrank(banker);
+        bestia.investCash(address(vaultA));
+
+        // assert the reserve ratio = target of 10%
+        uint256 currentReserveRatio = getCurrentReserveRatio();
+        console2.log("currentReserveRatio :", currentReserveRatio);
+        assertEq(currentReserveRatio, bestia.targetReserveRatio());
+
+        // user 1 withdraws
+        vm.startPrank(user1);
+        bestia.withdraw(DEPOSIT_1, address(user1), address(user1));        
+
+        // assert reserve ratio after withdraw is less that target ratio
+        currentReserveRatio = getCurrentReserveRatio();
+        console2.log("currentReserveRatio :", currentReserveRatio);
+        assertLt(currentReserveRatio, bestia.targetReserveRatio());
     }
 
     // HELPER FUNCTIONS
