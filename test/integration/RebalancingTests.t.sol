@@ -42,10 +42,10 @@ contract RebalancingTests is BaseTest {
 
         // assert that the protocol was rebalanced to the correct ratios
         assertEq(totalAssets, DEPOSIT_100);
-        assertEq(getAsyncAssets, 30e18);
-        assertEq(vaultAHoldings, 18e18);
-        assertEq(vaultBHoldings, 20e18);
-        assertEq(vaultCHoldings, 22e18);
+        assertEq(getAsyncAssets, 30e6);
+        assertEq(vaultAHoldings, 18e6);
+        assertEq(vaultBHoldings, 20e6);
+        assertEq(vaultCHoldings, 22e6);
 
         // FIRST DEPOSIT: 10 UNITS
         vm.startPrank(user1);
@@ -73,7 +73,17 @@ contract RebalancingTests is BaseTest {
         assertEq(vaultCHoldings * 1e18 / totalAssets, 22e16);
 
         // assert that cash reserve has not been reduced below target by rebalance
-        assertGt(usdcMock.balanceOf(address(bestia)), bestia.targetReserveRatio() * 1e18 / totalAssets);
+        uint256 currentReserve = usdcMock.balanceOf(address(bestia));
+        console2.log("currentReserve :", currentReserve);
+
+        console2.log("bestia total assets :", bestia.totalAssets());
+        console2.log("current ratio rounded:", (currentReserve * 100 ) / bestia.totalAssets());
+        console2.log("target reserve ratio :", bestia.targetReserveRatio());        
+
+        uint256 targetCash = (bestia.totalAssets() * bestia.targetReserveRatio()) / 1e18;
+        console2.log("bestia target cash :", targetCash);
+
+        assertGt(currentReserve, targetCash);
 
         // SECOND DEPOSIT: 10 UNITS
         vm.startPrank(user1);

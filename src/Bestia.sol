@@ -181,7 +181,10 @@ contract Bestia is ERC4626, Ownable {
         emit AsyncWithdrawalExecuted(_component, _assets);
     }
 
-    
+    // TODO: Think aboout possible logical BUG
+    // We are basing the discount on the reserve ratio after the transaction. 
+    // This means while the RR is below target. There is actually an incentive to break
+    // up a deposit into smaller transactions to receive a greater discount.
     function deposit(uint256 _assets, address receiver) public override returns (uint256) {
         uint256 internalAssets = toInternalPrecision(_assets);
         uint256 maxAssets = maxDeposit(receiver);
