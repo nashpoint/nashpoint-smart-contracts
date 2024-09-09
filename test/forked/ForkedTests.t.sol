@@ -20,8 +20,10 @@ import {IERC7540} from "src/interfaces/IERC7540.sol";
 // TODO: config later to make this just work with usdc
 
 contract ForkedTests is BaseTest {
+    address public whale = 0x4B16c5dE96EB2117bBE5fd171E4d203624B014aa;
     // setup test to confirm network config, block and smart contract
     // gets chainId and return as a pass if not ethereum
+
     function testGetPoolData() public view {
         uint256 currentChainId = block.chainid;
         // Arbitrum Sepolia
@@ -66,8 +68,6 @@ contract ForkedTests is BaseTest {
         if (currentChainId == 31337) {
             return;
         }
-
-        address whale = 0x4B16c5dE96EB2117bBE5fd171E4d203624B014aa;
 
         // assert correct whale address
         assertEq(asset.balanceOf(whale), 1000000000016900);
@@ -176,21 +176,30 @@ contract ForkedTests is BaseTest {
             return;
         }
 
+        vm.startPrank(user1);
+        asset.transfer(0x000000000000000000000000000000000000dEaD, asset.balanceOf(user1));
+        vm.stopPrank();
+
+        assertEq(asset.balanceOf(address(user1)), 0);
+
+        vm.startPrank(whale);
+        asset.transfer(address(user1), START_BALANCE_1000);
+
         // assert bestia and cfg vault have usdc deposit asset
         assertEq(bestia.asset(), address(asset));
         assertEq(liquidityPool.asset(), address(asset));
 
         // add liquidityPool as component to Bestia with 90% allocation (10% is reserve cash)
-        bestia.addComponent(address(liquidityPool), 90, true, liquidityPool.share());
+        bestia.addComponent(address(liquidityPool), 90e16, true, liquidityPool.share());
 
         // user approves and deposits to bestia
         vm.startPrank(user1);
         asset.approve(address(bestia), MAX_ALLOWANCE);
-        bestia.deposit(100, address(user1));
+        bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
         // assert bestia has issued correct shares to user for 100 deposit
-        assertEq(bestia.convertToAssets(bestia.balanceOf(user1)), 100);
+        assertEq(bestia.convertToAssets(bestia.balanceOf(user1)), DEPOSIT_100);
 
         vm.startPrank(address(root));
         restrictionManager.updateMember(address(share), address(bestia), type(uint64).max);
@@ -201,8 +210,37 @@ contract ForkedTests is BaseTest {
         (bool isMember,) = restrictionManager.isMember(address(share), address(bestia));
         assertTrue(isMember);
 
+        vm.startPrank(address(bestia));
+        asset.approve(address(liquidityPool), MAX_ALLOWANCE);
+        vm.stopPrank();
+
         vm.startPrank(banker);
         bestia.investInAsyncVault(address(liquidityPool));
         vm.stopPrank();
+
+        console2.log("bestia.totalAssets() :", bestia.totalAssets());
+
+        uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, address(bestia));
+        console2.log("PendingDeposits", pendingDeposits);
+
+        // cfg root address uses manager to process the deposit request
+        vm.startPrank(address(root));
+        investmentManager.fulfillDepositRequest(
+            liquidityPool.poolId(),
+            liquidityPool.trancheId(),
+            address(bestia),
+            poolManager.assetToId(liquidityPool.asset()),
+            uint128(pendingDeposits),
+            uint128(pendingDeposits)
+        );
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        bestia.mintClaimableShares(address(liquidityPool));
+        vm.stopPrank();
+
+        console2.log("share.balanceOf(address(bestia)) :, ", share.balanceOf(address(bestia)));
+        console2.log("bestia.totalAssets() :", bestia.totalAssets());
+
     }
 }

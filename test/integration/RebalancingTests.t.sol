@@ -77,8 +77,8 @@ contract RebalancingTests is BaseTest {
         console2.log("currentReserve :", currentReserve);
 
         console2.log("bestia total assets :", bestia.totalAssets());
-        console2.log("current ratio rounded:", (currentReserve * 100 ) / bestia.totalAssets());
-        console2.log("target reserve ratio :", bestia.targetReserveRatio());        
+        console2.log("current ratio rounded:", (currentReserve * 100) / bestia.totalAssets());
+        console2.log("target reserve ratio :", bestia.targetReserveRatio());
 
         uint256 targetCash = (bestia.totalAssets() * bestia.targetReserveRatio()) / 1e18;
         console2.log("bestia target cash :", targetCash);

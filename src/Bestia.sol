@@ -12,6 +12,8 @@ import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
+import {console2} from "forge-std/Test.sol";
+
 contract Bestia is ERC4626, Ownable {
     // State Constants
     uint256 public constant maxDiscount = 2e16; // percentage
@@ -182,7 +184,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // TODO: Think aboout possible logical BUG
-    // We are basing the discount on the reserve ratio after the transaction. 
+    // We are basing the discount on the reserve ratio after the transaction.
     // This means while the RR is below target. There is actually an incentive to break
     // up a deposit into smaller transactions to receive a greater discount.
     function deposit(uint256 _assets, address receiver) public override returns (uint256) {
@@ -193,8 +195,13 @@ contract Bestia is ERC4626, Ownable {
         }
 
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(toInternalPrecision(usdc.balanceOf(address(this))) + internalAssets, 1e18, toInternalPrecision(totalAssets()) + internalAssets));
+        int256 reserveRatioAfterTX = int256(
+            Math.mulDiv(
+                toInternalPrecision(usdc.balanceOf(address(this))) + internalAssets,
+                1e18,
+                toInternalPrecision(totalAssets()) + internalAssets
+            )
+        );
 
         // gets the assets to be returned to the user after applying swingfactor to tx
         uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
@@ -315,6 +322,10 @@ contract Bestia is ERC4626, Ownable {
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
         uint256 currentCash = usdc.balanceOf(address(this));
 
+        console2.log("totalAssets_ :", totalAssets_);
+        console2.log("idealCashReserve :", idealCashReserve);
+        console2.log("currentCash :", currentCash);
+
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
             revert ReserveBelowTargetRatio();
@@ -322,6 +333,7 @@ contract Bestia is ERC4626, Ownable {
 
         // gets deposit amount
         uint256 depositAmount = getDepositAmount(_component);
+        console2.log("depositAmount :", depositAmount);
 
         // Check if the current allocation is below the lower bound
         uint256 currentAllocation = getAsyncAssets(_component) * 1e18 / totalAssets_;
@@ -347,7 +359,13 @@ contract Bestia is ERC4626, Ownable {
 
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
+
+        console2.log("totalAssets() :", totalAssets());
+        console2.log("getComponentRatio(_component) :", getComponentRatio(_component));
+        console2.log("targetHoldings :", targetHoldings);
+
         uint256 currentBalance;
+        console2.log("currentBalance :", currentBalance);
 
         if (isAsync(_component)) {
             currentBalance = getAsyncAssets(_component);

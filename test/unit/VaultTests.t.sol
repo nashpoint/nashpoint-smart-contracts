@@ -280,7 +280,7 @@ contract VaultTests is BaseTest {
 
         // user 1 withdraws
         vm.startPrank(user1);
-        bestia.withdraw(DEPOSIT_1, address(user1), address(user1));        
+        bestia.withdraw(DEPOSIT_1, address(user1), address(user1));
 
         // assert reserve ratio after withdraw is less that target ratio
         currentReserveRatio = getCurrentReserveRatio();
