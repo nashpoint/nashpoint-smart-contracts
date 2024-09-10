@@ -120,9 +120,9 @@ contract Bestia is ERC4626, Ownable {
             assets += pendingDepositAssets;
         } catch {}
 
-        // Add claimable deposits (convert shares to assets)
-        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableShares) {
-            assets += IERC7540(_component).convertToAssets(claimableShares);
+        // Add claimable deposits assets
+        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
+            assets += claimableAssets;
         } catch {}
 
         // Add pending redemptions (convert shares to assets)
@@ -143,6 +143,8 @@ contract Bestia is ERC4626, Ownable {
         if (claimableAssets == 0) {
             revert NoClaimableDeposit();
         }
+        // some precision loss here as 1 remaining for claimableDepositRequest
+        // todo: fix this
         uint256 claimableShares = liquidityPool.convertToShares(claimableAssets);
         liquidityPool.mint(claimableShares, address(this));
 

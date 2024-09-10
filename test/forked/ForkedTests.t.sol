@@ -201,30 +201,36 @@ contract ForkedTests is BaseTest {
         // assert bestia has issued correct shares to user for 100 deposit
         assertEq(bestia.convertToAssets(bestia.balanceOf(user1)), DEPOSIT_100);
 
+        // add bestia to cfg whitelist
         vm.startPrank(address(root));
         restrictionManager.updateMember(address(share), address(bestia), type(uint64).max);
-
         vm.stopPrank();
 
         // assert user has been whitelisted successfully
         (bool isMember,) = restrictionManager.isMember(address(share), address(bestia));
         assertTrue(isMember);
 
+        // approve max allowance for cfg to bestia
         vm.startPrank(address(bestia));
         asset.approve(address(liquidityPool), MAX_ALLOWANCE);
         vm.stopPrank();
 
+        // banker invests bestia in cfg vault
         vm.startPrank(banker);
         bestia.investInAsyncVault(address(liquidityPool));
         vm.stopPrank();
 
-        console2.log("bestia.totalAssets() :", bestia.totalAssets());
+        // assert bestia totalAssets correctly including pendingDepositRequest
+        assertEq(bestia.totalAssets(), DEPOSIT_100);
 
         uint256 pendingDeposit = liquidityPool.pendingDepositRequest(0, address(bestia));
-        console2.log("PendingDeposit", pendingDeposit);
+        uint256 expectedDeposit = DEPOSIT_100 * bestia.getComponentRatio(address(liquidityPool)) / 1e18;
 
+        // assert pendingDeposit on cfg == correct ratio of assets for bestia
+        assertEq(pendingDeposit, expectedDeposit);
+
+        // estimate the shares cfg will mint based on current share price
         uint256 sharesToMint = liquidityPool.convertToShares(pendingDeposit);
-        console2.log("sharesToMint :", sharesToMint);        
 
         // cfg root address uses manager to process the deposit request
         vm.startPrank(address(root));
@@ -238,17 +244,33 @@ contract ForkedTests is BaseTest {
         );
         vm.stopPrank();
 
-        console2.log("claimableDepositRequest :", liquidityPool.claimableDepositRequest(0, address(bestia)));
+        // assert claimable deposit == expected deposit after rounding
+        uint256 claimableDepositValue = liquidityPool.claimableDepositRequest(0, address(bestia));
+        assertApproxEqAbs(claimableDepositValue, expectedDeposit, 1);
 
-        console2.log("share.balanceOf(address(bestia)) : ", share.balanceOf(address(bestia)));
-        console2.log("bestia.totalAssets() :", bestia.totalAssets());
+        // assert bestia is calculating claimableDepositRequest in totalAssets correctly after rounding
+        assertApproxEqAbs(bestia.totalAssets(), DEPOSIT_100, 1);
 
+        // banker mints claimable shares for bestia
         vm.startPrank(banker);
         bestia.mintClaimableShares(address(liquidityPool));
         vm.stopPrank();
 
-        console2.log("share.balanceOf(address(bestia)) : ", share.balanceOf(address(bestia)));
-        console2.log("bestia.totalAssets() :", bestia.totalAssets());
+        // assert totalAssets is correct
+        assertApproxEqAbs(bestia.totalAssets(), DEPOSIT_100, 1);
 
+        // assert pendingDeposits == 0
+        assertEq(liquidityPool.pendingDepositRequest(0, address(bestia)), 0);
+
+        // assert claimableDeposits == 0
+        // note: rounding leaves 000001 behind, so only approxEq
+        // todo: get feedback on best approach and fix this
+        assertApproxEqAbs(liquidityPool.claimableDepositRequest(0, address(bestia)), 0, 1);
+
+        // assert share balance = correct ratio of assets for bestia
+        uint256 mintedShares = share.balanceOf(address(bestia));
+
+        // assert minted shares match deposit value after rounding
+        assertApproxEqAbs(liquidityPool.convertToAssets(mintedShares), expectedDeposit, 2);
     }
 }
