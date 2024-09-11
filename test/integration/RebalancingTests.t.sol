@@ -151,7 +151,6 @@ contract RebalancingTests is BaseTest {
         // assert that return value for getAsyncAssets == value of newly minted shares
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
 
-
         // BUG: !!!!!!!!!!!!
         // This part is causing the test to fail
         // TODO: Fix this issue where calculating wrong value for shares and using wrong address

@@ -66,6 +66,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // DEPOSIT FLOW
+
     function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256) {
         require(assets > 0, "Cannot request deposit of 0 assets");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
@@ -104,6 +105,9 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     function claimableDepositRequest(uint256, address controller) external view returns (uint256 assets) {
         return claimableDepositRequests[controller];
     }
+
+    // TODO: complete this function and refactor tests to use it to grab that value
+    function maxMint(address controller) public view override(IERC7540, ERC4626) returns (uint256 maxShares) {}
 
     function processPendingDeposits() external onlyManager {
         uint256 totalPendingAssets = 0;

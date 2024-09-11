@@ -176,6 +176,7 @@ contract ForkedTests is BaseTest {
             return;
         }
 
+        // empty user balance of asset token
         vm.startPrank(user1);
         asset.transfer(0x000000000000000000000000000000000000dEaD, asset.balanceOf(user1));
         vm.stopPrank();
@@ -184,6 +185,7 @@ contract ForkedTests is BaseTest {
 
         vm.startPrank(whale);
         asset.transfer(address(user1), START_BALANCE_1000);
+        vm.stopPrank();
 
         // assert bestia and cfg vault have usdc deposit asset
         assertEq(bestia.asset(), address(asset));

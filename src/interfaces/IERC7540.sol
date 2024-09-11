@@ -17,6 +17,8 @@ interface IERC7540 {
     function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares);
     function processPendingRedemptions() external;
 
+    function maxMint(address controller) external view returns (uint256 maxShares);
+
     function isOperator(address controller, address operator) external view returns (bool);
     function setOperator(address operator, bool approved) external returns (bool);
 
