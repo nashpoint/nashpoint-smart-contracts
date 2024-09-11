@@ -13,7 +13,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
     // Mappings
     mapping(address => mapping(address => bool)) private _operators;
-    mapping(address => uint256) public claimableDepositRequests;
+    mapping(address => uint256) public claimableDepositRequests; // stored as assets
     mapping(address => uint256) public claimableRedeemRequests;
     mapping(address => uint256) public controllerToDepositIndex;
     mapping(address => uint256) public controllerToRedeemIndex;
@@ -25,7 +25,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // Arrays
-    PendingRequest[] public pendingDepositRequests;
+    PendingRequest[] public pendingDepositRequests; // stored as assets
     PendingRequest[] public pendingRedeemRequests;
 
     // @dev Requests for Centrifuge pool are non-fungible and all have ID = 0
@@ -119,7 +119,8 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         uint256 totalShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
         pendingShares += totalShares;
 
-        // Allocate shares to each depositor
+        // Move deposits from pending to claimable state
+        // Claimable deposits are stored as assets
         for (uint256 i = 0; i < pendingDepositCount; i++) {
             PendingRequest memory request = pendingDepositRequests[i];
 
