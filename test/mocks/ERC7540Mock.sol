@@ -107,7 +107,9 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // TODO: complete this function and refactor tests to use it to grab that value
-    function maxMint(address controller) public view override(IERC7540, ERC4626) returns (uint256 maxShares) {}
+    function maxMint(address controller) public view override(IERC7540, ERC4626) returns (uint256 maxShares) {
+        return convertToShares(claimableDepositRequests[controller]);
+    }
 
     function processPendingDeposits() external onlyManager {
         uint256 totalPendingAssets = 0;

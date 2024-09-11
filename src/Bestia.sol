@@ -114,33 +114,40 @@ contract Bestia is ERC4626, Ownable {
         IERC20 shareToken = IERC20(getComponentShareAddress(_component));
         uint256 shareBalance = shareToken.balanceOf(address(this));
         assets = IERC7540(_component).convertToAssets(shareBalance);
+        // console2.log("### assets in sharesTokens: ", assets);
 
         // Add pending deposits (in assets)
         try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingDepositAssets) {
             assets += pendingDepositAssets;
         } catch {}
+        // console2.log("### assets + pendingDepositAssets: ", assets);
 
         // Add claimable deposits assets
         try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
             assets += claimableAssets;
         } catch {}
+        // console2.log("### assets + claimableAssets: ", assets);
 
         // Add pending redemptions (convert shares to assets)
         try IERC7540(_component).pendingRedeemRequest(0, address(this)) returns (uint256 pendingRedeemShares) {
             assets += IERC7540(_component).convertToAssets(pendingRedeemShares);
         } catch {}
+        // console2.log("### assets + pendingRedeemShares after conversion: ", assets);
 
         // Add claimable redemptions (already in assets)
         try IERC7540(_component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemAssets) {
             assets += claimableRedeemAssets;
         } catch {}
+        // console2.log("### assets + claimableRedeemAssets: ", assets);
 
         return assets;
     }
 
     function mintClaimableShares(address _component) public onlyBanker returns (uint256) {
         uint256 claimableShares = liquidityPool.maxMint(address(this));
+        console2.log("*** claimableShares in mintClaimableShares :", claimableShares);
         liquidityPool.mint(claimableShares, address(this));
+        
 
         emit AsyncSharesMinted(_component, claimableShares);
         return claimableShares;
@@ -357,12 +364,13 @@ contract Bestia is ERC4626, Ownable {
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
 
-        console2.log("totalAssets() :", totalAssets());
-        console2.log("getComponentRatio(_component) :", getComponentRatio(_component));
-        console2.log("targetHoldings :", targetHoldings);
+        // console2.log("totalAssets() :", totalAssets());
+        // console2.log("getComponentRatio(_component) :", getComponentRatio(_component));
+        // console2.log("targetHoldings :", targetHoldings);
 
         uint256 currentBalance;
-        console2.log("currentBalance :", currentBalance);
+        
+        // console2.log("currentBalance :", currentBalance);
 
         if (isAsync(_component)) {
             currentBalance = getAsyncAssets(_component);
