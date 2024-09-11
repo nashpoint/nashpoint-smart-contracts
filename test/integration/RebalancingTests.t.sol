@@ -134,7 +134,6 @@ contract RebalancingTests is BaseTest {
         // console2.log("*** pendingDepositRequest for bestia :", liquidityPool.pendingDepositRequest(0, address(bestia)));
         uint256 sharesToMint = liquidityPool.convertToShares(liquidityPool.pendingDepositRequest(0, address(bestia)));
         console2.log("sharesToMint :", sharesToMint);
-        
 
         // assert that the return value for getAsyncAssets == pendingDeposits on Liquidity Pool
         uint256 asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
@@ -162,7 +161,7 @@ contract RebalancingTests is BaseTest {
         bestia.mintClaimableShares(address(liquidityPool));
         vm.stopPrank();
 
-        // 
+        //
         assertEq(sharesToMint, liquidityPool.balanceOf(address(bestia)));
 
         // assert that return value for getAsyncAssets == value of newly minted shares
@@ -170,7 +169,7 @@ contract RebalancingTests is BaseTest {
         console2.log("*** asyncAssets :", asyncAssets);
         console2.log("*** balance after mint :", liquidityPool.balanceOf(address(bestia)));
         claimableDeposits = liquidityPool.claimableDepositRequest(0, address(bestia));
-        console2.log("*** claimable deposits after mint :", claimableDeposits);
+        console2.log("*** claimable deposits after mint (should be zero):", claimableDeposits);
 
         // BUG: !!!!!!!!!!!!
         // This part is causing the test to fail

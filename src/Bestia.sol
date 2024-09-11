@@ -147,7 +147,6 @@ contract Bestia is ERC4626, Ownable {
         uint256 claimableShares = liquidityPool.maxMint(address(this));
         console2.log("*** claimableShares in mintClaimableShares :", claimableShares);
         liquidityPool.mint(claimableShares, address(this));
-        
 
         emit AsyncSharesMinted(_component, claimableShares);
         return claimableShares;
@@ -369,7 +368,7 @@ contract Bestia is ERC4626, Ownable {
         // console2.log("targetHoldings :", targetHoldings);
 
         uint256 currentBalance;
-        
+
         // console2.log("currentBalance :", currentBalance);
 
         if (isAsync(_component)) {

@@ -34,6 +34,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     // Variables
     address public poolManager;
     uint256 public pendingShares; // represented as shares that can be minted
+    uint256 public pendingAssets;
     bool private initialized = false;
 
     // Events
@@ -80,6 +81,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         // if an index is found the assets are added to the pending request
         if (index > 0) {
             pendingDepositRequests[index - 1].amount += assets;
+            pendingAssets += assets;
 
             // or it creates a new pending request struct
         } else {
@@ -88,6 +90,9 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
             // and adds it to the pendingDepositRequests array and the controllerToDepositIndex
             pendingDepositRequests.push(newRequest);
             controllerToDepositIndex[controller] = pendingDepositRequests.length;
+
+            // add request amount to pendingAssets
+            pendingAssets += assets;
         }
 
         // Emit DepositRequest event
@@ -106,36 +111,19 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         return claimableDepositRequests[controller];
     }
 
-    // TODO: complete this function and refactor tests to use it to grab that value
-    function maxMint(address controller) public view override(IERC7540, ERC4626) returns (uint256 maxShares) {
-        return convertToShares(claimableDepositRequests[controller]);
-    }
-
     function processPendingDeposits() external onlyManager {
-        uint256 totalPendingAssets = 0;
+        uint256 totalPendingAssets = pendingAssets;
         uint256 pendingDepositCount = pendingDepositRequests.length;
-
-        // Sum up total pending assets
-        for (uint256 i = 0; i < pendingDepositCount; i++) {
-            totalPendingAssets += pendingDepositRequests[i].amount;
-        }
 
         // create a new function here that converts pending assets to shares
         uint256 totalShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
-
-        // Calculate share/asset ratio
-        uint256 sharePerAsset = Math.mulDiv(totalShares, 1e18, totalPendingAssets, Math.Rounding.Floor);
+        pendingShares += totalShares;
 
         // Allocate shares to each depositor
         for (uint256 i = 0; i < pendingDepositCount; i++) {
             PendingRequest memory request = pendingDepositRequests[i];
 
-            uint256 shares = Math.mulDiv(request.amount, sharePerAsset, 1e18, Math.Rounding.Floor);
-
-            claimableDepositRequests[request.controller] += shares;
-
-            // keep a running total of shares to be minted by users
-            pendingShares += shares;
+            claimableDepositRequests[request.controller] += request.amount;
 
             // Clear the controllerToIndex entry for this controller
             delete controllerToDepositIndex[request.controller];
@@ -143,6 +131,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
         // Clear all processed data
         delete pendingDepositRequests;
+        pendingAssets = 0;
     }
 
     // REDEMPTION FLOW
@@ -357,6 +346,10 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
     function previewRedeem(uint256) public view virtual override returns (uint256) {
         revert("ERC7540: previewRedeem not available for async vault");
+    }
+
+    function maxMint(address controller) public view override(IERC7540, ERC4626) returns (uint256 maxShares) {
+        return convertToShares(claimableDepositRequests[controller]);
     }
 
     // HELPERS
