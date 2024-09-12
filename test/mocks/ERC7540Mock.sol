@@ -135,7 +135,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         claimableShares += newShares;
 
         // claimableShares are divided by pendingDeposits to get shares per asset for minting
-        claimableSharePrice = Math.mulDiv(claimableShares, 1e18, pendingAssets, Math.Rounding.Floor);
+        claimableSharePrice = Math.mulDiv(newShares, 1e18, pendingAssets, Math.Rounding.Floor);
         console2.log("claimableSharePrice :", claimableSharePrice);
 
         // Move deposits from pending to claimable state
@@ -256,17 +256,18 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         // Calculate assets based on shares and claimableSharePrice
         assets = Math.mulDiv(shares, claimableSharePrice, 1e18, Math.Rounding.Floor);
 
+        console2.log("claimableDepositRequests[controller] in mint():", claimableDepositRequests[controller]);
+        console2.log("shares in mint() :", shares);
+        console2.log("claimableSharePrice in mint() :", claimableSharePrice);
+        console2.log("assets in mint() :", assets);
+
         // Check if requested assets exceed the claimable amount
         if (assets > claimableDepositRequests[controller]) {
             revert ERC7540Mock_ExceedsPendingDeposit();
         }
 
         // Subtract from claimableShares
-        if (shares > claimableShares) {
-            claimableShares = 0;
-        } else {
-            claimableShares -= shares;
-        }
+        claimableShares -= shares;
 
         // Update claimable balance
         claimableDepositRequests[controller] -= assets;

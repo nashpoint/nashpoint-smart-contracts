@@ -20,7 +20,7 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
 
         // user1 requests a deposit to liquidity pool
-        userRequestsDeposit(user, amount);
+        userRequestsDeposit(user, DEPOSIT_10);
 
         // Revert: Cannot request deposit of 0 assets
         vm.expectRevert();
@@ -29,12 +29,12 @@ contract ERC7540Tests is BaseTest {
         // Revert: Not authorised
         vm.startPrank(user);
         vm.expectRevert();
-        liquidityPool.requestDeposit(amount, user, notController);
+        liquidityPool.requestDeposit(DEPOSIT_10, user, notController);
         vm.stopPrank();
 
         // assert user1 pendingDeposits = deposited amount
         uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, user);
-        assertEq(amount, pendingDeposits);
+        assertEq(DEPOSIT_10, pendingDeposits);
 
         // assert user1 cannot claim yet
         uint256 claimableDeposits = liquidityPool.claimableDepositRequest(0, user);
@@ -45,6 +45,11 @@ contract ERC7540Tests is BaseTest {
         // assert claimable shares match deposited assets 1:1
         // BUG:THESE SHOULD NOT BE SHARES
         uint256 sharesClaimable = liquidityPool.maxMint(user);
+
+        claimableDeposits = liquidityPool.claimableDepositRequest(0, user);
+        console2.log("*** sharesClaimable :", sharesClaimable);
+        console2.log("*** claimableDeposits :", claimableDeposits);
+        // console2.log("claimableSharePrice :",liquidityPool.claimableSharePrice());
 
         // assert shares claimable are accurate to 0.01% margin of error
         assertApproxEqRel(sharesDue, sharesClaimable, 1e12);
