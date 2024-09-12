@@ -253,24 +253,29 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
             revert ERC7540Mock_NoPendingDepositAvailable();
         }
 
-        // Check if requested shares exceed the claimable amount
-        if (shares > claimableDepositRequests[controller]) {
+        // Calculate assets based on shares and claimableSharePrice
+        assets = Math.mulDiv(shares, claimableSharePrice, 1e18, Math.Rounding.Floor);
+
+        // Check if requested assets exceed the claimable amount
+        if (assets > claimableDepositRequests[controller]) {
             revert ERC7540Mock_ExceedsPendingDeposit();
         }
 
-        // Calculate assets based on shares
-        assets = convertToAssets(shares);
+        // Subtract from claimableShares
+        if (shares > claimableShares) {
+            claimableShares = 0;
+        } else {
+            claimableShares -= shares;
+        }
 
         // Update claimable balance
-        claimableDepositRequests[controller] -= shares;
-
-        // subtract newly minted shares from pending shares
-        claimableShares -= shares;
+        claimableDepositRequests[controller] -= assets;
 
         // Mint shares to the receiver
         _mint(receiver, shares);
 
         emit Deposit(msg.sender, receiver, assets, shares);
+        return assets;
     }
 
     function withdraw(uint256 assets, address receiver, address owner)
