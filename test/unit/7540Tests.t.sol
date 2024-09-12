@@ -6,7 +6,6 @@ import {BaseTest} from "test/BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 
 contract ERC7540Tests is BaseTest {
-    
     // TODO: Go through this test and identify any incorrect logic or checks
     // TODO: use logs, and use maxMint
     function testDepositAndMintFlow() public {
@@ -45,7 +44,7 @@ contract ERC7540Tests is BaseTest {
 
         // assert claimable shares match deposited assets 1:1
         // BUG:THESE SHOULD NOT BE SHARES
-        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, user);
+        uint256 sharesClaimable = liquidityPool.maxMint(user);
 
         // assert shares claimable are accurate to 0.01% margin of error
         assertApproxEqRel(sharesDue, sharesClaimable, 1e12);

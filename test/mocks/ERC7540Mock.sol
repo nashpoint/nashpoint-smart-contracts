@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {console2} from "forge-std/Test.sol";
 
 // TODO: Write a test for yield distribution and complex withdrawal. Vault might not be fair
 
@@ -32,10 +33,11 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     uint256 private constant REQUEST_ID = 0;
 
     // Variables
-    address public poolManager;
-    uint256 public pendingShares; // represented as shares that can be minted
-    uint256 public pendingAssets;
     bool private initialized = false;
+    address public poolManager;
+    uint256 public claimableShares; // represented as shares that can be minted
+    uint256 public pendingAssets; // represented as assets waiting to be deposited
+    uint256 public claimableSharePrice; // defined when manager calls processPendingDeposits
 
     // Events
     event DepositRequest(
@@ -47,11 +49,11 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
     // Errors TODO: rename these errors to be more descriptive and include contract name
-    error NoPendingDepositAvailable();
-    error NoPendingRedeemAvailable();
-    error ExceedsPendingDeposit();
-    error ExceedsPendingRedeem();
-    error NotImplementedYet();
+    error ERC7540Mock_NoPendingDepositAvailable();
+    error ERC7540Mock_NoPendingRedeemAvailable();
+    error ERC7540Mock_ExceedsPendingDeposit();
+    error ERC7540Mock_ExceedsPendingRedeem();
+    error ERC7540Mock_NotImplementedYet();
 
     // Modifiers
     modifier onlyManager() {
@@ -67,6 +69,8 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // DEPOSIT FLOW
+    // requestDeposit is called by a depositor. Takes value of assets being deposited and adds it to the  pendingDepositRequests struct and pendingDeposits variable. PendingDeposits is used by ProcessPendingDeposits to ensure correct number of shares are allocated for the batch.
+    // Always transfers assets from user to vault when requestDeposit is called
 
     function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256) {
         require(assets > 0, "Cannot request deposit of 0 assets");
@@ -78,9 +82,11 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         // sets the index to the index of the controller if one exists
         uint256 index = controllerToDepositIndex[controller];
 
-        // if an index is found the assets are added to the pending request
+        // if an index is found the assets are added to the pending requestDeposit
         if (index > 0) {
             pendingDepositRequests[index - 1].amount += assets;
+
+            // add request amount to pendingAssets
             pendingAssets += assets;
 
             // or it creates a new pending request struct
@@ -111,13 +117,26 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         return claimableDepositRequests[controller];
     }
 
+    // Called by vault manager to fulfill all the pending deposits in one transaction.
+    // note: there is a risk that share price will worsen for depositors if they have not minted pendingDeposit before next time processPendingDeposits is called
     function processPendingDeposits() external onlyManager {
         uint256 totalPendingAssets = pendingAssets;
         uint256 pendingDepositCount = pendingDepositRequests.length;
 
-        // create a new function here that converts pending assets to shares
-        uint256 totalShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
-        pendingShares += totalShares;
+        console2.log("totalPendingAssets :", totalPendingAssets);
+
+        // uses totalPendingAssets to calculate pendingShares to be minted. convertPendingToshares() performs this calculation by adding already pendingShares to the totalSupply, and subtracting pendingDeposits from totalSupply().
+
+        // this ensures that assets that have been transferred to the vault but not deposited are not included in totalAssets(), and that shares for claimableDeposits that are claimable but not yet minted are included in totalSupply()
+        uint256 newShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
+        console2.log("newShares :", newShares);
+
+        // newly avaiable shares are appended to claimable Shares
+        claimableShares += newShares;
+
+        // claimableShares are divided by pendingDeposits to get shares per asset for minting
+        claimableSharePrice = Math.mulDiv(claimableShares, 1e18, pendingAssets, Math.Rounding.Floor);
+        console2.log("claimableSharePrice :", claimableSharePrice);
 
         // Move deposits from pending to claimable state
         // Claimable deposits are stored as assets
@@ -219,11 +238,11 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     // TODO: OVERLOADS for all that use an additional controller address
 
     function deposit(uint256, address) public pure override returns (uint256) {
-        revert NotImplementedYet();
+        revert ERC7540Mock_NotImplementedYet();
     }
 
     function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert NotImplementedYet();
+        revert ERC7540Mock_NotImplementedYet();
     }
 
     function mint(uint256 shares, address receiver) public override(ERC4626, IERC7540) returns (uint256 assets) {
@@ -231,12 +250,12 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
         // Check if there's any claimable deposit for the controller
         if (claimableDepositRequests[controller] == 0) {
-            revert NoPendingDepositAvailable();
+            revert ERC7540Mock_NoPendingDepositAvailable();
         }
 
         // Check if requested shares exceed the claimable amount
         if (shares > claimableDepositRequests[controller]) {
-            revert ExceedsPendingDeposit();
+            revert ERC7540Mock_ExceedsPendingDeposit();
         }
 
         // Calculate assets based on shares
@@ -246,7 +265,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         claimableDepositRequests[controller] -= shares;
 
         // subtract newly minted shares from pending shares
-        pendingShares -= shares;
+        claimableShares -= shares;
 
         // Mint shares to the receiver
         _mint(receiver, shares);
@@ -265,12 +284,12 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
         // Check if there's any claimable redeem for the controller
         if (claimableRedeemRequests[controller] == 0) {
-            revert NoPendingRedeemAvailable();
+            revert ERC7540Mock_NoPendingRedeemAvailable();
         }
 
         // check if the requested assets exceed the claimable amount
         if (assets > claimableRedeemRequests[controller]) {
-            revert ExceedsPendingRedeem();
+            revert ERC7540Mock_ExceedsPendingRedeem();
         }
 
         // calculate shares to burn
@@ -350,13 +369,19 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     function maxMint(address controller) public view override(IERC7540, ERC4626) returns (uint256 maxShares) {
-        return convertToShares(claimableDepositRequests[controller]);
+        uint256 claimableAssets = claimableDepositRequests[controller];
+        maxShares = Math.mulDiv(claimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
+        console2.log("maxShares :", maxShares);
     }
 
     // HELPERS
+
+    // Function takes new pendingAssets and defines new claimableShares.
+    // PendingAssets * (totalSupply - claimableShares) / (totalAssets - pendingAssets)
+    // Ensure that new shares available to mint account for shares already avaialable to mint but not assets that have been transfered but not minted.
     function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {
         return _pendingAssets.mulDiv(
-            totalSupply() + pendingShares + 10 ** _decimalsOffset(), (totalAssets() - _pendingAssets) + 1, rounding
+            totalSupply() + claimableShares + 10 ** _decimalsOffset(), (totalAssets() - _pendingAssets) + 1, rounding
         );
     }
 
