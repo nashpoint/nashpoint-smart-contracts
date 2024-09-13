@@ -5,9 +5,8 @@ pragma solidity ^0.8.20;
 import {BaseTest} from "test/BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 
+// TODO: Write a test for yield distribution and complex withdrawal. Vault might not be fair
 contract ERC7540Tests is BaseTest {
-    // TODO: Go through this test and identify any incorrect logic or checks
-    // TODO: use logs, and use maxMint
     function testDepositAndMintFlow() public {
         address user = address(user1);
         address notController = address(user2);
@@ -47,9 +46,6 @@ contract ERC7540Tests is BaseTest {
         uint256 sharesClaimable = liquidityPool.maxMint(user);
 
         claimableDeposits = liquidityPool.claimableDepositRequest(0, user);
-        console2.log("*** sharesClaimable :", sharesClaimable);
-        console2.log("*** claimableDeposits :", claimableDeposits);
-        // console2.log("claimableSharePrice :",liquidityPool.claimableSharePrice());
 
         // assert shares claimable are accurate to 0.01% margin of error
         assertApproxEqRel(sharesDue, sharesClaimable, 1e12);

@@ -5,9 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {console2} from "forge-std/Test.sol";
-
-// TODO: Write a test for yield distribution and complex withdrawal. Vault might not be fair
 
 contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     using Math for uint256;
@@ -123,20 +120,16 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         uint256 totalPendingAssets = pendingAssets;
         uint256 pendingDepositCount = pendingDepositRequests.length;
 
-        console2.log("totalPendingAssets :", totalPendingAssets);
-
         // uses totalPendingAssets to calculate pendingShares to be minted. convertPendingToshares() performs this calculation by adding already pendingShares to the totalSupply, and subtracting pendingDeposits from totalSupply().
 
         // this ensures that assets that have been transferred to the vault but not deposited are not included in totalAssets(), and that shares for claimableDeposits that are claimable but not yet minted are included in totalSupply()
         uint256 newShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
-        console2.log("newShares :", newShares);
 
         // newly avaiable shares are appended to claimable Shares
         claimableShares += newShares;
 
         // claimableShares are divided by pendingDeposits to get shares per asset for minting
         claimableSharePrice = Math.mulDiv(newShares, 1e18, pendingAssets, Math.Rounding.Floor);
-        console2.log("claimableSharePrice :", claimableSharePrice);
 
         // Move deposits from pending to claimable state
         // Claimable deposits are stored as assets
@@ -232,18 +225,6 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // ERC4626 OVERRIDES
-    // TODO: Deposit
-    // TODO: Redeem
-
-    // TODO: OVERLOADS for all that use an additional controller address
-
-    function deposit(uint256, address) public pure override returns (uint256) {
-        revert ERC7540Mock_NotImplementedYet();
-    }
-
-    function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert ERC7540Mock_NotImplementedYet();
-    }
 
     function mint(uint256 shares, address receiver) public override(ERC4626, IERC7540) returns (uint256 assets) {
         address controller = msg.sender;
@@ -255,11 +236,6 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
         // Calculate assets based on shares and claimableSharePrice
         assets = Math.mulDiv(shares, claimableSharePrice, 1e18, Math.Rounding.Floor);
-
-        console2.log("claimableDepositRequests[controller] in mint():", claimableDepositRequests[controller]);
-        console2.log("shares in mint() :", shares);
-        console2.log("claimableSharePrice in mint() :", claimableSharePrice);
-        console2.log("assets in mint() :", assets);
 
         // Check if requested assets exceed the claimable amount
         if (assets > claimableDepositRequests[controller]) {
@@ -312,6 +288,15 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
 
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
         return shares;
+    }
+
+    // DEPOSIT & REDEEM NOT USED FOR THIS MOCK
+    function deposit(uint256, address) public pure override returns (uint256) {
+        revert ERC7540Mock_NotImplementedYet();
+    }
+
+    function redeem(uint256, address, address) public pure override returns (uint256) {
+        revert ERC7540Mock_NotImplementedYet();
     }
 
     // VIEW FUNCTIONS
@@ -377,7 +362,6 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     function maxMint(address controller) public view override(IERC7540, ERC4626) returns (uint256 maxShares) {
         uint256 claimableAssets = claimableDepositRequests[controller];
         maxShares = Math.mulDiv(claimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
-        console2.log("maxShares :", maxShares);
     }
 
     // HELPERS

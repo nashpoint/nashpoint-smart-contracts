@@ -120,6 +120,9 @@ contract RebalancingTests is BaseTest {
         // deposit 100 units to bestia and rebalance into correct target ratios
         seedBestia();
 
+        // grab total assets at start of test to check at the end
+        uint256 startingAssets = bestia.totalAssets();
+
         // assert user has zero shares at start
         uint256 sharesToMint = liquidityPool.maxMint(address(bestia));
         assertEq(sharesToMint, 0);
@@ -200,7 +203,12 @@ contract RebalancingTests is BaseTest {
         bestia.executeAsyncWithdrawal(address(liquidityPool), claimableWithdrawals);
         vm.stopPrank();
 
+        // assert bestia no longer has async assets
         assertEq(bestia.getAsyncAssets(address(liquidityPool)), 0, "Async assets not zero after withdrawal");
+
+        // assert no assets lost through process
+        uint256 finishingAssets = bestia.totalAssets();
+        assertEq(startingAssets, finishingAssets);
     }
 
     function bankerInvestsCash(address _component) public {
