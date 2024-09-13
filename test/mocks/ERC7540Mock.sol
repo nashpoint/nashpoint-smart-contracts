@@ -340,11 +340,11 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     function totalSupply() public view override(IERC7540, ERC20, IERC20) returns (uint256) {
-        return super.totalSupply();
+        return super.totalSupply() + claimableShares;
     }
 
     function totalAssets() public view override(IERC7540, ERC4626) returns (uint256 assets) {
-        return super.totalAssets();
+        return super.totalAssets() - pendingAssets;
     }
 
     function convertToAssets(uint256 shares) public view override(ERC4626, IERC7540) returns (uint256) {
@@ -386,9 +386,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     // PendingAssets * (totalSupply - claimableShares) / (totalAssets - pendingAssets)
     // Ensure that new shares available to mint account for shares already avaialable to mint but not assets that have been transfered but not minted.
     function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {
-        return _pendingAssets.mulDiv(
-            totalSupply() + claimableShares + 10 ** _decimalsOffset(), (totalAssets() - _pendingAssets) + 1, rounding
-        );
+        return _pendingAssets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), (totalAssets()) + 1, rounding);
     }
 
     // ERC-165 support
