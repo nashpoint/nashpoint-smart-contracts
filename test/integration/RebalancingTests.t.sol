@@ -124,17 +124,13 @@ contract RebalancingTests is BaseTest {
         assertEq(totalAssets, DEPOSIT_100 + DEPOSIT_10 + DEPOSIT_10, "Total assets incorrect after deposits");
     }
 
-    function testGetAsyncAssets() public {
-        // TODO: rework this test as it is now fucked after changing the logic of the mock 7540
+    function testGetAsyncAssets() public {        
         // deposit 100 units to bestia and rebalance into correct target ratios
         seedBestia();
-
-        console2.log("*** liquidityPool totalAssets after seeding :",liquidityPool.totalAssets());
-        console2.log("*** liquidityPool totalSupply after seeding :", liquidityPool.totalSupply());
-        console2.log("*** LP balance of bestia :", liquidityPool.balanceOf(address(bestia)));
-        console2.log("*** pendingDepositRequest for bestia :", liquidityPool.pendingDepositRequest(0, address(bestia)));
-        // uint256 sharesToMint = liquidityPool.maxMint(address(bestia));
-        // console2.log("sharesToMint :", sharesToMint);
+        
+        // assert user has zero shares at start
+        uint256 sharesToMint = liquidityPool.maxMint(address(bestia));
+        assertEq(sharesToMint, 0);        
 
         // assert that the return value for getAsyncAssets == pendingDeposits on Liquidity Pool
         uint256 asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
@@ -146,15 +142,16 @@ contract RebalancingTests is BaseTest {
         liquidityPool.processPendingDeposits();
         vm.stopPrank();
 
-        uint256 maxMint = liquidityPool.maxMint(address(bestia));
-        console2.log("maxMint :", maxMint);
-        // assertEq(maxMint, sharesToMint);
+        // grab shares to mint for bestia after processing pending deposits
+        sharesToMint = liquidityPool.maxMint(address(bestia));
+        console2.log("liquidityPool.maxMint(address(bestia)) :", sharesToMint);  
+        
 
         // assert that the return value for getAsyncAssets == claimableDeposits on Liquidity Pool
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
         uint256 claimableDeposits = liquidityPool.claimableDepositRequest(0, address(bestia));
         assertEq(asyncAssets, claimableDeposits, "Async assets don't match claimable deposits");
-
+        
         console2.log("*** claimable deposits before mint :", claimableDeposits);
 
         // mint the claimable shares
