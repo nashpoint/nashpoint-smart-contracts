@@ -249,43 +249,6 @@ contract VaultTests is BaseTest {
         assertFalse(bestia.isAsync(component));
     }
 
-    function testPrecisionConversion() public {
-        // added to test to prevent revert: Component does not exist
-        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool));
-        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
-
-        // set decimals to 6 for deposit asset
-        usdcMock.setDecimalValue(6);
-        uint256 usdcDeposit = DEPOSIT_100;
-
-        // execute the deposit
-        vm.startPrank(user1);
-        bestia.deposit(usdcDeposit, address(user1));
-        vm.stopPrank();
-
-        // assert that 1e6 based deposit has been normalized to 1e18
-        uint256 userShares = bestia.balanceOf(address(user1));
-        assertEq(usdcDeposit, userShares / 1e12);
-
-        console2.log("vaultA decimals: ", vaultA.decimals());
-
-        vm.startPrank(banker);
-        bestia.investCash(address(vaultA));
-
-        // assert the reserve ratio = target of 10%
-        uint256 currentReserveRatio = getCurrentReserveRatio();
-        console2.log("currentReserveRatio :", currentReserveRatio);
-        assertEq(currentReserveRatio, bestia.targetReserveRatio());
-
-        // user 1 withdraws
-        vm.startPrank(user1);
-        bestia.withdraw(DEPOSIT_1, address(user1), address(user1));
-
-        // assert reserve ratio after withdraw is less that target ratio
-        currentReserveRatio = getCurrentReserveRatio();
-        console2.log("currentReserveRatio :", currentReserveRatio);
-        assertLt(currentReserveRatio, bestia.targetReserveRatio());
-    }
 
     // HELPER FUNCTIONS
     function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {

@@ -70,6 +70,9 @@ contract HelperConfig is Script {
         vm.startBroadcast();
         address banker = address(5);
         address manager = address(6);
+
+        // todo: set usdc.decimals() to 6 for accurate testing
+        // now using 18 to remove normalization
         ERC20Mock usdc = new ERC20Mock("Mock USDC", "USDC", 6);
         ERC4626Mock vaultA = new ERC4626Mock(address(usdc));
         ERC4626Mock vaultB = new ERC4626Mock(address(usdc));

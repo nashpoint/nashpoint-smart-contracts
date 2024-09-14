@@ -114,38 +114,33 @@ contract Bestia is ERC4626, Ownable {
         IERC20 shareToken = IERC20(getComponentShareAddress(_component));
         uint256 shareBalance = shareToken.balanceOf(address(this));
         assets = IERC7540(_component).convertToAssets(shareBalance);
-        // console2.log("### assets in sharesTokens: ", assets);
 
         // Add pending deposits (in assets)
         try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingDepositAssets) {
             assets += pendingDepositAssets;
         } catch {}
-        // console2.log("### assets + pendingDepositAssets: ", assets);
 
         // Add claimable deposits assets
         try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
             assets += claimableAssets;
         } catch {}
-        // console2.log("### assets + claimableAssets: ", assets);
 
         // Add pending redemptions (convert shares to assets)
         try IERC7540(_component).pendingRedeemRequest(0, address(this)) returns (uint256 pendingRedeemShares) {
             assets += IERC7540(_component).convertToAssets(pendingRedeemShares);
         } catch {}
-        // console2.log("### assets + pendingRedeemShares after conversion: ", assets);
 
         // Add claimable redemptions (already in assets)
         try IERC7540(_component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemAssets) {
             assets += claimableRedeemAssets;
         } catch {}
-        // console2.log("### assets + claimableRedeemAssets: ", assets);
 
         return assets;
     }
 
     function mintClaimableShares(address _component) public onlyBanker returns (uint256) {
         uint256 claimableShares = liquidityPool.maxMint(address(this));
-        console2.log("*** claimableShares in mintClaimableShares :", claimableShares);
+
         liquidityPool.mint(claimableShares, address(this));
 
         emit AsyncSharesMinted(_component, claimableShares);
@@ -191,20 +186,15 @@ contract Bestia is ERC4626, Ownable {
     // This means while the RR is below target. There is actually an incentive to break
     // up a deposit into smaller transactions to receive a greater discount.
     function deposit(uint256 _assets, address receiver) public override returns (uint256) {
-        uint256 internalAssets = toInternalPrecision(_assets);
+        uint256 internalAssets = _assets;
         uint256 maxAssets = maxDeposit(receiver);
         if (internalAssets > maxAssets) {
             revert ERC4626ExceededMaxDeposit(receiver, _assets, maxAssets);
         }
 
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(
-            Math.mulDiv(
-                toInternalPrecision(usdc.balanceOf(address(this))) + internalAssets,
-                1e18,
-                toInternalPrecision(totalAssets()) + internalAssets
-            )
-        );
+        int256 reserveRatioAfterTX =
+            int256(Math.mulDiv(usdc.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
         uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
@@ -325,10 +315,6 @@ contract Bestia is ERC4626, Ownable {
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
         uint256 currentCash = usdc.balanceOf(address(this));
 
-        console2.log("totalAssets_ :", totalAssets_);
-        console2.log("idealCashReserve :", idealCashReserve);
-        console2.log("currentCash :", currentCash);
-
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
             revert ReserveBelowTargetRatio();
@@ -336,7 +322,6 @@ contract Bestia is ERC4626, Ownable {
 
         // gets deposit amount
         uint256 depositAmount = getDepositAmount(_component);
-        console2.log("depositAmount :", depositAmount);
 
         // Check if the current allocation is below the lower bound
         uint256 currentAllocation = getAsyncAssets(_component) * 1e18 / totalAssets_;
@@ -363,13 +348,7 @@ contract Bestia is ERC4626, Ownable {
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
 
-        // console2.log("totalAssets() :", totalAssets());
-        // console2.log("getComponentRatio(_component) :", getComponentRatio(_component));
-        // console2.log("targetHoldings :", targetHoldings);
-
         uint256 currentBalance;
-
-        // console2.log("currentBalance :", currentBalance);
 
         if (isAsync(_component)) {
             currentBalance = getAsyncAssets(_component);
@@ -433,19 +412,9 @@ contract Bestia is ERC4626, Ownable {
         banker = _banker;
     }
 
-    function toInternalPrecision(uint256 amount) internal view returns (uint256) {
-        return amount * internalPrecision / (10 ** IERC20Metadata(asset()).decimals());
-    }
-
-    function toTokenPrecision(uint256 amount) internal view returns (uint256) {
-        return amount * (10 ** IERC20Metadata(asset()).decimals()) / internalPrecision;
-    }
-
     function previewDeposit(uint256 assets) public view override returns (uint256) {
-        uint256 internalAssets = toInternalPrecision(assets);
-        return _convertToShares(internalAssets, Math.Rounding.Floor);
+        return _convertToShares(assets, Math.Rounding.Floor);
     }
 
     // ERC4626 OVERRIDES
-    
 }
