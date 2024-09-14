@@ -5,12 +5,14 @@ import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
-// import {console2} from "lib/forge-std/src/Test.sol";
+
+import {console2} from "forge-std/Test.sol";
 
 contract Bestia is ERC4626, Ownable {
     // State Constants
@@ -19,6 +21,7 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant maxDelta = 1e16; // percentage
     uint256 public constant asyncMaxDelta = 3e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
+    uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -30,13 +33,14 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultB;
     IERC4626 public vaultC;
     IERC7540 public liquidityPool;
-    IERC20Metadata public usdc; // using 18 instead of 6 decimals here
+    IERC20Metadata public usdc;
 
     // COMPONENTS DATA
     struct Component {
         address component;
         uint256 targetRatio;
         bool isAsync;
+        address shareToken;
     }
 
     Component[] public components;
@@ -45,12 +49,12 @@ contract Bestia is ERC4626, Ownable {
     // EVENTS
     event CashInvested(uint256 amount, address depositedTo);
     event DepositRequested(uint256 amount, address depositedTo);
-    event ComponentAdded(address component, uint256 ratio, bool isAsync);
+    event ComponentAdded(address component, uint256 ratio, bool isAsync, address shareToken);
     event AsyncSharesMinted(address component, uint256 shares);
     event AsyncWithdrawalRequested(address component, uint256 shares);
     event AsyncWithdrawalExecuted(address component, uint256 assets);
 
-    // ERRORS
+    // ERRORS TODO: rename these errors to be more descriptive and include contract name
     error ReserveBelowTargetRatio();
     error AsyncAssetBelowMinimum();
     error NotEnoughReserveCash();
@@ -87,6 +91,8 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // total assets override function
+    // must add async component for call to bestia.totalAssets to succeed
+    // todo: refactor totalAssets to avoid this issue later
     function totalAssets() public view override returns (uint256) {
         // gets the cash reserve
         uint256 cashReserve = usdc.balanceOf(address(this));
@@ -105,16 +111,18 @@ contract Bestia is ERC4626, Ownable {
     // TODO: check how much gas this uses. might need to cache data instead
     function getAsyncAssets(address _component) public view returns (uint256 assets) {
         // Get the asset value of any shares already minted
-        assets = IERC7540(_component).convertToAssets(IERC7540(_component).balanceOf(address(this)));
+        IERC20 shareToken = IERC20(getComponentShareAddress(_component));
+        uint256 shareBalance = shareToken.balanceOf(address(this));
+        assets = IERC7540(_component).convertToAssets(shareBalance);
 
         // Add pending deposits (in assets)
         try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingDepositAssets) {
             assets += pendingDepositAssets;
         } catch {}
 
-        // Add claimable deposits (convert shares to assets)
-        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableShares) {
-            assets += IERC7540(_component).convertToAssets(claimableShares);
+        // Add claimable deposits assets
+        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
+            assets += claimableAssets;
         } catch {}
 
         // Add pending redemptions (convert shares to assets)
@@ -131,10 +139,8 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function mintClaimableShares(address _component) public onlyBanker returns (uint256) {
-        uint256 claimableShares = IERC7540(_component).claimableDepositRequest(0, address(this));
-        if (claimableShares == 0) {
-            revert NoClaimableDeposit();
-        }
+        uint256 claimableShares = liquidityPool.maxMint(address(this));
+
         liquidityPool.mint(claimableShares, address(this));
 
         emit AsyncSharesMinted(_component, claimableShares);
@@ -175,24 +181,28 @@ contract Bestia is ERC4626, Ownable {
         emit AsyncWithdrawalExecuted(_component, _assets);
     }
 
-    // TODO: override deposit function
-    function adjustedDeposit(uint256 _assets, address receiver) public returns (uint256) {
+    // TODO: Think aboout possible logical BUG
+    // We are basing the discount on the reserve ratio after the transaction.
+    // This means while the RR is below target. There is actually an incentive to break
+    // up a deposit into smaller transactions to receive a greater discount.
+    function deposit(uint256 _assets, address receiver) public override returns (uint256) {
+        uint256 internalAssets = _assets;
         uint256 maxAssets = maxDeposit(receiver);
-        if (_assets > maxAssets) {
+        if (internalAssets > maxAssets) {
             revert ERC4626ExceededMaxDeposit(receiver, _assets, maxAssets);
         }
 
         // gets the expected reserve ratio after tx
         int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(usdc.balanceOf(address(this)) + _assets, 1e18, totalAssets() + _assets));
+            int256(Math.mulDiv(usdc.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = Math.mulDiv(_assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
+        uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // cache the shares to mint for swing factor applied
         uint256 sharesToMint = convertToShares(adjustedAssets);
 
-        // recieves deposited assets but mints more shares based on swing factor applied
+        // recieves deposited assets but mints adjusted shares based on swing factor applied
         _deposit(_msgSender(), receiver, _assets, sharesToMint);
 
         return (sharesToMint);
@@ -337,6 +347,7 @@ contract Bestia is ERC4626, Ownable {
 
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
+
         uint256 currentBalance;
 
         if (isAsync(_component)) {
@@ -349,20 +360,24 @@ contract Bestia is ERC4626, Ownable {
         return delta;
     }
 
-    function addComponent(address _component, uint256 _targetRatio, bool _isAsync) public {
+    function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken) public {
         uint256 index = componentIndex[_component];
 
         if (index > 0) {
             components[index - 1].targetRatio = _targetRatio;
             components[index - 1].isAsync = _isAsync;
         } else {
-            Component memory newComponent =
-                Component({component: _component, targetRatio: _targetRatio, isAsync: _isAsync});
+            Component memory newComponent = Component({
+                component: _component,
+                targetRatio: _targetRatio,
+                isAsync: _isAsync,
+                shareToken: _shareToken
+            });
 
             components.push(newComponent);
             componentIndex[_component] = components.length;
         }
-        emit ComponentAdded(_component, _targetRatio, _isAsync);
+        emit ComponentAdded(_component, _targetRatio, _isAsync, _shareToken);
     }
 
     function isComponent(address _component) public view returns (bool) {
@@ -373,6 +388,12 @@ contract Bestia is ERC4626, Ownable {
         uint256 index = componentIndex[_component];
         require(index != 0, "Component does not exist");
         return components[index - 1].targetRatio;
+    }
+
+    function getComponentShareAddress(address _component) public view returns (address) {
+        uint256 index = componentIndex[_component];
+        require(index != 0, "Component does not exist");
+        return components[index - 1].shareToken;
     }
 
     function isAsync(address _component) public view returns (bool) {
@@ -390,4 +411,10 @@ contract Bestia is ERC4626, Ownable {
     function setBanker(address _banker) public onlyOwner {
         banker = _banker;
     }
+
+    function previewDeposit(uint256 assets) public view override returns (uint256) {
+        return _convertToShares(assets, Math.Rounding.Floor);
+    }
+
+    // ERC4626 OVERRIDES
 }

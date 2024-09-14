@@ -5,6 +5,7 @@ pragma solidity ^0.8.20;
 import {BaseTest} from "test/BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 
+// TODO: Write a test for yield distribution and complex withdrawal. Vault might not be fair
 contract ERC7540Tests is BaseTest {
     function testDepositAndMintFlow() public {
         address user = address(user1);
@@ -18,7 +19,7 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
 
         // user1 requests a deposit to liquidity pool
-        userRequestsDeposit(user, amount);
+        userRequestsDeposit(user, DEPOSIT_10);
 
         // Revert: Cannot request deposit of 0 assets
         vm.expectRevert();
@@ -27,12 +28,12 @@ contract ERC7540Tests is BaseTest {
         // Revert: Not authorised
         vm.startPrank(user);
         vm.expectRevert();
-        liquidityPool.requestDeposit(amount, user, notController);
+        liquidityPool.requestDeposit(DEPOSIT_10, user, notController);
         vm.stopPrank();
 
         // assert user1 pendingDeposits = deposited amount
         uint256 pendingDeposits = liquidityPool.pendingDepositRequest(0, user);
-        assertEq(amount, pendingDeposits);
+        assertEq(DEPOSIT_10, pendingDeposits);
 
         // assert user1 cannot claim yet
         uint256 claimableDeposits = liquidityPool.claimableDepositRequest(0, user);
@@ -41,7 +42,10 @@ contract ERC7540Tests is BaseTest {
         managerProcessesDeposits();
 
         // assert claimable shares match deposited assets 1:1
-        uint256 sharesClaimable = liquidityPool.claimableDepositRequest(0, user);
+        // BUG:THESE SHOULD NOT BE SHARES
+        uint256 sharesClaimable = liquidityPool.maxMint(user);
+
+        claimableDeposits = liquidityPool.claimableDepositRequest(0, user);
 
         // assert shares claimable are accurate to 0.01% margin of error
         assertApproxEqRel(sharesDue, sharesClaimable, 1e12);
@@ -102,22 +106,20 @@ contract ERC7540Tests is BaseTest {
 
         // assert shares = assets 1:1
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
-
-        console2.log(liquidityPool.convertToAssets(10e18));
     }
 
     function testRedeemAndWithdrawFlow() public {
         address user = address(user1);
         address notController = address(user2);
         uint256 amount = DEPOSIT_10;
-        uint256 startingBalance = START_BALANCE;
+        uint256 startingBalance = START_BALANCE_1000;
 
         // user deposts and mints to set up the test
         userDepositsAndMints(user, amount);
         uint256 user1Shares = liquidityPool.balanceOf(user);
 
         // user requests redeem
-        userRequestsReedem(user, user1Shares);
+        userRequestsRedeem(user, user1Shares);
 
         uint256 pendingRedemptions = liquidityPool.pendingRedeemRequest(0, user);
 
@@ -155,7 +157,7 @@ contract ERC7540Tests is BaseTest {
         userWithdraws(user, claimableAssets);
 
         // assert user has full starting balance of asset again
-        assertEq(usdc.balanceOf(user), startingBalance);
+        assertEq(usdcMock.balanceOf(user), startingBalance);
 
         // assert the vault is back in sync, shares == assets
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
@@ -167,14 +169,14 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
 
         // user requestsRedeem and manager processes
-        userRequestsReedem(user, amount);
+        userRequestsRedeem(user, amount);
         managerProcessesRedemptions();
 
         // assert the vault is back in sync, shares == assets
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
 
         // user requestsRedeem and manager processes
-        userRequestsReedem(user, amount);
+        userRequestsRedeem(user, amount);
         managerProcessesRedemptions();
 
         // assert the vault is back in sync, shares == assets
@@ -191,14 +193,14 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
 
         // user requestsRedeem and manager processes
-        userRequestsReedem(user, amount);
+        userRequestsRedeem(user, amount);
         managerProcessesRedemptions();
 
         // user withdraws
         userWithdraws(user, amount);
 
         // assert user has correct starting balance
-        assertEq(usdc.balanceOf(user), startingBalance);
+        assertEq(usdcMock.balanceOf(user), startingBalance);
 
         // assert the vault is back in sync, shares == assets
         assertEq(liquidityPool.totalAssets(), liquidityPool.totalSupply());
@@ -264,7 +266,7 @@ contract ERC7540Tests is BaseTest {
         vm.stopPrank();
     }
 
-    function userRequestsReedem(address user, uint256 amount) public {
+    function userRequestsRedeem(address user, uint256 amount) public {
         vm.startPrank(user);
         liquidityPool.requestRedeem(amount, user, user);
         vm.stopPrank();

@@ -110,3 +110,8 @@ Run the test suite:
 ```
 forge test
 ```
+
+recreate the issue:
+```
+forge test --match-test testCanAddAddressToVault --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun -vvvvv
+```
