@@ -441,14 +441,11 @@ contract Bestia is ERC4626, Ownable {
         return amount * (10 ** IERC20Metadata(asset()).decimals()) / internalPrecision;
     }
 
-    // temp
-    // todo: delete after testing
-    function _toInternalPrecision(uint256 amount) public view returns (uint256) {
-        return toInternalPrecision(amount);
-    }
-
     function previewDeposit(uint256 assets) public view override returns (uint256) {
         uint256 internalAssets = toInternalPrecision(assets);
         return _convertToShares(internalAssets, Math.Rounding.Floor);
     }
+
+    // ERC4626 OVERRIDES
+    
 }

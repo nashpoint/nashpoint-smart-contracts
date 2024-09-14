@@ -206,7 +206,7 @@ contract VaultTests is BaseTest {
         // mint cash so invested assets = 100
         usdcMock.mint(address(vaultA), 10e6 + 1);
 
-        // user 2 deposits 10e18 to bestia and burns the rest of their usdc
+        // user 2 deposits 10e6 to bestia and burns the rest of their usdc
         vm.startPrank(user2);
         bestia.deposit(DEPOSIT_10, address(user2));
         usdcMock.transfer(0x000000000000000000000000000000000000dEaD, usdcMock.balanceOf(address(user2)));
@@ -221,7 +221,6 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         // user 2 withdraws the same amount they deposited
-        // TODO: subtracting 1 (DEPOSIT_10 - 1) prob introduces a bug. fix later
         vm.startPrank(user2);
         bestia.adjustedWithdraw(DEPOSIT_10 - 1, address(user2), address(user2));
 
