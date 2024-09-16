@@ -168,7 +168,7 @@ contract Bestia is ERC4626, Ownable {
 
     // withdraws claimable assets from async vault
     function executeAsyncWithdrawal(address _component, uint256 _assets) public onlyBanker {
-        if (_assets > IERC7540(_component).claimableRedeemRequest(0, address(this))) {
+        if (_assets > IERC7540(_component).maxWithdraw(address(this))) {
             revert TooManyAssetsRequested();
         }
         if (!isComponent(_component)) {

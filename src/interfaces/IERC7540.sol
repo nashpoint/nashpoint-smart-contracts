@@ -18,6 +18,7 @@ interface IERC7540 {
     function processPendingRedemptions() external;
 
     function maxMint(address controller) external view returns (uint256 maxShares);
+    function maxWithdraw(address controller) external view returns (uint256 maxAssets);
 
     function isOperator(address controller, address operator) external view returns (bool);
     function setOperator(address operator, bool approved) external returns (bool);

@@ -176,6 +176,8 @@ contract ForkedTests is BaseTest {
             return;
         }
 
+        uint256 initialDeposit = DEPOSIT_100;
+
         // empty user balance of asset token
         vm.startPrank(user1);
         asset.transfer(0x000000000000000000000000000000000000dEaD, asset.balanceOf(user1));
@@ -197,11 +199,11 @@ contract ForkedTests is BaseTest {
         // user approves and deposits to bestia
         vm.startPrank(user1);
         asset.approve(address(bestia), MAX_ALLOWANCE);
-        bestia.deposit(DEPOSIT_100, address(user1));
+        bestia.deposit(initialDeposit, address(user1));
         vm.stopPrank();
 
         // assert bestia has issued correct shares to user for 100 deposit
-        assertEq(bestia.convertToAssets(bestia.balanceOf(user1)), DEPOSIT_100);
+        assertEq(bestia.convertToAssets(bestia.balanceOf(user1)), initialDeposit);
 
         // add bestia to cfg whitelist
         vm.startPrank(address(root));
@@ -223,10 +225,10 @@ contract ForkedTests is BaseTest {
         vm.stopPrank();
 
         // assert bestia totalAssets correctly including pendingDepositRequest
-        assertEq(bestia.totalAssets(), DEPOSIT_100);
+        assertEq(bestia.totalAssets(), initialDeposit);
 
         uint256 pendingDeposit = liquidityPool.pendingDepositRequest(0, address(bestia));
-        uint256 expectedDeposit = DEPOSIT_100 * bestia.getComponentRatio(address(liquidityPool)) / 1e18;
+        uint256 expectedDeposit = initialDeposit * bestia.getComponentRatio(address(liquidityPool)) / 1e18;
 
         // assert pendingDeposit on cfg == correct ratio of assets for bestia
         assertEq(pendingDeposit, expectedDeposit);
@@ -251,7 +253,7 @@ contract ForkedTests is BaseTest {
         assertApproxEqAbs(claimableDepositValue, expectedDeposit, 1);
 
         // assert bestia is calculating claimableDepositRequest in totalAssets correctly after rounding
-        assertApproxEqAbs(bestia.totalAssets(), DEPOSIT_100, 1);
+        assertApproxEqAbs(bestia.totalAssets(), initialDeposit, 1);
 
         // banker mints claimable shares for bestia
         vm.startPrank(banker);
@@ -259,7 +261,7 @@ contract ForkedTests is BaseTest {
         vm.stopPrank();
 
         // assert totalAssets is correct
-        assertApproxEqAbs(bestia.totalAssets(), DEPOSIT_100, 1);
+        assertApproxEqAbs(bestia.totalAssets(), initialDeposit, 1);
 
         // assert pendingDeposits == 0
         assertEq(liquidityPool.pendingDepositRequest(0, address(bestia)), 0);
@@ -292,10 +294,10 @@ contract ForkedTests is BaseTest {
         // subtract cash reserve from initial deposit to Bestia
         // assume some rounding down
         uint256 cashReserve = asset.balanceOf(address(bestia));
-        assertApproxEqAbs(bestia.getAsyncAssets(address(liquidityPool)), DEPOSIT_100 - cashReserve, 1);
+        assertApproxEqAbs(bestia.getAsyncAssets(address(liquidityPool)), initialDeposit - cashReserve, 1);
 
         // assert totalAssets == initial deposit minus rounding
-        assertApproxEqAbs(bestia.totalAssets(), DEPOSIT_100, 1);
+        assertApproxEqAbs(bestia.totalAssets(), initialDeposit, 1);
 
         uint128 pendingRedeem = uint128(liquidityPool.pendingRedeemRequest(0, address(bestia)));
         uint128 redeemableAssets =
@@ -324,6 +326,26 @@ contract ForkedTests is BaseTest {
         assertApproxEqAbs(claimableRedeem, bestia.getAsyncAssets(address(liquidityPool)), 1);
 
         // assert totalAssets == initial deposit minus rounding
-        assertApproxEqAbs(bestia.totalAssets(), DEPOSIT_100, 1);
+        assertApproxEqAbs(bestia.totalAssets(), initialDeposit, 1);
+
+        // grab max amount of assets that can be withdrawn from cfg liquidityPool
+        uint256 maxWithdraw = liquidityPool.maxWithdraw(address(bestia));
+
+        // banker executes the withdrawal on the bestia contract
+        vm.startPrank(banker);
+        bestia.executeAsyncWithdrawal(address(liquidityPool), maxWithdraw);
+        vm.stopPrank();
+
+        // assert no more claimable withdraw from cfg lp
+        assertEq(liquidityPool.maxWithdraw(address(bestia)), 0);
+
+        // assert no shares still in claimable redeem state
+        assertEq(liquidityPool.claimableRedeemRequest(0, address(bestia)), 0);
+
+        // assert bestia not tracking and more async assets
+        assertEq(bestia.getAsyncAssets(address(liquidityPool)), 0);
+
+        // assert bestia now has total assets == initial deposit after rounding
+        assertApproxEqAbs(bestia.totalAssets(), initialDeposit, 1);
     }
 }

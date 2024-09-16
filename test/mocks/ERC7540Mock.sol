@@ -364,6 +364,10 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         maxShares = Math.mulDiv(claimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
     }
 
+    function maxWithdraw(address controller) public view override(IERC7540, ERC4626) returns (uint256 maxAssets) {
+        // todo: complete implementation when you fix this contract
+    }
+
     // HELPERS
 
     // Function takes new pendingAssets and defines new claimableShares.
