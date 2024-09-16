@@ -122,3 +122,15 @@ Run the [fork tests]([url](https://github.com/0xCSMNT/bestia_v0/blob/main/test/f
 ```
 forge test --match-contract ForkedTests --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun
 ```
+
+Requires Ethereum mainnet RPC URL:
+
+```
+# MAINNET RPC URLS
+ETHEREUM_RPC_URL=
+```
+
+CONTRACT & STATE:
+https://etherscan.io/address/0x1d01ef1997d44206d839b78ba6813f60f1b3a970
+- Taken from block 20591573
+- EVM version: cancun
