@@ -130,9 +130,9 @@ contract Bestia is ERC4626, Ownable {
             assets += IERC7540(_component).convertToAssets(pendingRedeemShares);
         } catch {}
 
-        // Add claimable redemptions (already in assets)
-        try IERC7540(_component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemAssets) {
-            assets += claimableRedeemAssets;
+        // Add claimable redemptions (convert shares to assets)
+        try IERC7540(_component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemShares) {
+            assets += IERC7540(_component).convertToAssets(claimableRedeemShares);
         } catch {}
 
         return assets;
@@ -149,7 +149,8 @@ contract Bestia is ERC4626, Ownable {
 
     // requests withdrawal from async vault
     function requestAsyncWithdrawal(address _component, uint256 _shares) public onlyBanker {
-        if (_shares > IERC7540(_component).balanceOf(address(this))) {
+        IERC20 shareToken = IERC20(getComponentShareAddress(_component));
+        if (_shares > shareToken.balanceOf(address(this))) {
             revert TooManySharesRequested();
         }
         if (!isComponent(_component)) {
@@ -167,7 +168,7 @@ contract Bestia is ERC4626, Ownable {
 
     // withdraws claimable assets from async vault
     function executeAsyncWithdrawal(address _component, uint256 _assets) public onlyBanker {
-        if (_assets > IERC7540(_component).claimableRedeemRequest(0, address(this))) {
+        if (_assets > IERC7540(_component).maxWithdraw(address(this))) {
             revert TooManyAssetsRequested();
         }
         if (!isComponent(_component)) {

@@ -249,7 +249,6 @@ contract VaultTests is BaseTest {
         assertFalse(bestia.isAsync(component));
     }
 
-
     // HELPER FUNCTIONS
     function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
         uint256 currentReserveRatio = Math.mulDiv(usdcMock.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
