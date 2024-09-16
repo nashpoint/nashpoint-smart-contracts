@@ -4,6 +4,13 @@ Bestia is an in-development protocol that structures illiquid on chain credit as
 
 For more detailed information about the first pool that will launch on Bestia see the draft [Whitepaper](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
 
+Currenty this is being built as a single 4626 vault that can handle investment logic for the user. Future features include :
+- Modular smart contract design pattern for upgradeability
+- Core contract for handling verification and security
+- Factory Contract for deploying new vaults
+- Governance and $TOKEN
+- Staking Module for $TOKEN (backstop protocol liquidity)
+
 
 ## Features
 
@@ -106,12 +113,12 @@ forge build
 ```
 
 ### Testing
-Run the test suite:
+Run the test suite locally with anvil:
 ```
 forge test
 ```
 
-recreate the issue:
+Run the [fork tests]([url](https://github.com/0xCSMNT/bestia_v0/blob/main/test/forked/ForkedTests.t.sol)) on Centrifuge Liquidity Pool:
 ```
-forge test --match-test testCanAddAddressToVault --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun -vvvvv
+forge test --match-contract ForkedTests --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun
 ```
