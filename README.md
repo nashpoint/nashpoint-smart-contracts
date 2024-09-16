@@ -91,7 +91,7 @@ This project uses Foundry for development and testing. Follow these steps to get
 1. Clone the repository:
 
 ```
-git clone [https://github.com/0xCSMNT/bestia_v0.git](https://github.com/0xCSMNT/bestia_v0)
+git clone https://github.com/0xCSMNT/bestia_v0.git
 
 cd bestia_v0
 ```
