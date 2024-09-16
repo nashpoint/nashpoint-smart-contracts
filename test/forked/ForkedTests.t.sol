@@ -165,7 +165,7 @@ contract ForkedTests is BaseTest {
         assertEq(asset.balanceOf(address(user1)), balBefore + 50);
     }
 
-    function testAddCfgToBestia() public {
+    function testCfgToBestiaInteractions() public {
         uint256 currentChainId = block.chainid;
         // Arbitrum Sepolia
         if (currentChainId == 421614) {
