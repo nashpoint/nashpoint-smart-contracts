@@ -8,31 +8,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract RebalancingTests is BaseTest {
     function testRebalance() public {
-        // SET THE STRATEGY
-        // add the 4626 Vaults
-        bestia.addComponent(address(vaultA), 18e16, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 20e16, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 22e16, false, address(vaultC));
-
-        // add the 7540 Vault (RWA)
-        bestia.addComponent(address(liquidityPool), 30e16, true, address(liquidityPool));
-
-        // SEED VAULT WITH 100 UNITS
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT_100, address(user1));
-        vm.stopPrank();
-
-        // cannot use this function to invest in async vault
-        vm.expectRevert();
-        bankerInvestsCash(address(liquidityPool));
-
-        // banker rebalances into illiquid vault
-        bankerInvestsInAsyncVault(address(liquidityPool));
-
-        // banker rebalances bestia instant vaults
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
+        seedBestia(); // see function for initial state of text
 
         uint256 totalAssets = bestia.totalAssets();
         uint256 vaultAHoldings = vaultA.balanceOf(address(bestia));
