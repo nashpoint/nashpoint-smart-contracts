@@ -130,9 +130,9 @@ contract Bestia is ERC4626, Ownable {
             assets += IERC7540(_component).convertToAssets(pendingRedeemShares);
         } catch {}
 
-        // Add claimable redemptions (already in assets)
-        try IERC7540(_component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemAssets) {
-            assets += claimableRedeemAssets;
+        // Add claimable redemptions (convert shares to assets)
+        try IERC7540(_component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemShares) {
+            assets += IERC7540(_component).convertToAssets(claimableRedeemShares);
         } catch {}
 
         return assets;

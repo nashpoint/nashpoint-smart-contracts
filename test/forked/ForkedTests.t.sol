@@ -270,7 +270,7 @@ contract ForkedTests is BaseTest {
         assertApproxEqAbs(liquidityPool.claimableDepositRequest(0, address(bestia)), 0, 1);
 
         // assert share balance = correct ratio of assets for bestia
-        uint256 mintedShares = share.balanceOf(address(bestia));        
+        uint256 mintedShares = share.balanceOf(address(bestia));
 
         // assert minted shares match deposit value after rounding
         assertApproxEqAbs(liquidityPool.convertToAssets(mintedShares), expectedDeposit, 2);
@@ -293,5 +293,37 @@ contract ForkedTests is BaseTest {
         // assume some rounding down
         uint256 cashReserve = asset.balanceOf(address(bestia));
         assertApproxEqAbs(bestia.getAsyncAssets(address(liquidityPool)), DEPOSIT_100 - cashReserve, 1);
+
+        // assert totalAssets == initial deposit minus rounding
+        assertApproxEqAbs(bestia.totalAssets(), DEPOSIT_100, 1);
+
+        uint128 pendingRedeem = uint128(liquidityPool.pendingRedeemRequest(0, address(bestia)));
+        uint128 redeemableAssets =
+            uint128(liquidityPool.convertToAssets(liquidityPool.pendingRedeemRequest(0, address(bestia))));
+
+        // manager processes redeem request
+        vm.startPrank(address(root));
+        investmentManager.fulfillRedeemRequest(
+            liquidityPool.poolId(),
+            liquidityPool.trancheId(),
+            address(bestia),
+            poolManager.assetToId(liquidityPool.asset()),
+            redeemableAssets,
+            pendingRedeem
+        );
+        vm.stopPrank();
+
+        // grab assets due from redemption
+        uint256 claimableRedeem =
+            liquidityPool.convertToAssets(liquidityPool.claimableRedeemRequest(0, address(bestia)));
+
+        // assert correct assets are now available for redemption
+        assertEq(redeemableAssets, claimableRedeem);
+
+        // assert getAsyncAssets grabbing correct value for claimableRedeem
+        assertApproxEqAbs(claimableRedeem, bestia.getAsyncAssets(address(liquidityPool)), 1);
+
+        // assert totalAssets == initial deposit minus rounding
+        assertApproxEqAbs(bestia.totalAssets(), DEPOSIT_100, 1);
     }
 }
