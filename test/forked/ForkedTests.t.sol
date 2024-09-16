@@ -270,11 +270,28 @@ contract ForkedTests is BaseTest {
         assertApproxEqAbs(liquidityPool.claimableDepositRequest(0, address(bestia)), 0, 1);
 
         // assert share balance = correct ratio of assets for bestia
-        uint256 mintedShares = share.balanceOf(address(bestia));
+        uint256 mintedShares = share.balanceOf(address(bestia));        
 
         // assert minted shares match deposit value after rounding
         assertApproxEqAbs(liquidityPool.convertToAssets(mintedShares), expectedDeposit, 2);
 
         // START WITHDRAWAL FLOW
+
+        // banker calls request asyncWithdrawal on Bestia
+        vm.startPrank(banker);
+        bestia.requestAsyncWithdrawal(address(liquidityPool), mintedShares);
+        vm.stopPrank();
+
+        // assert all of Bestia's shares have been returned to Centrifuge
+        assertEq(share.balanceOf(address(bestia)), 0);
+
+        // assert pendingRedeemRequest == all shares minted to bestia
+        assertEq(mintedShares, liquidityPool.pendingRedeemRequest(0, address(bestia)));
+
+        // assert getAsyncAssets gets full value of Bestia holding in CFG LiquidityPool
+        // subtract cash reserve from initial deposit to Bestia
+        // assume some rounding down
+        uint256 cashReserve = asset.balanceOf(address(bestia));
+        assertApproxEqAbs(bestia.getAsyncAssets(address(liquidityPool)), DEPOSIT_100 - cashReserve, 1);
     }
 }

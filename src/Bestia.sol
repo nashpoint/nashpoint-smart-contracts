@@ -149,7 +149,8 @@ contract Bestia is ERC4626, Ownable {
 
     // requests withdrawal from async vault
     function requestAsyncWithdrawal(address _component, uint256 _shares) public onlyBanker {
-        if (_shares > IERC7540(_component).balanceOf(address(this))) {
+        IERC20 shareToken = IERC20(getComponentShareAddress(_component));
+        if (_shares > shareToken.balanceOf(address(this))) {
             revert TooManySharesRequested();
         }
         if (!isComponent(_component)) {
