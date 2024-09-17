@@ -59,6 +59,7 @@ contract Bestia is ERC4626, Ownable {
         uint256 targetRatio;
         bool isAsync;
         address shareToken;
+        uint256 withdrawalOrder;
     }
 
     Component[] public components;
@@ -425,7 +426,10 @@ contract Bestia is ERC4626, Ownable {
                 component: _component,
                 targetRatio: _targetRatio,
                 isAsync: _isAsync,
-                shareToken: _shareToken
+                shareToken: _shareToken,
+                // when adding a component its withdrawal priority is set to the last place
+                // todo: come back to this when working on the initialize vault features
+                withdrawalOrder: components.length
             });
 
             components.push(newComponent);

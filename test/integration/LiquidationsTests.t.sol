@@ -57,4 +57,19 @@ contract LiquidationsTest is BaseTest {
         vm.expectRevert();
         bestia.liquidateSynchVaultPosition(address(usdc), 1);
     }
+
+    function testWithdrawalOrder() public {
+        seedBestia();
+
+        // bestia has 4 assets in this state, zero-indexed
+        for (uint256 i = 0; i <= 3; i++) {
+            (,,,, uint256 withdrawalOrder) = bestia.components(i);
+            // console2.log(withdrawalOrder);
+            assertEq(withdrawalOrder, i);
+        }
+
+        // cannot query component that does not exist
+        vm.expectRevert();
+        bestia.components(4);
+    }
 }
