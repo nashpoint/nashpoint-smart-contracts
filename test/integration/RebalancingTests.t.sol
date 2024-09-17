@@ -171,13 +171,14 @@ contract RebalancingTests is BaseTest {
 
         // assert claimable assets == async assets
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
-        uint256 claimableWithdrawals = liquidityPool.convertToAssets(liquidityPool.claimableRedeemRequest(0, address(bestia)));
+        uint256 claimableWithdrawals =
+            liquidityPool.convertToAssets(liquidityPool.claimableRedeemRequest(0, address(bestia)));
         assertEq(asyncAssets, claimableWithdrawals, "Async assets don't match claimable withdrawals");
 
         // get the max amount of assets that can be withdrawn
         uint256 maxWithdraw = liquidityPool.maxWithdraw(address(bestia));
-        
-        // execute the withdrawal        
+
+        // execute the withdrawal
         vm.startPrank(banker);
         bestia.executeAsyncWithdrawal(address(liquidityPool), maxWithdraw);
         vm.stopPrank();
@@ -189,5 +190,4 @@ contract RebalancingTests is BaseTest {
         uint256 finishingAssets = bestia.totalAssets();
         assertEq(startingAssets, finishingAssets);
     }
-
 }

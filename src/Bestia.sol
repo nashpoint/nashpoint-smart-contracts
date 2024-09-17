@@ -14,7 +14,6 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 import {console2} from "forge-std/Test.sol";
 
-
 // YOU CAN BUILD THE 4626 LIQUIDATION AS SYNCHRONOUS AND THEN MAKE THEM ASYNC AS YOU IMPLEMENT THE 7540
 // THAT WILL NEED AN ESCROW ADDRESS FOR SIMPLICITY OF ACCOUNTING
 
@@ -23,13 +22,15 @@ import {console2} from "forge-std/Test.sol";
 // 2. Withdrawal Queue
 // 3. Escrow Contract
 // 4. Create instantLiquidation() Function (do first with no swing pricing applied)
-    // a. checks withdrawal queue
-    // b. checks if enough liquidity
-    // c. cycles through a and b until withdrawal possible
-    // d. builds withdrawal tx of vault and shares to liquidate
+// a. checks withdrawal queue
+// b. checks if enough liquidity
+// c. cycles through a and b until withdrawal possible
+// d. builds withdrawal tx of vault and shares to liquidate
 // 5. Send all withdrawals to Escrow contract
 
 // Stop here and create new branch for 7540
+
+// TODO: need a fallback managerLiquidate function that can instantly liquidate and top up reserve
 
 contract Bestia is ERC4626, Ownable {
     // State Constants
@@ -82,6 +83,7 @@ contract Bestia is ERC4626, Ownable {
     error NoClaimableDeposit();
     error TooManySharesRequested();
     error TooManyAssetsRequested();
+    error CannotRedeemZeroShares();
 
     // MODIFIERS
     modifier onlyBanker() {
@@ -277,7 +279,7 @@ contract Bestia is ERC4626, Ownable {
 
     // called by banker to deposit excess reserve into strategies
     // TODO: refactor this into something more efficient and include getDepositAmount logic
-    // TODO: rename this to 
+    // TODO: rename this to
     function investInSynchVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -318,6 +320,39 @@ contract Bestia is ERC4626, Ownable {
 
         emit CashInvested(depositAmount, address(_component));
         return (depositAmount);
+    }
+
+    // need to make this internal so checks on shares, maxRedeem all pass before executing
+    function liquidateSynchVaultPosition(address _component, uint256 shares) public returns (uint256 assetsReturned) {
+        if (!isComponent(_component)) {
+            revert NotAComponent();
+        }
+
+        if (isAsync(_component)) {
+            revert IsAsyncVault();
+        }
+
+        if (ERC4626(_component).balanceOf(address(this)) < shares) {
+            revert TooManySharesRequested();
+        }
+
+        if (shares == 0) {
+            revert CannotRedeemZeroShares();
+        }
+
+        // Ensure shares is non-zero
+        require(shares > 0, "Cannot redeem zero shares");
+
+        // Preview the expected assets from redemption
+        uint256 expectedAssets = ERC4626(_component).previewRedeem(shares);
+
+        // Perform the redemption
+        uint256 assets = ERC4626(_component).redeem(shares, address(this), address(this));
+
+        // Ensure assets returned is within an acceptable range of expectedAssets
+        require(assets >= expectedAssets, "Redeemed assets less than expected");
+
+        return assets;
     }
 
     // TODO: Create a buildTransaction() func that both investCash() and investInAsyncVault() can use
