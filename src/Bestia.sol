@@ -36,28 +36,7 @@ import {console2} from "forge-std/Test.sol";
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
-                               CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
-    constructor(
-        address _asset,
-        string memory _name,
-        string memory _symbol,
-        address _vaultA,
-        address _vaultB,
-        address _vaultC,
-        address _liquidityPool,
-        address _banker
-    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
-        vaultA = IERC4626(_vaultA);
-        vaultB = IERC4626(_vaultB);
-        vaultC = IERC4626(_vaultC);
-        liquidityPool = IERC7540(_liquidityPool);
-        usdc = IERC20Metadata(_asset);
-        banker = _banker;
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                             STORAGE
+                              DATA
     //////////////////////////////////////////////////////////////*/
 
     // CONSTANTS
@@ -93,6 +72,27 @@ contract Bestia is ERC4626, Ownable {
 
     Component[] public components;
     mapping(address => uint256) public componentIndex;
+
+    /*//////////////////////////////////////////////////////////////
+                               CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+    constructor(
+        address _asset,
+        string memory _name,
+        string memory _symbol,
+        address _vaultA,
+        address _vaultB,
+        address _vaultC,
+        address _liquidityPool,
+        address _banker
+    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
+        vaultA = IERC4626(_vaultA);
+        vaultB = IERC4626(_vaultB);
+        vaultC = IERC4626(_vaultC);
+        liquidityPool = IERC7540(_liquidityPool);
+        usdc = IERC20Metadata(_asset);
+        banker = _banker;
+    }
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
