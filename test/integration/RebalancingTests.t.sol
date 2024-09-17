@@ -8,7 +8,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract RebalancingTests is BaseTest {
     function testRebalance() public {
-        seedBestia(); // see function for initial state of text
+        seedBestia(); // see this function in BaseTest to see the initial state of the test
 
         uint256 totalAssets = bestia.totalAssets();
         uint256 vaultAHoldings = vaultA.balanceOf(address(bestia));
@@ -171,13 +171,14 @@ contract RebalancingTests is BaseTest {
 
         // assert claimable assets == async assets
         asyncAssets = bestia.getAsyncAssets(address(liquidityPool));
-        uint256 claimableWithdrawals = liquidityPool.convertToAssets(liquidityPool.claimableRedeemRequest(0, address(bestia)));
+        uint256 claimableWithdrawals =
+            liquidityPool.convertToAssets(liquidityPool.claimableRedeemRequest(0, address(bestia)));
         assertEq(asyncAssets, claimableWithdrawals, "Async assets don't match claimable withdrawals");
 
         // get the max amount of assets that can be withdrawn
         uint256 maxWithdraw = liquidityPool.maxWithdraw(address(bestia));
-        
-        // execute the withdrawal        
+
+        // execute the withdrawal
         vm.startPrank(banker);
         bestia.executeAsyncWithdrawal(address(liquidityPool), maxWithdraw);
         vm.stopPrank();
@@ -188,41 +189,5 @@ contract RebalancingTests is BaseTest {
         // assert no assets lost through process
         uint256 finishingAssets = bestia.totalAssets();
         assertEq(startingAssets, finishingAssets);
-    }
-
-    function bankerInvestsCash(address _component) public {
-        vm.startPrank(banker);
-        bestia.investCash(_component);
-        vm.stopPrank();
-    }
-
-    function bankerInvestsInAsyncVault(address _component) public {
-        vm.startPrank(banker);
-        bestia.investInAsyncVault(address(_component));
-        vm.stopPrank();
-    }
-
-    function seedBestia() public {
-        // SET THE STRATEGY
-        // add the 4626 Vaults
-        bestia.addComponent(address(vaultA), 18e16, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 20e16, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 22e16, false, address(vaultC));
-
-        // add the 7540 Vault (RWA)
-        bestia.addComponent(address(liquidityPool), 30e16, true, address(liquidityPool));
-
-        // SEED VAULT WITH 100 UNITS
-        vm.startPrank(user1);
-        bestia.deposit(DEPOSIT_100, address(user1));
-        vm.stopPrank();
-
-        // banker rebalances into illiquid vault
-        bankerInvestsInAsyncVault(address(liquidityPool));
-
-        // banker rebalances bestia instant vaults
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
     }
 }
