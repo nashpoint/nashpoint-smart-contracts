@@ -64,7 +64,6 @@ contract LiquidationsTest is BaseTest {
         // bestia has 4 assets in this state, zero-indexed
         for (uint256 i = 0; i <= 3; i++) {
             (,,,, uint256 withdrawalOrder) = bestia.components(i);
-            // console2.log(withdrawalOrder);
             assertEq(withdrawalOrder, i);
         }
 
