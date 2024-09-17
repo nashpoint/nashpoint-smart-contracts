@@ -14,6 +14,23 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 import {console2} from "forge-std/Test.sol";
 
+
+// YOU CAN BUILD THE 4626 LIQUIDATION AS SYNCHRONOUS AND THEN MAKE THEM ASYNC AS YOU IMPLEMENT THE 7540
+// THAT WILL NEED AN ESCROW ADDRESS FOR SIMPLICITY OF ACCOUNTING
+
+// TODO for 4626 liquidations
+// 1. Create liquidateSynchronousVault() (get this done first)
+// 2. Withdrawal Queue
+// 3. Escrow Contract
+// 4. Create instantLiquidation() Function (do first with no swing pricing applied)
+    // a. checks withdrawal queue
+    // b. checks if enough liquidity
+    // c. cycles through a and b until withdrawal possible
+    // d. builds withdrawal tx of vault and shares to liquidate
+// 5. Send all withdrawals to Escrow contract
+
+// Stop here and create new branch for 7540
+
 contract Bestia is ERC4626, Ownable {
     // State Constants
     uint256 public constant maxDiscount = 2e16; // percentage
@@ -260,7 +277,8 @@ contract Bestia is ERC4626, Ownable {
 
     // called by banker to deposit excess reserve into strategies
     // TODO: refactor this into something more efficient and include getDepositAmount logic
-    function investCash(address _component) external onlyBanker returns (uint256 cashInvested) {
+    // TODO: rename this to 
+    function investInSynchVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }

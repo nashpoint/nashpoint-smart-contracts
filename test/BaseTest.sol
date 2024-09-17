@@ -197,4 +197,40 @@ contract BaseTest is Test {
         liquidityPool.mint(DEPOSIT_100, address(manager));
         vm.stopPrank();
     }
+
+    function bankerInvestsCash(address _component) public {
+        vm.startPrank(banker);
+        bestia.investInSynchVault(_component);
+        vm.stopPrank();
+    }
+
+    function bankerInvestsInAsyncVault(address _component) public {
+        vm.startPrank(banker);
+        bestia.investInAsyncVault(address(_component));
+        vm.stopPrank();
+    }
+
+    function seedBestia() public {
+        // SET THE STRATEGY
+        // add the 4626 Vaults
+        bestia.addComponent(address(vaultA), 18e16, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 20e16, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 22e16, false, address(vaultC));
+
+        // add the 7540 Vault (RWA)
+        bestia.addComponent(address(liquidityPool), 30e16, true, address(liquidityPool));
+
+        // SEED VAULT WITH 100 UNITS
+        vm.startPrank(user1);
+        bestia.deposit(DEPOSIT_100, address(user1));
+        vm.stopPrank();
+
+        // banker rebalances into illiquid vault
+        bankerInvestsInAsyncVault(address(liquidityPool));
+
+        // banker rebalances bestia instant vaults
+        bankerInvestsCash(address(vaultA));
+        bankerInvestsCash(address(vaultB));
+        bankerInvestsCash(address(vaultC));
+    }
 }
