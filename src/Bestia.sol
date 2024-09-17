@@ -22,16 +22,14 @@ import {console2} from "forge-std/Test.sol";
 // 2. DONE: Withdrawal Queue
 // 3. Escrow Contract (not essential for 4626 withdrawals, tomorrow)
 // 4. Create instantLiquidation() Function (do first with no swing pricing applied)
-//// a. checks withdrawal queue
-//// b. checks if enough liquidity
-//// c. cycles through a and b until withdrawal possible
-//// d. builds withdrawal tx of vault and shares to liquidate
+// -- a. checks withdrawal queue
+// -- b. checks if enough liquidity
+// -- c. cycles through a and b until withdrawal possible
+// -- d. builds withdrawal tx of vault and shares to liquidate
 // 5. Send all withdrawals to Escrow contract
 
-// Stop here and create new branch for 7540
-
+// TODO: Stop here and create new branch for 7540
 // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
-
 // TODO: create a setWithdrawalQueue() function
 
 contract Bestia is ERC4626, Ownable {
