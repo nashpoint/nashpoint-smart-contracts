@@ -499,7 +499,7 @@ contract Bestia is ERC4626, Ownable {
         emit WithdrawalFundsSentToEscrow(escrowAddress, _tokenAddress, _amount);
     }
 
-    function setEscrow(address _escrow) public onlyOwner {
+    function setEscrow(address _escrow) public onlyBanker {
         escrow = IEscrow(_escrow);
     }
 
