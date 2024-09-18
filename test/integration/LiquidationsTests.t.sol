@@ -119,6 +119,9 @@ contract LiquidationsTest is BaseTest {
         // user burns all usdc
         usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
 
+        // grab vault A holdings BEFORE instantLiquidation
+        uint256 vaultAHoldingsBefore = vaultA.convertToAssets(vaultA.balanceOf(address(bestia)));
+
         // user 1 executes instantLiquidation
         bestia.instantUserLiquidation(bestia.convertToShares(DEPOSIT_10));
 
@@ -127,6 +130,32 @@ contract LiquidationsTest is BaseTest {
 
         // assert funds return == requested amount minus maxDiscount
         assertEq(usdcMock.balanceOf(address(user1)), DEPOSIT_10 * (1e18 - maxDiscount) / 1e18);
+
+        // grab vault A holdings AFTER instantLiquidation
+        uint256 vaultAHoldingsAfter = vaultA.convertToAssets(vaultA.balanceOf(address(bestia)));
+
+        // assert that the underlying vault was reduced by the same value as returened to the user
+        assertEq(vaultAHoldingsBefore - vaultAHoldingsAfter, usdcMock.balanceOf(address(user1)));
+
+        // user burns all usdc
+        usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
+
+        // user 1 executes instantLiquidation with amount greater than available in Vault A
+        uint256 tooMuch = vaultAHoldingsAfter + DEPOSIT_10;
+        bestia.instantUserLiquidation(bestia.convertToShares(tooMuch));
+        
+        // TODO: write a better explain note
+        uint256 expectedAmount = tooMuch * (1e18 - maxDiscount) / 1e18;
+        assertApproxEqAbs(usdcMock.balanceOf(address(user1)), expectedAmount, 1);
+
+        // TODO: check that vaultB was reduced by the correct amount.
+
+        // TODO: write some better tests to finish when you are not tired
+
+        // TODO: liquidate all of the remaining vaults to escrow using banker account
+        // -- then check that too large withdrawal reverts
+
+        // Tests done
 
         vm.stopPrank();
     }

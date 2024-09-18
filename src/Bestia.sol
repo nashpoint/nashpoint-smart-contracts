@@ -13,27 +13,11 @@ import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
+// TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-// YOU CAN BUILD THE 4626 LIQUIDATION AS SYNCHRONOUS AND THEN MAKE THEM ASYNC AS YOU IMPLEMENT THE 7540
-// THAT WILL NEED AN ESCROW ADDRESS FOR SIMPLICITY OF ACCOUNTING
-
-// TODO's for 4626 liquidations
-// 1. DONE: Create liquidateSynchronousVault() (get this done first)
-// 2. DONE: Withdrawal Queue
-// 3. DONE: Escrow Contract (not essential for 4626 withdrawals, tomorrow)
-// 4. Create instantLiquidation() Function (do first with no swing pricing applied)
-// -- a. checks withdrawal queue
-// -- b. checks if enough liquidity
-// -- c. cycles through a and b until withdrawal possible
-// -- d. builds withdrawal tx of vault and shares to liquidate
-// 5. Send all withdrawals to user directly
-
-// TODO: Stop here and create new branch for 7540
-// TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
-// TODO: create a setWithdrawalQueue() function
-
 contract Bestia is ERC4626, Ownable {
+    
     /*//////////////////////////////////////////////////////////////
                               DATA
     //////////////////////////////////////////////////////////////*/
@@ -355,6 +339,8 @@ contract Bestia is ERC4626, Ownable {
                         SYNCHRONOUS ASSET LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
+
     // called by banker to deposit excess reserve into strategies
     // TODO: refactor this into something more efficient and include getDepositAmount logic
     function investInSynchVault(address _component) external onlyBanker returns (uint256 cashInvested) {
@@ -473,6 +459,8 @@ contract Bestia is ERC4626, Ownable {
                         COMPONENT MANAGEMENT
     ////////////////////////////////////////////////////////////////*/
 
+    // TODO: create a set components function
+    // -- must revert if percentages !=100 OR async before synchronous in order
     // TODO: create a function to swap order by move a component within the index
     // TODO: create function to completely reorder the components using a list of (valid) addresses
     // TODO: create a read function that will return the withdrawal position of a component as a uint
