@@ -2,13 +2,14 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 interface IEscrow {
     function deposit(address tokenAddress, uint256 tokenAmount) external;
     function withdraw(address withdrawer, address tokenAddress, uint256 tokenAmount) external;
 }
 
-contract Escrow is IEscrow {
+contract Escrow is IEscrow, Ownable {
     address public bestia;
 
     modifier onlyBestia() {
@@ -17,9 +18,7 @@ contract Escrow is IEscrow {
     }
 
     // Constructor
-    constructor(address _bestia) {
-        bestia = _bestia;
-    }
+    constructor() Ownable(msg.sender) {}
 
     // Events
     event Deposit(address indexed tokenAddress, uint256 tokenAmount);
@@ -36,6 +35,10 @@ contract Escrow is IEscrow {
         IERC20 token = IERC20(tokenAddress);
         require(token.transfer(withdrawer, tokenAmount), "Transfer failed");
         emit Withdrawal(withdrawer, tokenAddress, tokenAmount);
+    }
+
+    function setBestia(address _bestia) public onlyOwner {
+        bestia = _bestia;
     }
 
     // TODO: rescue function for lost tokens. Ignore for now
