@@ -17,10 +17,10 @@ contract EscrowTest is BaseTest {
         assertEq(address(bestia.escrow()), address(escrow));
         assertEq(address(escrow.bestia()), address(bestia));
 
-        // revert: only bestia address can call deposit  
-        vm.startPrank(user1);          
+        // revert: only bestia address can call deposit
+        vm.startPrank(user1);
         vm.expectRevert();
-        escrow.deposit(address(usdcMock), 1e6);        
+        escrow.deposit(address(usdcMock), 1e6);
         vm.stopPrank();
     }
 

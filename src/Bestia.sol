@@ -21,13 +21,13 @@ import {console2} from "forge-std/Test.sol";
 // TODO's for 4626 liquidations
 // 1. DONE: Create liquidateSynchronousVault() (get this done first)
 // 2. DONE: Withdrawal Queue
-// 3. Escrow Contract (not essential for 4626 withdrawals, tomorrow)
+// 3. DONE: Escrow Contract (not essential for 4626 withdrawals, tomorrow)
 // 4. Create instantLiquidation() Function (do first with no swing pricing applied)
 // -- a. checks withdrawal queue
 // -- b. checks if enough liquidity
 // -- c. cycles through a and b until withdrawal possible
 // -- d. builds withdrawal tx of vault and shares to liquidate
-// 5. Send all withdrawals to Escrow contract
+// 5. Send all withdrawals to user directly
 
 // TODO: Stop here and create new branch for 7540
 // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
@@ -45,6 +45,8 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant asyncMaxDelta = 3e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
     uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
+
+    bool public instantLiquidationsEnabled = true; // todo: also set by manager
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -67,9 +69,12 @@ contract Bestia is ERC4626, Ownable {
         uint256 targetRatio;
         bool isAsync;
         address shareToken;
-        uint256 withdrawalOrder;
     }
 
+    // NOTE: the order that components are added to the protocol determines their withdrawal order
+    // This will require a lot of manager controls. see list of TODO's in COMPONENTS section
+    // NOTE: components MUST be ordered: 1. synchronous assets, 2. asynchronous assets
+    // Otherwise instantUserLiquidation() will revert
     Component[] public components;
     mapping(address => uint256) public componentIndex;
 
@@ -123,6 +128,8 @@ contract Bestia is ERC4626, Ownable {
     error TooManyAssetsRequested();
     error CannotRedeemZeroShares();
     error DepositToEscrowFailed();
+    error InstantLiquidationsDisabled();
+    error CannotLiquidate();
 
     /*//////////////////////////////////////////////////////////////
                               ERC4626 LOGIC
@@ -413,7 +420,7 @@ contract Bestia is ERC4626, Ownable {
         // Preview the expected assets from redemption
         uint256 expectedAssets = ERC4626(_component).previewRedeem(shares);
 
-        // Perform the redemption
+        // Perform the edemption
         uint256 assets = ERC4626(_component).redeem(shares, address(this), address(this));
 
         // Ensure assets returned is within an acceptable range of expectedAssets
@@ -422,9 +429,54 @@ contract Bestia is ERC4626, Ownable {
         return assets;
     }
 
+    // only works on one vault at a time
+    // if a user requires liquidation from multiple vaults they will need to requestWithdrawal
+    function instantUserLiquidation(uint256 _shares) public {
+        if (!instantLiquidationsEnabled) {
+            revert InstantLiquidationsDisabled();
+        }
+
+        // applies maxDiscount to user withdrawal to get total assets to liquidate for
+        uint256 adjustedAssets = Math.mulDiv(convertToAssets(_shares), 1e18 - maxDiscount, 1e18);
+
+        // find vault to liquidate based on withdrawal queue and available assets
+        for (uint256 i = 0; i < components.length; i++) {
+            Component memory component = components[i];
+
+            // check if component is async, if yes revert
+            if (component.isAsync) {
+                continue;
+            }
+
+            // check if component has enough assets to meet withdrawl
+            IERC4626 _component = IERC4626(component.component);
+            if (_component.convertToAssets(_component.balanceOf(address(this))) > adjustedAssets) {
+                // if yes define correct shares to liquidate based on the adjustedAssets
+                uint256 sharesToLiquidate = _component.convertToShares(adjustedAssets);
+                address user = msg.sender;
+
+                // withdraw from underlying vault using liquidateSynchVaultPosition()
+                liquidateSynchVaultPosition(address(_component), sharesToLiquidate);
+
+                // return funds to user and burn their shares
+                _withdraw(user, user, user, adjustedAssets, _shares);
+
+                // Exit the function after successful withdrawal
+                return;
+            }
+        }
+        // If no synchronous component could fulfill the request, revert
+        revert CannotLiquidate();
+    }
+
     /*//////////////////////////////////////////////////////////////
                         COMPONENT MANAGEMENT
     ////////////////////////////////////////////////////////////////*/
+
+    // TODO: create a function to swap order by move a component within the index
+    // TODO: create function to completely reorder the components using a list of (valid) addresses
+    // TODO: create a read function that will return the withdrawal position of a component as a uint
+    // TODO: create a read function that will return the withdrawal order as a list of addressess
 
     function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken) public {
         uint256 index = componentIndex[_component];
@@ -437,10 +489,7 @@ contract Bestia is ERC4626, Ownable {
                 component: _component,
                 targetRatio: _targetRatio,
                 isAsync: _isAsync,
-                shareToken: _shareToken,
-                // when adding a component its withdrawal priority is set to the last place
-                // TODO: come back to this when working on the initialize vault features
-                withdrawalOrder: components.length
+                shareToken: _shareToken
             });
 
             components.push(newComponent);
