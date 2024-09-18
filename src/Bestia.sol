@@ -7,6 +7,7 @@ import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol"
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {IEscrow} from "src/Escrow.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
@@ -53,6 +54,7 @@ contract Bestia is ERC4626, Ownable {
     // ADDRESSES
     // todo: remove later and make scaleable
     address public banker;
+    IEscrow public escrow;
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
@@ -102,6 +104,7 @@ contract Bestia is ERC4626, Ownable {
     event AsyncSharesMinted(address component, uint256 shares);
     event AsyncWithdrawalRequested(address component, uint256 shares);
     event AsyncWithdrawalExecuted(address component, uint256 assets);
+    event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
 
     /*//////////////////////////////////////////////////////////////
                             ERROR HANDLING
@@ -119,6 +122,7 @@ contract Bestia is ERC4626, Ownable {
     error TooManySharesRequested();
     error TooManyAssetsRequested();
     error CannotRedeemZeroShares();
+    error DepositToEscrowFailed();
 
     /*//////////////////////////////////////////////////////////////
                               ERC4626 LOGIC
@@ -341,7 +345,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                           SYNCHRONOUS ASSETS
+                        SYNCHRONOUS ASSET LOGIC
     //////////////////////////////////////////////////////////////*/
 
     // called by banker to deposit excess reserve into strategies
@@ -474,6 +478,32 @@ contract Bestia is ERC4626, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
+                        ESCROW INTERACTIONS
+    ////////////////////////////////////////////////////////////////*/
+
+    // TODO: create logic for user to execute withdrawals later
+    // Only handling deposits by banker for claimable user withdrawals
+
+    function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyBanker {
+        IERC20 token = IERC20(_tokenAddress);
+        address escrowAddress = address(escrow);
+
+        // Transfer tokens to Escrow
+        if (!token.transfer(escrowAddress, _amount)) {
+            revert DepositToEscrowFailed();
+        }
+
+        // Call deposit function on Escrow
+        escrow.deposit(_tokenAddress, _amount);
+
+        emit WithdrawalFundsSentToEscrow(escrowAddress, _tokenAddress, _amount);
+    }
+
+    function setEscrow(address _escrow) public onlyOwner {
+        escrow = IEscrow(_escrow);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         BANKER AND PERMISSIONS
     ////////////////////////////////////////////////////////////////*/
 
@@ -488,7 +518,7 @@ contract Bestia is ERC4626, Ownable {
 
     /*//////////////////////////////////////////////////////////////
                         UTILITY & OVERRIDE FUNCTIONS  
-                    (TEMP: Might move or delete this later)
+                    (TEMP: Might move or delete these later)
     ////////////////////////////////////////////////////////////////*/
 
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {

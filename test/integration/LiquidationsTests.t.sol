@@ -14,7 +14,7 @@ contract LiquidationsTest is BaseTest {
         // 3 ERC-4626 vaults: 18%, 20%, 22%
         // 1 ERC-7540 vault: 30%
 
-        // user withhdraws 10e6 cash
+        // user withdraws 10e6 cash
         vm.startPrank(user1);
         bestia.withdraw(DEPOSIT_10, address(user1), (address(user1)));
         vm.stopPrank();
@@ -22,11 +22,11 @@ contract LiquidationsTest is BaseTest {
         // assert reserve cash == zero
         assertEq(usdcMock.balanceOf(address(bestia)), 0);
 
-        // get the initial holdings for bestia in Vault A
-        uint256 initialVaultA = vaultA.convertToAssets(vaultA.balanceOf(address(bestia)));
-
         // assert vaultA shares/assets are 1
         assertEq(vaultA.convertToShares(1), 1);
+
+        // get the initial holdings for bestia in Vault A
+        uint256 initialVaultA = vaultA.convertToAssets(vaultA.balanceOf(address(bestia)));
 
         // liquidate 10 assets worth of shares
         bestia.liquidateSynchVaultPosition(address(vaultA), vaultA.convertToShares(DEPOSIT_10));
