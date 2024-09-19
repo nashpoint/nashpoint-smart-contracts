@@ -185,12 +185,12 @@ contract LiquidationsTest is BaseTest {
 
         // convert this to shares to enable expectRevert to run directly on the value
         uint256 tooManyShares = bestia.convertToShares(DEPOSIT_10);
-        
+
         // revert: skips all sync assets as too small
         // then cannot withdraw from the async asset
         vm.expectRevert();
         bestia.instantUserLiquidation(tooManyShares);
-        
+
         vm.stopPrank();
     }
 }

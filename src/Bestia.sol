@@ -16,6 +16,10 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
+/*//////////////////////////////////////////////////////////////
+                    ERC-7540 WITHDRAWALS PLAN
+//////////////////////////////////////////////////////////////*/
+
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
@@ -62,6 +66,24 @@ contract Bestia is ERC4626, Ownable {
     Component[] public components;
     mapping(address => uint256) public componentIndex;
 
+    ///// 7540 DATA STRUCTURES /////
+    
+    // 7540 PENDING REQUESTS
+    struct PendingRequest {
+        // note: might need to store value of swing factor at redemption request
+        // if we go fully async withdrawals
+        address controller;
+        uint256 amount;
+    }
+
+    // 7540 MAPPINGS
+    mapping(address => mapping(address => bool)) private _operators;
+    mapping(address => uint256) public claimableRedeemRequests;
+    mapping(address => uint256) public controllerToRedeemIndex;
+
+    // 7540 Arrays
+    PendingRequest[] public pendingRedeemRequests;
+
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -95,6 +117,12 @@ contract Bestia is ERC4626, Ownable {
     event AsyncWithdrawalExecuted(address component, uint256 assets);
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
 
+    ////// 7540 EVENTS ////// 
+    event RedeemRequest(
+        address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares
+    );
+    event OperatorSet(address indexed controller, address indexed operator, bool approved);
+
     /*//////////////////////////////////////////////////////////////
                             ERROR HANDLING
     ////////////////////////////////////////////////////////////////*/
@@ -116,12 +144,12 @@ contract Bestia is ERC4626, Ownable {
     error CannotLiquidate();
 
     /*//////////////////////////////////////////////////////////////
-                              ERC4626 LOGIC
+                    STANDARD USER DEPOSIT LOGIC (ERC4626)
     //////////////////////////////////////////////////////////////*/
 
-    // total assets override function
-    // must add async component for call to bestia.totalAssets to succeed
-    // TODO: refactor totalAssets to avoid this issue later
+    // totalAssets() override function
+    // -- must add async component for call to bestia.totalAssets to succeed
+    // -- TODO: refactor totalAssets to avoid this issue later
     function totalAssets() public view override returns (uint256) {
         // gets the cash reserve
         uint256 cashReserve = usdc.balanceOf(address(this));
@@ -141,6 +169,8 @@ contract Bestia is ERC4626, Ownable {
     // We are basing the discount on the reserve ratio after the transaction.
     // This means while the RR is below target. There is actually an incentive to break
     // up a deposit into smaller transactions to receive a greater discount.
+    // TODO: fix this by changing the logic to increase the size of the discount proportional to the
+    // amount that the deposit closes the gap to the target reserve ratio
     function deposit(uint256 _assets, address receiver) public override returns (uint256) {
         uint256 internalAssets = _assets;
         uint256 maxAssets = maxDeposit(receiver);
@@ -214,7 +244,64 @@ contract Bestia is ERC4626, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                          ASYNC ASSET LOGIC
+                        ASYNC USER WITHDRAWAL LOGIC (7540)
+    //////////////////////////////////////////////////////////////*/
+
+    // Just doing withdrawals. Deposits: normal ERC4626 interface
+
+    // note: need some kind of way for for withdraw and redeem to first check for any claimable
+
+    // CONTROLLER
+    // How can I use this? What is really the point of it?
+
+    // CONSTRAINTS
+    // 1. The redeem and withdraw methods do not transfer shares to the Vault, because this already happened on requestRedeem.
+    // 2. The owner field of redeem and withdraw SHOULD be renamed to controller, and the controller MUST be msg.sender unless the controller has approved the msg.sender as an operator.
+    // 3. previewRedeem and previewWithdraw MUST revert for all callers and inputs.
+
+    // DATA STRUCTURES
+
+    // REQUEST_ID
+    // todo: set to zero for now
+
+    // FUNCTIONS
+
+    function requestRedeem(uint256 shares, address controller, address owner) public returns (uint256 requestId) {
+        // todo: send user shares to escrow.
+        // todo: burn them when the user redeem/withdaws
+        // -- Assumes control of shares from owner and submits a Request for asynchronous redeem.
+        // -- This places the Request in Pending state, with a corresponding increase in
+        // -- pendingRedeemRequest for the amount shares.
+        // -- In either case, the shares MUST be removed from the custody of owner upon
+        // -- requestRedeem and burned by the time the request is Claimed.
+    }
+
+    function pendingRedeemRequest(uint256 requestId, address controller) public view returns (uint256 shares) {
+        // The amount of requested shares in Pending state for the controller
+        // with the given requestId to redeem or withdraw.
+    }
+
+    // should other functions in my contract call this to in order to execute transaction to withdraw?
+    function claimableRedeemRequest(uint256 requestId, address controller) public view returns (uint256 shares) {
+        // note: these are denominated in !!! SHARES !!!
+        // The amount of requested shares in Claimable state for the controller
+        // with the given requestId to redeem or withdraw.
+        // MUST NOT include any shares in Pending state for redeem or withdraw.
+    }
+
+    function isOperator(address controller, address operator) public view returns (bool status) {
+        // Returns true if the operator is approved as an operator for a controller.
+    }
+
+    function setOperator(address operator, bool approved) public returns (bool success) {
+        // Grants or revokes permissions for operator to manage Requests on behalf of the msg.sender.
+        // MUST set the operator status to the approved value.
+        // MUST log the OperatorSet event.
+        // MUST return True.
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    ASYNC ASSET MANAGEMENT LOGIC (7540)
     //////////////////////////////////////////////////////////////*/
 
     // TODO: check how much gas this uses. might need to cache data instead
@@ -336,7 +423,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        SYNCHRONOUS ASSET LOGIC
+                SYNCHRONOUS ASSET MANAGEMENT LOGIC (4626)
     //////////////////////////////////////////////////////////////*/
 
     // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
@@ -386,7 +473,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // need to make this internal so checks on shares, maxRedeem all pass before executing
-    // note: this function could introduce accounting errors 
+    // note: this function could introduce accounting errors
     // as it removes assets without burning shares
     // REITERATE: NEVER CALL DIRECTLY, MUST BE INTERNAL
     function liquidateSynchVaultPosition(address _component, uint256 shares) public returns (uint256 assetsReturned) {
