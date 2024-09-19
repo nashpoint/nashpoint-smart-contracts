@@ -17,7 +17,6 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 import {console2} from "forge-std/Test.sol";
 
 contract Bestia is ERC4626, Ownable {
-    
     /*//////////////////////////////////////////////////////////////
                               DATA
     //////////////////////////////////////////////////////////////*/
@@ -112,7 +111,7 @@ contract Bestia is ERC4626, Ownable {
     error TooManyAssetsRequested();
     error CannotRedeemZeroShares();
     error DepositToEscrowFailed();
-    error InstantLiquidationsDisabled();
+    error UserLiquidationsDisabled();
     error CannotLiquidate();
 
     /*//////////////////////////////////////////////////////////////
@@ -386,6 +385,9 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // need to make this internal so checks on shares, maxRedeem all pass before executing
+    // note: this function could introduce accounting errors 
+    // as it removes assets without burning shares
+    // REITERATE: NEVER CALL DIRECTLY, MUST BE INTERNAL
     function liquidateSynchVaultPosition(address _component, uint256 shares) public returns (uint256 assetsReturned) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -419,7 +421,7 @@ contract Bestia is ERC4626, Ownable {
     // if a user requires liquidation from multiple vaults they will need to requestWithdrawal
     function instantUserLiquidation(uint256 _shares) public {
         if (!instantLiquidationsEnabled) {
-            revert InstantLiquidationsDisabled();
+            revert UserLiquidationsDisabled();
         }
 
         // applies maxDiscount to user withdrawal to get total assets to liquidate for

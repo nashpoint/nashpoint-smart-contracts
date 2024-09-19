@@ -86,10 +86,6 @@ contract LiquidationsTest is BaseTest {
         bestia.instantUserLiquidation(DEPOSIT_10);
     }
 
-    function testCannotLiquidateTooLargeTx() public {
-        // todo: add a test here to make sure you cannot liquidate more than in any one underlying synchronous component
-    }
-
     function testInstantUserLiquidation() public {
         // Setup
         seedBestia();
@@ -140,23 +136,61 @@ contract LiquidationsTest is BaseTest {
         // user burns all usdc
         usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
 
+        // grab Vault B holdings before withdrawal
+        uint256 vaultBHoldingsBefore = vaultB.convertToAssets(vaultB.balanceOf(address(bestia)));
+
         // user 1 executes instantLiquidation with amount greater than available in Vault A
         uint256 tooMuch = vaultAHoldingsAfter + DEPOSIT_10;
         bestia.instantUserLiquidation(bestia.convertToShares(tooMuch));
-        
-        // TODO: write a better explain note
+
+        // assert that user received the expected amount
         uint256 expectedAmount = tooMuch * (1e18 - maxDiscount) / 1e18;
         assertApproxEqAbs(usdcMock.balanceOf(address(user1)), expectedAmount, 1);
 
-        // TODO: check that vaultB was reduced by the correct amount.
+        // assert that vault B was reduced by the correct amount.
+        // this implies that vault A was skipped
+        uint256 vaultBHoldingsAfter = vaultB.convertToAssets(vaultB.balanceOf(address(bestia)));
+        assertApproxEqAbs(vaultBHoldingsAfter + expectedAmount, vaultBHoldingsBefore, 1);
 
-        // TODO: write some better tests to finish when you are not tired
+        // show both underlying vaults still have a balance
+        assertGt(vaultA.convertToAssets(vaultA.balanceOf(address(bestia))), 0);
+        assertGt(vaultB.convertToAssets(vaultB.balanceOf(address(bestia))), 0);
 
-        // TODO: liquidate all of the remaining vaults to escrow using banker account
-        // -- then check that too large withdrawal reverts
+        // grab the usdc value of bestia's holdings in vaultC
+        uint256 vaultCBalanceBefore = vaultC.convertToAssets(vaultC.balanceOf(address(bestia)));
 
-        // Tests done
+        // user burns all usdc and executes liquidation of full
+        usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
+        bestia.instantUserLiquidation(bestia.convertToShares(vaultCBalanceBefore));
 
+        // grab the vault C balance after the liquidation
+        uint256 vaultCBalanceAfter = vaultC.convertToAssets(vaultC.balanceOf(address(bestia)));
+
+        // Calculate the expected remaining balance due to the discount
+        uint256 expectedVaultCBalanceAfter = vaultCBalanceBefore * maxDiscount / 1e18;
+
+        // Assert that the remaining balance is as expected
+        assertApproxEqAbs(vaultCBalanceAfter, expectedVaultCBalanceAfter, 1);
+
+        // assert that user balance + remainder in vault c == vault c starting balance
+        assertEq(vaultCBalanceAfter + usdcMock.balanceOf(address(user1)), vaultCBalanceBefore);
+
+        // assert no vault has a remaining balance > 10 units
+        assertLt(vaultA.convertToAssets(vaultA.balanceOf(address(bestia))), DEPOSIT_10);
+        assertLt(vaultB.convertToAssets(vaultB.balanceOf(address(bestia))), DEPOSIT_10);
+        assertLt(vaultC.convertToAssets(vaultC.balanceOf(address(bestia))), DEPOSIT_10);
+
+        // show that liquidityPool (async) has sufficent assets to withdraw
+        assertGt(bestia.getAsyncAssets(address(liquidityPool)), DEPOSIT_10);
+
+        // convert this to shares to enable expectRevert to run directly on the value
+        uint256 tooManyShares = bestia.convertToShares(DEPOSIT_10);
+        
+        // revert: skips all sync assets as too small
+        // then cannot withdraw from the async asset
+        vm.expectRevert();
+        bestia.instantUserLiquidation(tooManyShares);
+        
         vm.stopPrank();
     }
 }
