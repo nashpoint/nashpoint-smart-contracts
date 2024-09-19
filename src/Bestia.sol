@@ -7,30 +7,14 @@ import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol"
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {IEscrow} from "src/Escrow.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
+// TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
-
-// YOU CAN BUILD THE 4626 LIQUIDATION AS SYNCHRONOUS AND THEN MAKE THEM ASYNC AS YOU IMPLEMENT THE 7540
-// THAT WILL NEED AN ESCROW ADDRESS FOR SIMPLICITY OF ACCOUNTING
-
-// TODO's for 4626 liquidations
-// 1. DONE: Create liquidateSynchronousVault() (get this done first)
-// 2. DONE: Withdrawal Queue
-// 3. Escrow Contract (not essential for 4626 withdrawals, tomorrow)
-// 4. Create instantLiquidation() Function (do first with no swing pricing applied)
-// -- a. checks withdrawal queue
-// -- b. checks if enough liquidity
-// -- c. cycles through a and b until withdrawal possible
-// -- d. builds withdrawal tx of vault and shares to liquidate
-// 5. Send all withdrawals to Escrow contract
-
-// TODO: Stop here and create new branch for 7540
-// TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
-// TODO: create a setWithdrawalQueue() function
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -38,12 +22,15 @@ contract Bestia is ERC4626, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     // CONSTANTS
+    // TODO: create detailed notes for for managers to read
     uint256 public constant maxDiscount = 2e16; // percentage
     uint256 public constant targetReserveRatio = 10e16; // percentage
     uint256 public constant maxDelta = 1e16; // percentage
     uint256 public constant asyncMaxDelta = 3e16; //percentage
     int256 public constant scalingFactor = -5e18; // negative integer
     uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
+
+    bool public instantLiquidationsEnabled = true; // todo: also set by manager
 
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
@@ -53,6 +40,7 @@ contract Bestia is ERC4626, Ownable {
     // ADDRESSES
     // todo: remove later and make scaleable
     address public banker;
+    IEscrow public escrow;
     IERC4626 public vaultA;
     IERC4626 public vaultB;
     IERC4626 public vaultC;
@@ -65,9 +53,12 @@ contract Bestia is ERC4626, Ownable {
         uint256 targetRatio;
         bool isAsync;
         address shareToken;
-        uint256 withdrawalOrder;
     }
 
+    // NOTE: the order that components are added to the protocol determines their withdrawal order
+    // This will require a lot of manager controls. see list of TODO's in COMPONENTS section
+    // NOTE: components MUST be ordered: 1. synchronous assets, 2. asynchronous assets
+    // Otherwise instantUserLiquidation() will revert
     Component[] public components;
     mapping(address => uint256) public componentIndex;
 
@@ -102,6 +93,7 @@ contract Bestia is ERC4626, Ownable {
     event AsyncSharesMinted(address component, uint256 shares);
     event AsyncWithdrawalRequested(address component, uint256 shares);
     event AsyncWithdrawalExecuted(address component, uint256 assets);
+    event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
 
     /*//////////////////////////////////////////////////////////////
                             ERROR HANDLING
@@ -119,6 +111,9 @@ contract Bestia is ERC4626, Ownable {
     error TooManySharesRequested();
     error TooManyAssetsRequested();
     error CannotRedeemZeroShares();
+    error DepositToEscrowFailed();
+    error UserLiquidationsDisabled();
+    error CannotLiquidate();
 
     /*//////////////////////////////////////////////////////////////
                               ERC4626 LOGIC
@@ -341,8 +336,10 @@ contract Bestia is ERC4626, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                           SYNCHRONOUS ASSETS
+                        SYNCHRONOUS ASSET LOGIC
     //////////////////////////////////////////////////////////////*/
+
+    // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
 
     // called by banker to deposit excess reserve into strategies
     // TODO: refactor this into something more efficient and include getDepositAmount logic
@@ -389,6 +386,9 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // need to make this internal so checks on shares, maxRedeem all pass before executing
+    // note: this function could introduce accounting errors 
+    // as it removes assets without burning shares
+    // REITERATE: NEVER CALL DIRECTLY, MUST BE INTERNAL
     function liquidateSynchVaultPosition(address _component, uint256 shares) public returns (uint256 assetsReturned) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -409,7 +409,7 @@ contract Bestia is ERC4626, Ownable {
         // Preview the expected assets from redemption
         uint256 expectedAssets = ERC4626(_component).previewRedeem(shares);
 
-        // Perform the redemption
+        // Perform the edemption
         uint256 assets = ERC4626(_component).redeem(shares, address(this), address(this));
 
         // Ensure assets returned is within an acceptable range of expectedAssets
@@ -418,9 +418,56 @@ contract Bestia is ERC4626, Ownable {
         return assets;
     }
 
+    // only works on one vault at a time
+    // if a user requires liquidation from multiple vaults they will need to requestWithdrawal
+    function instantUserLiquidation(uint256 _shares) public {
+        if (!instantLiquidationsEnabled) {
+            revert UserLiquidationsDisabled();
+        }
+
+        // applies maxDiscount to user withdrawal to get total assets to liquidate for
+        uint256 adjustedAssets = Math.mulDiv(convertToAssets(_shares), 1e18 - maxDiscount, 1e18);
+
+        // find vault to liquidate based on withdrawal queue and available assets
+        for (uint256 i = 0; i < components.length; i++) {
+            Component memory component = components[i];
+
+            // check if component is async, if yes revert
+            if (component.isAsync) {
+                continue;
+            }
+
+            // check if component has enough assets to meet withdrawl
+            IERC4626 _component = IERC4626(component.component);
+            if (_component.convertToAssets(_component.balanceOf(address(this))) > adjustedAssets) {
+                // if yes define correct shares to liquidate based on the adjustedAssets
+                uint256 sharesToLiquidate = _component.convertToShares(adjustedAssets);
+                address user = msg.sender;
+
+                // withdraw from underlying vault using liquidateSynchVaultPosition()
+                liquidateSynchVaultPosition(address(_component), sharesToLiquidate);
+
+                // return funds to user and burn their shares
+                _withdraw(user, user, user, adjustedAssets, _shares);
+
+                // Exit the function after successful withdrawal
+                return;
+            }
+        }
+        // If no synchronous component could fulfill the request, revert
+        revert CannotLiquidate();
+    }
+
     /*//////////////////////////////////////////////////////////////
                         COMPONENT MANAGEMENT
     ////////////////////////////////////////////////////////////////*/
+
+    // TODO: create a set components function
+    // -- must revert if percentages !=100 OR async before synchronous in order
+    // TODO: create a function to swap order by move a component within the index
+    // TODO: create function to completely reorder the components using a list of (valid) addresses
+    // TODO: create a read function that will return the withdrawal position of a component as a uint
+    // TODO: create a read function that will return the withdrawal order as a list of addressess
 
     function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken) public {
         uint256 index = componentIndex[_component];
@@ -433,10 +480,7 @@ contract Bestia is ERC4626, Ownable {
                 component: _component,
                 targetRatio: _targetRatio,
                 isAsync: _isAsync,
-                shareToken: _shareToken,
-                // when adding a component its withdrawal priority is set to the last place
-                // TODO: come back to this when working on the initialize vault features
-                withdrawalOrder: components.length
+                shareToken: _shareToken
             });
 
             components.push(newComponent);
@@ -474,6 +518,32 @@ contract Bestia is ERC4626, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
+                        ESCROW INTERACTIONS
+    ////////////////////////////////////////////////////////////////*/
+
+    // TODO: create logic for user to execute withdrawals later
+    // Only handling deposits by banker for claimable user withdrawals
+
+    function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyBanker {
+        IERC20 token = IERC20(_tokenAddress);
+        address escrowAddress = address(escrow);
+
+        // Transfer tokens to Escrow
+        if (!token.transfer(escrowAddress, _amount)) {
+            revert DepositToEscrowFailed();
+        }
+
+        // Call deposit function on Escrow
+        escrow.deposit(_tokenAddress, _amount);
+
+        emit WithdrawalFundsSentToEscrow(escrowAddress, _tokenAddress, _amount);
+    }
+
+    function setEscrow(address _escrow) public onlyBanker {
+        escrow = IEscrow(_escrow);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         BANKER AND PERMISSIONS
     ////////////////////////////////////////////////////////////////*/
 
@@ -488,7 +558,7 @@ contract Bestia is ERC4626, Ownable {
 
     /*//////////////////////////////////////////////////////////////
                         UTILITY & OVERRIDE FUNCTIONS  
-                    (TEMP: Might move or delete this later)
+                    (TEMP: Might move or delete these later)
     ////////////////////////////////////////////////////////////////*/
 
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {

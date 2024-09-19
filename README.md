@@ -75,7 +75,7 @@ This is an experimental protocol. Use at your own risk. Not audited or ready for
 
 ## Technical Notes
 
-- Built on Solidity ^0.8.20
+- Built on Solidity 0.8.26
 - Custom implementation of ERC7540 for handling asynchronous assets
 
 ## Getting Started

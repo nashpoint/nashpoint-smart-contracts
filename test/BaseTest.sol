@@ -17,6 +17,9 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
+// escrow contract for bestia
+import {Escrow, IEscrow} from "src/Escrow.sol";
+
 // centrifuge interfaces
 import {IInvestmentManager} from "test/interfaces/centrifuge/IInvestmentManager.sol";
 import {IPoolManager} from "test/interfaces/centrifuge/IPoolManager.sol";
@@ -47,6 +50,9 @@ contract BaseTest is Test {
     IERC7540 public liquidityPool;
     address public banker;
     address public manager;
+
+    // Declare the Escrow contract variable
+    Escrow public escrow;
 
     // fork test contracts and addresses
     IInvestmentManager public investmentManager;
@@ -91,6 +97,22 @@ contract BaseTest is Test {
         vaultB = ERC4626Mock(vaultBAddress);
         vaultC = ERC4626Mock(vaultCAddress);
         liquidityPool = ERC7540Mock(liquidityPoolAddress);
+
+        //////////// TEMP: ADD IN ESCROW HERE FOR SIMPLICITY OF TESTING ///////////
+
+        // deploy the Escrow contract
+        escrow = new Escrow();
+
+        // and config each others addresses
+        escrow.setBestia(address(bestia));
+
+        // pranking as banker as bestia owner is the deploy script.
+        // TODO: fix this later
+        vm.startPrank(banker);
+        bestia.setEscrow(address(escrow));
+        vm.stopPrank();
+
+        ///////////////////////////////////////////////////////////////////////////
 
         _setupUserBalancesAndApprovals();
         _setupBestiaApprovals();

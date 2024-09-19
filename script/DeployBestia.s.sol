@@ -13,6 +13,7 @@ contract DeployBestia is Script {
             , // ignore manager
             address banker,
             address usdc,
+            // address escrow,
             address vaultA,
             address vaultB,
             address vaultC,
