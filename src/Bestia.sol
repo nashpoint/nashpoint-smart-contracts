@@ -22,6 +22,7 @@ contract Bestia is ERC4626, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     // CONSTANTS
+    // TODO: create detailed notes for for managers to read
     uint256 public constant maxDiscount = 2e16; // percentage
     uint256 public constant targetReserveRatio = 10e16; // percentage
     uint256 public constant maxDelta = 1e16; // percentage
