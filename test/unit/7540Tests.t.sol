@@ -348,7 +348,9 @@ contract ERC7540Tests is BaseTest {
         // assert that claimable assets have been sent to escrow address
         assertEq(usdcMock.balanceOf(address(escrow)), assetsToClaim);
 
-        
-
+        // assert that pendingRedeems have been correctly updated
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), 0);
+        assertEq(bestia.claimableRedeemRequest(0, address(user1)), sharesToRedeem);
+        assertEq(bestia._maxWithdraw(user1), assetsToClaim);
     }
 }

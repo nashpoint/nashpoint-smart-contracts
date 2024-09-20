@@ -65,20 +65,20 @@ contract Bestia is ERC4626, Ownable {
     ///////////////////////// 7540 DATA STRUCTURES /////////////////////////
 
     // 7540 PENDING REQUESTS
-    struct PendingRequest {
-        // note: might need to store value of swing factor at redemption request
-        // if we go fully async withdrawals
+    struct Request {
         address controller;
-        uint256 amount;
+        uint256 sharesPending;
+        uint256 sharesClaimable;
+        uint256 assetsClaimable;
     }
+    // todo: uint256 swingFactor;
 
     // 7540 MAPPINGS
     mapping(address => mapping(address => bool)) private _operators;
-    mapping(address => uint256) public claimableRedeemRequests;
     mapping(address => uint256) public controllerToRedeemIndex;
 
     // 7540 Arrays
-    PendingRequest[] public pendingRedeemRequests;
+    Request[] public redeemRequests;
 
     // REQUEST_ID
     // @dev Requests for nodes are non-fungible and all have ID = 0
@@ -144,6 +144,8 @@ contract Bestia is ERC4626, Ownable {
     error DepositToEscrowFailed();
     error UserLiquidationsDisabled();
     error CannotLiquidate();
+
+    error NoRedeemRequestForController();
 
     /*//////////////////////////////////////////////////////////////
                     STANDARD USER DEPOSIT LOGIC (ERC4626)
@@ -283,12 +285,13 @@ contract Bestia is ERC4626, Ownable {
         uint256 index = controllerToRedeemIndex[controller];
 
         if (index > 0) {
-            pendingRedeemRequests[index - 1].amount += shares;
+            redeemRequests[index - 1].sharesPending += shares;
         } else {
-            PendingRequest memory newRequest = PendingRequest({controller: controller, amount: shares});
+            Request memory newRequest =
+                Request({controller: controller, sharesPending: shares, sharesClaimable: 0, assetsClaimable: 0});
 
-            pendingRedeemRequests.push(newRequest);
-            controllerToRedeemIndex[controller] = pendingRedeemRequests.length;
+            redeemRequests.push(newRequest);
+            controllerToRedeemIndex[controller] = redeemRequests.length;
         }
 
         emit RedeemRequest(controller, _owner, REQUEST_ID, msg.sender, shares);
@@ -299,15 +302,14 @@ contract Bestia is ERC4626, Ownable {
     function pendingRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
         uint256 index = controllerToRedeemIndex[controller];
         require(index > 0, "No pending redemption for controller");
-        return pendingRedeemRequests[index - 1].amount;
+        return redeemRequests[index - 1].sharesPending;
     }
 
     // should other functions in my contract call this to in order to execute transaction to withdraw?
-    function claimableRedeemRequest(uint256 requestId, address controller) public view returns (uint256 shares) {
-        // note: these are denominated in !!! SHARES !!!
-        // The amount of requested shares in Claimable state for the controller
-        // with the given requestId to redeem or withdraw.
-        // MUST NOT include any shares in Pending state for redeem or withdraw.
+    function claimableRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
+        uint256 index = controllerToRedeemIndex[controller];
+        require(index > 0, "No claimable redemption for controller");
+        return redeemRequests[index - 1].sharesClaimable;
     }
 
     function isOperator(address controller, address operator) public view returns (bool status) {
@@ -322,44 +324,53 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function fulfilRedeemFromSynch(address _controller, address _component) public onlyBanker {
-        uint256 index = controllerToRedeemIndex[_controller];
+        uint256 _index = controllerToRedeemIndex[_controller];
 
         // Ensure there is a pending request for this controller
-        require(index > 0, "No pending request for this controller");
+        require(_index > 0, "No pending request for this controller");
 
-        PendingRequest storage request = pendingRedeemRequests[index - 1];
-        address escrowAddress = address(escrow);
+        Request storage request = redeemRequests[_index - 1];
+        address _escrowAddress = address(escrow);
 
-        uint256 sharesPending = request.amount;
-        uint256 assetsRequested = convertToAssets(sharesPending);
+        uint256 _sharesRedeeming = request.sharesPending;
+        uint256 _assetsRequested = convertToAssets(_sharesRedeeming);
 
-        uint256 sharesToLiquidate = ERC4626(_component).convertToShares(assetsRequested);
-        uint256 assetsClaimable = liquidateSynchVaultPosition(_component, sharesToLiquidate);
-        
+        uint256 _sharesToLiquidate = ERC4626(_component).convertToShares(_assetsRequested);
+        uint256 _assetsClaimable = liquidateSynchVaultPosition(_component, _sharesToLiquidate);
+
         // Burn the shares on escrow
-        _burn(escrowAddress, sharesPending);
+        _burn(_escrowAddress, _sharesRedeeming);
 
         // Transfer tokens to Escrow
-        IERC20(asset()).transfer(escrowAddress, assetsClaimable);
+        IERC20(asset()).transfer(_escrowAddress, _assetsClaimable);
 
         // Call deposit function on Escrow
-        escrow.deposit(asset(), assetsClaimable);
-        emit WithdrawalFundsSentToEscrow(escrowAddress, asset(), assetsClaimable);
+        escrow.deposit(asset(), _assetsClaimable);
+        emit WithdrawalFundsSentToEscrow(_escrowAddress, asset(), _assetsClaimable);
 
         // set claimable redeem for user
+        request.sharesPending -= _sharesRedeeming;
+        request.sharesClaimable += _sharesRedeeming;
+        request.assetsClaimable += _assetsClaimable;
+
         // note: these are denominated in shares
-        claimableRedeemRequests[request.controller] += sharesPending;
     }
 
     ////////////////////////// OVERRIDES ///////////////////////////
 
+    // todo: override and remove "_"
     function _maxWithdraw(address controller) public view returns (uint256 maxAssets) {
-
+        uint256 index = controllerToRedeemIndex[controller];
+        if (index == 0) {
+            revert NoRedeemRequestForController();
+        } else {
+            return redeemRequests[index - 1].assetsClaimable;
+        }
     }
 
     // create all of your withdrawal logic in here so as not to break your test
-    // refactor later to replace the other withdraw functions
-    function tempWithdraw() public {}
+    // todo: override and remove "_"
+    function _withdraw() public {}
 
     // function previewWithdraw(uint256) public view virtual override returns (uint256) {
     //     revert("ERC7540: previewWithdraw not available for async vault");
