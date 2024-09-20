@@ -196,6 +196,7 @@ contract BaseTest is Test {
             usdcMock.approve(address(liquidityPool), MAX_ALLOWANCE);
             liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
             usdcMock.mint(users[i], START_BALANCE_1000);
+            bestia.approve(address(bestia), MAX_ALLOWANCE);
             vm.stopPrank();
         }
     }

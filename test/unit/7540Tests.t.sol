@@ -7,6 +7,10 @@ import {console2} from "forge-std/Test.sol";
 
 // TODO: Write a test for yield distribution and complex withdrawal. Vault might not be fair
 contract ERC7540Tests is BaseTest {
+
+    /*//////////////////////////////////////////////////////////////
+                            MOCK 7540 TESTS
+    ////////////////////////////////////////////////////////////////*/
     function testDepositAndMintFlow() public {
         address user = address(user1);
         address notController = address(user2);
@@ -233,7 +237,10 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), amount * 4 + startingAssets); // 1 initial + 3 additional users
     }
 
-    // Helper Functions
+    /*//////////////////////////////////////////////////////////////
+                            HELPER FUNCTIONS
+    ////////////////////////////////////////////////////////////////*/
+
     function userDepositsAndMints(address user, uint256 amount) public {
         // user requests depost of amount
         vm.startPrank(user);
@@ -296,4 +303,30 @@ contract ERC7540Tests is BaseTest {
         liquidityPool.processPendingDeposits();
         vm.stopPrank();
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            MAIN CONTRACT TESTS
+    ////////////////////////////////////////////////////////////////*/
+
+    function testBestiaRequestRedeem() public {
+        seedBestia();
+        uint256 userShares = bestia.balanceOf(address(user1));
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;      
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert user balance has been reduced by correct amout of shares
+        assertEq(bestia.balanceOf(address(user1)), userShares - sharesToRedeem);
+
+        // assert that the escrow address has received the share tokens
+        assertEq(bestia.balanceOf(address(escrow)), sharesToRedeem);
+
+        // assert the pendingRedeemRequests is updating correctly
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
+
+        
+    }
+
 }

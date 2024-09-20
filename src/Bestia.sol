@@ -66,7 +66,11 @@ contract Bestia is ERC4626, Ownable {
     Component[] public components;
     mapping(address => uint256) public componentIndex;
 
-    ///// 7540 DATA STRUCTURES /////
+
+
+    ///////////////////////// 7540 DATA STRUCTURES /////////////////////////
+    
+    
     
     // 7540 PENDING REQUESTS
     struct PendingRequest {
@@ -83,6 +87,15 @@ contract Bestia is ERC4626, Ownable {
 
     // 7540 Arrays
     PendingRequest[] public pendingRedeemRequests;
+
+    // REQUEST_ID
+    // @dev Requests for nodes are non-fungible and all have ID = 0
+    uint256 private constant REQUEST_ID = 0;
+
+
+
+    ////////////////////////////////////////////////////////////////
+
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -249,24 +262,21 @@ contract Bestia is ERC4626, Ownable {
 
     // Just doing withdrawals. Deposits: normal ERC4626 interface
 
-    // note: need some kind of way for for withdraw and redeem to first check for any claimable
+    // 
 
     // CONTROLLER
     // How can I use this? What is really the point of it?
+    // TODO: figure out how the controller and operator role relate to integrators
 
     // CONSTRAINTS
     // 1. The redeem and withdraw methods do not transfer shares to the Vault, because this already happened on requestRedeem.
     // 2. The owner field of redeem and withdraw SHOULD be renamed to controller, and the controller MUST be msg.sender unless the controller has approved the msg.sender as an operator.
     // 3. previewRedeem and previewWithdraw MUST revert for all callers and inputs.
 
-    // DATA STRUCTURES
-
-    // REQUEST_ID
-    // todo: set to zero for now
 
     // FUNCTIONS
 
-    function requestRedeem(uint256 shares, address controller, address owner) public returns (uint256 requestId) {
+    
         // todo: send user shares to escrow.
         // todo: burn them when the user redeem/withdaws
         // -- Assumes control of shares from owner and submits a Request for asynchronous redeem.
@@ -274,11 +284,36 @@ contract Bestia is ERC4626, Ownable {
         // -- pendingRedeemRequest for the amount shares.
         // -- In either case, the shares MUST be removed from the custody of owner upon
         // -- requestRedeem and burned by the time the request is Claimed.
+    
+
+    function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
+        require(shares > 0, "Cannot request redeem of 0 shares");
+        require(balanceOf(_owner) >= shares, "Insufficient shares");
+        require(_owner == msg.sender || isOperator(_owner, msg.sender), "Not authorized");
+
+        // Transfer ERC4626 share tokens from owner back to vault
+        require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
+
+        uint256 index = controllerToRedeemIndex[controller];
+
+        if (index > 0) {
+            pendingRedeemRequests[index - 1].amount += shares;
+        } else {
+            PendingRequest memory newRequest = PendingRequest({controller: controller, amount: shares});
+
+            pendingRedeemRequests.push(newRequest);
+            controllerToRedeemIndex[controller] = pendingRedeemRequests.length;
+        }
+
+        emit RedeemRequest(controller, _owner, REQUEST_ID, msg.sender, shares);
+
+        return REQUEST_ID;
     }
 
-    function pendingRedeemRequest(uint256 requestId, address controller) public view returns (uint256 shares) {
-        // The amount of requested shares in Pending state for the controller
-        // with the given requestId to redeem or withdraw.
+    function pendingRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
+        uint256 index = controllerToRedeemIndex[controller];
+        require(index > 0, "No pending redemption for controller");
+        return pendingRedeemRequests[index - 1].amount;
     }
 
     // should other functions in my contract call this to in order to execute transaction to withdraw?
@@ -299,6 +334,32 @@ contract Bestia is ERC4626, Ownable {
         // MUST log the OperatorSet event.
         // MUST return True.
     }
+
+    function processPendingRedemption() public onlyBanker {
+        // does it makes sense to make this only focus on one redemption at a time for now?
+
+    }
+
+    ////////////////////////// OVERRIDES ///////////////////////////
+
+    // function maxWithdraw(address controller) public view override(ERC4626) returns (uint256 maxAssets) {
+        
+    // }
+
+    // create all of your withdrawal logic in here so as not to break your test
+    // refactor later to replace the other withdraw functions
+    function tempWithdraw() public {
+
+    }
+
+    // function previewWithdraw(uint256) public view virtual override returns (uint256) {
+    //     revert("ERC7540: previewWithdraw not available for async vault");
+    // }
+
+    // function previewRedeem(uint256) public view virtual override returns (uint256) {
+    //     revert("ERC7540: previewRedeem not available for async vault");
+    // }
+
 
     /*//////////////////////////////////////////////////////////////
                     ASYNC ASSET MANAGEMENT LOGIC (7540)
