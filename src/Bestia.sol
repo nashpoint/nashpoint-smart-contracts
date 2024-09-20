@@ -16,10 +16,6 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-/*//////////////////////////////////////////////////////////////
-                    ERC-7540 WITHDRAWALS PLAN
-//////////////////////////////////////////////////////////////*/
-
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
@@ -66,12 +62,8 @@ contract Bestia is ERC4626, Ownable {
     Component[] public components;
     mapping(address => uint256) public componentIndex;
 
-
-
     ///////////////////////// 7540 DATA STRUCTURES /////////////////////////
-    
-    
-    
+
     // 7540 PENDING REQUESTS
     struct PendingRequest {
         // note: might need to store value of swing factor at redemption request
@@ -92,10 +84,7 @@ contract Bestia is ERC4626, Ownable {
     // @dev Requests for nodes are non-fungible and all have ID = 0
     uint256 private constant REQUEST_ID = 0;
 
-
-
     ////////////////////////////////////////////////////////////////
-
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -130,7 +119,7 @@ contract Bestia is ERC4626, Ownable {
     event AsyncWithdrawalExecuted(address component, uint256 assets);
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
 
-    ////// 7540 EVENTS ////// 
+    ////// 7540 EVENTS //////
     event RedeemRequest(
         address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares
     );
@@ -262,7 +251,7 @@ contract Bestia is ERC4626, Ownable {
 
     // Just doing withdrawals. Deposits: normal ERC4626 interface
 
-    // 
+    //
 
     // CONTROLLER
     // How can I use this? What is really the point of it?
@@ -273,18 +262,15 @@ contract Bestia is ERC4626, Ownable {
     // 2. The owner field of redeem and withdraw SHOULD be renamed to controller, and the controller MUST be msg.sender unless the controller has approved the msg.sender as an operator.
     // 3. previewRedeem and previewWithdraw MUST revert for all callers and inputs.
 
-
     // FUNCTIONS
 
-    
-        // todo: send user shares to escrow.
-        // todo: burn them when the user redeem/withdaws
-        // -- Assumes control of shares from owner and submits a Request for asynchronous redeem.
-        // -- This places the Request in Pending state, with a corresponding increase in
-        // -- pendingRedeemRequest for the amount shares.
-        // -- In either case, the shares MUST be removed from the custody of owner upon
-        // -- requestRedeem and burned by the time the request is Claimed.
-    
+    // -- Assumes control of shares from owner and submits a Request for asynchronous redeem.
+    // -- This places the Request in Pending state, with a corresponding increase in
+    // -- pendingRedeemRequest for the amount shares.
+    // -- In either case, the shares MUST be removed from the custody of owner upon
+    // -- requestRedeem and burned by the time the request is Claimed.
+
+    // todo: send user shares to escrow.
 
     function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
@@ -335,22 +321,45 @@ contract Bestia is ERC4626, Ownable {
         // MUST return True.
     }
 
-    function processPendingRedemption() public onlyBanker {
-        // does it makes sense to make this only focus on one redemption at a time for now?
+    function fulfilRedeemFromSynch(address _controller, address _component) public onlyBanker {
+        uint256 index = controllerToRedeemIndex[_controller];
 
+        // Ensure there is a pending request for this controller
+        require(index > 0, "No pending request for this controller");
+
+        PendingRequest storage request = pendingRedeemRequests[index - 1];
+        address escrowAddress = address(escrow);
+
+        uint256 sharesPending = request.amount;
+        uint256 assetsRequested = convertToAssets(sharesPending);
+
+        uint256 sharesToLiquidate = ERC4626(_component).convertToShares(assetsRequested);
+        uint256 assetsClaimable = liquidateSynchVaultPosition(_component, sharesToLiquidate);
+        
+        // Burn the shares on escrow
+        _burn(escrowAddress, sharesPending);
+
+        // Transfer tokens to Escrow
+        IERC20(asset()).transfer(escrowAddress, assetsClaimable);
+
+        // Call deposit function on Escrow
+        escrow.deposit(asset(), assetsClaimable);
+        emit WithdrawalFundsSentToEscrow(escrowAddress, asset(), assetsClaimable);
+
+        // set claimable redeem for user
+        // note: these are denominated in shares
+        claimableRedeemRequests[request.controller] += sharesPending;
     }
 
     ////////////////////////// OVERRIDES ///////////////////////////
 
-    // function maxWithdraw(address controller) public view override(ERC4626) returns (uint256 maxAssets) {
-        
-    // }
+    function _maxWithdraw(address controller) public view returns (uint256 maxAssets) {
+
+    }
 
     // create all of your withdrawal logic in here so as not to break your test
     // refactor later to replace the other withdraw functions
-    function tempWithdraw() public {
-
-    }
+    function tempWithdraw() public {}
 
     // function previewWithdraw(uint256) public view virtual override returns (uint256) {
     //     revert("ERC7540: previewWithdraw not available for async vault");
@@ -359,7 +368,6 @@ contract Bestia is ERC4626, Ownable {
     // function previewRedeem(uint256) public view virtual override returns (uint256) {
     //     revert("ERC7540: previewRedeem not available for async vault");
     // }
-
 
     /*//////////////////////////////////////////////////////////////
                     ASYNC ASSET MANAGEMENT LOGIC (7540)

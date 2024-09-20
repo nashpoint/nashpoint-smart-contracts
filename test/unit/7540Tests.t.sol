@@ -7,7 +7,6 @@ import {console2} from "forge-std/Test.sol";
 
 // TODO: Write a test for yield distribution and complex withdrawal. Vault might not be fair
 contract ERC7540Tests is BaseTest {
-
     /*//////////////////////////////////////////////////////////////
                             MOCK 7540 TESTS
     ////////////////////////////////////////////////////////////////*/
@@ -311,7 +310,7 @@ contract ERC7540Tests is BaseTest {
     function testBestiaRequestRedeem() public {
         seedBestia();
         uint256 userShares = bestia.balanceOf(address(user1));
-        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;      
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
 
         vm.startPrank(user1);
         bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
@@ -325,8 +324,31 @@ contract ERC7540Tests is BaseTest {
 
         // assert the pendingRedeemRequests is updating correctly
         assertEq(bestia.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
-
-        
     }
 
+    function testBestiaFulfilRedeemFromAsync() public {
+        seedBestia();
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+        uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert there is zero balance at escrow address
+        assertEq(usdcMock.balanceOf(address(escrow)), 0);
+
+        vm.startPrank(banker);
+        bestia.fulfilRedeemFromSynch(address(user1), address(vaultA));
+        vm.stopPrank();
+
+        // assert that shares have been burned
+        assertEq(bestia.balanceOf(address(escrow)), 0);
+
+        // assert that claimable assets have been sent to escrow address
+        assertEq(usdcMock.balanceOf(address(escrow)), assetsToClaim);
+
+        
+
+    }
 }
