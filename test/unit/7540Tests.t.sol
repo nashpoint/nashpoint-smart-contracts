@@ -353,4 +353,26 @@ contract ERC7540Tests is BaseTest {
         assertEq(bestia.claimableRedeemRequest(0, address(user1)), sharesToRedeem);
         assertEq(bestia._maxWithdraw(user1), assetsToClaim);
     }
+
+    function testBestiaTempWithdraw() public {
+        seedBestia();
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+        uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        bestia.fulfilRedeemFromSynch(address(user1), address(vaultA));
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        // user burns all usdc
+        usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
+        bestia.tempWithdraw(assetsToClaim, address(user1), address(user1));
+        vm.stopPrank();
+
+        assertEq(assetsToClaim, usdcMock.balanceOf(address(user1)));
+    }
 }

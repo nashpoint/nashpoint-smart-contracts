@@ -70,8 +70,8 @@ contract Bestia is ERC4626, Ownable {
         uint256 sharesPending;
         uint256 sharesClaimable;
         uint256 assetsClaimable;
+        uint256 swingFactor; // TODO: not yet implemented
     }
-    // todo: uint256 swingFactor;
 
     // 7540 MAPPINGS
     mapping(address => mapping(address => bool)) private _operators;
@@ -129,7 +129,9 @@ contract Bestia is ERC4626, Ownable {
                             ERROR HANDLING
     ////////////////////////////////////////////////////////////////*/
 
-    // ERRORS TODO: rename these errors to be more descriptive and include contract name
+    // ERRORS
+    // TODO: rename these errors to be more descriptive and include contract name
+    // TODO: add returns values
     error ReserveBelowTargetRatio();
     error AsyncAssetBelowMinimum();
     error NotEnoughReserveCash();
@@ -145,7 +147,9 @@ contract Bestia is ERC4626, Ownable {
     error UserLiquidationsDisabled();
     error CannotLiquidate();
 
+    // ERC-7540 ERRORS
     error NoRedeemRequestForController();
+    error ExceededMaxWithdraw(address controller, uint256 assets, uint256 maxAssets);
 
     /*//////////////////////////////////////////////////////////////
                     STANDARD USER DEPOSIT LOGIC (ERC4626)
@@ -287,8 +291,13 @@ contract Bestia is ERC4626, Ownable {
         if (index > 0) {
             redeemRequests[index - 1].sharesPending += shares;
         } else {
-            Request memory newRequest =
-                Request({controller: controller, sharesPending: shares, sharesClaimable: 0, assetsClaimable: 0});
+            Request memory newRequest = Request({
+                controller: controller,
+                sharesPending: shares,
+                sharesClaimable: 0,
+                assetsClaimable: 0,
+                swingFactor: 0
+            });
 
             redeemRequests.push(newRequest);
             controllerToRedeemIndex[controller] = redeemRequests.length;
@@ -368,9 +377,43 @@ contract Bestia is ERC4626, Ownable {
         }
     }
 
-    // create all of your withdrawal logic in here so as not to break your test
+    function maxRedeem(address controller) public view override returns (uint256 maxShares) {
+        uint256 index = controllerToRedeemIndex[controller];
+        if (index == 0) {
+            revert NoRedeemRequestForController();
+        } else {
+            return redeemRequests[index - 1].sharesClaimable;
+        }
+    }
+
     // todo: override and remove "_"
-    function _withdraw() public {}
+    function tempWithdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
+        // TODO: need some kind of security check on controller / operator / msg.sender here
+
+        uint256 _index = controllerToRedeemIndex[controller];
+
+        // Ensure there is a pending request for this controller
+        require(_index > 0, "No pending request for this controller");
+
+        uint256 maxAssets = _maxWithdraw(controller);
+        uint256 maxShares = maxRedeem(controller);
+        if (assets > maxAssets) {
+            revert ExceededMaxWithdraw(controller, assets, maxAssets);
+        }
+
+        Request storage request = redeemRequests[_index - 1];
+        address escrowAddress = address(escrow);
+
+        shares = (assets * maxShares) / maxAssets;
+
+        request.sharesClaimable -= shares;
+        request.assetsClaimable -= assets;
+
+        // using transferFrom as shares already burned when redeem made claimable
+        IERC20(asset()).transferFrom(escrowAddress, receiver, assets);
+
+        return shares;
+    }
 
     // function previewWithdraw(uint256) public view virtual override returns (uint256) {
     //     revert("ERC7540: previewWithdraw not available for async vault");
