@@ -7,6 +7,9 @@ import {console2} from "forge-std/Test.sol";
 
 // TODO: Write a test for yield distribution and complex withdrawal. Vault might not be fair
 contract ERC7540Tests is BaseTest {
+    /*//////////////////////////////////////////////////////////////
+                            MOCK 7540 TESTS
+    ////////////////////////////////////////////////////////////////*/
     function testDepositAndMintFlow() public {
         address user = address(user1);
         address notController = address(user2);
@@ -233,7 +236,10 @@ contract ERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), amount * 4 + startingAssets); // 1 initial + 3 additional users
     }
 
-    // Helper Functions
+    /*//////////////////////////////////////////////////////////////
+                            HELPER FUNCTIONS
+    ////////////////////////////////////////////////////////////////*/
+
     function userDepositsAndMints(address user, uint256 amount) public {
         // user requests depost of amount
         vm.startPrank(user);
@@ -295,5 +301,121 @@ contract ERC7540Tests is BaseTest {
         liquidityPool.requestDeposit(DEPOSIT_100, manager, manager);
         liquidityPool.processPendingDeposits();
         vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            MAIN CONTRACT TESTS
+    ////////////////////////////////////////////////////////////////*/
+
+    function testBestiaRequestRedeem() public {
+        seedBestia();
+        uint256 userShares = bestia.balanceOf(address(user1));
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert user balance has been reduced by correct amout of shares
+        assertEq(bestia.balanceOf(address(user1)), userShares - sharesToRedeem);
+
+        // assert that the escrow address has received the share tokens
+        assertEq(bestia.balanceOf(address(escrow)), sharesToRedeem);
+
+        // assert the pendingRedeemRequests is updating correctly
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
+    }
+
+    function testBestiaFulfilRedeemFromSynchVault() public {
+        seedBestia();
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+        uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert there is zero balance at escrow address
+        assertEq(usdcMock.balanceOf(address(escrow)), 0);
+
+        vm.startPrank(banker);
+        // todo: maybe drop this later if you delete function
+        bestia.fulfilRedeemFromSynch(address(user1), address(vaultA));
+        vm.stopPrank();
+
+        // assert that shares have been burned
+        assertEq(bestia.balanceOf(address(escrow)), 0);
+
+        // assert that claimable assets have been sent to escrow address
+        assertEq(usdcMock.balanceOf(address(escrow)), assetsToClaim);
+
+        // assert that Request has been updated
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), 0);
+        assertEq(bestia.claimableRedeemRequest(0, address(user1)), sharesToRedeem);
+        assertEq(bestia._maxWithdraw(user1), assetsToClaim);
+    }
+
+    function testBestiaTempWithdraw() public {
+        seedBestia();
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+        uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // grab details for vault to liquidate
+        address vaultAddress = address(vaultA);
+        uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim);
+
+        // banker liquidates asset from sync vault position to top up
+        vm.startPrank(banker);
+        bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
+        bestia.fulfilRedeemFromReserve(address(user1));
+        vm.stopPrank();
+
+        // user burns all usdc and withdraws
+        vm.startPrank(user1);
+        usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
+        bestia.tempWithdraw(assetsToClaim, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert user has received correct balance of asset
+        assertEq(assetsToClaim, usdcMock.balanceOf(address(user1)));
+
+        // assert that Request has been cleared
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), 0);
+        assertEq(bestia.claimableRedeemRequest(0, address(user1)), 0);
+        assertEq(bestia._maxWithdraw(user1), 0);
+    }
+
+    function testfulfilRedeemFromReserveReverts() public {
+        seedBestia();
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+        uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // grab details for vault to liquidate. only liquidate requested withdrawal
+        address vaultAddress = address(vaultA);
+        uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim / 2);
+
+        // banker liquidates asset from sync vault position to top up
+        vm.startPrank(banker);
+        bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
+
+        // revert: no claimable assets for user
+        vm.expectRevert();
+        bestia.fulfilRedeemFromReserve(address(user2));
+
+        // revert: not enough excess usdc above target cash reserve
+        vm.expectRevert();
+        bestia.fulfilRedeemFromReserve(address(user1));
+
+        // liquidate other half and fulfilRedeemFrom Reserve succeeds
+        bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
+        bestia.fulfilRedeemFromReserve(address(user1));
     }
 }

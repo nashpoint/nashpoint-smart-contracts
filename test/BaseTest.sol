@@ -194,8 +194,10 @@ contract BaseTest is Test {
             vm.startPrank(users[i]);
             usdcMock.approve(address(bestia), MAX_ALLOWANCE);
             usdcMock.approve(address(liquidityPool), MAX_ALLOWANCE);
+            usdcMock.approve(address(escrow), MAX_ALLOWANCE);
             liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
             usdcMock.mint(users[i], START_BALANCE_1000);
+            bestia.approve(address(bestia), MAX_ALLOWANCE);
             vm.stopPrank();
         }
     }
@@ -207,6 +209,10 @@ contract BaseTest is Test {
         usdcMock.approve(address(vaultC), MAX_ALLOWANCE);
         usdcMock.approve(address(liquidityPool), MAX_ALLOWANCE);
         liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
+        vm.stopPrank();
+
+        vm.startPrank(address(escrow));
+        usdcMock.approve(address(bestia), MAX_ALLOWANCE);
         vm.stopPrank();
     }
 

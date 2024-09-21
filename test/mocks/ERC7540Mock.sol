@@ -186,12 +186,12 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
         uint256 totalPendingShares = 0;
         uint256 pendingRedeemCount = pendingRedeemRequests.length;
 
-        // Sum up total pending assets
+        // Sum up total pending shares
         for (uint256 i = 0; i < pendingRedeemCount; i++) {
             totalPendingShares += pendingRedeemRequests[i].amount;
         }
 
-        // Calculate total shares to mint
+        // Calculate total assets to release
         uint256 _totalAssets = convertToAssets(totalPendingShares);
 
         // Calculate share/asset ratio

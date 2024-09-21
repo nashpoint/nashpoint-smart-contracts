@@ -29,7 +29,7 @@ contract LiquidationsTest is BaseTest {
         uint256 initialVaultA = vaultA.convertToAssets(vaultA.balanceOf(address(bestia)));
 
         // liquidate 10 assets worth of shares
-        bestia.liquidateSynchVaultPosition(address(vaultA), vaultA.convertToShares(DEPOSIT_10));
+        bestia.liquidateSyncVaultPosition(address(vaultA), vaultA.convertToShares(DEPOSIT_10));
 
         // assert remaining holdings in Vault A == initial investment minus liquidated assets
         uint256 remainingVaultA = vaultA.convertToAssets(vaultA.balanceOf(address(bestia)));
@@ -40,22 +40,22 @@ contract LiquidationsTest is BaseTest {
 
         // revert: cannot redeem 0 shares
         vm.expectRevert();
-        bestia.liquidateSynchVaultPosition(address(vaultA), 0);
+        bestia.liquidateSyncVaultPosition(address(vaultA), 0);
 
         // get too many shares for redemption
         uint256 tooManyShares = vaultA.balanceOf(address(bestia)) + 1;
 
         // revert: cannot redeem more shares than balance
         vm.expectRevert();
-        bestia.liquidateSynchVaultPosition(address(vaultA), tooManyShares);
+        bestia.liquidateSyncVaultPosition(address(vaultA), tooManyShares);
 
         // revert: cannot liquidate async vault
         vm.expectRevert();
-        bestia.liquidateSynchVaultPosition(address(liquidityPool), tooManyShares);
+        bestia.liquidateSyncVaultPosition(address(liquidityPool), tooManyShares);
 
         // revert: cannot liquidate non component
         vm.expectRevert();
-        bestia.liquidateSynchVaultPosition(address(usdc), 1);
+        bestia.liquidateSyncVaultPosition(address(usdc), 1);
     }
 
     function testComponentsOrder() public {
@@ -185,12 +185,12 @@ contract LiquidationsTest is BaseTest {
 
         // convert this to shares to enable expectRevert to run directly on the value
         uint256 tooManyShares = bestia.convertToShares(DEPOSIT_10);
-        
+
         // revert: skips all sync assets as too small
         // then cannot withdraw from the async asset
         vm.expectRevert();
         bestia.instantUserLiquidation(tooManyShares);
-        
+
         vm.stopPrank();
     }
 }

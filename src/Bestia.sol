@@ -16,6 +16,13 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
+////////////// Plans For Today /////////////
+
+// 1. DONE: create flow for manager to withdraw from sync and async and process redemption
+// 2. DONE: create flow for manager to fulfil redeem from excess Reserve
+// 3. TODO: Test more edge cases and reverts
+// 4. TODO: Take a look at factory contracts
+
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
@@ -62,6 +69,30 @@ contract Bestia is ERC4626, Ownable {
     Component[] public components;
     mapping(address => uint256) public componentIndex;
 
+    ///////////////////////// 7540 DATA STRUCTURES /////////////////////////
+
+    // 7540 PENDING REQUESTS
+    struct Request {
+        address controller;
+        uint256 sharesPending;
+        uint256 sharesClaimable;
+        uint256 assetsClaimable;
+        uint256 swingFactor; // TODO: not yet implemented
+    }
+
+    // 7540 MAPPINGS
+    mapping(address => mapping(address => bool)) private _operators;
+    mapping(address => uint256) public controllerToRedeemIndex;
+
+    // 7540 Arrays
+    Request[] public redeemRequests;
+
+    // REQUEST_ID
+    // @dev Requests for nodes are non-fungible and all have ID = 0
+    uint256 private constant REQUEST_ID = 0;
+
+    ////////////////////////////////////////////////////////////////
+
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -95,11 +126,19 @@ contract Bestia is ERC4626, Ownable {
     event AsyncWithdrawalExecuted(address component, uint256 assets);
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
 
+    ////// 7540 EVENTS //////
+    event RedeemRequest(
+        address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares
+    );
+    event OperatorSet(address indexed controller, address indexed operator, bool approved);
+
     /*//////////////////////////////////////////////////////////////
                             ERROR HANDLING
     ////////////////////////////////////////////////////////////////*/
 
-    // ERRORS TODO: rename these errors to be more descriptive and include contract name
+    // ERRORS
+    // TODO: rename these errors to be more descriptive and include contract name
+    // TODO: add returns values
     error ReserveBelowTargetRatio();
     error AsyncAssetBelowMinimum();
     error NotEnoughReserveCash();
@@ -115,13 +154,17 @@ contract Bestia is ERC4626, Ownable {
     error UserLiquidationsDisabled();
     error CannotLiquidate();
 
+    // ERC-7540 ERRORS
+    error NoRedeemRequestForController();
+    error ExceededMaxWithdraw(address controller, uint256 assets, uint256 maxAssets);
+
     /*//////////////////////////////////////////////////////////////
-                              ERC4626 LOGIC
+                    STANDARD USER DEPOSIT LOGIC (ERC4626)
     //////////////////////////////////////////////////////////////*/
 
-    // total assets override function
-    // must add async component for call to bestia.totalAssets to succeed
-    // TODO: refactor totalAssets to avoid this issue later
+    // totalAssets() override function
+    // -- must add async component for call to bestia.totalAssets to succeed
+    // -- TODO: refactor totalAssets to avoid this issue later
     function totalAssets() public view override returns (uint256) {
         // gets the cash reserve
         uint256 cashReserve = usdc.balanceOf(address(this));
@@ -141,6 +184,8 @@ contract Bestia is ERC4626, Ownable {
     // We are basing the discount on the reserve ratio after the transaction.
     // This means while the RR is below target. There is actually an incentive to break
     // up a deposit into smaller transactions to receive a greater discount.
+    // TODO: fix this by changing the logic to increase the size of the discount proportional to the
+    // amount that the deposit closes the gap to the target reserve ratio
     function deposit(uint256 _assets, address receiver) public override returns (uint256) {
         uint256 internalAssets = _assets;
         uint256 maxAssets = maxDeposit(receiver);
@@ -214,7 +259,187 @@ contract Bestia is ERC4626, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                          ASYNC ASSET LOGIC
+                        ASYNC USER WITHDRAWAL LOGIC (7540)
+    //////////////////////////////////////////////////////////////*/
+
+    // CONTROLLER
+    // How can I use this? What is really the point of it?
+    // TODO: figure out how the controller and operator role relate to integrators
+
+    // CONSTRAINTS
+    // 1. The redeem and withdraw methods do not transfer shares to the Vault, because this already happened on requestRedeem.
+    // 2. The owner field of redeem and withdraw SHOULD be renamed to controller, and the controller MUST be msg.sender unless the controller has approved the msg.sender as an operator.
+    // 3. previewRedeem and previewWithdraw MUST revert for all callers and inputs.
+
+    // FUNCTIONS
+
+    // user requests to redeem their funds from the vault. they send their shares to the escrow contract
+    function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
+        require(shares > 0, "Cannot request redeem of 0 shares");
+        require(balanceOf(_owner) >= shares, "Insufficient shares");
+        require(_owner == msg.sender || isOperator(_owner, msg.sender), "Not authorized");
+
+        // Transfer ERC4626 share tokens from owner back to vault
+        require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
+
+        uint256 index = controllerToRedeemIndex[controller];
+
+        if (index > 0) {
+            redeemRequests[index - 1].sharesPending += shares;
+        } else {
+            Request memory newRequest = Request({
+                controller: controller,
+                sharesPending: shares,
+                sharesClaimable: 0,
+                assetsClaimable: 0,
+                swingFactor: 0
+            });
+
+            redeemRequests.push(newRequest);
+            controllerToRedeemIndex[controller] = redeemRequests.length;
+        }
+
+        emit RedeemRequest(controller, _owner, REQUEST_ID, msg.sender, shares);
+
+        return REQUEST_ID;
+    }
+
+    // view function to see redeem requests that cannot yet be withdrawn
+    function pendingRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
+        uint256 index = controllerToRedeemIndex[controller];
+        require(index > 0, "No pending redemption for controller");
+        return redeemRequests[index - 1].sharesPending;
+    }
+
+    // view function to see redeemm requests that can be withdrawn
+    function claimableRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
+        uint256 index = controllerToRedeemIndex[controller];
+        require(index > 0, "No claimable redemption for controller");
+        return redeemRequests[index - 1].sharesClaimable;
+    }
+
+    function isOperator(address controller, address operator) public view returns (bool status) {
+        // Returns true if the operator is approved as an operator for a controller.
+    }
+
+    function setOperator(address operator, bool approved) public returns (bool success) {
+        // Grants or revokes permissions for operator to manage Requests on behalf of the msg.sender.
+        // MUST set the operator status to the approved value.
+        // MUST log the OperatorSet event.
+        // MUST return True.
+    }
+
+    // banker-controller function to use excess reserve cash to fulfil withdrawal
+    // requires 1 of 3 things to be true to succeed:
+    // -- 1. recently deposited cash exceeds target reserve ratio
+    // -- 2. banker to have reduced a sync vault position
+    // -- 3. banker to have reduced an async vault position
+    function fulfilRedeemFromReserve(address _controller) public onlyBanker {
+        uint256 index = controllerToRedeemIndex[_controller];
+        uint256 balance = usdc.balanceOf(address(this));
+
+        // Ensure there is a pending request for this controller
+        if (index == 0) {
+            revert NoRedeemRequestForController();
+        }
+
+        Request storage request = redeemRequests[index - 1];
+        address escrowAddress = address(escrow);
+
+        // note: this is not including swing factor
+        uint256 shares = request.sharesPending;
+        uint256 assets = convertToAssets(shares);
+
+        // get reserve ratio after tx
+        uint256 reserveRatioAfterTx = Math.mulDiv(balance - assets, 1e18, totalAssets() - assets);
+
+        // will revert if withdawal will reduce reserve below target ratio
+        // if passes, it demonstrate that withdrawal amount < total reserve balance
+        if (reserveRatioAfterTx < targetReserveRatio) {
+            revert NotEnoughReserveCash();
+        }
+
+        // additional safeguard in case of edge case
+        if (assets > balance) {
+            revert NotEnoughReserveCash();
+        }
+
+        // Burn the shares on escrow
+        _burn(escrowAddress, shares);
+
+        // Transfer tokens to Escrow
+        IERC20(asset()).transfer(escrowAddress, assets);
+
+        // Call deposit function on Escrow
+        escrow.deposit(asset(), assets);
+        emit WithdrawalFundsSentToEscrow(escrowAddress, asset(), assets);
+
+        // update balances in Request
+        request.sharesPending -= shares; // shares removed from pending
+        request.sharesClaimable += shares; // shares added to claimable
+        request.assetsClaimable += assets; // assets added to claimable
+    }
+
+    ////////////////////////// OVERRIDES ///////////////////////////
+
+    // todo: override and remove "_"
+    function _maxWithdraw(address controller) public view returns (uint256 maxAssets) {
+        uint256 index = controllerToRedeemIndex[controller];
+        if (index == 0) {
+            revert NoRedeemRequestForController();
+        } else {
+            return redeemRequests[index - 1].assetsClaimable;
+        }
+    }
+
+    function maxRedeem(address controller) public view override returns (uint256 maxShares) {
+        uint256 index = controllerToRedeemIndex[controller];
+        if (index == 0) {
+            revert NoRedeemRequestForController();
+        } else {
+            return redeemRequests[index - 1].sharesClaimable;
+        }
+    }
+
+    // todo: override and remove "temp"
+    function tempWithdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
+        // TODO: need some kind of security check on controller / operator / msg.sender here
+
+        uint256 _index = controllerToRedeemIndex[controller];
+
+        // Ensure there is a pending request for this controller
+        require(_index > 0, "No pending request for this controller");
+
+        uint256 maxAssets = _maxWithdraw(controller);
+        uint256 maxShares = maxRedeem(controller);
+        if (assets > maxAssets) {
+            revert ExceededMaxWithdraw(controller, assets, maxAssets);
+        }
+
+        Request storage request = redeemRequests[_index - 1];
+        address escrowAddress = address(escrow);
+
+        shares = (assets * maxShares) / maxAssets;
+
+        request.sharesClaimable -= shares;
+        request.assetsClaimable -= assets;
+
+        // using transferFrom as shares already burned when redeem made claimable
+        IERC20(asset()).transferFrom(escrowAddress, receiver, assets);
+
+        return shares;
+    }
+
+    // function previewWithdraw(uint256) public view virtual override returns (uint256) {
+    //     revert("ERC7540: previewWithdraw not available for async vault");
+    // }
+
+    // function previewRedeem(uint256) public view virtual override returns (uint256) {
+    //     revert("ERC7540: previewRedeem not available for async vault");
+    // }
+
+    /*//////////////////////////////////////////////////////////////
+                    ASYNC ASSET MANAGEMENT LOGIC (7540)
     //////////////////////////////////////////////////////////////*/
 
     // TODO: check how much gas this uses. might need to cache data instead
@@ -336,7 +561,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        SYNCHRONOUS ASSET LOGIC
+                SYNCHRONOUS ASSET MANAGEMENT LOGIC (4626)
     //////////////////////////////////////////////////////////////*/
 
     // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
@@ -386,10 +611,10 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // need to make this internal so checks on shares, maxRedeem all pass before executing
-    // note: this function could introduce accounting errors 
+    // note: this function could introduce accounting errors
     // as it removes assets without burning shares
     // REITERATE: NEVER CALL DIRECTLY, MUST BE INTERNAL
-    function liquidateSynchVaultPosition(address _component, uint256 shares) public returns (uint256 assetsReturned) {
+    function liquidateSyncVaultPosition(address _component, uint256 shares) public returns (uint256 assetsReturned) {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }
@@ -416,46 +641,6 @@ contract Bestia is ERC4626, Ownable {
         require(assets >= expectedAssets, "Redeemed assets less than expected");
 
         return assets;
-    }
-
-    // only works on one vault at a time
-    // if a user requires liquidation from multiple vaults they will need to requestWithdrawal
-    function instantUserLiquidation(uint256 _shares) public {
-        if (!instantLiquidationsEnabled) {
-            revert UserLiquidationsDisabled();
-        }
-
-        // applies maxDiscount to user withdrawal to get total assets to liquidate for
-        uint256 adjustedAssets = Math.mulDiv(convertToAssets(_shares), 1e18 - maxDiscount, 1e18);
-
-        // find vault to liquidate based on withdrawal queue and available assets
-        for (uint256 i = 0; i < components.length; i++) {
-            Component memory component = components[i];
-
-            // check if component is async, if yes revert
-            if (component.isAsync) {
-                continue;
-            }
-
-            // check if component has enough assets to meet withdrawl
-            IERC4626 _component = IERC4626(component.component);
-            if (_component.convertToAssets(_component.balanceOf(address(this))) > adjustedAssets) {
-                // if yes define correct shares to liquidate based on the adjustedAssets
-                uint256 sharesToLiquidate = _component.convertToShares(adjustedAssets);
-                address user = msg.sender;
-
-                // withdraw from underlying vault using liquidateSynchVaultPosition()
-                liquidateSynchVaultPosition(address(_component), sharesToLiquidate);
-
-                // return funds to user and burn their shares
-                _withdraw(user, user, user, adjustedAssets, _shares);
-
-                // Exit the function after successful withdrawal
-                return;
-            }
-        }
-        // If no synchronous component could fulfill the request, revert
-        revert CannotLiquidate();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -578,5 +763,80 @@ contract Bestia is ERC4626, Ownable {
 
     function previewDeposit(uint256 assets) public view override returns (uint256) {
         return _convertToShares(assets, Math.Rounding.Floor);
+    }
+
+    // todo: consider from deletion LATER after you finalize design
+    // Banker-controlled function to pull assets from a 4626 vault and make assets claimable for user
+    function fulfilRedeemFromSynch(address _controller, address _component) public onlyBanker {
+        uint256 _index = controllerToRedeemIndex[_controller];
+
+        // Ensure there is a pending request for this controller
+        require(_index > 0, "No pending request for this controller");
+
+        Request storage request = redeemRequests[_index - 1];
+        address _escrowAddress = address(escrow);
+
+        // note: this is not including swing factor
+        uint256 _sharesRedeeming = request.sharesPending;
+        uint256 _assetsRequested = convertToAssets(_sharesRedeeming);
+
+        uint256 _sharesToLiquidate = ERC4626(_component).convertToShares(_assetsRequested);
+        uint256 _assetsClaimable = liquidateSyncVaultPosition(_component, _sharesToLiquidate);
+
+        // Burn the shares on escrow
+        _burn(_escrowAddress, _sharesRedeeming);
+
+        // Transfer tokens to Escrow
+        IERC20(asset()).transfer(_escrowAddress, _assetsClaimable);
+
+        // Call deposit function on Escrow
+        escrow.deposit(asset(), _assetsClaimable);
+        emit WithdrawalFundsSentToEscrow(_escrowAddress, asset(), _assetsClaimable);
+
+        // set claimable redeem for user
+        request.sharesPending -= _sharesRedeeming;
+        request.sharesClaimable += _sharesRedeeming;
+        request.assetsClaimable += _assetsClaimable;
+    }
+
+    // todo: consider for deletion LATER after you finalize design
+    // a user liquidates from a single vault
+    // note: logic is probably useful for iterating through assets to liquidate
+    function instantUserLiquidation(uint256 _shares) public {
+        if (!instantLiquidationsEnabled) {
+            revert UserLiquidationsDisabled();
+        }
+
+        // applies maxDiscount to user withdrawal to get total assets to liquidate for
+        uint256 adjustedAssets = Math.mulDiv(convertToAssets(_shares), 1e18 - maxDiscount, 1e18);
+
+        // find vault to liquidate based on withdrawal queue and available assets
+        for (uint256 i = 0; i < components.length; i++) {
+            Component memory component = components[i];
+
+            // check if component is async, if yes revert
+            if (component.isAsync) {
+                continue;
+            }
+
+            // check if component has enough assets to meet withdrawl
+            IERC4626 _component = IERC4626(component.component);
+            if (_component.convertToAssets(_component.balanceOf(address(this))) > adjustedAssets) {
+                // if yes define correct shares to liquidate based on the adjustedAssets
+                uint256 sharesToLiquidate = _component.convertToShares(adjustedAssets);
+                address user = msg.sender;
+
+                // withdraw from underlying vault using liquidateSynchVaultPosition()
+                liquidateSyncVaultPosition(address(_component), sharesToLiquidate);
+
+                // return funds to user and burn their shares
+                _withdraw(user, user, user, adjustedAssets, _shares);
+
+                // Exit the function after successful withdrawal
+                return;
+            }
+        }
+        // If no synchronous component could fulfill the request, revert
+        revert CannotLiquidate();
     }
 }
