@@ -16,6 +16,13 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
+////////////// Plans For Today /////////////
+
+// 1. DONE: create flow for manager to withdraw from sync and async and process redemption
+// 2. DONE: create flow for manager to fulfil redeem from excess Reserve
+// 3. TODO: Test more edge cases and reverts
+// 4. TODO: Take a look at factory contracts
+
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA

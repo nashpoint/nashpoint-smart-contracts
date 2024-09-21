@@ -339,6 +339,7 @@ contract ERC7540Tests is BaseTest {
         assertEq(usdcMock.balanceOf(address(escrow)), 0);
 
         vm.startPrank(banker);
+        // todo: maybe drop this later if you delete function
         bestia.fulfilRedeemFromSynch(address(user1), address(vaultA));
         vm.stopPrank();
 
@@ -367,7 +368,7 @@ contract ERC7540Tests is BaseTest {
         address vaultAddress = address(vaultA);
         uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim);
 
-        // banker liquidates asset from sync vault position to top up reserve
+        // banker liquidates asset from sync vault position to top up
         vm.startPrank(banker);
         bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
         bestia.fulfilRedeemFromReserve(address(user1));
@@ -386,5 +387,35 @@ contract ERC7540Tests is BaseTest {
         assertEq(bestia.pendingRedeemRequest(0, address(user1)), 0);
         assertEq(bestia.claimableRedeemRequest(0, address(user1)), 0);
         assertEq(bestia._maxWithdraw(user1), 0);
+    }
+
+    function testfulfilRedeemFromReserveReverts() public {
+        seedBestia();
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+        uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // grab details for vault to liquidate. only liquidate requested withdrawal
+        address vaultAddress = address(vaultA);
+        uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim / 2);
+
+        // banker liquidates asset from sync vault position to top up
+        vm.startPrank(banker);
+        bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
+
+        // revert: no claimable assets for user
+        vm.expectRevert();
+        bestia.fulfilRedeemFromReserve(address(user2));
+
+        // revert: not enough excess usdc above target cash reserve
+        vm.expectRevert();
+        bestia.fulfilRedeemFromReserve(address(user1));
+
+        // liquidate other half and fulfilRedeemFrom Reserve succeeds
+        bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
+        bestia.fulfilRedeemFromReserve(address(user1));
     }
 }
