@@ -214,7 +214,6 @@ contract BaseTest is Test {
         vm.startPrank(address(escrow));
         usdcMock.approve(address(bestia), MAX_ALLOWANCE);
         vm.stopPrank();
-
     }
 
     function _setupInitialLiquidity() internal {

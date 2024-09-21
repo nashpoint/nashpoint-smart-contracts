@@ -326,7 +326,7 @@ contract ERC7540Tests is BaseTest {
         assertEq(bestia.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
     }
 
-    function testBestiaFulfilRedeemFromAsync() public {
+    function testBestiaFulfilRedeemFromSynchVault() public {
         seedBestia();
         uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
         uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
@@ -348,7 +348,7 @@ contract ERC7540Tests is BaseTest {
         // assert that claimable assets have been sent to escrow address
         assertEq(usdcMock.balanceOf(address(escrow)), assetsToClaim);
 
-        // assert that pendingRedeems have been correctly updated
+        // assert that Request has been updated
         assertEq(bestia.pendingRedeemRequest(0, address(user1)), 0);
         assertEq(bestia.claimableRedeemRequest(0, address(user1)), sharesToRedeem);
         assertEq(bestia._maxWithdraw(user1), assetsToClaim);
@@ -363,16 +363,28 @@ contract ERC7540Tests is BaseTest {
         bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
         vm.stopPrank();
 
+        // grab details for vault to liquidate
+        address vaultAddress = address(vaultA);
+        uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim);
+
+        // banker liquidates asset from sync vault position to top up reserve
         vm.startPrank(banker);
-        bestia.fulfilRedeemFromSynch(address(user1), address(vaultA));
+        bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
+        bestia.fulfilRedeemFromReserve(address(user1));
         vm.stopPrank();
 
+        // user burns all usdc and withdraws
         vm.startPrank(user1);
-        // user burns all usdc
         usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
         bestia.tempWithdraw(assetsToClaim, address(user1), address(user1));
         vm.stopPrank();
 
+        // assert user has received correct balance of asset
         assertEq(assetsToClaim, usdcMock.balanceOf(address(user1)));
+
+        // assert that Request has been cleared
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), 0);
+        assertEq(bestia.claimableRedeemRequest(0, address(user1)), 0);
+        assertEq(bestia._maxWithdraw(user1), 0);
     }
 }
