@@ -28,10 +28,12 @@ contract Bestia is ERC4626, Ownable {
 
     // CONSTANTS
     // TODO: create detailed notes for for managers to read
-    uint256 public constant maxDiscount = 2e16; // percentage
-    uint256 public constant targetReserveRatio = 10e16; // percentage
-    uint256 public constant maxDelta = 1e16; // percentage
-    uint256 public constant asyncMaxDelta = 3e16; //percentage
+    uint256 public maxDiscount; // percentage  = 2e16
+    uint256 public targetReserveRatio; // percentage  = 10e16
+    uint256 public maxDelta; // percentage  = 1e16
+    uint256 public asyncMaxDelta; //percentage =  = 3e16
+
+    // these should be hardcoded
     int256 public constant scalingFactor = -5e18; // negative integer
     uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
 
@@ -41,20 +43,23 @@ contract Bestia is ERC4626, Ownable {
     uint256 private constant REQUEST_ID = 0;
 
     // PRBMath Types and Conversions
-    SD59x18 maxDiscountSD = sd(int256(maxDiscount));
-    SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
-    SD59x18 scalingFactorSD = sd(scalingFactor);
+    SD59x18 maxDiscountSD;
+    SD59x18 targetReserveRatioSD;
+    SD59x18 scalingFactorSD;
 
-    // ADDRESSES    
+    // ADDRESSES
     address public banker;
-    IEscrow public escrow;    
+    IEscrow public escrow;
     IERC20Metadata public depositAsset;
 
     // COMPONENTS DATA
     struct Component {
+        // TODO: decide on a plan for upgradeability
+        // -- 1. adding a component, you must also add the module it requires
+        // -- 2. module factory - standardize module creation for devs
         address component;
         uint256 targetRatio;
-        bool isAsync;
+        bool isAsync; // note: simple binary is too limited, needs to scale over time
         address shareToken;
     }
 
@@ -72,29 +77,42 @@ contract Bestia is ERC4626, Ownable {
     // NOTE: components MUST be ordered: 1. synchronous assets, 2. asynchronous assets
     // Otherwise instantUserLiquidation() will revert
     Component[] public components;
-    mapping(address => uint256) public componentIndex;     
+    mapping(address => uint256) public componentIndex;
 
     // 7540 Arrays
     Request[] public redeemRequests;
     mapping(address => uint256) public controllerToRedeemIndex;
 
-     // 7540 MAPPINGS
-    mapping(address => mapping(address => bool)) private _operators;    
-    
+    // 7540 MAPPINGS
+    mapping(address => mapping(address => bool)) private _operators;
 
     ////////////////////////////////////////////////////////////////
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
+
     constructor(
         address _asset,
         string memory _name,
-        string memory _symbol,        
-        address _banker
-    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {        
+        string memory _symbol,
+        address _banker,
+        uint256 _maxDiscount,
+        uint256 _targetReserveRatio,
+        uint256 _maxDelta,
+        uint256 _asyncMaxDelta
+    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
         depositAsset = IERC20Metadata(_asset);
         banker = _banker;
+        maxDiscount = _maxDiscount;
+        targetReserveRatio = _targetReserveRatio;
+        maxDelta = _maxDelta;
+        asyncMaxDelta = _asyncMaxDelta;
+
+        // PRBMath Types and Conversions
+        maxDiscountSD = sd(int256(maxDiscount));
+        targetReserveRatioSD = sd(int256(targetReserveRatio));
+        scalingFactorSD = sd(scalingFactor);
     }
 
     /*//////////////////////////////////////////////////////////////

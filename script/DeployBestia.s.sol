@@ -12,7 +12,10 @@ contract DeployBestia is Script {
         (
             , // ignore manager
             address banker,
-            address usdc,,,,
+            address usdc,
+            ,
+            ,
+            ,
             // address escrow,
             // address vaultA,
             // address vaultB,
@@ -25,11 +28,12 @@ contract DeployBestia is Script {
             address(usdc),
             "Bestia",
             "BEST",
-            // address(vaultA),
-            // address(vaultB),
-            // address(vaultC),
-            // address(liquidityPool),
-            address(banker)
+            address(banker),
+            //  percentages: 1e18 == 100%
+            2e16, // maxDiscount (percentage)
+            10e16, // targetReserveRatio (percentage)
+            1e16, // maxDelta (percentage)
+            3e16 // asyncMaxDelta (percentage)
         );
         vm.stopBroadcast();
         return (bestia, helperConfig);
