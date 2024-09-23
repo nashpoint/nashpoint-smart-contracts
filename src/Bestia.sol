@@ -37,6 +37,9 @@ contract Bestia is ERC4626, Ownable {
 
     bool public instantLiquidationsEnabled = true; // todo: also set by manager
 
+    // @dev Requests for nodes are non-fungible and all have ID = 0
+    uint256 private constant REQUEST_ID = 0;
+
     // PRBMath Types and Conversions
     SD59x18 maxDiscountSD = sd(int256(maxDiscount));
     SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
@@ -55,16 +58,7 @@ contract Bestia is ERC4626, Ownable {
         address shareToken;
     }
 
-    // NOTE: the order that components are added to the protocol determines their withdrawal order
-    // This will require a lot of manager controls. see list of TODO's in COMPONENTS section
-    // NOTE: components MUST be ordered: 1. synchronous assets, 2. asynchronous assets
-    // Otherwise instantUserLiquidation() will revert
-    Component[] public components;
-    mapping(address => uint256) public componentIndex;
-
-    ///////////////////////// 7540 DATA STRUCTURES /////////////////////////
-
-    // 7540 PENDING REQUESTS
+    // 7540 WITHDRAWAL REQUESTS
     struct Request {
         address controller;
         uint256 sharesPending;
@@ -73,16 +67,20 @@ contract Bestia is ERC4626, Ownable {
         uint256 swingFactor; // TODO: not yet implemented
     }
 
-    // 7540 MAPPINGS
-    mapping(address => mapping(address => bool)) private _operators;
-    mapping(address => uint256) public controllerToRedeemIndex;
+    // NOTE: the order that components are added to the protocol determines their withdrawal order
+    // This will require a lot of manager controls. see list of TODO's in COMPONENTS section
+    // NOTE: components MUST be ordered: 1. synchronous assets, 2. asynchronous assets
+    // Otherwise instantUserLiquidation() will revert
+    Component[] public components;
+    mapping(address => uint256) public componentIndex;     
 
     // 7540 Arrays
     Request[] public redeemRequests;
+    mapping(address => uint256) public controllerToRedeemIndex;
 
-    // REQUEST_ID
-    // @dev Requests for nodes are non-fungible and all have ID = 0
-    uint256 private constant REQUEST_ID = 0;
+     // 7540 MAPPINGS
+    mapping(address => mapping(address => bool)) private _operators;    
+    
 
     ////////////////////////////////////////////////////////////////
 
@@ -569,11 +567,11 @@ contract Bestia is ERC4626, Ownable {
             revert IsAsyncVault();
         }
 
-        // temp: commented out while I remove hardcoding
-        // todo: add back in after you fix constructor
-        // if (isAsyncAssetsBelowMinimum(address(liquidityPool))) {
-        //     revert AsyncAssetBelowMinimum();
-        // }
+        // temp: delete after you fix logic
+        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
+        if (isAsyncAssetsBelowMinimum(address(tempLiquidityPool))) {
+            revert AsyncAssetBelowMinimum();
+        }
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
@@ -694,11 +692,11 @@ contract Bestia is ERC4626, Ownable {
 
     // temp: commented out while I remove hardcoding
     // todo: add back in after you fix constructor
-    // function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
-    //     uint256 targetRatio = getComponentRatio(_component);
-    //     if (targetRatio == 0) return false; // Always in range if target is 0
-    //     return getAsyncAssets(_component) * 1e18 / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
-    // }
+    function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
+        uint256 targetRatio = getComponentRatio(_component);
+        if (targetRatio == 0) return false; // Always in range if target is 0
+        return getAsyncAssets(_component) * 1e18 / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
+    }
 
     /*//////////////////////////////////////////////////////////////
                         ESCROW INTERACTIONS
