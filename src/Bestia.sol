@@ -16,7 +16,9 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
+// TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor 
+// NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -47,7 +49,7 @@ contract Bestia is ERC4626, Ownable {
     IERC4626 public vaultB;
     IERC4626 public vaultC;
     IERC7540 public liquidityPool;
-    IERC20Metadata public usdc;
+    IERC20Metadata public depositAsset;
 
     // COMPONENTS DATA
     struct Component {
@@ -105,7 +107,7 @@ contract Bestia is ERC4626, Ownable {
         vaultB = IERC4626(_vaultB);
         vaultC = IERC4626(_vaultC);
         liquidityPool = IERC7540(_liquidityPool);
-        usdc = IERC20Metadata(_asset);
+        depositAsset = IERC20Metadata(_asset);
         banker = _banker;
     }
 
@@ -162,7 +164,7 @@ contract Bestia is ERC4626, Ownable {
     // -- TODO: refactor totalAssets to avoid this issue later
     function totalAssets() public view override returns (uint256) {
         // gets the cash reserve
-        uint256 cashReserve = usdc.balanceOf(address(this));
+        uint256 cashReserve = depositAsset.balanceOf(address(this));
 
         // gets value of async assets
         uint256 asyncAssets = getAsyncAssets(address(liquidityPool));
@@ -190,7 +192,7 @@ contract Bestia is ERC4626, Ownable {
 
         // gets the expected reserve ratio after tx
         int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(usdc.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets));
+            int256(Math.mulDiv(depositAsset.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets));
 
         // gets the assets to be returned to the user after applying swingfactor to tx
         uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
@@ -206,7 +208,7 @@ contract Bestia is ERC4626, Ownable {
 
     // TODO: override withdraw function
     function adjustedWithdraw(uint256 _assets, address receiver, address _owner) public returns (uint256) {
-        uint256 balance = usdc.balanceOf(address(this));
+        uint256 balance = depositAsset.balanceOf(address(this));
         if (_assets > balance) {
             revert NotEnoughReserveCash();
         }
@@ -331,7 +333,7 @@ contract Bestia is ERC4626, Ownable {
     // -- 3. banker to have reduced an async vault position
     function fulfilRedeemFromReserve(address _controller) public onlyBanker {
         uint256 index = controllerToRedeemIndex[_controller];
-        uint256 balance = usdc.balanceOf(address(this));
+        uint256 balance = depositAsset.balanceOf(address(this));
 
         // Ensure there is a pending request for this controller
         if (index == 0) {
@@ -479,7 +481,7 @@ contract Bestia is ERC4626, Ownable {
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
-        uint256 currentCash = usdc.balanceOf(address(this));
+        uint256 currentCash = depositAsset.balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
@@ -577,7 +579,7 @@ contract Bestia is ERC4626, Ownable {
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
-        uint256 currentCash = usdc.balanceOf(address(this));
+        uint256 currentCash = depositAsset.balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
