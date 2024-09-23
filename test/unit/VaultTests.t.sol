@@ -8,6 +8,11 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract VaultTests is BaseTest {
     function testDeposit() public {
+        
+        bestia.addComponent(address(vaultA), 0, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
+        
         // test fails unless you add an async asset
         bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
 
@@ -23,6 +28,10 @@ contract VaultTests is BaseTest {
 
     // TODO: write a test to get total assets even when you have no async assets
     function testTotalAssets() public {
+
+        bestia.addComponent(address(vaultA), 0, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
         // test fails unless you add an async asset
         bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
 
@@ -34,7 +43,9 @@ contract VaultTests is BaseTest {
     }
 
     function testInvestCash() public {
-        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));        
+        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
         bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
@@ -120,6 +131,8 @@ contract VaultTests is BaseTest {
     function testAdjustedDeposit() public {
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
         bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
@@ -189,6 +202,8 @@ contract VaultTests is BaseTest {
     function testAdjustedWithdraw() public {
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
         bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);

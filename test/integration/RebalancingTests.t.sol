@@ -59,11 +59,13 @@ contract RebalancingTests is BaseTest {
         vm.stopPrank();
 
         // check that blocks investInCash when RWAs below target
+        // note: leave this here as failing test will remind you to fix later
         vm.expectRevert();
         bankerInvestsCash(address(vaultA));
 
-        // should reject investCash as async vault is below threshold
-        console2.log(bestia.isAsyncAssetsBelowMinimum(address(liquidityPool)));
+        // note: maybe delete, not sure I need this anymore
+        // // should reject investCash as async vault is below threshold
+        // console2.log(bestia.isAsyncAssetsBelowMinimum(address(liquidityPool)));
 
         // must invest in async first to ensure it gets full amount
         bankerInvestsInAsyncVault(address(liquidityPool));

@@ -73,6 +73,9 @@ contract LiquidationsTest is BaseTest {
     }
 
     function testCannotLiquidateAsyncAsset() public {
+        bestia.addComponent(address(vaultA), 0, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
         // add the 7540 Vault (RWA)
         bestia.addComponent(address(liquidityPool), 90e16, true, address(liquidityPool));
 

@@ -16,6 +16,7 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
+// TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor 
 // NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
@@ -45,10 +46,10 @@ contract Bestia is ERC4626, Ownable {
     // todo: remove later and make scaleable
     address public banker;
     IEscrow public escrow;
-    IERC4626 public vaultA;
-    IERC4626 public vaultB;
-    IERC4626 public vaultC;
-    IERC7540 public liquidityPool;
+    IERC4626 public vaultA; // 0
+    IERC4626 public vaultB; // 1
+    IERC4626 public vaultC; // 2
+    IERC7540 public liquidityPool; // 3
     IERC20Metadata public depositAsset;
 
     // COMPONENTS DATA
@@ -167,9 +168,13 @@ contract Bestia is ERC4626, Ownable {
         uint256 cashReserve = depositAsset.balanceOf(address(this));
 
         // gets value of async assets
-        uint256 asyncAssets = getAsyncAssets(address(liquidityPool));
+        // todo: add a temp variable here to be called as "liquidtyPool"
+        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
+        uint256 asyncAssets = getAsyncAssets(address(tempLiquidityPool));
 
         // gets the liquid assets balances
+
+        // todo: add temp variables here to be called as VaultA etc
         uint256 liquidAssets = vaultA.convertToAssets(vaultA.balanceOf(address(this)))
             + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
             + vaultC.convertToAssets(vaultC.balanceOf(address(this)));
@@ -514,9 +519,9 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function mintClaimableShares(address _component) public onlyBanker returns (uint256) {
-        uint256 claimableShares = liquidityPool.maxMint(address(this));
+        uint256 claimableShares = IERC7540(_component).maxMint(address(this));
 
-        liquidityPool.mint(claimableShares, address(this));
+        IERC7540(_component).mint(claimableShares, address(this));
 
         emit AsyncSharesMinted(_component, claimableShares);
         return claimableShares;
@@ -573,9 +578,12 @@ contract Bestia is ERC4626, Ownable {
         if (isAsync(_component)) {
             revert IsAsyncVault();
         }
-        if (isAsyncAssetsBelowMinimum(address(liquidityPool))) {
-            revert AsyncAssetBelowMinimum();
-        }
+
+        // temp: commented out while I remove hardcoding
+        // todo: add back in after you fix constructor
+        // if (isAsyncAssetsBelowMinimum(address(liquidityPool))) {
+        //     revert AsyncAssetBelowMinimum();
+        // }
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
@@ -694,11 +702,13 @@ contract Bestia is ERC4626, Ownable {
         return components[index - 1].isAsync;
     }
 
-    function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
-        uint256 targetRatio = getComponentRatio(_component);
-        if (targetRatio == 0) return false; // Always in range if target is 0
-        return getAsyncAssets(_component) * 1e18 / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
-    }
+    // temp: commented out while I remove hardcoding
+    // todo: add back in after you fix constructor
+    // function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
+    //     uint256 targetRatio = getComponentRatio(_component);
+    //     if (targetRatio == 0) return false; // Always in range if target is 0
+    //     return getAsyncAssets(_component) * 1e18 / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
+    // }
 
     /*//////////////////////////////////////////////////////////////
                         ESCROW INTERACTIONS
