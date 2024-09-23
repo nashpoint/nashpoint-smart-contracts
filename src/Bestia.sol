@@ -16,12 +16,7 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-////////////// Plans For Today /////////////
-
-// 1. DONE: create flow for manager to withdraw from sync and async and process redemption
-// 2. DONE: create flow for manager to fulfil redeem from excess Reserve
-// 3. TODO: Test more edge cases and reverts
-// 4. TODO: Take a look at factory contracts
+// TODO: go through every single function and think about incentives from speculator vs investor 
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -565,6 +560,7 @@ contract Bestia is ERC4626, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
+    // note: think about this... even that fact that it is on the contract changes the game theory for speculators vs long term investors
 
     // called by banker to deposit excess reserve into strategies
     // TODO: refactor this into something more efficient and include getDepositAmount logic
