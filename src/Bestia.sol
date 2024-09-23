@@ -18,7 +18,7 @@ import {console2} from "forge-std/Test.sol";
 
 // TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
-// TODO: go through every single function and think about incentives from speculator vs investor 
+// TODO: go through every single function and think about incentives from speculator vs investor
 // NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
 
 contract Bestia is ERC4626, Ownable {
@@ -42,14 +42,9 @@ contract Bestia is ERC4626, Ownable {
     SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
     SD59x18 scalingFactorSD = sd(scalingFactor);
 
-    // ADDRESSES
-    // todo: remove later and make scaleable
+    // ADDRESSES    
     address public banker;
-    IEscrow public escrow;
-    IERC4626 public vaultA; // 0
-    IERC4626 public vaultB; // 1
-    IERC4626 public vaultC; // 2
-    IERC7540 public liquidityPool; // 3
+    IEscrow public escrow;    
     IERC20Metadata public depositAsset;
 
     // COMPONENTS DATA
@@ -97,17 +92,9 @@ contract Bestia is ERC4626, Ownable {
     constructor(
         address _asset,
         string memory _name,
-        string memory _symbol,
-        address _vaultA,
-        address _vaultB,
-        address _vaultC,
-        address _liquidityPool,
+        string memory _symbol,        
         address _banker
-    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
-        vaultA = IERC4626(_vaultA);
-        vaultB = IERC4626(_vaultB);
-        vaultC = IERC4626(_vaultC);
-        liquidityPool = IERC7540(_liquidityPool);
+    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {        
         depositAsset = IERC20Metadata(_asset);
         banker = _banker;
     }
@@ -164,20 +151,22 @@ contract Bestia is ERC4626, Ownable {
     // -- must add async component for call to bestia.totalAssets to succeed
     // -- TODO: refactor totalAssets to avoid this issue later
     function totalAssets() public view override returns (uint256) {
+        // todo: delete temp variables here when you refactor this
+        IERC4626 tempVaultA = IERC4626(components[0].component);
+        IERC4626 tempVaultB = IERC4626(components[1].component);
+        IERC4626 tempVaultC = IERC4626(components[2].component);
+        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
+
         // gets the cash reserve
         uint256 cashReserve = depositAsset.balanceOf(address(this));
 
         // gets value of async assets
-        // todo: add a temp variable here to be called as "liquidtyPool"
-        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
         uint256 asyncAssets = getAsyncAssets(address(tempLiquidityPool));
 
         // gets the liquid assets balances
-
-        // todo: add temp variables here to be called as VaultA etc
-        uint256 liquidAssets = vaultA.convertToAssets(vaultA.balanceOf(address(this)))
-            + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
-            + vaultC.convertToAssets(vaultC.balanceOf(address(this)));
+        uint256 liquidAssets = tempVaultA.convertToAssets(tempVaultA.balanceOf(address(this)))
+            + tempVaultB.convertToAssets(tempVaultB.balanceOf(address(this)))
+            + tempVaultC.convertToAssets(tempVaultC.balanceOf(address(this)));
 
         return cashReserve + asyncAssets + liquidAssets;
     }
@@ -196,8 +185,9 @@ contract Bestia is ERC4626, Ownable {
         }
 
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(depositAsset.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets));
+        int256 reserveRatioAfterTX = int256(
+            Math.mulDiv(depositAsset.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets)
+        );
 
         // gets the assets to be returned to the user after applying swingfactor to tx
         uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);

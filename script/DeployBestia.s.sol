@@ -12,12 +12,12 @@ contract DeployBestia is Script {
         (
             , // ignore manager
             address banker,
-            address usdc,
+            address usdc,,,,
             // address escrow,
-            address vaultA,
-            address vaultB,
-            address vaultC,
-            address liquidityPool
+            // address vaultA,
+            // address vaultB,
+            // address vaultC,
+            // address liquidityPool
         ) = helperConfig.activeNetworkConfig();
 
         vm.startBroadcast();
@@ -25,10 +25,10 @@ contract DeployBestia is Script {
             address(usdc),
             "Bestia",
             "BEST",
-            address(vaultA),
-            address(vaultB),
-            address(vaultC),
-            address(liquidityPool),
+            // address(vaultA),
+            // address(vaultB),
+            // address(vaultC),
+            // address(liquidityPool),
             address(banker)
         );
         vm.stopBroadcast();
