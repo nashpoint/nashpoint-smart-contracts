@@ -4,8 +4,11 @@ pragma solidity ^0.8.20;
 import {Bestia} from "src/bestia.sol";
 
 // TODO's
-// Update Constructor and vault handling (Node)
-// Create() Function (Factory)
+// DONE: Update Constructor and vault handling (Node)
+// DONE: Create() Function (Factory)
+// Create checks to ensure valid input data
+// Emit Event when created
+// Track create Node on Core contract
 
 contract NodeFactory {
     function create(
