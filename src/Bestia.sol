@@ -16,7 +16,11 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-// TODO: go through every single function and think about incentives from speculator vs investor 
+// TODO: create multiple factories so we can have different token types - even a meta factory
+// TODO: pull out all of the assets with 0 target in your tests. should work without
+// TODO: global rebalancing toggle???? opt in or out for managers
+// TODO: go through every single function and think about incentives from speculator vs investor
+// NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -25,36 +29,48 @@ contract Bestia is ERC4626, Ownable {
 
     // CONSTANTS
     // TODO: create detailed notes for for managers to read
-    uint256 public constant maxDiscount = 2e16; // percentage
-    uint256 public constant targetReserveRatio = 10e16; // percentage
-    uint256 public constant maxDelta = 1e16; // percentage
-    uint256 public constant asyncMaxDelta = 3e16; //percentage
+    uint256 public maxDiscount; // percentage  = 2e16
+    uint256 public targetReserveRatio; // percentage  = 10e16
+    uint256 public maxDelta; // percentage  = 1e16
+    uint256 public asyncMaxDelta; //percentage =  = 3e16
+
+    // these should be hardcoded
     int256 public constant scalingFactor = -5e18; // negative integer
     uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
 
     bool public instantLiquidationsEnabled = true; // todo: also set by manager
 
+    // @dev Requests for nodes are non-fungible and all have ID = 0
+    uint256 private constant REQUEST_ID = 0;
+
     // PRBMath Types and Conversions
-    SD59x18 maxDiscountSD = sd(int256(maxDiscount));
-    SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
-    SD59x18 scalingFactorSD = sd(scalingFactor);
+    SD59x18 maxDiscountSD;
+    SD59x18 targetReserveRatioSD;
+    SD59x18 scalingFactorSD;
 
     // ADDRESSES
-    // todo: remove later and make scaleable
     address public banker;
     IEscrow public escrow;
-    IERC4626 public vaultA;
-    IERC4626 public vaultB;
-    IERC4626 public vaultC;
-    IERC7540 public liquidityPool;
-    IERC20Metadata public usdc;
+    IERC20Metadata public depositAsset;
 
     // COMPONENTS DATA
     struct Component {
+        // TODO: decide on a plan for upgradeability
+        // -- 1. adding a component, you must also add the module it requires
+        // -- 2. module factory - standardize module creation for devs
         address component;
         uint256 targetRatio;
-        bool isAsync;
+        bool isAsync; // note: simple binary is too limited, needs to scale over time
         address shareToken;
+    }
+
+    // 7540 WITHDRAWAL REQUESTS
+    struct Request {
+        address controller;
+        uint256 sharesPending;
+        uint256 sharesClaimable;
+        uint256 assetsClaimable;
+        uint256 swingFactor; // TODO: not yet implemented
     }
 
     // NOTE: the order that components are added to the protocol determines their withdrawal order
@@ -64,49 +80,42 @@ contract Bestia is ERC4626, Ownable {
     Component[] public components;
     mapping(address => uint256) public componentIndex;
 
-    ///////////////////////// 7540 DATA STRUCTURES /////////////////////////
-
-    // 7540 PENDING REQUESTS
-    struct Request {
-        address controller;
-        uint256 sharesPending;
-        uint256 sharesClaimable;
-        uint256 assetsClaimable;
-        uint256 swingFactor; // TODO: not yet implemented
-    }
+    // 7540 Arrays
+    Request[] public redeemRequests;
+    mapping(address => uint256) public controllerToRedeemIndex;
 
     // 7540 MAPPINGS
     mapping(address => mapping(address => bool)) private _operators;
-    mapping(address => uint256) public controllerToRedeemIndex;
-
-    // 7540 Arrays
-    Request[] public redeemRequests;
-
-    // REQUEST_ID
-    // @dev Requests for nodes are non-fungible and all have ID = 0
-    uint256 private constant REQUEST_ID = 0;
 
     ////////////////////////////////////////////////////////////////
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
+
     constructor(
         address _asset,
         string memory _name,
         string memory _symbol,
-        address _vaultA,
-        address _vaultB,
-        address _vaultC,
-        address _liquidityPool,
-        address _banker
-    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
-        vaultA = IERC4626(_vaultA);
-        vaultB = IERC4626(_vaultB);
-        vaultC = IERC4626(_vaultC);
-        liquidityPool = IERC7540(_liquidityPool);
-        usdc = IERC20Metadata(_asset);
+        address _banker,
+        uint256 _maxDiscount,
+        uint256 _targetReserveRatio,
+        uint256 _maxDelta,
+        uint256 _asyncMaxDelta,
+        address _owner
+    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(_owner) {
+        depositAsset = IERC20Metadata(_asset);
         banker = _banker;
+        maxDiscount = _maxDiscount;
+        targetReserveRatio = _targetReserveRatio;
+        maxDelta = _maxDelta;
+        asyncMaxDelta = _asyncMaxDelta;
+
+        // PRBMath Types and Conversions
+        maxDiscountSD = sd(int256(maxDiscount));
+        targetReserveRatioSD = sd(int256(targetReserveRatio));
+        scalingFactorSD = sd(scalingFactor);
+        // transferOwnership(_owner);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -161,16 +170,22 @@ contract Bestia is ERC4626, Ownable {
     // -- must add async component for call to bestia.totalAssets to succeed
     // -- TODO: refactor totalAssets to avoid this issue later
     function totalAssets() public view override returns (uint256) {
+        // todo: delete temp variables here when you refactor this
+        IERC4626 tempVaultA = IERC4626(components[0].component);
+        IERC4626 tempVaultB = IERC4626(components[1].component);
+        IERC4626 tempVaultC = IERC4626(components[2].component);
+        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
+
         // gets the cash reserve
-        uint256 cashReserve = usdc.balanceOf(address(this));
+        uint256 cashReserve = depositAsset.balanceOf(address(this));
 
         // gets value of async assets
-        uint256 asyncAssets = getAsyncAssets(address(liquidityPool));
+        uint256 asyncAssets = getAsyncAssets(address(tempLiquidityPool));
 
         // gets the liquid assets balances
-        uint256 liquidAssets = vaultA.convertToAssets(vaultA.balanceOf(address(this)))
-            + vaultB.convertToAssets(vaultB.balanceOf(address(this)))
-            + vaultC.convertToAssets(vaultC.balanceOf(address(this)));
+        uint256 liquidAssets = tempVaultA.convertToAssets(tempVaultA.balanceOf(address(this)))
+            + tempVaultB.convertToAssets(tempVaultB.balanceOf(address(this)))
+            + tempVaultC.convertToAssets(tempVaultC.balanceOf(address(this)));
 
         return cashReserve + asyncAssets + liquidAssets;
     }
@@ -189,8 +204,9 @@ contract Bestia is ERC4626, Ownable {
         }
 
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(usdc.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets));
+        int256 reserveRatioAfterTX = int256(
+            Math.mulDiv(depositAsset.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets)
+        );
 
         // gets the assets to be returned to the user after applying swingfactor to tx
         uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
@@ -206,7 +222,7 @@ contract Bestia is ERC4626, Ownable {
 
     // TODO: override withdraw function
     function adjustedWithdraw(uint256 _assets, address receiver, address _owner) public returns (uint256) {
-        uint256 balance = usdc.balanceOf(address(this));
+        uint256 balance = depositAsset.balanceOf(address(this));
         if (_assets > balance) {
             revert NotEnoughReserveCash();
         }
@@ -331,7 +347,7 @@ contract Bestia is ERC4626, Ownable {
     // -- 3. banker to have reduced an async vault position
     function fulfilRedeemFromReserve(address _controller) public onlyBanker {
         uint256 index = controllerToRedeemIndex[_controller];
-        uint256 balance = usdc.balanceOf(address(this));
+        uint256 balance = depositAsset.balanceOf(address(this));
 
         // Ensure there is a pending request for this controller
         if (index == 0) {
@@ -479,7 +495,7 @@ contract Bestia is ERC4626, Ownable {
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
-        uint256 currentCash = usdc.balanceOf(address(this));
+        uint256 currentCash = depositAsset.balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
@@ -512,9 +528,9 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function mintClaimableShares(address _component) public onlyBanker returns (uint256) {
-        uint256 claimableShares = liquidityPool.maxMint(address(this));
+        uint256 claimableShares = IERC7540(_component).maxMint(address(this));
 
-        liquidityPool.mint(claimableShares, address(this));
+        IERC7540(_component).mint(claimableShares, address(this));
 
         emit AsyncSharesMinted(_component, claimableShares);
         return claimableShares;
@@ -571,13 +587,16 @@ contract Bestia is ERC4626, Ownable {
         if (isAsync(_component)) {
             revert IsAsyncVault();
         }
-        if (isAsyncAssetsBelowMinimum(address(liquidityPool))) {
+
+        // temp: delete after you fix logic
+        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
+        if (isAsyncAssetsBelowMinimum(address(tempLiquidityPool))) {
             revert AsyncAssetBelowMinimum();
         }
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
-        uint256 currentCash = usdc.balanceOf(address(this));
+        uint256 currentCash = depositAsset.balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
@@ -692,6 +711,8 @@ contract Bestia is ERC4626, Ownable {
         return components[index - 1].isAsync;
     }
 
+    // temp: commented out while I remove hardcoding
+    // todo: add back in after you fix constructor
     function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
         uint256 targetRatio = getComponentRatio(_component);
         if (targetRatio == 0) return false; // Always in range if target is 0
