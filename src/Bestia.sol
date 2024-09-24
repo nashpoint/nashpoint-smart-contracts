@@ -16,6 +16,7 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
+// TODO: create multiple factories so we can have different token types - even a meta factory
 // TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor
@@ -100,8 +101,9 @@ contract Bestia is ERC4626, Ownable {
         uint256 _maxDiscount,
         uint256 _targetReserveRatio,
         uint256 _maxDelta,
-        uint256 _asyncMaxDelta
-    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(msg.sender) {
+        uint256 _asyncMaxDelta,
+        address _owner
+    ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(_owner) {
         depositAsset = IERC20Metadata(_asset);
         banker = _banker;
         maxDiscount = _maxDiscount;
@@ -113,6 +115,7 @@ contract Bestia is ERC4626, Ownable {
         maxDiscountSD = sd(int256(maxDiscount));
         targetReserveRatioSD = sd(int256(targetReserveRatio));
         scalingFactorSD = sd(scalingFactor);
+        // transferOwnership(_owner);
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -16,11 +16,6 @@ contract DeployBestia is Script {
             ,
             ,
             ,
-            // address escrow,
-            // address vaultA,
-            // address vaultB,
-            // address vaultC,
-            // address liquidityPool
         ) = helperConfig.activeNetworkConfig();
 
         vm.startBroadcast();
@@ -33,7 +28,8 @@ contract DeployBestia is Script {
             2e16, // maxDiscount (percentage)
             10e16, // targetReserveRatio (percentage)
             1e16, // maxDelta (percentage)
-            3e16 // asyncMaxDelta (percentage)
+            3e16, // asyncMaxDelta (percentage)
+            address(msg.sender) // using msg.sender as owner for local testing
         );
         vm.stopBroadcast();
         return (bestia, helperConfig);

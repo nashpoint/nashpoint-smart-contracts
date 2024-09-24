@@ -3,6 +3,7 @@
 pragma solidity ^0.8.20;
 
 import {Bestia} from "../src/Bestia.sol";
+import {NodeFactory} from "src/NodeFactory.sol";
 import {DeployBestia} from "script/DeployBestia.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
@@ -40,7 +41,11 @@ contract BaseTest is Test {
     uint256 public constant DEPOSIT_10 = 10 * DECIMALS;
     uint256 public constant DEPOSIT_1 = 1 * DECIMALS;
 
+    // NashPoint V1 Core Contracts
     Bestia public bestia;
+    NodeFactory public nodeFactory;
+    Escrow public escrow;
+
     HelperConfig public helperConfig;
     IERC20 public usdc;
     ERC20Mock public usdcMock;
@@ -50,9 +55,6 @@ contract BaseTest is Test {
     IERC7540 public liquidityPool;
     address public banker;
     address public manager;
-
-    // Declare the Escrow contract variable
-    Escrow public escrow;
 
     // fork test contracts and addresses
     IInvestmentManager public investmentManager;
@@ -111,6 +113,11 @@ contract BaseTest is Test {
         vm.startPrank(banker);
         bestia.setEscrow(address(escrow));
         vm.stopPrank();
+
+        ///////////////////////////////////////////////////////////////////////////
+
+        // get node factory running here
+        nodeFactory = new NodeFactory();
 
         ///////////////////////////////////////////////////////////////////////////
 
