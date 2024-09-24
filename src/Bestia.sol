@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
+// TODO: create multiple factories so we can have different token types - even a meta factory
+// TODO: pull out all of the assets with 0 target in your tests. should work without
+// TODO: global rebalancing toggle???? opt in or out for managers
+// TODO: go through every single function and think about incentives from speculator vs investor
+// NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
+
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
@@ -16,11 +22,19 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-// TODO: create multiple factories so we can have different token types - even a meta factory
-// TODO: pull out all of the assets with 0 target in your tests. should work without
-// TODO: global rebalancing toggle???? opt in or out for managers
-// TODO: go through every single function and think about incentives from speculator vs investor
-// NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
+// TODO: Fix (1) adjustedWithdraw, (2) tempWithdraw & (3) _maxWithdraw
+
+// Refactoring Plan:
+// -- 1. Create manager controls test
+// -- 2. Be able to turn swing pricing on and off
+// -- 3. Have getSwingFactor return 0 when swing price off
+// -- 4. Grab swing factor when you request withdrawal and add to request struct
+// -- 5. Apply Swing factor when you fulfilRedeemRequest
+// -- 6. Test that flow and be able to process pending redeems with SP on/off
+// -- 7. Then delete adjustedWithdraw and use tempWithdraw. Refactor all those tests
+// -- 8. Then rename tempWithdraw to withdraw and override. Refactor all those tests
+// -- 9. Then do _maxWithdraw and do those tests 
+
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -39,8 +53,9 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
 
     bool public instantLiquidationsEnabled = true; // todo: also set by manager
+    bool public swingPricingEnabled = true; // set by manager
 
-    // @dev Requests for nodes are non-fungible and all have ID = 0
+    // Requests for nodes are non-fungible and all have ID = 0
     uint256 private constant REQUEST_ID = 0;
 
     // PRBMath Types and Conversions
@@ -87,8 +102,6 @@ contract Bestia is ERC4626, Ownable {
     // 7540 MAPPINGS
     mapping(address => mapping(address => bool)) private _operators;
 
-    ////////////////////////////////////////////////////////////////
-
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -115,7 +128,6 @@ contract Bestia is ERC4626, Ownable {
         maxDiscountSD = sd(int256(maxDiscount));
         targetReserveRatioSD = sd(int256(targetReserveRatio));
         scalingFactorSD = sd(scalingFactor);
-        // transferOwnership(_owner);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -129,6 +141,7 @@ contract Bestia is ERC4626, Ownable {
     event AsyncWithdrawalRequested(address component, uint256 shares);
     event AsyncWithdrawalExecuted(address component, uint256 assets);
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
+    event SwingPricingStatusUpdated(bool status);
 
     ////// 7540 EVENTS //////
     event RedeemRequest(
@@ -251,6 +264,9 @@ contract Bestia is ERC4626, Ownable {
     // getSwingFactor() converts from int to uint
     // TODO: change to private internal later and change test use a wrapper function in test contract
     function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
+        if (!swingPricingEnabled) {
+            return 0;
+        }
         // checks if withdrawal will exceed available reserve
         if (_reserveRatioAfterTX <= 0) {
             revert NotEnoughReserveCash();
@@ -756,6 +772,12 @@ contract Bestia is ERC4626, Ownable {
     modifier onlyBanker() {
         require(msg.sender == banker, "Issuer: Only banker can call this function");
         _;
+    }
+
+    function enableSwingPricing(bool status) public onlyOwner {
+        swingPricingEnabled = status;
+        
+        emit SwingPricingStatusUpdated(status);
     }
 
     /*//////////////////////////////////////////////////////////////
