@@ -25,16 +25,15 @@ import {console2} from "forge-std/Test.sol";
 // TODO: Fix (1) adjustedWithdraw, (2) tempWithdraw & (3) _maxWithdraw
 
 // Refactoring Plan:
-// -- 1. Create manager controls test
-// -- 2. Be able to turn swing pricing on and off
-// -- 3. Have getSwingFactor return 0 when swing price off
+// -- 1. DONE: Create manager controls test
+// -- 2. DONE: Be able to turn swing pricing on and off
+// -- 3. DONE: Have getSwingFactor return 0 when swing price off
 // -- 4. Grab swing factor when you request withdrawal and add to request struct
 // -- 5. Apply Swing factor when you fulfilRedeemRequest
 // -- 6. Test that flow and be able to process pending redeems with SP on/off
 // -- 7. Then delete adjustedWithdraw and use tempWithdraw. Refactor all those tests
 // -- 8. Then rename tempWithdraw to withdraw and override. Refactor all those tests
-// -- 9. Then do _maxWithdraw and do those tests 
-
+// -- 9. Then do _maxWithdraw and do those tests
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -53,7 +52,7 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
 
     bool public instantLiquidationsEnabled = true; // todo: also set by manager
-    bool public swingPricingEnabled = true; // set by manager
+    bool public swingPricingEnabled = false; // set by manager
 
     // Requests for nodes are non-fungible and all have ID = 0
     uint256 private constant REQUEST_ID = 0;
@@ -309,9 +308,17 @@ contract Bestia is ERC4626, Ownable {
         // Transfer ERC4626 share tokens from owner back to vault
         require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
 
-        uint256 index = controllerToRedeemIndex[controller];
+       // using an index like this creates a bug 
+       // user can lock in a low swing factor and hold it with a small order
+       // then add larger orders later
+       uint256 index = controllerToRedeemIndex[controller];
 
         if (index > 0) {
+
+        // todo: think about this solution:
+        // boolean check on if the new swing factor is better or worse than the old one
+        // always give them the worse one. then cannot be gamed
+        // but do think it through
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({
@@ -776,7 +783,7 @@ contract Bestia is ERC4626, Ownable {
 
     function enableSwingPricing(bool status) public onlyOwner {
         swingPricingEnabled = status;
-        
+
         emit SwingPricingStatusUpdated(status);
     }
 

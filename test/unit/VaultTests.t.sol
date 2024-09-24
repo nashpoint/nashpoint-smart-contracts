@@ -100,6 +100,9 @@ contract VaultTests is BaseTest {
     }
 
     function testGetSwingFactor() public {
+        // enable swing pricing
+        bestia.enableSwingPricing(true);
+
         // reverts on withdrawal exceeds available reserve
         vm.expectRevert();
         bestia.getSwingFactor(0);
@@ -132,6 +135,9 @@ contract VaultTests is BaseTest {
         bestia.addComponent(address(vaultB), 0, false, address(vaultB));
         bestia.addComponent(address(vaultC), 0, false, address(vaultC));
         bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
+
+        // enable swing pricing
+        bestia.enableSwingPricing(true);
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -197,7 +203,11 @@ contract VaultTests is BaseTest {
         console2.log(getCurrentReserveRatio());
     }
 
+    // TODO: FIGURE OUT WITH THIS TEST NOT FAILING WHEN I DISABLE SWING PRICING
     function testAdjustedWithdraw() public {
+        // enable swing pricing
+        bestia.enableSwingPricing(true);
+
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
         bestia.addComponent(address(vaultB), 0, false, address(vaultB));
@@ -243,9 +253,9 @@ contract VaultTests is BaseTest {
 
         // assert that user2 received less USDC back than they deposited
         uint256 usdcReturned = usdcMock.balanceOf(address(user2));
-        assertLt(usdcReturned, DEPOSIT_10);
+        assertLt(usdcReturned, DEPOSIT_10 - 1);
 
-        console2.log("delta :", DEPOSIT_10 - usdcReturned);
+        console2.log("delta :", DEPOSIT_10 - usdcReturned);        
 
         // this test does not check if the correct amount was returned
         // only that is was less than originally deposited
