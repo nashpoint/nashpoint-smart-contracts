@@ -100,26 +100,14 @@ contract BaseTest is Test {
         vaultC = ERC4626Mock(vaultCAddress);
         liquidityPool = ERC7540Mock(liquidityPoolAddress);
 
-        //////////// TEMP: ADD IN ESCROW HERE FOR SIMPLICITY OF TESTING ///////////
-
         // deploy the Escrow contract
         escrow = new Escrow();
 
         // and config each others addresses
         escrow.setBestia(address(bestia));
-
-        // pranking as banker as bestia owner is the deploy script.
-        // TODO: fix this later
-        vm.startPrank(banker);
         bestia.setEscrow(address(escrow));
-        vm.stopPrank();
 
-        ///////////////////////////////////////////////////////////////////////////
-
-        // get node factory running here
         nodeFactory = new NodeFactory();
-
-        ///////////////////////////////////////////////////////////////////////////
 
         _setupUserBalancesAndApprovals();
         _setupBestiaApprovals();
@@ -235,7 +223,7 @@ contract BaseTest is Test {
 
     function bankerInvestsCash(address _component) public {
         vm.startPrank(banker);
-        bestia.investInSynchVault(_component);
+        bestia.investInSyncVault(_component);
         vm.stopPrank();
     }
 

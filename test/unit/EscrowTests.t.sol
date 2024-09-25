@@ -7,9 +7,7 @@ import {console2} from "forge-std/Test.sol";
 
 contract EscrowTest is BaseTest {
     function testEscrowSetup() public {
-        vm.startPrank(banker);
         bestia.setEscrow(address(escrow));
-        vm.stopPrank();
 
         escrow.setBestia(address(bestia));
 

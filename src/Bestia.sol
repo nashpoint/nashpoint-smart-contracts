@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
+// TODO: ERC 165 & ERC 7575 supported and tested
 // TODO: create multiple factories so we can have different token types - even a meta factory
 // TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor
+
 // NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
 
 import {IERC7540} from "src/interfaces/IERC7540.sol";
@@ -21,6 +23,9 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
+
+// NOTE: Most tests currently require Vaults A, B & C; and liquidityPool
+// TEMP: some of these contracts addresses are hardcoded inside functions while refactoring
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -164,8 +169,13 @@ contract Bestia is ERC4626, Ownable {
     error ExceededMaxWithdraw(address controller, uint256 assets, uint256 maxAssets);
 
     /*//////////////////////////////////////////////////////////////
-                    STANDARD USER DEPOSIT LOGIC (ERC4626)
+                        USER DEPOSIT LOGIC 
     //////////////////////////////////////////////////////////////*/
+
+    // TODO: Overload Deposit & Mint Functions (7540 Spec):
+    // deposit(uint256 assets, address receiver, address controller)
+    // mint(uint256 shares, address receiver, address controller)
+
 
     // totalAssets() override function
     // -- must add async component for call to bestia.totalAssets to succeed
@@ -254,13 +264,6 @@ contract Bestia is ERC4626, Ownable {
     // How can I use this? What is really the point of it?
     // TODO: figure out how the controller and operator role relate to integrators
 
-    // CONSTRAINTS
-    // 1. The redeem and withdraw methods do not transfer shares to the Vault, because this already happened on requestRedeem.
-    // 2. The owner field of redeem and withdraw SHOULD be renamed to controller, and the controller MUST be msg.sender unless the controller has approved the msg.sender as an operator.
-    // 3. previewRedeem and previewWithdraw MUST revert for all callers and inputs.
-
-    // FUNCTIONS
-
     // user requests to redeem their funds from the vault. they send their shares to the escrow contract
     function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
@@ -270,12 +273,7 @@ contract Bestia is ERC4626, Ownable {
         // Transfer ERC4626 share tokens from owner back to vault
         require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
 
-        // using an index like this creates a bug
-        // user can lock in a low swing factor and hold it with a small order
-        // then add larger orders later
-        uint256 index = controllerToRedeemIndex[controller];
-
-        // todo: get sharesAdjusted by appliying swing pricing at time of withdrawal request
+        // get the cash balance of the node and asset value of the redeem request
         uint256 balance = depositAsset.balanceOf(address(this));
         uint256 assets = convertToAssets(shares);
 
@@ -287,11 +285,10 @@ contract Bestia is ERC4626, Ownable {
 
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
+        uint256 index = controllerToRedeemIndex[controller];
+
         if (index > 0) {
-            // todo: think about this solution:
-            // boolean check on if the new swing factor is better or worse than the old one
-            // always give them the worse one. then cannot be gamed
-            // but do think it through
+            // TODO: come back to this as def can be gamed            
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({
@@ -318,7 +315,7 @@ contract Bestia is ERC4626, Ownable {
         return redeemRequests[index - 1].sharesPending;
     }
 
-    // view function to see redeemm requests that can be withdrawn
+    // view function to see redeem requests that can be withdrawn
     function claimableRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
         uint256 index = controllerToRedeemIndex[controller];
         require(index > 0, "No claimable redemption for controller");
@@ -326,21 +323,16 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function isOperator(address controller, address operator) public view returns (bool status) {
-        // Returns true if the operator is approved as an operator for a controller.
+        return _operators[controller][operator];
     }
 
     function setOperator(address operator, bool approved) public returns (bool success) {
-        // Grants or revokes permissions for operator to manage Requests on behalf of the msg.sender.
-        // MUST set the operator status to the approved value.
-        // MUST log the OperatorSet event.
-        // MUST return True.
+        _operators[msg.sender][operator] = approved;
+        emit OperatorSet(msg.sender, operator, approved);
+        return true;
     }
 
-    // banker-controller function to use excess reserve cash to fulfil withdrawal
-    // requires 1 of 3 things to be true to succeed:
-    // -- 1. recently deposited cash exceeds target reserve ratio
-    // -- 2. banker to have reduced a sync vault position
-    // -- 3. banker to have reduced an async vault position
+    // Banker only function to process redemptions from reserve    
     function fulfilRedeemFromReserve(address _controller) public onlyBanker {
         uint256 index = controllerToRedeemIndex[_controller];
         uint256 balance = depositAsset.balanceOf(address(this));
@@ -353,10 +345,9 @@ contract Bestia is ERC4626, Ownable {
         Request storage request = redeemRequests[index - 1];
         address escrowAddress = address(escrow);
 
-        // note: this introduces a potential bug where you have to set the withdrawValue
+        // note: this introduces a potential bug where you have to set the withdrawal asset value
         // at the time the deposit is requested
         // possibly could be fixed by making the liquidation request based on the sum of adjustedShares
-        // todo: just finish the refactoring for now and come back to this question later
         uint256 sharesPending = request.sharesPending;
         uint256 sharesAdjusted = request.sharesAdjusted;
 
@@ -398,7 +389,6 @@ contract Bestia is ERC4626, Ownable {
 
     ////////////////////////// OVERRIDES ///////////////////////////
 
-    // todo: override and remove "_"
     function maxWithdraw(address controller) public view override returns (uint256 maxAssets) {
         uint256 index = controllerToRedeemIndex[controller];
         if (index == 0) {
@@ -418,7 +408,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function withdraw(uint256 assets, address receiver, address controller) public override returns (uint256 shares) {
-        // TODO: need some kind of security check on controller / operator / msg.sender here
+        // TODO: need some kind of security check on controller / operator / msg.sender here        
 
         uint256 _index = controllerToRedeemIndex[controller];
 
@@ -445,16 +435,18 @@ contract Bestia is ERC4626, Ownable {
         return shares;
     }
 
-    // todo: make this later
-    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {}
+    // TODO: implement this later
+    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {
+        // TODO: need some kind of security check on controller / operator / msg.sender here 
+    }
 
-    // function previewWithdraw(uint256) public view virtual override returns (uint256) {
-    //     revert("ERC7540: previewWithdraw not available for async vault");
-    // }
+    function previewWithdraw(uint256) public view virtual override returns (uint256) {
+        revert("ERC7540: previewWithdraw not available for async vault");
+    }
 
-    // function previewRedeem(uint256) public view virtual override returns (uint256) {
-    //     revert("ERC7540: previewRedeem not available for async vault");
-    // }
+    function previewRedeem(uint256) public view virtual override returns (uint256) {
+        revert("ERC7540: previewRedeem not available for async vault");
+    }
 
     /*//////////////////////////////////////////////////////////////
                     ASYNC ASSET MANAGEMENT LOGIC (7540)
@@ -490,7 +482,7 @@ contract Bestia is ERC4626, Ownable {
         return assets;
     }
 
-    // TODO: Create a buildTransaction() func that both investCash() and investInAsyncVault() can use
+    // TODO: Check for reused code between this and investInSync vault. 
     function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -587,7 +579,7 @@ contract Bestia is ERC4626, Ownable {
 
     // called by banker to deposit excess reserve into strategies
     // TODO: refactor this into something more efficient and include getDepositAmount logic
-    function investInSynchVault(address _component) external onlyBanker returns (uint256 cashInvested) {
+    function investInSyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }
@@ -719,8 +711,6 @@ contract Bestia is ERC4626, Ownable {
         return components[index - 1].isAsync;
     }
 
-    // temp: commented out while I remove hardcoding
-    // todo: add back in after you fix constructor
     function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
         uint256 targetRatio = getComponentRatio(_component);
         if (targetRatio == 0) return false; // Always in range if target is 0
@@ -730,9 +720,6 @@ contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                         ESCROW INTERACTIONS
     ////////////////////////////////////////////////////////////////*/
-
-    // TODO: create logic for user to execute withdrawals later
-    // Only handling deposits by banker for claimable user withdrawals
 
     function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyBanker {
         IERC20 token = IERC20(_tokenAddress);
@@ -749,7 +736,7 @@ contract Bestia is ERC4626, Ownable {
         emit WithdrawalFundsSentToEscrow(escrowAddress, _tokenAddress, _amount);
     }
 
-    function setEscrow(address _escrow) public onlyBanker {
+    function setEscrow(address _escrow) public onlyOwner {
         escrow = IEscrow(_escrow);
     }
 
@@ -796,9 +783,5 @@ contract Bestia is ERC4626, Ownable {
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
-    }
-
-    function previewDeposit(uint256 assets) public view override returns (uint256) {
-        return _convertToShares(assets, Math.Rounding.Floor);
     }
 }

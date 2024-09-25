@@ -51,7 +51,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investInSynchVault(address(vaultA));
+        bestia.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
         // test that the cash reserve after investCash == the targetReserveRatio
@@ -73,7 +73,7 @@ contract VaultTests is BaseTest {
         // expect revert
         vm.startPrank(banker);
         vm.expectRevert(); // error CashBelowTargetRatio();
-        bestia.investInSynchVault(address(vaultA));
+        bestia.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
         // user 2 deposits 4 tokens to bring cash reserve to 12 tokens
@@ -82,7 +82,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investInSynchVault(address(vaultA));
+        bestia.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
         // asserts cash reserve == target reserve
@@ -95,7 +95,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investInSynchVault(address(vaultA));
+        bestia.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
         // asserts cash reserve == target reserve
@@ -148,7 +148,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investInSynchVault(address(vaultA));
+        bestia.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -179,7 +179,7 @@ contract VaultTests is BaseTest {
 
         // invest cash to return reserve ratio to 100%
         vm.startPrank(banker);
-        bestia.investInSynchVault(address(vaultA));
+        bestia.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
         uint256 redeemRequest = (5 * DECIMALS);
@@ -227,7 +227,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(banker);
-        bestia.investInSynchVault(address(vaultA));
+        bestia.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -248,7 +248,7 @@ contract VaultTests is BaseTest {
 
         // banker invests excess reserve
         vm.startPrank(banker);
-        bestia.investInSynchVault(address(vaultA));
+        bestia.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
         // grab share value of deposit
