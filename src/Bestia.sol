@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
+// TODO: create multiple factories so we can have different token types - even a meta factory
+// TODO: pull out all of the assets with 0 target in your tests. should work without
+// TODO: global rebalancing toggle???? opt in or out for managers
+// TODO: go through every single function and think about incentives from speculator vs investor
+// NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
+
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
@@ -16,11 +22,18 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-// TODO: create multiple factories so we can have different token types - even a meta factory
-// TODO: pull out all of the assets with 0 target in your tests. should work without
-// TODO: global rebalancing toggle???? opt in or out for managers
-// TODO: go through every single function and think about incentives from speculator vs investor
-// NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
+// TODO: Fix (1) adjustedWithdraw, (2) tempWithdraw & (3) _maxWithdraw
+
+// Refactoring Plan:
+// -- 1. DONE: Create manager controls test
+// -- 2. DONE: Be able to turn swing pricing on and off
+// -- 3. DONE: Have getSwingFactor return 0 when swing price off
+// -- 4. DONE: Grab adjustedShares (swing factor down) when you request withdrawal
+// -- 5. DONE: Apply Swing factor when you fulfilRedeemRequest
+// -- 6. DONE: Test that flow and be able to process pending redeems with SP on/off
+// -- 7. DONE: Then delete adjustedWithdraw and use tempWithdraw. Refactor all those tests
+// -- 8. Then rename tempWithdraw to withdraw and override. Refactor all those tests
+// -- 9. Then do _maxWithdraw and do those tests
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -39,8 +52,10 @@ contract Bestia is ERC4626, Ownable {
     uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
 
     bool public instantLiquidationsEnabled = true; // todo: also set by manager
+    bool public swingPricingEnabled = false; // set by manager
+    bool public liquidateReserveBelowTarget = true;
 
-    // @dev Requests for nodes are non-fungible and all have ID = 0
+    // Requests for nodes are non-fungible and all have ID = 0
     uint256 private constant REQUEST_ID = 0;
 
     // PRBMath Types and Conversions
@@ -70,7 +85,7 @@ contract Bestia is ERC4626, Ownable {
         uint256 sharesPending;
         uint256 sharesClaimable;
         uint256 assetsClaimable;
-        uint256 swingFactor; // TODO: not yet implemented
+        uint256 sharesAdjusted; // compute share value after swing price applied
     }
 
     // NOTE: the order that components are added to the protocol determines their withdrawal order
@@ -86,8 +101,6 @@ contract Bestia is ERC4626, Ownable {
 
     // 7540 MAPPINGS
     mapping(address => mapping(address => bool)) private _operators;
-
-    ////////////////////////////////////////////////////////////////
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -115,7 +128,6 @@ contract Bestia is ERC4626, Ownable {
         maxDiscountSD = sd(int256(maxDiscount));
         targetReserveRatioSD = sd(int256(targetReserveRatio));
         scalingFactorSD = sd(scalingFactor);
-        // transferOwnership(_owner);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -129,6 +141,8 @@ contract Bestia is ERC4626, Ownable {
     event AsyncWithdrawalRequested(address component, uint256 shares);
     event AsyncWithdrawalExecuted(address component, uint256 assets);
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
+    event SwingPricingStatusUpdated(bool status);
+    event LiquidateReserveBelowTargetStatus(bool status);
 
     ////// 7540 EVENTS //////
     event RedeemRequest(
@@ -220,37 +234,13 @@ contract Bestia is ERC4626, Ownable {
         return (sharesToMint);
     }
 
-    // TODO: override withdraw function
-    function adjustedWithdraw(uint256 _assets, address receiver, address _owner) public returns (uint256) {
-        uint256 balance = depositAsset.balanceOf(address(this));
-        if (_assets > balance) {
-            revert NotEnoughReserveCash();
-        }
-
-        uint256 maxAssets = maxWithdraw(_owner);
-        if (_assets > maxAssets) {
-            revert ERC4626ExceededMaxWithdraw(_owner, _assets, maxAssets);
-        }
-
-        // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - _assets, 1e18, totalAssets() - _assets));
-
-        // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = Math.mulDiv(_assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
-
-        // cache the share value associated with no swing factor
-        uint256 sharesToBurn = previewWithdraw(_assets);
-
-        // returns the adjustedAssets to user but burns the correct amount of shares
-        _withdraw(_msgSender(), receiver, _owner, adjustedAssets, sharesToBurn);
-
-        return sharesToBurn;
-    }
-
     // swing price curve equation
     // getSwingFactor() converts from int to uint
     // TODO: change to private internal later and change test use a wrapper function in test contract
     function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
+        if (!swingPricingEnabled) {
+            return 0;
+        }
         // checks if withdrawal will exceed available reserve
         if (_reserveRatioAfterTX <= 0) {
             revert NotEnoughReserveCash();
@@ -293,9 +283,28 @@ contract Bestia is ERC4626, Ownable {
         // Transfer ERC4626 share tokens from owner back to vault
         require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
 
+        // using an index like this creates a bug
+        // user can lock in a low swing factor and hold it with a small order
+        // then add larger orders later
         uint256 index = controllerToRedeemIndex[controller];
 
+        // todo: get sharesAdjusted by appliying swing pricing at time of withdrawal request
+        uint256 balance = depositAsset.balanceOf(address(this));
+        uint256 assets = convertToAssets(shares);
+
+        // gets the expected reserve ratio after tx
+        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+
+        // gets the assets to be returned to the user after applying swingfactor to tx
+        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
+
+        uint256 sharesToBurn = convertToShares(adjustedAssets);
+
         if (index > 0) {
+            // todo: think about this solution:
+            // boolean check on if the new swing factor is better or worse than the old one
+            // always give them the worse one. then cannot be gamed
+            // but do think it through
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({
@@ -303,7 +312,7 @@ contract Bestia is ERC4626, Ownable {
                 sharesPending: shares,
                 sharesClaimable: 0,
                 assetsClaimable: 0,
-                swingFactor: 0
+                sharesAdjusted: sharesToBurn
             });
 
             redeemRequests.push(newRequest);
@@ -357,26 +366,34 @@ contract Bestia is ERC4626, Ownable {
         Request storage request = redeemRequests[index - 1];
         address escrowAddress = address(escrow);
 
-        // note: this is not including swing factor
-        uint256 shares = request.sharesPending;
-        uint256 assets = convertToAssets(shares);
+        // note: this introduces a potential bug where you have to set the withdrawValue
+        // at the time the deposit is requested
+        // possibly could be fixed by making the liquidation request based on the sum of adjustedShares
+        // todo: just finish the refactoring for now and come back to this question later
+        uint256 sharesPending = request.sharesPending;
+        uint256 sharesAdjusted = request.sharesAdjusted;
+
+        uint256 assets = convertToAssets(sharesAdjusted);
 
         // get reserve ratio after tx
         uint256 reserveRatioAfterTx = Math.mulDiv(balance - assets, 1e18, totalAssets() - assets);
 
-        // will revert if withdawal will reduce reserve below target ratio
-        // if passes, it demonstrate that withdrawal amount < total reserve balance
-        if (reserveRatioAfterTx < targetReserveRatio) {
-            revert NotEnoughReserveCash();
+        // first checks if manager has enabled liquidate below target
+        // -- will revert if withdawal will reduce reserve below target ratio
+        // -- if passes, it demonstrate that withdrawal amount < total reserve balance
+        if (!liquidateReserveBelowTarget) {
+            if (reserveRatioAfterTx < targetReserveRatio) {
+                revert NotEnoughReserveCash();
+            }
         }
 
-        // additional safeguard in case of edge case
+        // check that current reserve is enough for redeem
         if (assets > balance) {
             revert NotEnoughReserveCash();
         }
 
         // Burn the shares on escrow
-        _burn(escrowAddress, shares);
+        _burn(escrowAddress, sharesPending);
 
         // Transfer tokens to Escrow
         IERC20(asset()).transfer(escrowAddress, assets);
@@ -386,9 +403,10 @@ contract Bestia is ERC4626, Ownable {
         emit WithdrawalFundsSentToEscrow(escrowAddress, asset(), assets);
 
         // update balances in Request
-        request.sharesPending -= shares; // shares removed from pending
-        request.sharesClaimable += shares; // shares added to claimable
+        request.sharesPending -= sharesPending; // shares removed from pending
+        request.sharesClaimable += sharesPending; // shares added to claimable
         request.assetsClaimable += assets; // assets added to claimable
+        request.sharesAdjusted -= sharesAdjusted; // shares removed from adjusted
     }
 
     ////////////////////////// OVERRIDES ///////////////////////////
@@ -412,8 +430,7 @@ contract Bestia is ERC4626, Ownable {
         }
     }
 
-    // todo: override and remove "temp"
-    function tempWithdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address controller) public override returns (uint256 shares) {
         // TODO: need some kind of security check on controller / operator / msg.sender here
 
         uint256 _index = controllerToRedeemIndex[controller];
@@ -440,6 +457,9 @@ contract Bestia is ERC4626, Ownable {
 
         return shares;
     }
+
+    // todo: make this later
+    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {}
 
     // function previewWithdraw(uint256) public view virtual override returns (uint256) {
     //     revert("ERC7540: previewWithdraw not available for async vault");
@@ -758,6 +778,18 @@ contract Bestia is ERC4626, Ownable {
         _;
     }
 
+    function enableSwingPricing(bool status) public onlyOwner {
+        swingPricingEnabled = status;
+
+        emit SwingPricingStatusUpdated(status);
+    }
+
+    function enableLiquiateReserveBelowTarget(bool status) public onlyOwner {
+        liquidateReserveBelowTarget = status;
+
+        emit LiquidateReserveBelowTargetStatus(status);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         UTILITY & OVERRIDE FUNCTIONS  
                     (TEMP: Might move or delete these later)
@@ -783,6 +815,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // todo: consider from deletion LATER after you finalize design
+    // note: definitely not applying swing pricing correctly after you added adjustedShares to Requests
     // Banker-controlled function to pull assets from a 4626 vault and make assets claimable for user
     function fulfilRedeemFromSynch(address _controller, address _component) public onlyBanker {
         uint256 _index = controllerToRedeemIndex[_controller];

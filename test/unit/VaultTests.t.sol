@@ -60,7 +60,11 @@ contract VaultTests is BaseTest {
 
         // remove some cash from reserve
         vm.startPrank(user1);
-        bestia.withdraw(2e6, address(user1), address(user1));
+        bestia.requestRedeem(bestia.convertToShares(2e6), address(user1), address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        bestia.fulfilRedeemFromReserve(address(user1));
         vm.stopPrank();
 
         // mint cash so invested assets = 100
@@ -100,6 +104,9 @@ contract VaultTests is BaseTest {
     }
 
     function testGetSwingFactor() public {
+        // enable swing pricing
+        bestia.enableSwingPricing(true);
+
         // reverts on withdrawal exceeds available reserve
         vm.expectRevert();
         bestia.getSwingFactor(0);
@@ -133,6 +140,9 @@ contract VaultTests is BaseTest {
         bestia.addComponent(address(vaultC), 0, false, address(vaultC));
         bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
+        // enable swing pricing
+        bestia.enableSwingPricing(true);
+
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
@@ -146,7 +156,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdcMock.mint(address(vaultA), 10e6 + 1);
+        usdcMock.mint(address(vaultA), 10 * DECIMALS + 1);
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
@@ -172,10 +182,17 @@ contract VaultTests is BaseTest {
         bestia.investInSynchVault(address(vaultA));
         vm.stopPrank();
 
+        
+
+        uint256 redeemRequest = ( 5 * DECIMALS );
+
         // withdraw usdc to bring reserve ratio below 100%
         vm.startPrank(user2);
-        bestia.withdraw(5e6, (address(user2)), address((user2)));
+        bestia.requestRedeem(bestia.convertToShares(redeemRequest), (address(user2)), address((user2)));
         vm.stopPrank();
+
+        vm.startPrank(banker);        
+        bestia.fulfilRedeemFromReserve(address(user2));
 
         // get the shares to be minted from a deposit with no swing factor applied
         nonAdjustedShares = bestia.previewDeposit(2e6);
@@ -198,6 +215,9 @@ contract VaultTests is BaseTest {
     }
 
     function testAdjustedWithdraw() public {
+        // enable swing pricing
+        bestia.enableSwingPricing(true);
+
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
         bestia.addComponent(address(vaultB), 0, false, address(vaultB));
@@ -233,9 +253,13 @@ contract VaultTests is BaseTest {
         bestia.investInSynchVault(address(vaultA));
         vm.stopPrank();
 
+        // grab share value of deposit
+        uint256 sharesToRedeem = bestia.convertToShares(DEPOSIT_10);
+
         // user 2 withdraws the same amount they deposited
         vm.startPrank(user2);
-        bestia.adjustedWithdraw(DEPOSIT_10 - 1, address(user2), address(user2));
+        bestia.requestRedeem(sharesToRedeem, address(user2), address(user2));
+        vm.stopPrank();
 
         // assert that user2 has burned all shares to withdraw max usdc
         uint256 user2BestiaClosingBalance = bestia.balanceOf(address(user2));
@@ -245,9 +269,7 @@ contract VaultTests is BaseTest {
         uint256 usdcReturned = usdcMock.balanceOf(address(user2));
         assertLt(usdcReturned, DEPOSIT_10);
 
-        console2.log("delta :", DEPOSIT_10 - usdcReturned);
-
-        // this test does not check if the correct amount was returned
+        // note: this test does not check if the correct amount was returned
         // only that is was less than originally deposited
         // check for correct swing factor is in that test
     }
@@ -260,12 +282,5 @@ contract VaultTests is BaseTest {
         assertTrue(bestia.isComponent(component));
         assertEq(bestia.getComponentRatio(component), targetRatio);
         assertFalse(bestia.isAsync(component));
-    }
-
-    // HELPER FUNCTIONS
-    function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        uint256 currentReserveRatio = Math.mulDiv(usdcMock.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
-
-        return (currentReserveRatio);
     }
 }
