@@ -814,40 +814,7 @@ contract Bestia is ERC4626, Ownable {
         return _convertToShares(assets, Math.Rounding.Floor);
     }
 
-    // todo: consider from deletion LATER after you finalize design
-    // note: definitely not applying swing pricing correctly after you added adjustedShares to Requests
-    // Banker-controlled function to pull assets from a 4626 vault and make assets claimable for user
-    function fulfilRedeemFromSynch(address _controller, address _component) public onlyBanker {
-        uint256 _index = controllerToRedeemIndex[_controller];
-
-        // Ensure there is a pending request for this controller
-        require(_index > 0, "No pending request for this controller");
-
-        Request storage request = redeemRequests[_index - 1];
-        address _escrowAddress = address(escrow);
-
-        // note: this is not including swing factor
-        uint256 _sharesRedeeming = request.sharesPending;
-        uint256 _assetsRequested = convertToAssets(_sharesRedeeming);
-
-        uint256 _sharesToLiquidate = ERC4626(_component).convertToShares(_assetsRequested);
-        uint256 _assetsClaimable = liquidateSyncVaultPosition(_component, _sharesToLiquidate);
-
-        // Burn the shares on escrow
-        _burn(_escrowAddress, _sharesRedeeming);
-
-        // Transfer tokens to Escrow
-        IERC20(asset()).transfer(_escrowAddress, _assetsClaimable);
-
-        // Call deposit function on Escrow
-        escrow.deposit(asset(), _assetsClaimable);
-        emit WithdrawalFundsSentToEscrow(_escrowAddress, asset(), _assetsClaimable);
-
-        // set claimable redeem for user
-        request.sharesPending -= _sharesRedeeming;
-        request.sharesClaimable += _sharesRedeeming;
-        request.assetsClaimable += _assetsClaimable;
-    }
+    
 
     
 }
