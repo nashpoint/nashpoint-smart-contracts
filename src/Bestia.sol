@@ -31,7 +31,7 @@ import {console2} from "forge-std/Test.sol";
 // -- 4. DONE: Grab adjustedShares (swing factor down) when you request withdrawal 
 // -- 5. DONE: Apply Swing factor when you fulfilRedeemRequest
 // -- 6. DONE: Test that flow and be able to process pending redeems with SP on/off
-// -- 7. Then delete adjustedWithdraw and use tempWithdraw. Refactor all those tests
+// -- 7. DONE: Then delete adjustedWithdraw and use tempWithdraw. Refactor all those tests
 // -- 8. Then rename tempWithdraw to withdraw and override. Refactor all those tests
 // -- 9. Then do _maxWithdraw and do those tests
 
@@ -230,35 +230,8 @@ contract Bestia is ERC4626, Ownable {
         _deposit(_msgSender(), receiver, _assets, sharesToMint);
 
         return (sharesToMint);
-    }
-
-    // TODO: override withdraw function
-    function adjustedWithdraw(uint256 _assets, address receiver, address _owner) public returns (uint256) {
-        uint256 balance = depositAsset.balanceOf(address(this));
-        if (_assets > balance) {
-            revert NotEnoughReserveCash();
-        }
-
-        uint256 maxAssets = maxWithdraw(_owner);
-        if (_assets > maxAssets) {
-            revert ERC4626ExceededMaxWithdraw(_owner, _assets, maxAssets);
-        }
-
-        // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - _assets, 1e18, totalAssets() - _assets));
-
-        // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = Math.mulDiv(_assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
-
-        // cache the share value associated with no swing factor
-        uint256 sharesToBurn = previewWithdraw(_assets);
-
-        // returns the adjustedAssets to user but burns the correct amount of shares
-        _withdraw(_msgSender(), receiver, _owner, adjustedAssets, sharesToBurn);
-
-        return sharesToBurn;
-    }
-
+    }  
+    
     // swing price curve equation
     // getSwingFactor() converts from int to uint
     // TODO: change to private internal later and change test use a wrapper function in test contract

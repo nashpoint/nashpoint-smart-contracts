@@ -203,7 +203,6 @@ contract VaultTests is BaseTest {
         console2.log(getCurrentReserveRatio());
     }
 
-    // TODO: FIGURE OUT WITH THIS TEST NOT FAILING WHEN I DISABLE SWING PRICING
     function testAdjustedWithdraw() public {
         // enable swing pricing
         bestia.enableSwingPricing(true);
@@ -243,9 +242,13 @@ contract VaultTests is BaseTest {
         bestia.investInSynchVault(address(vaultA));
         vm.stopPrank();
 
+        // grab share value of deposit
+        uint256 sharesToRedeem = bestia.convertToShares(DEPOSIT_10);
+
         // user 2 withdraws the same amount they deposited
         vm.startPrank(user2);
-        bestia.adjustedWithdraw(DEPOSIT_10 - 1, address(user2), address(user2));
+        bestia.requestRedeem(sharesToRedeem, address(user2), address(user2));
+        vm.stopPrank();        
 
         // assert that user2 has burned all shares to withdraw max usdc
         uint256 user2BestiaClosingBalance = bestia.balanceOf(address(user2));
@@ -253,11 +256,9 @@ contract VaultTests is BaseTest {
 
         // assert that user2 received less USDC back than they deposited
         uint256 usdcReturned = usdcMock.balanceOf(address(user2));
-        assertLt(usdcReturned, DEPOSIT_10 - 1);
+        assertLt(usdcReturned, DEPOSIT_10);        
 
-        console2.log("delta :", DEPOSIT_10 - usdcReturned);
-
-        // this test does not check if the correct amount was returned
+        // note: this test does not check if the correct amount was returned
         // only that is was less than originally deposited
         // check for correct swing factor is in that test
     }
