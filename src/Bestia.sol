@@ -849,44 +849,5 @@ contract Bestia is ERC4626, Ownable {
         request.assetsClaimable += _assetsClaimable;
     }
 
-    // todo: consider for deletion LATER after you finalize design
-    // a user liquidates from a single vault
-    // note: logic is probably useful for iterating through assets to liquidate
-    function instantUserLiquidation(uint256 _shares) public {
-        if (!instantLiquidationsEnabled) {
-            revert UserLiquidationsDisabled();
-        }
-
-        // applies maxDiscount to user withdrawal to get total assets to liquidate for
-        uint256 adjustedAssets = Math.mulDiv(convertToAssets(_shares), 1e18 - maxDiscount, 1e18);
-
-        // find vault to liquidate based on withdrawal queue and available assets
-        for (uint256 i = 0; i < components.length; i++) {
-            Component memory component = components[i];
-
-            // check if component is async, if yes revert
-            if (component.isAsync) {
-                continue;
-            }
-
-            // check if component has enough assets to meet withdrawl
-            IERC4626 _component = IERC4626(component.component);
-            if (_component.convertToAssets(_component.balanceOf(address(this))) > adjustedAssets) {
-                // if yes define correct shares to liquidate based on the adjustedAssets
-                uint256 sharesToLiquidate = _component.convertToShares(adjustedAssets);
-                address user = msg.sender;
-
-                // withdraw from underlying vault using liquidateSynchVaultPosition()
-                liquidateSyncVaultPosition(address(_component), sharesToLiquidate);
-
-                // return funds to user and burn their shares
-                _withdraw(user, user, user, adjustedAssets, _shares);
-
-                // Exit the function after successful withdrawal
-                return;
-            }
-        }
-        // If no synchronous component could fulfill the request, revert
-        revert CannotLiquidate();
-    }
+    
 }
