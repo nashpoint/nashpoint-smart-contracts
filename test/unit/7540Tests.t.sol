@@ -355,7 +355,7 @@ contract ERC7540Tests is BaseTest {
         assertEq(bestia._maxWithdraw(user1), assetsToClaim);
     }
 
-    function testBestiaTempWithdraw() public {
+    function testBestiaWithdraw() public {
         seedBestia();
         uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
         uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
@@ -377,7 +377,7 @@ contract ERC7540Tests is BaseTest {
         // user burns all usdc and withdraws
         vm.startPrank(user1);
         usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
-        bestia.tempWithdraw(assetsToClaim, address(user1), address(user1));
+        bestia.withdraw(assetsToClaim, address(user1), address(user1));
         vm.stopPrank();
 
         // assert user has received correct balance of asset
@@ -391,6 +391,8 @@ contract ERC7540Tests is BaseTest {
 
     function testfulfilRedeemFromReserveReverts() public {
         seedBestia();
+        bestia.enableLiquiateReserveBelowTarget(false);
+
         uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
         uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
 
@@ -422,6 +424,9 @@ contract ERC7540Tests is BaseTest {
     function testRequestRedeemSwingPricing() public {
         // seed bestia
         seedBestia();
+        
+        // disable liquidations below reserve
+        bestia.enableLiquiateReserveBelowTarget(false);
 
         // assert that shares are 1:1 assets and enable swing pricing
         assertEq(bestia.convertToShares(1), 1);
@@ -448,11 +453,7 @@ contract ERC7540Tests is BaseTest {
         assertGt(sharesPending, sharesAdjusted);
 
         // banker to process redemption
-        vm.startPrank(banker);
-
-        // revert: cannot reduce reserve below ratio to process a redemption
-        vm.expectRevert();
-        bestia.fulfilRedeemFromReserve(address(user1));
+        vm.startPrank(banker);        
 
         // grab the value of assets to liquid and assert they are reduced by swing factor
         uint256 assetsToLiquidate = bestia.convertToAssets(sharesAdjusted);
@@ -480,7 +481,7 @@ contract ERC7540Tests is BaseTest {
 
         // user 1 to request redeem
         vm.startPrank(user1);
-        bestia.tempWithdraw(maxWithdraw, address(user1), address(user1));
+        bestia.withdraw(maxWithdraw, address(user1), address(user1));
         vm.stopPrank();
 
         // grab all the values left in the Request after withdrawal

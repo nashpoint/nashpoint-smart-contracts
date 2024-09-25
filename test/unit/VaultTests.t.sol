@@ -152,7 +152,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, bestia.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdcMock.mint(address(vaultA), 10e6 + 1);
+        usdcMock.mint(address(vaultA), 10 * DECIMALS + 1);
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
@@ -178,10 +178,17 @@ contract VaultTests is BaseTest {
         bestia.investInSynchVault(address(vaultA));
         vm.stopPrank();
 
+        
+
+        uint256 redeemRequest = ( 5 * DECIMALS );
+
         // withdraw usdc to bring reserve ratio below 100%
         vm.startPrank(user2);
-        bestia.withdraw(5e6, (address(user2)), address((user2)));
+        bestia.requestRedeem(bestia.convertToShares(redeemRequest), (address(user2)), address((user2)));
         vm.stopPrank();
+
+        vm.startPrank(banker);        
+        bestia.fulfilRedeemFromReserve(address(user2));
 
         // get the shares to be minted from a deposit with no swing factor applied
         nonAdjustedShares = bestia.previewDeposit(2e6);
@@ -248,7 +255,7 @@ contract VaultTests is BaseTest {
         // user 2 withdraws the same amount they deposited
         vm.startPrank(user2);
         bestia.requestRedeem(sharesToRedeem, address(user2), address(user2));
-        vm.stopPrank();        
+        vm.stopPrank();
 
         // assert that user2 has burned all shares to withdraw max usdc
         uint256 user2BestiaClosingBalance = bestia.balanceOf(address(user2));
@@ -256,7 +263,7 @@ contract VaultTests is BaseTest {
 
         // assert that user2 received less USDC back than they deposited
         uint256 usdcReturned = usdcMock.balanceOf(address(user2));
-        assertLt(usdcReturned, DEPOSIT_10);        
+        assertLt(usdcReturned, DEPOSIT_10);
 
         // note: this test does not check if the correct amount was returned
         // only that is was less than originally deposited
