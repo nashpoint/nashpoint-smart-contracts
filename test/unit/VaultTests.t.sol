@@ -182,16 +182,14 @@ contract VaultTests is BaseTest {
         bestia.investInSynchVault(address(vaultA));
         vm.stopPrank();
 
-        
-
-        uint256 redeemRequest = ( 5 * DECIMALS );
+        uint256 redeemRequest = (5 * DECIMALS);
 
         // withdraw usdc to bring reserve ratio below 100%
         vm.startPrank(user2);
         bestia.requestRedeem(bestia.convertToShares(redeemRequest), (address(user2)), address((user2)));
         vm.stopPrank();
 
-        vm.startPrank(banker);        
+        vm.startPrank(banker);
         bestia.fulfilRedeemFromReserve(address(user2));
 
         // get the shares to be minted from a deposit with no swing factor applied
