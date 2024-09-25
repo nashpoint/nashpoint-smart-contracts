@@ -223,7 +223,7 @@ contract BaseTest is Test {
 
     function bankerInvestsCash(address _component) public {
         vm.startPrank(banker);
-        bestia.investInSynchVault(_component);
+        bestia.investInSyncVault(_component);
         vm.stopPrank();
     }
 

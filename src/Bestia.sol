@@ -254,13 +254,6 @@ contract Bestia is ERC4626, Ownable {
     // How can I use this? What is really the point of it?
     // TODO: figure out how the controller and operator role relate to integrators
 
-    // CONSTRAINTS
-    // 1. The redeem and withdraw methods do not transfer shares to the Vault, because this already happened on requestRedeem.
-    // 2. The owner field of redeem and withdraw SHOULD be renamed to controller, and the controller MUST be msg.sender unless the controller has approved the msg.sender as an operator.
-    // 3. previewRedeem and previewWithdraw MUST revert for all callers and inputs.
-
-    // FUNCTIONS
-
     // user requests to redeem their funds from the vault. they send their shares to the escrow contract
     function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
@@ -270,12 +263,7 @@ contract Bestia is ERC4626, Ownable {
         // Transfer ERC4626 share tokens from owner back to vault
         require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
 
-        // using an index like this creates a bug
-        // user can lock in a low swing factor and hold it with a small order
-        // then add larger orders later
-        uint256 index = controllerToRedeemIndex[controller];
-
-        // todo: get sharesAdjusted by appliying swing pricing at time of withdrawal request
+        // get the cash balance of the node and asset value of the redeem request
         uint256 balance = depositAsset.balanceOf(address(this));
         uint256 assets = convertToAssets(shares);
 
@@ -286,6 +274,8 @@ contract Bestia is ERC4626, Ownable {
         uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         uint256 sharesToBurn = convertToShares(adjustedAssets);
+
+        uint256 index = controllerToRedeemIndex[controller];
 
         if (index > 0) {
             // todo: think about this solution:
@@ -318,7 +308,7 @@ contract Bestia is ERC4626, Ownable {
         return redeemRequests[index - 1].sharesPending;
     }
 
-    // view function to see redeemm requests that can be withdrawn
+    // view function to see redeem requests that can be withdrawn
     function claimableRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
         uint256 index = controllerToRedeemIndex[controller];
         require(index > 0, "No claimable redemption for controller");
@@ -335,11 +325,6 @@ contract Bestia is ERC4626, Ownable {
         return true;
     }
 
-    // banker-controller function to use excess reserve cash to fulfil withdrawal
-    // requires 1 of 3 things to be true to succeed:
-    // -- 1. recently deposited cash exceeds target reserve ratio
-    // -- 2. banker to have reduced a sync vault position
-    // -- 3. banker to have reduced an async vault position
     function fulfilRedeemFromReserve(address _controller) public onlyBanker {
         uint256 index = controllerToRedeemIndex[_controller];
         uint256 balance = depositAsset.balanceOf(address(this));
@@ -397,7 +382,6 @@ contract Bestia is ERC4626, Ownable {
 
     ////////////////////////// OVERRIDES ///////////////////////////
 
-    // todo: override and remove "_"
     function maxWithdraw(address controller) public view override returns (uint256 maxAssets) {
         uint256 index = controllerToRedeemIndex[controller];
         if (index == 0) {
@@ -586,7 +570,7 @@ contract Bestia is ERC4626, Ownable {
 
     // called by banker to deposit excess reserve into strategies
     // TODO: refactor this into something more efficient and include getDepositAmount logic
-    function investInSynchVault(address _component) external onlyBanker returns (uint256 cashInvested) {
+    function investInSyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }
@@ -790,9 +774,5 @@ contract Bestia is ERC4626, Ownable {
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
-    }
-
-    function previewDeposit(uint256 assets) public view override returns (uint256) {
-        return _convertToShares(assets, Math.Rounding.Floor);
     }
 }

@@ -178,4 +178,12 @@ contract ERC7540Tests is BaseTest {
         // assert user 1 IS NOT operator to user 2
         assertFalse(bestia.isOperator(address(user2), address(user1)));
     }
+
+    function testViewFunctionsRevert() public {
+        vm.expectRevert();
+        bestia.previewRedeem(100);
+
+        vm.expectRevert();
+        bestia.previewWithdraw(100);
+    }
 }
