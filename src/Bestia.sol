@@ -22,19 +22,6 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-// TODO: Fix (1) adjustedWithdraw, (2) tempWithdraw & (3) _maxWithdraw
-
-// Refactoring Plan:
-// -- 1. DONE: Create manager controls test
-// -- 2. DONE: Be able to turn swing pricing on and off
-// -- 3. DONE: Have getSwingFactor return 0 when swing price off
-// -- 4. DONE: Grab adjustedShares (swing factor down) when you request withdrawal
-// -- 5. DONE: Apply Swing factor when you fulfilRedeemRequest
-// -- 6. DONE: Test that flow and be able to process pending redeems with SP on/off
-// -- 7. DONE: Then delete adjustedWithdraw and use tempWithdraw. Refactor all those tests
-// -- 8. Then rename tempWithdraw to withdraw and override. Refactor all those tests
-// -- 9. Then do _maxWithdraw and do those tests
-
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
@@ -412,7 +399,7 @@ contract Bestia is ERC4626, Ownable {
     ////////////////////////// OVERRIDES ///////////////////////////
 
     // todo: override and remove "_"
-    function _maxWithdraw(address controller) public view returns (uint256 maxAssets) {
+    function maxWithdraw(address controller) public view override returns (uint256 maxAssets) {
         uint256 index = controllerToRedeemIndex[controller];
         if (index == 0) {
             revert NoRedeemRequestForController();
@@ -438,7 +425,7 @@ contract Bestia is ERC4626, Ownable {
         // Ensure there is a pending request for this controller
         require(_index > 0, "No pending request for this controller");
 
-        uint256 maxAssets = _maxWithdraw(controller);
+        uint256 maxAssets = maxWithdraw(controller);
         uint256 maxShares = maxRedeem(controller);
         if (assets > maxAssets) {
             revert ExceededMaxWithdraw(controller, assets, maxAssets);
@@ -645,11 +632,12 @@ contract Bestia is ERC4626, Ownable {
         return (depositAmount);
     }
 
-    // need to make this internal so checks on shares, maxRedeem all pass before executing
-    // note: this function could introduce accounting errors
-    // as it removes assets without burning shares
-    // REITERATE: NEVER CALL DIRECTLY, MUST BE INTERNAL
-    function liquidateSyncVaultPosition(address _component, uint256 shares) public returns (uint256 assetsReturned) {
+    // banker to use this function to liquidate underlying vault to meet redeem requests
+    function liquidateSyncVaultPosition(address _component, uint256 shares)
+        public
+        onlyBanker
+        returns (uint256 assetsReturned)
+    {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }
@@ -813,8 +801,4 @@ contract Bestia is ERC4626, Ownable {
     function previewDeposit(uint256 assets) public view override returns (uint256) {
         return _convertToShares(assets, Math.Rounding.Floor);
     }
-
-    
-
-    
 }

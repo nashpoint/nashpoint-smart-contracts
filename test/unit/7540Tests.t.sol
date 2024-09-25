@@ -326,8 +326,6 @@ contract ERC7540Tests is BaseTest {
         assertEq(bestia.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
     }
 
-    
-
     function testBestiaWithdraw() public {
         seedBestia();
         uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
@@ -359,7 +357,7 @@ contract ERC7540Tests is BaseTest {
         // assert that Request has been cleared
         assertEq(bestia.pendingRedeemRequest(0, address(user1)), 0);
         assertEq(bestia.claimableRedeemRequest(0, address(user1)), 0);
-        assertEq(bestia._maxWithdraw(user1), 0);
+        assertEq(bestia.maxWithdraw(user1), 0);
     }
 
     function testfulfilRedeemFromReserveReverts() public {
@@ -397,7 +395,7 @@ contract ERC7540Tests is BaseTest {
     function testRequestRedeemSwingPricing() public {
         // seed bestia
         seedBestia();
-        
+
         // disable liquidations below reserve
         bestia.enableLiquiateReserveBelowTarget(false);
 
@@ -426,7 +424,7 @@ contract ERC7540Tests is BaseTest {
         assertGt(sharesPending, sharesAdjusted);
 
         // banker to process redemption
-        vm.startPrank(banker);        
+        vm.startPrank(banker);
 
         // grab the value of assets to liquid and assert they are reduced by swing factor
         uint256 assetsToLiquidate = bestia.convertToAssets(sharesAdjusted);
@@ -449,7 +447,7 @@ contract ERC7540Tests is BaseTest {
         assertEq(startingReserveCash, usdcMock.balanceOf(address(bestia)));
 
         // assert that the escrow value is equal to maxWithdraw for user
-        uint256 maxWithdraw = bestia._maxWithdraw(address(user1));
+        uint256 maxWithdraw = bestia.maxWithdraw(address(user1));
         assertEq(maxWithdraw, usdcMock.balanceOf(address(escrow)));
 
         // user 1 to request redeem
