@@ -420,21 +420,20 @@ contract ERC7540Tests is BaseTest {
     }
 
     function testRequestRedeemSwingPricing() public {
-        // seed bestia and assert that shares are 1:1 assets
+        // seed bestia
         seedBestia();
-        assertEq(bestia.convertToShares(1), 1);
 
+        // assert that shares are 1:1 assets and enable swing pricing
+        assertEq(bestia.convertToShares(1), 1);
         bestia.enableSwingPricing(true);
 
-        console2.log("reserveRatio before tx :",getCurrentReserveRatio());
+        // grab reserve cash value
+        uint256 startingReserveCash = usdcMock.balanceOf(address(bestia));
 
-        uint256 reserveCash = usdcMock.balanceOf(address(bestia));
-        console2.log("reserveCash :", reserveCash);
+        // grab shares worth 10% of current reserve cash
+        uint256 redeemRequest = bestia.convertToShares(startingReserveCash / 10);
 
-        // shares worth 10% of current reserve cash
-        uint256 redeemRequest = bestia.convertToShares(reserveCash / 10);
-        console2.log("redeemRequest :", redeemRequest);
-
+        // user 1 requests a redeem of redeem amount
         vm.startPrank(user1);
         bestia.requestRedeem(redeemRequest, address(user1), address(user1));
         vm.stopPrank();
@@ -443,8 +442,56 @@ contract ERC7540Tests is BaseTest {
         uint256 index = bestia.controllerToRedeemIndex(user1);
 
         // Retrieve the swingFactor from the redeem request by accessing its tuple
-        (,uint256 sharesPending,,, uint256 sharesAdjusted) = bestia.redeemRequests(index - 1);
-        console2.log("sharesPending :", sharesPending);
-        console2.log("sharesAdjusted :", sharesAdjusted);
+        (, uint256 sharesPending,,, uint256 sharesAdjusted) = bestia.redeemRequests(index - 1);
+
+        // assert that the sharesAdjusted have been reduced by swing factor
+        assertGt(sharesPending, sharesAdjusted);
+
+        // banker to process redemption
+        vm.startPrank(banker);
+
+        // revert: cannot reduce reserve below ratio to process a redemption
+        vm.expectRevert();
+        bestia.fulfilRedeemFromReserve(address(user1));
+
+        // grab the value of assets to liquid and assert they are reduced by swing factor
+        uint256 assetsToLiquidate = bestia.convertToAssets(sharesAdjusted);
+        assertGt(redeemRequest, assetsToLiquidate);
+
+        // using Vault A to source liquidity, grab the amount of shares needed for request
+        // this adds excess cash to the reserve above the target ratio
+        uint256 sharesToLiquidate = vaultA.convertToShares(assetsToLiquidate);
+        bestia.liquidateSyncVaultPosition(address(vaultA), sharesToLiquidate);
+
+        // assert that the current balance exceeds the original reserve cash
+        assertGt(usdcMock.balanceOf(address(bestia)), startingReserveCash);
+
+        // banker fulfils redeem request with the excess cash in the reserve
+        bestia.fulfilRedeemFromReserve(address(user1));
+
+        vm.stopPrank();
+
+        // assert that the reserve ratio is at target after redemption fulfiled
+        assertEq(startingReserveCash, usdcMock.balanceOf(address(bestia)));
+
+        // assert that the escrow value is equal to maxWithdraw for user
+        uint256 maxWithdraw = bestia._maxWithdraw(address(user1));
+        assertEq(maxWithdraw, usdcMock.balanceOf(address(escrow)));
+
+        // user 1 to request redeem
+        vm.startPrank(user1);
+        bestia.tempWithdraw(maxWithdraw, address(user1), address(user1));
+        vm.stopPrank();
+
+        // grab all the values left in the Request after withdrawal
+        (address controllerAddress, uint256 value1, uint256 value2, uint256 value3, uint256 value4) =
+            bestia.redeemRequests(index - 1);
+
+        // assert correct controller address and all values cleared
+        assertEq(controllerAddress, address(user1));
+        assertEq(value1, 0);
+        assertEq(value2, 0);
+        assertEq(value3, 0);
+        assertEq(value4, 0);
     }
 }

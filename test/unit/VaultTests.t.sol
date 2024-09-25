@@ -271,6 +271,4 @@ contract VaultTests is BaseTest {
         assertEq(bestia.getComponentRatio(component), targetRatio);
         assertFalse(bestia.isAsync(component));
     }
-
-        
 }

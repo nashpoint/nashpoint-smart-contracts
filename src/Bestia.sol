@@ -28,9 +28,9 @@ import {console2} from "forge-std/Test.sol";
 // -- 1. DONE: Create manager controls test
 // -- 2. DONE: Be able to turn swing pricing on and off
 // -- 3. DONE: Have getSwingFactor return 0 when swing price off
-// -- 4. Grab swing factor when you request withdrawal and add to request struct
-// -- 5. Apply Swing factor when you fulfilRedeemRequest
-// -- 6. Test that flow and be able to process pending redeems with SP on/off
+// -- 4. DONE: Grab adjustedShares (swing factor down) when you request withdrawal 
+// -- 5. DONE: Apply Swing factor when you fulfilRedeemRequest
+// -- 6. DONE: Test that flow and be able to process pending redeems with SP on/off
 // -- 7. Then delete adjustedWithdraw and use tempWithdraw. Refactor all those tests
 // -- 8. Then rename tempWithdraw to withdraw and override. Refactor all those tests
 // -- 9. Then do _maxWithdraw and do those tests
@@ -314,18 +314,15 @@ contract Bestia is ERC4626, Ownable {
         uint256 index = controllerToRedeemIndex[controller];
 
         // todo: get sharesAdjusted by appliying swing pricing at time of withdrawal request
-        uint256 balance = depositAsset.balanceOf(address(this));
-        console2.log("* balance :", balance);
+        uint256 balance = depositAsset.balanceOf(address(this));        
         uint256 assets = convertToAssets(shares);
-        console2.log("* assets :", assets);
+        
 
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
-        console2.log("* reserveRatioAfterTX :", reserveRatioAfterTX);
+        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));        
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
-        console2.log("adjustedAssets :", adjustedAssets);
+        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);        
 
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
@@ -395,9 +392,14 @@ contract Bestia is ERC4626, Ownable {
         Request storage request = redeemRequests[index - 1];
         address escrowAddress = address(escrow);
 
-        // note: this is not including swing factor
-        uint256 shares = request.sharesPending;
-        uint256 assets = convertToAssets(shares);
+        // note: this introduces a potential bug where you have to set the withdrawValue
+        // at the time the deposit is requested
+        // possibly could be fixed by making the liquidation request based on the sum of adjustedShares
+        // todo: just finish the refactoring for now and come back to this question later
+        uint256 sharesPending = request.sharesPending;
+        uint256 sharesAdjusted = request.sharesAdjusted;
+
+        uint256 assets = convertToAssets(sharesAdjusted);
 
         // get reserve ratio after tx
         uint256 reserveRatioAfterTx = Math.mulDiv(balance - assets, 1e18, totalAssets() - assets);
@@ -414,7 +416,7 @@ contract Bestia is ERC4626, Ownable {
         }
 
         // Burn the shares on escrow
-        _burn(escrowAddress, shares);
+        _burn(escrowAddress, sharesPending);
 
         // Transfer tokens to Escrow
         IERC20(asset()).transfer(escrowAddress, assets);
@@ -424,9 +426,10 @@ contract Bestia is ERC4626, Ownable {
         emit WithdrawalFundsSentToEscrow(escrowAddress, asset(), assets);
 
         // update balances in Request
-        request.sharesPending -= shares; // shares removed from pending
-        request.sharesClaimable += shares; // shares added to claimable
+        request.sharesPending -= sharesPending; // shares removed from pending
+        request.sharesClaimable += sharesPending; // shares added to claimable
         request.assetsClaimable += assets; // assets added to claimable
+        request.sharesAdjusted -= sharesAdjusted; // shares removed from adjusted
     }
 
     ////////////////////////// OVERRIDES ///////////////////////////
@@ -829,6 +832,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     // todo: consider from deletion LATER after you finalize design
+    // note: definitely not applying swing pricing correctly after you added adjustedShares to Requests
     // Banker-controlled function to pull assets from a 4626 vault and make assets claimable for user
     function fulfilRedeemFromSynch(address _controller, address _component) public onlyBanker {
         uint256 _index = controllerToRedeemIndex[_controller];
