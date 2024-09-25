@@ -60,7 +60,11 @@ contract VaultTests is BaseTest {
 
         // remove some cash from reserve
         vm.startPrank(user1);
-        bestia.withdraw(2e6, address(user1), address(user1));
+        bestia.requestRedeem(bestia.convertToShares(2e6), address(user1), address(user1));
+        vm.stopPrank();
+
+        vm.startPrank(banker);
+        bestia.fulfilRedeemFromReserve(address(user1));
         vm.stopPrank();
 
         // mint cash so invested assets = 100
