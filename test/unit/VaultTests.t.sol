@@ -255,7 +255,7 @@ contract VaultTests is BaseTest {
         uint256 usdcReturned = usdcMock.balanceOf(address(user2));
         assertLt(usdcReturned, DEPOSIT_10 - 1);
 
-        console2.log("delta :", DEPOSIT_10 - usdcReturned);        
+        console2.log("delta :", DEPOSIT_10 - usdcReturned);
 
         // this test does not check if the correct amount was returned
         // only that is was less than originally deposited
@@ -272,10 +272,5 @@ contract VaultTests is BaseTest {
         assertFalse(bestia.isAsync(component));
     }
 
-    // HELPER FUNCTIONS
-    function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        uint256 currentReserveRatio = Math.mulDiv(usdcMock.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
-
-        return (currentReserveRatio);
-    }
+        
 }

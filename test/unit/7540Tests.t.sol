@@ -418,4 +418,33 @@ contract ERC7540Tests is BaseTest {
         bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
         bestia.fulfilRedeemFromReserve(address(user1));
     }
+
+    function testRequestRedeemSwingPricing() public {
+        // seed bestia and assert that shares are 1:1 assets
+        seedBestia();
+        assertEq(bestia.convertToShares(1), 1);
+
+        bestia.enableSwingPricing(true);
+
+        console2.log("reserveRatio before tx :",getCurrentReserveRatio());
+
+        uint256 reserveCash = usdcMock.balanceOf(address(bestia));
+        console2.log("reserveCash :", reserveCash);
+
+        // shares worth 10% of current reserve cash
+        uint256 redeemRequest = bestia.convertToShares(reserveCash / 10);
+        console2.log("redeemRequest :", redeemRequest);
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(redeemRequest, address(user1), address(user1));
+        vm.stopPrank();
+
+        // Get the index for the redeem request from controllerToRedeemIndex mapping
+        uint256 index = bestia.controllerToRedeemIndex(user1);
+
+        // Retrieve the swingFactor from the redeem request by accessing its tuple
+        (,uint256 sharesPending,,, uint256 sharesAdjusted) = bestia.redeemRequests(index - 1);
+        console2.log("sharesPending :", sharesPending);
+        console2.log("sharesAdjusted :", sharesAdjusted);
+    }
 }

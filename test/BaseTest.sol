@@ -268,4 +268,10 @@ contract BaseTest is Test {
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
     }
+
+    function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
+        uint256 currentReserveRatio = Math.mulDiv(usdcMock.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
+
+        return (currentReserveRatio);
+    }
 }

@@ -84,7 +84,7 @@ contract Bestia is ERC4626, Ownable {
         uint256 sharesPending;
         uint256 sharesClaimable;
         uint256 assetsClaimable;
-        uint256 swingFactor; // TODO: not yet implemented
+        uint256 sharesAdjusted; // compute share value after swing price applied
     }
 
     // NOTE: the order that components are added to the protocol determines their withdrawal order
@@ -308,17 +308,32 @@ contract Bestia is ERC4626, Ownable {
         // Transfer ERC4626 share tokens from owner back to vault
         require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
 
-       // using an index like this creates a bug 
-       // user can lock in a low swing factor and hold it with a small order
-       // then add larger orders later
-       uint256 index = controllerToRedeemIndex[controller];
+        // using an index like this creates a bug
+        // user can lock in a low swing factor and hold it with a small order
+        // then add larger orders later
+        uint256 index = controllerToRedeemIndex[controller];
+
+        // todo: get sharesAdjusted by appliying swing pricing at time of withdrawal request
+        uint256 balance = depositAsset.balanceOf(address(this));
+        console2.log("* balance :", balance);
+        uint256 assets = convertToAssets(shares);
+        console2.log("* assets :", assets);
+
+        // gets the expected reserve ratio after tx
+        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+        console2.log("* reserveRatioAfterTX :", reserveRatioAfterTX);
+
+        // gets the assets to be returned to the user after applying swingfactor to tx
+        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
+        console2.log("adjustedAssets :", adjustedAssets);
+
+        uint256 sharesToBurn = convertToShares(adjustedAssets);
 
         if (index > 0) {
-
-        // todo: think about this solution:
-        // boolean check on if the new swing factor is better or worse than the old one
-        // always give them the worse one. then cannot be gamed
-        // but do think it through
+            // todo: think about this solution:
+            // boolean check on if the new swing factor is better or worse than the old one
+            // always give them the worse one. then cannot be gamed
+            // but do think it through
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({
@@ -326,7 +341,7 @@ contract Bestia is ERC4626, Ownable {
                 sharesPending: shares,
                 sharesClaimable: 0,
                 assetsClaimable: 0,
-                swingFactor: 0
+                sharesAdjusted: sharesToBurn
             });
 
             redeemRequests.push(newRequest);
@@ -463,6 +478,8 @@ contract Bestia is ERC4626, Ownable {
 
         return shares;
     }
+
+    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {}
 
     // function previewWithdraw(uint256) public view virtual override returns (uint256) {
     //     revert("ERC7540: previewWithdraw not available for async vault");
