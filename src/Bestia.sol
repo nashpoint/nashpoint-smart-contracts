@@ -326,14 +326,13 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function isOperator(address controller, address operator) public view returns (bool status) {
-        // Returns true if the operator is approved as an operator for a controller.
+        return _operators[controller][operator];
     }
 
     function setOperator(address operator, bool approved) public returns (bool success) {
-        // Grants or revokes permissions for operator to manage Requests on behalf of the msg.sender.
-        // MUST set the operator status to the approved value.
-        // MUST log the OperatorSet event.
-        // MUST return True.
+        _operators[msg.sender][operator] = approved;
+        emit OperatorSet(msg.sender, operator, approved);
+        return true;
     }
 
     // banker-controller function to use excess reserve cash to fulfil withdrawal
@@ -448,13 +447,13 @@ contract Bestia is ERC4626, Ownable {
     // todo: make this later
     function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {}
 
-    // function previewWithdraw(uint256) public view virtual override returns (uint256) {
-    //     revert("ERC7540: previewWithdraw not available for async vault");
-    // }
+    function previewWithdraw(uint256) public view virtual override returns (uint256) {
+        revert("ERC7540: previewWithdraw not available for async vault");
+    }
 
-    // function previewRedeem(uint256) public view virtual override returns (uint256) {
-    //     revert("ERC7540: previewRedeem not available for async vault");
-    // }
+    function previewRedeem(uint256) public view virtual override returns (uint256) {
+        revert("ERC7540: previewRedeem not available for async vault");
+    }
 
     /*//////////////////////////////////////////////////////////////
                     ASYNC ASSET MANAGEMENT LOGIC (7540)
@@ -719,8 +718,6 @@ contract Bestia is ERC4626, Ownable {
         return components[index - 1].isAsync;
     }
 
-    // temp: commented out while I remove hardcoding
-    // todo: add back in after you fix constructor
     function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
         uint256 targetRatio = getComponentRatio(_component);
         if (targetRatio == 0) return false; // Always in range if target is 0
@@ -730,9 +727,6 @@ contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                         ESCROW INTERACTIONS
     ////////////////////////////////////////////////////////////////*/
-
-    // TODO: create logic for user to execute withdrawals later
-    // Only handling deposits by banker for claimable user withdrawals
 
     function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyBanker {
         IERC20 token = IERC20(_tokenAddress);
@@ -749,7 +743,7 @@ contract Bestia is ERC4626, Ownable {
         emit WithdrawalFundsSentToEscrow(escrowAddress, _tokenAddress, _amount);
     }
 
-    function setEscrow(address _escrow) public onlyBanker {
+    function setEscrow(address _escrow) public onlyOwner {
         escrow = IEscrow(_escrow);
     }
 
