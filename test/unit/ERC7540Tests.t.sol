@@ -297,7 +297,7 @@ contract ERC7540Tests is BaseTest {
         // assert shares are correct
         assertEq(bestia.convertToShares(1), 1);
 
-        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;        
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
 
         // user 1 sets user 2 as operator
         vm.startPrank(user1);
@@ -307,7 +307,7 @@ contract ERC7540Tests is BaseTest {
         // user 2 can request redeem as now operator
         vm.startPrank(user2);
         bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
-        vm.stopPrank();        
+        vm.stopPrank();
 
         // assert that pendingRedeemRequest for user 1 == sharesToRedeem
         assertEq(bestia.pendingRedeemRequest(0, address(user1)), sharesToRedeem);

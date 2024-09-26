@@ -30,13 +30,13 @@ import {console2} from "forge-std/Test.sol";
 
 // TODO: 7540 Spec Finalization Plan
 // DONE: - mint()
-// - redeem()
+// DONE: - redeem()
 // - overload withdraw()
 // - overload redeem()
 // - ERC-165
 // - ERC-7575
-// - controller and operator checks in withdraw and redeem
-// - requestRedeem: approvals and operators (not sure what is missing yet)
+// DONE: - controller and operator checks in withdraw and redeem
+// - requestRedeem: operator must have ERC20 approval to transfer tokens
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
