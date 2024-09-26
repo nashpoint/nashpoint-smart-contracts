@@ -7,6 +7,8 @@ pragma solidity ^0.8.20;
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor
 // TODO: implement ternaries where you can
+// TODO: requestRedeem: operator must have ERC20 approval to transfer tokens ??? 
+// -- Think about permissioning for arbitrary operator accounts being added by users later
 
 // NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
 
@@ -36,7 +38,7 @@ import {console2} from "forge-std/Test.sol";
 // - ERC-165
 // - ERC-7575
 // DONE: - controller and operator checks in withdraw and redeem
-// - requestRedeem: operator must have ERC20 approval to transfer tokens
+
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////

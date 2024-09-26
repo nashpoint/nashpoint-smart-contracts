@@ -301,11 +301,11 @@ contract ERC7540Tests is BaseTest {
 
         // user 1 sets user 2 as operator
         vm.startPrank(user1);
-        bestia.setOperator(address(user2), true);
+        bestia.setOperator(address(operatorNoAllowance), true);
         vm.stopPrank();
 
         // user 2 can request redeem as now operator
-        vm.startPrank(user2);
+        vm.startPrank(operatorNoAllowance);
         bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
         vm.stopPrank();
 
@@ -332,7 +332,7 @@ contract ERC7540Tests is BaseTest {
         vm.stopPrank();
 
         // succeeds: user 3 is operator
-        vm.startPrank(user2);
+        vm.startPrank(operatorNoAllowance);
         bestia.redeem(redeem, address(user1), address(user1));
         vm.stopPrank();
 
