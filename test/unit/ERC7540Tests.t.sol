@@ -59,6 +59,44 @@ contract ERC7540Tests is BaseTest {
         assertEq(bestia.maxWithdraw(user1), 0);
     }
 
+    // exact same test logic as testBestiaWithdraw but user call redeem in last step
+    function testBestiaRedeem() public {
+        seedBestia();
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+        uint256 assetsToClaim = bestia.convertToAssets(sharesToRedeem);
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // grab details for vault to liquidate
+        address vaultAddress = address(vaultA);
+        uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim);
+
+        // banker liquidates asset from sync vault position to top up
+        vm.startPrank(banker);
+        bestia.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
+        bestia.fulfilRedeemFromReserve(address(user1));
+        vm.stopPrank();
+
+        // user burns all usdc and withdraws
+        vm.startPrank(user1);
+        usdcMock.transfer(address(user2), usdcMock.balanceOf(address(user1)));
+        bestia.redeem(assetsToClaim, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert user has received correct balance of asset
+        assertEq(assetsToClaim, usdcMock.balanceOf(address(user1)));
+
+        // assert shares to assets are 1:1
+        assertEq(bestia.convertToShares(1), 1);
+
+        // assert that Request has been cleared
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), 0);
+        assertEq(bestia.claimableRedeemRequest(0, address(user1)), 0);
+        assertEq(bestia.maxWithdraw(user1), 0);
+    }
+
     function testfulfilRedeemFromReserveReverts() public {
         seedBestia();
         bestia.enableLiquiateReserveBelowTarget(false);
@@ -243,6 +281,59 @@ contract ERC7540Tests is BaseTest {
         // succeeds: user 3 is operator
         vm.startPrank(user2);
         bestia.withdraw(withdrawal, address(user1), address(user1));
+        vm.stopPrank();
+
+        // no more asserts: if test completes you can consider this working
+    }
+
+    function testOnlyOperatorCanRedeem() public {
+        // seed bestia
+        seedBestia();
+
+        // configure liquidations & swing pricing
+        bestia.enableLiquiateReserveBelowTarget(true);
+        bestia.enableSwingPricing(false);
+
+        // assert shares are correct
+        assertEq(bestia.convertToShares(1), 1);
+
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;        
+
+        // user 1 sets user 2 as operator
+        vm.startPrank(user1);
+        bestia.setOperator(address(user2), true);
+        vm.stopPrank();
+
+        // user 2 can request redeem as now operator
+        vm.startPrank(user2);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();        
+
+        // assert that pendingRedeemRequest for user 1 == sharesToRedeem
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
+
+        // banker fulfils request from reserve cash
+        vm.startPrank(banker);
+        bestia.fulfilRedeemFromReserve(address(user1));
+        vm.stopPrank();
+
+        // assert that claimableRedeemRequest for user 1 == sharesToRedeem
+        assertEq(bestia.claimableRedeemRequest(0, address(user1)), sharesToRedeem);
+
+        uint256 redeem = bestia.maxRedeem(address(user1));
+
+        // assert user 3 IS NOT operator to user 1
+        assertFalse(bestia.isOperator(address(user1), address(user3)));
+
+        // revert: user 3 is not operator
+        vm.startPrank(user3);
+        vm.expectRevert();
+        bestia.redeem(redeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // succeeds: user 3 is operator
+        vm.startPrank(user2);
+        bestia.redeem(redeem, address(user1), address(user1));
         vm.stopPrank();
 
         // no more asserts: if test completes you can consider this working

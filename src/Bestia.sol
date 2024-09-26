@@ -175,9 +175,10 @@ contract Bestia is ERC4626, Ownable {
     error UserLiquidationsDisabled();
     error CannotLiquidate();
 
-    // ERC-7540 ERRORS
+    // ERC-7540 ERRORS todo: check if these are actually part of the spec
     error NoRedeemRequestForController();
     error ExceededMaxWithdraw(address controller, uint256 assets, uint256 maxAssets);
+    error ExceededMaxRedeem(address controller, uint256 shares, uint256 maxShares);
 
     /*//////////////////////////////////////////////////////////////
                         USER DEPOSIT LOGIC 
@@ -458,15 +459,37 @@ contract Bestia is ERC4626, Ownable {
         return shares;
     }
 
-    function redeem(uint256 shares, address receiver, address controller) public override returns (uint256) {
-        // TODO: need some kind of security check on controller / operator / msg.sender here ????
-        // Not if it is already in the called withdraw function ???
+    function redeem(uint256 shares, address receiver, address controller) public override returns (uint256 assets) {
+        // grab the index for the controller
+        uint256 _index = controllerToRedeemIndex[controller];
 
-        // NOTE: this kind of thing wont work as it ignores the share price that has been set for the redemption
-        // uint256 assets = convertToAssets(shares);
-        // withdraw(assets, receiver, controller);
+        // Ensure there is a pending request for this controller
+        require(_index > 0, "No pending request for this controller");
 
-        // return assets;
+        // Ensure that the msg.sender is the controller or operator for a controller
+        require(controller == msg.sender || isOperator(controller, msg.sender), "Not authorized");
+
+        uint256 maxAssets = maxWithdraw(controller);
+        uint256 maxShares = maxRedeem(controller);
+        if (shares > maxShares) {
+            revert ExceededMaxRedeem(controller, shares, maxShares);
+        }
+
+        Request storage request = redeemRequests[_index - 1];
+        address escrowAddress = address(escrow);
+
+        assets = (shares * maxAssets) / maxShares;
+
+        request.sharesClaimable -= shares;
+        request.assetsClaimable -= assets;
+
+        // using transferFrom as shares already burned when redeem made claimable
+        IERC20(asset()).transferFrom(escrowAddress, receiver, assets);
+
+        // Need to emit anything?
+        // TODO: overriding withdraw (4626) so need some event logic
+
+        return assets;
     }
 
     function previewWithdraw(uint256) public view virtual override returns (uint256) {
