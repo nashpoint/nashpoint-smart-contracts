@@ -1,47 +1,54 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
-// TODO: ERC 165 & ERC 7575 supported and tested
 // TODO: create multiple factories so we can have different token types - even a meta factory
 // TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor
+// TODO: implement ternaries where you can
+// TODO: requestRedeem: operator must have ERC20 approval to transfer tokens ???
+// -- Think about permissioning for arbitrary operator accounts being added by users later
 
 // NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
 
+// NOTE: Most tests currently require Vaults A, B & C; and liquidityPool
+// TEMP: some of these contracts addresses are hardcoded inside functions while refactoring
+
 import {IERC7540} from "src/interfaces/IERC7540.sol";
+import {IEscrow} from "src/Escrow.sol";
+
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {IEscrow} from "src/Escrow.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {ERC165} from "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
+import {IERC165} from "lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-// NOTE: Most tests currently require Vaults A, B & C; and liquidityPool
-// TEMP: some of these contracts addresses are hardcoded inside functions while refactoring
+contract Bestia is ERC4626, ERC165, Ownable {    
 
-contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
     //////////////////////////////////////////////////////////////*/
 
     // CONSTANTS
     // TODO: create detailed notes for for managers to read
-    uint256 public maxDiscount; // percentage  = 2e16
-    uint256 public targetReserveRatio; // percentage  = 10e16
-    uint256 public maxDelta; // percentage  = 1e16
-    uint256 public asyncMaxDelta; //percentage =  = 3e16
+    uint256 public maxDiscount; // percentage = 2e16
+    uint256 public targetReserveRatio; // percentage = 10e16
+    uint256 public maxDelta; // percentage = 1e16
+    uint256 public asyncMaxDelta; //percentage = 3e16
 
     // these should be hardcoded
     int256 public constant scalingFactor = -5e18; // negative integer
-    uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
+    uint256 public constant internalPrecision = 1e18; // todo: convert all assets to this precision
 
     bool public instantLiquidationsEnabled = true; // todo: also set by manager
     bool public swingPricingEnabled = false; // set by manager
@@ -164,9 +171,10 @@ contract Bestia is ERC4626, Ownable {
     error UserLiquidationsDisabled();
     error CannotLiquidate();
 
-    // ERC-7540 ERRORS
+    // ERC-7540 ERRORS todo: check if these are actually part of the spec
     error NoRedeemRequestForController();
     error ExceededMaxWithdraw(address controller, uint256 assets, uint256 maxAssets);
+    error ExceededMaxRedeem(address controller, uint256 shares, uint256 maxShares);
 
     /*//////////////////////////////////////////////////////////////
                         USER DEPOSIT LOGIC 
@@ -175,7 +183,6 @@ contract Bestia is ERC4626, Ownable {
     // TODO: Overload Deposit & Mint Functions (7540 Spec):
     // deposit(uint256 assets, address receiver, address controller)
     // mint(uint256 shares, address receiver, address controller)
-
 
     // totalAssets() override function
     // -- must add async component for call to bestia.totalAssets to succeed
@@ -229,6 +236,14 @@ contract Bestia is ERC4626, Ownable {
         _deposit(_msgSender(), receiver, _assets, sharesToMint);
 
         return (sharesToMint);
+    }
+
+    // TODO: mint function
+    function mint(uint256 _shares, address receiver) public override returns (uint256) {
+        uint256 _assets = convertToAssets(_shares);
+        deposit(_assets, receiver);
+
+        return _assets;
     }
 
     // swing price curve equation
@@ -288,7 +303,7 @@ contract Bestia is ERC4626, Ownable {
         uint256 index = controllerToRedeemIndex[controller];
 
         if (index > 0) {
-            // TODO: come back to this as def can be gamed            
+            // TODO: come back to this as def can be gamed
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({
@@ -332,7 +347,7 @@ contract Bestia is ERC4626, Ownable {
         return true;
     }
 
-    // Banker only function to process redemptions from reserve    
+    // Banker only function to process redemptions from reserve
     function fulfilRedeemFromReserve(address _controller) public onlyBanker {
         uint256 index = controllerToRedeemIndex[_controller];
         uint256 balance = depositAsset.balanceOf(address(this));
@@ -408,12 +423,14 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function withdraw(uint256 assets, address receiver, address controller) public override returns (uint256 shares) {
-        // TODO: need some kind of security check on controller / operator / msg.sender here        
-
+        // grab the index for the controller
         uint256 _index = controllerToRedeemIndex[controller];
 
         // Ensure there is a pending request for this controller
         require(_index > 0, "No pending request for this controller");
+
+        // Ensure that the msg.sender is the controller or operator for a controller
+        require(controller == msg.sender || isOperator(controller, msg.sender), "Not authorized");
 
         uint256 maxAssets = maxWithdraw(controller);
         uint256 maxShares = maxRedeem(controller);
@@ -432,12 +449,43 @@ contract Bestia is ERC4626, Ownable {
         // using transferFrom as shares already burned when redeem made claimable
         IERC20(asset()).transferFrom(escrowAddress, receiver, assets);
 
+        // Need to emit anything?
+        // TODO: overriding withdraw (4626) so need some event logic
+
         return shares;
     }
 
-    // TODO: implement this later
-    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {
-        // TODO: need some kind of security check on controller / operator / msg.sender here 
+    function redeem(uint256 shares, address receiver, address controller) public override returns (uint256 assets) {
+        // grab the index for the controller
+        uint256 _index = controllerToRedeemIndex[controller];
+
+        // Ensure there is a pending request for this controller
+        require(_index > 0, "No pending request for this controller");
+
+        // Ensure that the msg.sender is the controller or operator for a controller
+        require(controller == msg.sender || isOperator(controller, msg.sender), "Not authorized");
+
+        uint256 maxAssets = maxWithdraw(controller);
+        uint256 maxShares = maxRedeem(controller);
+        if (shares > maxShares) {
+            revert ExceededMaxRedeem(controller, shares, maxShares);
+        }
+
+        Request storage request = redeemRequests[_index - 1];
+        address escrowAddress = address(escrow);
+
+        assets = (shares * maxAssets) / maxShares;
+
+        request.sharesClaimable -= shares;
+        request.assetsClaimable -= assets;
+
+        // using transferFrom as shares already burned when redeem made claimable
+        IERC20(asset()).transferFrom(escrowAddress, receiver, assets);
+
+        // Need to emit anything?
+        // TODO: overriding withdraw (4626) so need some event logic
+
+        return assets;
     }
 
     function previewWithdraw(uint256) public view virtual override returns (uint256) {
@@ -482,7 +530,7 @@ contract Bestia is ERC4626, Ownable {
         return assets;
     }
 
-    // TODO: Check for reused code between this and investInSync vault. 
+    // TODO: Check for reused code between this and investInSync vault.
     function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -783,5 +831,26 @@ contract Bestia is ERC4626, Ownable {
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              ERC-7575 SUPPORT
+    //////////////////////////////////////////////////////////////*/
+    
+    function share() external view returns (address) {
+        return address(this);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              ERC-165 SUPPORT
+    //////////////////////////////////////////////////////////////*/
+
+     // Override the supportsInterface function
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IERC165).interfaceId || // ERC-165
+            interfaceId == 0xe3bc4e65 || // ERC-7540 operator methods
+            interfaceId == 0x2f0a18c5 || // ERC-7575
+            interfaceId == 0x620ee8e4;   // Asynchronous redemption interface
     }
 }

@@ -33,6 +33,7 @@ contract BaseTest is Test {
     address public constant user2 = address(2);
     address public constant user3 = address(3);
     address public constant user4 = address(4);
+    address public constant operatorNoAllowance = address(5555);
 
     uint256 public constant MAX_ALLOWANCE = type(uint256).max;
     uint256 public constant DECIMALS = 1e6;
