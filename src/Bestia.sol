@@ -6,8 +6,12 @@ pragma solidity ^0.8.20;
 // TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor
+// TODO: implement ternaries where you can
 
 // NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
+
+// NOTE: Most tests currently require Vaults A, B & C; and liquidityPool
+// TEMP: some of these contracts addresses are hardcoded inside functions while refactoring
 
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
@@ -24,8 +28,15 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-// NOTE: Most tests currently require Vaults A, B & C; and liquidityPool
-// TEMP: some of these contracts addresses are hardcoded inside functions while refactoring
+// TODO: 7540 Spec Finalization Plan
+// DONE: - mint()
+// - redeem()
+// - overload withdraw()
+// - overload redeem()
+// - ERC-165
+// - ERC-7575
+// - controller and operator checks in withdraw and redeem
+// - requestRedeem: approvals and operators (not sure what is missing yet)
 
 contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
@@ -37,11 +48,11 @@ contract Bestia is ERC4626, Ownable {
     uint256 public maxDiscount; // percentage  = 2e16
     uint256 public targetReserveRatio; // percentage  = 10e16
     uint256 public maxDelta; // percentage  = 1e16
-    uint256 public asyncMaxDelta; //percentage =  = 3e16
+    uint256 public asyncMaxDelta; //percentage = 3e16
 
     // these should be hardcoded
     int256 public constant scalingFactor = -5e18; // negative integer
-    uint256 public constant internalPrecision = 1e18; // convert all assets to this precision
+    uint256 public constant internalPrecision = 1e18; // todo: convert all assets to this precision
 
     bool public instantLiquidationsEnabled = true; // todo: also set by manager
     bool public swingPricingEnabled = false; // set by manager
@@ -176,7 +187,6 @@ contract Bestia is ERC4626, Ownable {
     // deposit(uint256 assets, address receiver, address controller)
     // mint(uint256 shares, address receiver, address controller)
 
-
     // totalAssets() override function
     // -- must add async component for call to bestia.totalAssets to succeed
     // -- TODO: refactor totalAssets to avoid this issue later
@@ -229,6 +239,14 @@ contract Bestia is ERC4626, Ownable {
         _deposit(_msgSender(), receiver, _assets, sharesToMint);
 
         return (sharesToMint);
+    }
+
+    // TODO: mint function
+    function mint(uint256 _shares, address receiver) public override returns (uint256) {
+        uint256 _assets = convertToAssets(_shares);
+        deposit(_assets, receiver);
+
+        return _assets;
     }
 
     // swing price curve equation
@@ -288,7 +306,7 @@ contract Bestia is ERC4626, Ownable {
         uint256 index = controllerToRedeemIndex[controller];
 
         if (index > 0) {
-            // TODO: come back to this as def can be gamed            
+            // TODO: come back to this as def can be gamed
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({
@@ -332,7 +350,7 @@ contract Bestia is ERC4626, Ownable {
         return true;
     }
 
-    // Banker only function to process redemptions from reserve    
+    // Banker only function to process redemptions from reserve
     function fulfilRedeemFromReserve(address _controller) public onlyBanker {
         uint256 index = controllerToRedeemIndex[_controller];
         uint256 balance = depositAsset.balanceOf(address(this));
@@ -408,7 +426,7 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function withdraw(uint256 assets, address receiver, address controller) public override returns (uint256 shares) {
-        // TODO: need some kind of security check on controller / operator / msg.sender here        
+        // TODO: need some kind of security check on controller / operator / msg.sender here
 
         uint256 _index = controllerToRedeemIndex[controller];
 
@@ -437,7 +455,7 @@ contract Bestia is ERC4626, Ownable {
 
     // TODO: implement this later
     function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {
-        // TODO: need some kind of security check on controller / operator / msg.sender here 
+        // TODO: need some kind of security check on controller / operator / msg.sender here
     }
 
     function previewWithdraw(uint256) public view virtual override returns (uint256) {
@@ -482,7 +500,7 @@ contract Bestia is ERC4626, Ownable {
         return assets;
     }
 
-    // TODO: Check for reused code between this and investInSync vault. 
+    // TODO: Check for reused code between this and investInSync vault.
     function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();

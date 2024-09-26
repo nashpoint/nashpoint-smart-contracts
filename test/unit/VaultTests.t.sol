@@ -25,6 +25,42 @@ contract VaultTests is BaseTest {
         assertEq(bestia.convertToAssets(shares), DEPOSIT_100);
     }
 
+    function testMint() public {
+        bestia.addComponent(address(vaultA), 0, false, address(vaultA));
+        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
+        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
+
+        // test fails unless you add an async asset
+        bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
+
+        // user1 deposits 10 units and it is rebalanced into proportions
+        seedBestia();
+
+        // assert bestia has 100 in assets and 10 of deposit asset
+        assertEq(usdcMock.balanceOf(address(bestia)), DEPOSIT_10);
+        assertEq(bestia.totalAssets(), DEPOSIT_100);
+
+        // assert shares to assets are 1:1
+        assertEq(bestia.convertToShares(1), 1);
+
+        // user 2 MINTS 10 units of shares (equal to 10 units of assets)
+        vm.startPrank(user2);
+        bestia.mint(DEPOSIT_10, address(user2));
+        vm.stopPrank();
+
+        // assert user 2 has received 10 units of shares
+        assertEq(bestia.balanceOf(address(user2)), DEPOSIT_10);
+
+        // assert that bestia received 10 of deposit assets + 10 reserve
+        assertEq(usdcMock.balanceOf(address(bestia)), DEPOSIT_10 * 2);
+
+        // assert shares to assets are 1:1
+        assertEq(bestia.convertToShares(1), 1);
+
+        // assert that bestia has shares equivelant to the seed and deposit assets
+        assertEq(bestia.totalSupply(), DEPOSIT_100 + DEPOSIT_10);
+    }
+
     // TODO: write a test to get total assets even when you have no async assets
     function testTotalAssets() public {
         bestia.addComponent(address(vaultA), 0, false, address(vaultA));
