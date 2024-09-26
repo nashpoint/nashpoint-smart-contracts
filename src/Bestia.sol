@@ -7,12 +7,10 @@ pragma solidity ^0.8.20;
 // TODO: go through every single function and think about incentives from speculator vs investor
 // TODO: implement ternaries where you can
 // TODO: requestRedeem: operator must have ERC20 approval to transfer tokens ???
+// TODO: figure out how the controller and operator role relate to integrators
 // -- Think about permissioning for arbitrary operator accounts being added by users later
 
 // NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
-
-// NOTE: Most tests currently require Vaults A, B & C; and liquidityPool
-// TEMP: some of these contracts addresses are hardcoded inside functions while refactoring
 
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {IEscrow} from "src/Escrow.sol";
@@ -153,7 +151,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
                             ERROR HANDLING
     ////////////////////////////////////////////////////////////////*/
 
-    // ERRORS
     // TODO: rename these errors to be more descriptive and include contract name
     // TODO: add returns values
     error ReserveBelowTargetRatio();
@@ -170,8 +167,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
     error DepositToEscrowFailed();
     error UserLiquidationsDisabled();
     error CannotLiquidate();
-
-    // ERC-7540 ERRORS todo: check if these are actually part of the spec
     error NoRedeemRequestForController();
     error ExceededMaxWithdraw(address controller, uint256 assets, uint256 maxAssets);
     error ExceededMaxRedeem(address controller, uint256 shares, uint256 maxShares);
@@ -180,15 +175,9 @@ contract Bestia is ERC4626, ERC165, Ownable {
                         USER DEPOSIT LOGIC 
     //////////////////////////////////////////////////////////////*/
 
-    // TODO: Overload Deposit & Mint Functions (7540 Spec):
-    // deposit(uint256 assets, address receiver, address controller)
-    // mint(uint256 shares, address receiver, address controller)
-
-    // totalAssets() override function
-    // -- must add async component for call to bestia.totalAssets to succeed
-    // -- TODO: refactor totalAssets to avoid this issue later
+    // NOTE: currently adding async component for call to bestia.totalAssets to succeed
     function totalAssets() public view override returns (uint256) {
-        // todo: delete temp variables here when you refactor this
+        // TODO: delete temp variables here when you refactor this
         IERC4626 tempVaultA = IERC4626(components[0].component);
         IERC4626 tempVaultB = IERC4626(components[1].component);
         IERC4626 tempVaultC = IERC4626(components[2].component);
@@ -238,7 +227,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
         return (sharesToMint);
     }
 
-    // TODO: mint function
+
     function mint(uint256 _shares, address receiver) public override returns (uint256) {
         uint256 _assets = convertToAssets(_shares);
         deposit(_assets, receiver);
@@ -246,7 +235,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
         return _assets;
     }
 
-    // swing price curve equation
     // getSwingFactor() converts from int to uint
     // TODO: change to private internal later and change test use a wrapper function in test contract
     function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
@@ -274,11 +262,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                         ASYNC USER WITHDRAWAL LOGIC (7540)
     //////////////////////////////////////////////////////////////*/
-
-    // CONTROLLER
-    // How can I use this? What is really the point of it?
-    // TODO: figure out how the controller and operator role relate to integrators
-
+  
     // user requests to redeem their funds from the vault. they send their shares to the escrow contract
     function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
