@@ -426,12 +426,14 @@ contract Bestia is ERC4626, Ownable {
     }
 
     function withdraw(uint256 assets, address receiver, address controller) public override returns (uint256 shares) {
-        // TODO: need some kind of security check on controller / operator / msg.sender here
-
+        // grab the index for the controller
         uint256 _index = controllerToRedeemIndex[controller];
 
         // Ensure there is a pending request for this controller
         require(_index > 0, "No pending request for this controller");
+
+        // Ensure that the msg.sender is the controller or operator for a controller
+        require(controller == msg.sender || isOperator(controller, msg.sender), "Not authorized");
 
         uint256 maxAssets = maxWithdraw(controller);
         uint256 maxShares = maxRedeem(controller);
@@ -450,12 +452,21 @@ contract Bestia is ERC4626, Ownable {
         // using transferFrom as shares already burned when redeem made claimable
         IERC20(asset()).transferFrom(escrowAddress, receiver, assets);
 
+        // Need to emit anything?
+        // TODO: overriding withdraw (4626) so need some event logic
+
         return shares;
     }
 
-    // TODO: implement this later
-    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {
-        // TODO: need some kind of security check on controller / operator / msg.sender here
+    function redeem(uint256 shares, address receiver, address controller) public override returns (uint256) {
+        // TODO: need some kind of security check on controller / operator / msg.sender here ????
+        // Not if it is already in the called withdraw function ???
+
+        // NOTE: this kind of thing wont work as it ignores the share price that has been set for the redemption
+        // uint256 assets = convertToAssets(shares);
+        // withdraw(assets, receiver, controller);
+
+        // return assets;
     }
 
     function previewWithdraw(uint256) public view virtual override returns (uint256) {

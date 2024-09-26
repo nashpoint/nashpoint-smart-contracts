@@ -186,4 +186,65 @@ contract ERC7540Tests is BaseTest {
         vm.expectRevert();
         bestia.previewWithdraw(100);
     }
+
+    function testOnlyOperatorCanWithdraw() public {
+        // seed bestia
+        seedBestia();
+
+        // configure liquidations & swing pricing
+        bestia.enableLiquiateReserveBelowTarget(true);
+        bestia.enableSwingPricing(false);
+
+        // assert shares are correct
+        assertEq(bestia.convertToShares(1), 1);
+
+        uint256 sharesToRedeem = bestia.balanceOf(address(user1)) / 10;
+
+        // revert: user 2 is not operator for user 1
+        vm.startPrank(user2);
+        vm.expectRevert();
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // user 1 sets user 2 as operator
+        vm.startPrank(user1);
+        bestia.setOperator(address(user2), true);
+        vm.stopPrank();
+
+        // user 2 can request redeem as now operator
+        vm.startPrank(user2);
+        bestia.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        console2.log(bestia.pendingRedeemRequest(0, address(user1)));
+
+        // assert that pendingRedeemRequest for user 1 == sharesToRedeem
+        assertEq(bestia.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
+
+        // banker fulfils request from reserve cash
+        vm.startPrank(banker);
+        bestia.fulfilRedeemFromReserve(address(user1));
+        vm.stopPrank();
+
+        // assert that claimableRedeemRequest for user 1 == sharesToRedeem
+        assertEq(bestia.claimableRedeemRequest(0, address(user1)), sharesToRedeem);
+
+        uint256 withdrawal = bestia.maxWithdraw(address(user1));
+
+        // assert user 3 IS NOT operator to user 1
+        assertFalse(bestia.isOperator(address(user1), address(user3)));
+
+        // revert: user 3 is not operator
+        vm.startPrank(user3);
+        vm.expectRevert();
+        bestia.withdraw(withdrawal, address(user1), address(user1));
+        vm.stopPrank();
+
+        // succeeds: user 3 is operator
+        vm.startPrank(user2);
+        bestia.withdraw(withdrawal, address(user1), address(user1));
+        vm.stopPrank();
+
+        // no more asserts: if test completes you can consider this working
+    }
 }
