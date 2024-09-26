@@ -338,4 +338,35 @@ contract ERC7540Tests is BaseTest {
 
         // no more asserts: if test completes you can consider this working
     }
+
+    function testShareSupport() public {
+        seedBestia(); // shuts up warning
+        assertEq(address(bestia), bestia.share());
+    }
+
+    function testSupportsInterface() public {
+        seedBestia(); // shuts up warning
+        
+        // ERC-165 Interface ID
+        bytes4 erc165InterfaceId = 0x01ffc9a7;
+        assertTrue(bestia.supportsInterface(erc165InterfaceId));
+
+        // ERC-7540 Operator Methods Interface ID
+        bytes4 operatorMethodsInterfaceId = 0xe3bc4e65;
+        assertTrue(bestia.supportsInterface(operatorMethodsInterfaceId));
+
+        // ERC-7575 Interface ID
+        bytes4 erc7575InterfaceId = 0x2f0a18c5;
+        assertTrue(bestia.supportsInterface(erc7575InterfaceId));
+
+        // Asynchronous Redemption Interface ID
+        bytes4 asyncRedemptionInterfaceId = 0x620ee8e4;
+        assertTrue(bestia.supportsInterface(asyncRedemptionInterfaceId));
+
+        // Unsupported Interface ID (should not be supported)
+        bytes4 unsupportedInterfaceId = 0xffffffff;
+        assertFalse(bestia.supportsInterface(unsupportedInterfaceId));
+    }
 }
+
+

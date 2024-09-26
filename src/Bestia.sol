@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
-// TODO: ERC 165 & ERC 7575 supported and tested
 // TODO: create multiple factories so we can have different token types - even a meta factory
 // TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor
 // TODO: implement ternaries where you can
-// TODO: requestRedeem: operator must have ERC20 approval to transfer tokens ??? 
+// TODO: requestRedeem: operator must have ERC20 approval to transfer tokens ???
 // -- Think about permissioning for arbitrary operator accounts being added by users later
 
 // NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
@@ -16,40 +15,35 @@ pragma solidity ^0.8.20;
 // TEMP: some of these contracts addresses are hardcoded inside functions while refactoring
 
 import {IERC7540} from "src/interfaces/IERC7540.sol";
+import {IEscrow} from "src/Escrow.sol";
+
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {IEscrow} from "src/Escrow.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {ERC165} from "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
+import {IERC165} from "lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-// TODO: 7540 Spec Finalization Plan
-// DONE: - mint()
-// DONE: - redeem()
-// - overload withdraw()
-// - overload redeem()
-// - ERC-165
-// - ERC-7575
-// DONE: - controller and operator checks in withdraw and redeem
+contract Bestia is ERC4626, ERC165, Ownable {    
 
-
-contract Bestia is ERC4626, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
     //////////////////////////////////////////////////////////////*/
 
     // CONSTANTS
     // TODO: create detailed notes for for managers to read
-    uint256 public maxDiscount; // percentage  = 2e16
-    uint256 public targetReserveRatio; // percentage  = 10e16
-    uint256 public maxDelta; // percentage  = 1e16
+    uint256 public maxDiscount; // percentage = 2e16
+    uint256 public targetReserveRatio; // percentage = 10e16
+    uint256 public maxDelta; // percentage = 1e16
     uint256 public asyncMaxDelta; //percentage = 3e16
 
     // these should be hardcoded
@@ -837,5 +831,26 @@ contract Bestia is ERC4626, Ownable {
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              ERC-7575 SUPPORT
+    //////////////////////////////////////////////////////////////*/
+    
+    function share() external view returns (address) {
+        return address(this);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              ERC-165 SUPPORT
+    //////////////////////////////////////////////////////////////*/
+
+     // Override the supportsInterface function
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IERC165).interfaceId || // ERC-165
+            interfaceId == 0xe3bc4e65 || // ERC-7540 operator methods
+            interfaceId == 0x2f0a18c5 || // ERC-7575
+            interfaceId == 0x620ee8e4;   // Asynchronous redemption interface
     }
 }
