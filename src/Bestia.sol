@@ -798,10 +798,11 @@ contract Bestia is ERC4626, ERC165, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        UTILITY & OVERRIDE FUNCTIONS  
-                    (TEMP: Might move or delete these later)
+                        UTILITY / DELETE / REHOUSE
     ////////////////////////////////////////////////////////////////*/
 
+    // logic is used to create investment size for both sync and async assets
+    // might be better to just move that logic into each function for readability
     function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
 
