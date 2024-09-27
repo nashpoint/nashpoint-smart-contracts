@@ -175,7 +175,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
                         USER DEPOSIT LOGIC 
     //////////////////////////////////////////////////////////////*/
 
-    // NOTE: currently adding async component for call to bestia.totalAssets to succeed
     function totalAssets() public view override returns (uint256) {
         // gets the cash reserve
         uint256 cashReserve = depositAsset.balanceOf(address(this));
@@ -513,9 +512,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
         return assets;
     }
 
-    // abi.encodeWtihSignature senditt
-    // abi.decode receive it
-
     // TODO: Check for reused code between this and investInSync vault.
     function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
@@ -536,7 +532,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
         }
 
         // gets deposit amount
-        uint256 depositAmount = getDepositAmount(_component);
+        uint256 depositAmount = getInvestmentSize(_component);
 
         // Check if the current allocation is below the lower bound
         uint256 currentAllocation = getAsyncAssets(_component) * 1e18 / totalAssets_;
@@ -640,7 +636,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
         }
 
         // gets deposit amount
-        uint256 depositAmount = getDepositAmount(_component);
+        uint256 depositAmount = getInvestmentSize(_component);
 
         // checks if asset is within acceptable range of target
         if (depositAmount < (totalAssets_ * maxDelta / 1e18)) {
@@ -808,7 +804,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
     // logic is used to create investment size for both sync and async assets
     // might be better to just move that logic into each function for readability
-    function getDepositAmount(address _component) public view returns (uint256 depositAmount) {
+    function getInvestmentSize(address _component) public view returns (uint256 depositAmount) {
         uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
 
         uint256 currentBalance;
