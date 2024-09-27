@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 // TODO: create multiple factories so we can have different token types - even a meta factory
-// TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor
 // TODO: implement ternaries where you can
@@ -31,14 +30,15 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-contract Bestia is ERC4626, ERC165, Ownable {    
-
+contract Bestia is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
     //////////////////////////////////////////////////////////////*/
 
     // CONSTANTS
     // TODO: create detailed notes for for managers to read
+
+    // NOTE: parameters used for unit tests
     uint256 public maxDiscount; // percentage = 2e16
     uint256 public targetReserveRatio; // percentage = 10e16
     uint256 public maxDelta; // percentage = 1e16
@@ -82,7 +82,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
         uint256 sharesPending;
         uint256 sharesClaimable;
         uint256 assetsClaimable;
-        uint256 sharesAdjusted; // compute share value after swing price applied
+        uint256 sharesAdjusted; // holds share value after swing price applied
     }
 
     // NOTE: the order that components are added to the protocol determines their withdrawal order
@@ -177,24 +177,22 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
     // NOTE: currently adding async component for call to bestia.totalAssets to succeed
     function totalAssets() public view override returns (uint256) {
-        // TODO: delete temp variables here when you refactor this
-        IERC4626 tempVaultA = IERC4626(components[0].component);
-        IERC4626 tempVaultB = IERC4626(components[1].component);
-        IERC4626 tempVaultC = IERC4626(components[2].component);
-        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
-
         // gets the cash reserve
         uint256 cashReserve = depositAsset.balanceOf(address(this));
 
-        // gets value of async assets
-        uint256 asyncAssets = getAsyncAssets(address(tempLiquidityPool));
+        uint256 investedAssets = 0;
+        for (uint256 i = 0; i < components.length; i++) {
+            Component storage component = components[i];
 
-        // gets the liquid assets balances
-        uint256 liquidAssets = tempVaultA.convertToAssets(tempVaultA.balanceOf(address(this)))
-            + tempVaultB.convertToAssets(tempVaultB.balanceOf(address(this)))
-            + tempVaultC.convertToAssets(tempVaultC.balanceOf(address(this)));
+            if (!component.isAsync) {
+                IERC4626 syncAsset = IERC4626(component.component);
+                investedAssets += syncAsset.convertToAssets(syncAsset.balanceOf(address(this)));
+            } else {
+                investedAssets += getAsyncAssets(address(component.component));
+            }
+        }
 
-        return cashReserve + asyncAssets + liquidAssets;
+        return cashReserve + investedAssets;
     }
 
     // TODO: Think about logical BUG
@@ -226,7 +224,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         return (sharesToMint);
     }
-
 
     function mint(uint256 _shares, address receiver) public override returns (uint256) {
         uint256 _assets = convertToAssets(_shares);
@@ -262,7 +259,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                         ASYNC USER WITHDRAWAL LOGIC (7540)
     //////////////////////////////////////////////////////////////*/
-  
+
     // user requests to redeem their funds from the vault. they send their shares to the escrow contract
     function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
@@ -321,10 +318,12 @@ contract Bestia is ERC4626, ERC165, Ownable {
         return redeemRequests[index - 1].sharesClaimable;
     }
 
+    // check if controller has set an operator
     function isOperator(address controller, address operator) public view returns (bool status) {
         return _operators[controller][operator];
     }
 
+    // controller sets operator
     function setOperator(address operator, bool approved) public returns (bool success) {
         _operators[msg.sender][operator] = approved;
         emit OperatorSet(msg.sender, operator, approved);
@@ -514,6 +513,9 @@ contract Bestia is ERC4626, ERC165, Ownable {
         return assets;
     }
 
+    // abi.encodeWtihSignature senditt
+    // abi.decode receive it
+
     // TODO: Check for reused code between this and investInSync vault.
     function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
@@ -606,11 +608,9 @@ contract Bestia is ERC4626, ERC165, Ownable {
                 SYNCHRONOUS ASSET MANAGEMENT LOGIC (4626)
     //////////////////////////////////////////////////////////////*/
 
-    // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
-    // note: think about this... even that fact that it is on the contract changes the game theory for speculators vs long term investors
+    // TODO: should I have fallback managerLiquidation() function that can instantly liquidate and top up reserve.  note: think about this... even that fact that it is on the contract changes the game theory for speculators vs long term investors
 
     // called by banker to deposit excess reserve into strategies
-    // TODO: refactor this into something more efficient and include getDepositAmount logic
     function investInSyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -619,10 +619,15 @@ contract Bestia is ERC4626, ERC165, Ownable {
             revert IsAsyncVault();
         }
 
-        // temp: delete after you fix logic
-        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
-        if (isAsyncAssetsBelowMinimum(address(tempLiquidityPool))) {
-            revert AsyncAssetBelowMinimum();
+        // checks all async vaults to see if they are below range will revert if true for any True
+        // ensures
+        for (uint256 i = 0; i < components.length; i++) {
+            Component storage component = components[i];
+            if (component.isAsync) {
+                if (isAsyncAssetsBelowMinimum(address(component.component))) {
+                    revert AsyncAssetBelowMinimum();
+                }
+            }
         }
 
         uint256 totalAssets_ = totalAssets();
@@ -821,7 +826,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                               ERC-7575 SUPPORT
     //////////////////////////////////////////////////////////////*/
-    
+
     function share() external view returns (address) {
         return address(this);
     }
@@ -830,12 +835,11 @@ contract Bestia is ERC4626, ERC165, Ownable {
                               ERC-165 SUPPORT
     //////////////////////////////////////////////////////////////*/
 
-     // Override the supportsInterface function
+    // Override the supportsInterface function
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return
-            interfaceId == type(IERC165).interfaceId || // ERC-165
-            interfaceId == 0xe3bc4e65 || // ERC-7540 operator methods
-            interfaceId == 0x2f0a18c5 || // ERC-7575
-            interfaceId == 0x620ee8e4;   // Asynchronous redemption interface
+        return interfaceId == type(IERC165).interfaceId // ERC-165
+            || interfaceId == 0xe3bc4e65 // ERC-7540 operator methods
+            || interfaceId == 0x2f0a18c5 // ERC-7575
+            || interfaceId == 0x620ee8e4; // Asynchronous redemption interface
     }
 }
