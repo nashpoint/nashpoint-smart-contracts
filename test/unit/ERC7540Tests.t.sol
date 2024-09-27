@@ -154,7 +154,7 @@ contract ERC7540Tests is BaseTest {
         // Get the index for the redeem request from controllerToRedeemIndex mapping
         uint256 index = bestia.controllerToRedeemIndex(user1);
 
-        // Retrieve the swingFactor from the redeem request by accessing its tuple
+        // Retrieve the sharesPending and sharesAdjusted from the redeem request
         (, uint256 sharesPending,,, uint256 sharesAdjusted) = bestia.redeemRequests(index - 1);
 
         // assert that the sharesAdjusted have been reduced by swing factor

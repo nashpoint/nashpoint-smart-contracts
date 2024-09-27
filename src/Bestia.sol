@@ -272,7 +272,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         // check if pending redemptions exceed current cash balance
         // if not subtract pending redemptions from balance
-        // note: trialing this solution needs testing
         if (pendingRedemptions > balance) {
             balance = 0;
         } else {
@@ -283,13 +282,13 @@ contract Bestia is ERC4626, ERC165, Ownable {
         uint256 assets = convertToAssets(shares);
 
         // gets the expected reserve ratio after tx
-        // note: trialing this solution needs testing
+        // check redemption (assets) exceed current cash balance
+        // if not get reserve ratio
         int256 reserveRatioAfterTX;
-        if (balance > assets ) {
-            reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
-        } 
-        else {
+        if (assets > balance) {
             reserveRatioAfterTX = 0;
+        } else {
+            reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
         }
 
         // gets the assets to be returned to the user after applying swingfactor to tx
@@ -299,7 +298,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         uint256 index = controllerToRedeemIndex[controller];
 
-        if (index > 0) {            
+        if (index > 0) {
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({
@@ -357,7 +356,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         Request storage request = redeemRequests[index - 1];
         address escrowAddress = address(escrow);
-        
+
         uint256 sharesPending = request.sharesPending;
         uint256 sharesAdjusted = request.sharesAdjusted;
 
