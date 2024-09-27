@@ -177,6 +177,8 @@ contract ForkedTests is BaseTest {
         }
 
         uint256 initialDeposit = DEPOSIT_100;
+        console2.log(address(bestia));
+        console2.log(asset.balanceOf(address(bestia)));
 
         // empty user balance of asset token
         vm.startPrank(user1);
@@ -192,14 +194,24 @@ contract ForkedTests is BaseTest {
         // assert bestia and cfg vault have usdc deposit asset
         assertEq(bestia.asset(), address(asset));
         assertEq(liquidityPool.asset(), address(asset));
+        console2.log(asset.balanceOf(address(bestia)));
 
         // add liquidityPool as component to Bestia with 90% allocation (10% is reserve cash)
         bestia.addComponent(address(liquidityPool), 90e16, true, liquidityPool.share());
 
+        // user approves and deposits to vaultA
+        // note: adding this in for temp debugging: tx does succeed so not the issue
+        vm.startPrank(user1);
+        asset.approve(address(vaultA), MAX_ALLOWANCE);
+        vaultA.deposit(initialDeposit, address(user1)); // note: this is the part failing
+        vm.stopPrank();
+
+        seedBestia(); // throwing shit at a wall
+
         // user approves and deposits to bestia
         vm.startPrank(user1);
         asset.approve(address(bestia), MAX_ALLOWANCE);
-        bestia.deposit(initialDeposit, address(user1));
+        bestia.deposit(initialDeposit, address(user1)); // note: this is the part failing
         vm.stopPrank();
 
         // assert bestia has issued correct shares to user for 100 deposit

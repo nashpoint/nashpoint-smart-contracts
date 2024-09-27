@@ -346,7 +346,7 @@ contract ERC7540Tests is BaseTest {
 
     function testSupportsInterface() public {
         seedBestia(); // shuts up warning
-        
+
         // ERC-165 Interface ID
         bytes4 erc165InterfaceId = 0x01ffc9a7;
         assertTrue(bestia.supportsInterface(erc165InterfaceId));
@@ -368,5 +368,3 @@ contract ERC7540Tests is BaseTest {
         assertFalse(bestia.supportsInterface(unsupportedInterfaceId));
     }
 }
-
-

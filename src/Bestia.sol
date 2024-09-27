@@ -31,14 +31,15 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-contract Bestia is ERC4626, ERC165, Ownable {    
-
+contract Bestia is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
     //////////////////////////////////////////////////////////////*/
 
     // CONSTANTS
     // TODO: create detailed notes for for managers to read
+
+    // NOTE: parameters used for unit tests
     uint256 public maxDiscount; // percentage = 2e16
     uint256 public targetReserveRatio; // percentage = 10e16
     uint256 public maxDelta; // percentage = 1e16
@@ -177,24 +178,22 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
     // NOTE: currently adding async component for call to bestia.totalAssets to succeed
     function totalAssets() public view override returns (uint256) {
-        // TODO: delete temp variables here when you refactor this
-        IERC4626 tempVaultA = IERC4626(components[0].component);
-        IERC4626 tempVaultB = IERC4626(components[1].component);
-        IERC4626 tempVaultC = IERC4626(components[2].component);
-        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
-
         // gets the cash reserve
         uint256 cashReserve = depositAsset.balanceOf(address(this));
 
-        // gets value of async assets
-        uint256 asyncAssets = getAsyncAssets(address(tempLiquidityPool));
+        uint256 investedAssets = 0;
+        for (uint256 i = 0; i < components.length; i++) {
+            Component storage component = components[i];
 
-        // gets the liquid assets balances
-        uint256 liquidAssets = tempVaultA.convertToAssets(tempVaultA.balanceOf(address(this)))
-            + tempVaultB.convertToAssets(tempVaultB.balanceOf(address(this)))
-            + tempVaultC.convertToAssets(tempVaultC.balanceOf(address(this)));
+            if (!component.isAsync) {
+                IERC4626 syncAsset = IERC4626(component.component);
+                investedAssets += syncAsset.convertToAssets(syncAsset.balanceOf(address(this)));
+            } else {
+                investedAssets += getAsyncAssets(address(component.component));
+            }
+        }
 
-        return cashReserve + asyncAssets + liquidAssets;
+        return cashReserve + investedAssets;
     }
 
     // TODO: Think about logical BUG
@@ -226,7 +225,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         return (sharesToMint);
     }
-
 
     function mint(uint256 _shares, address receiver) public override returns (uint256) {
         uint256 _assets = convertToAssets(_shares);
@@ -262,7 +260,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                         ASYNC USER WITHDRAWAL LOGIC (7540)
     //////////////////////////////////////////////////////////////*/
-  
+
     // user requests to redeem their funds from the vault. they send their shares to the escrow contract
     function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
@@ -821,7 +819,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                               ERC-7575 SUPPORT
     //////////////////////////////////////////////////////////////*/
-    
+
     function share() external view returns (address) {
         return address(this);
     }
@@ -830,12 +828,11 @@ contract Bestia is ERC4626, ERC165, Ownable {
                               ERC-165 SUPPORT
     //////////////////////////////////////////////////////////////*/
 
-     // Override the supportsInterface function
+    // Override the supportsInterface function
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return
-            interfaceId == type(IERC165).interfaceId || // ERC-165
-            interfaceId == 0xe3bc4e65 || // ERC-7540 operator methods
-            interfaceId == 0x2f0a18c5 || // ERC-7575
-            interfaceId == 0x620ee8e4;   // Asynchronous redemption interface
+        return interfaceId == type(IERC165).interfaceId // ERC-165
+            || interfaceId == 0xe3bc4e65 // ERC-7540 operator methods
+            || interfaceId == 0x2f0a18c5 // ERC-7575
+            || interfaceId == 0x620ee8e4; // Asynchronous redemption interface
     }
 }
