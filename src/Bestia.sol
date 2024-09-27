@@ -139,9 +139,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
     event AsyncWithdrawalExecuted(address component, uint256 assets);
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
     event SwingPricingStatusUpdated(bool status);
-    event LiquidateReserveBelowTargetStatus(bool status);
-
-    ////// 7540 EVENTS //////
+    event LiquidateReserveBelowTargetStatus(bool status);   
     event RedeemRequest(
         address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares
     );
@@ -181,7 +179,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         uint256 investedAssets = 0;
         for (uint256 i = 0; i < components.length; i++) {
-            Component storage component = components[i];
+            Component memory component = components[i];
 
             if (!component.isAsync) {
                 IERC4626 syncAsset = IERC4626(component.component);
@@ -618,7 +616,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
         // checks all async vaults to see if they are below range will revert if true for any True
         // ensures
         for (uint256 i = 0; i < components.length; i++) {
-            Component storage component = components[i];
+            Component memory component = components[i];
             if (component.isAsync) {
                 if (isAsyncAssetsBelowMinimum(address(component.component))) {
                     revert AsyncAssetBelowMinimum();
