@@ -139,7 +139,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
     event AsyncWithdrawalExecuted(address component, uint256 assets);
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
     event SwingPricingStatusUpdated(bool status);
-    event LiquidateReserveBelowTargetStatus(bool status);   
+    event LiquidateReserveBelowTargetStatus(bool status);
     event RedeemRequest(
         address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares
     );
@@ -266,12 +266,31 @@ contract Bestia is ERC4626, ERC165, Ownable {
         // Transfer ERC4626 share tokens from owner back to vault
         require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
 
-        // get the cash balance of the node and asset value of the redeem request
+        // get the cash balance of the node and pending redemptions
         uint256 balance = depositAsset.balanceOf(address(this));
+        uint256 pendingRedemptions = getPendingRedeemAssets();
+
+        // check if pending redemptions exceed current cash balance
+        // if not subtract pending redemptions from balance
+        // note: trialing this solution needs testing
+        if (pendingRedemptions > balance) {
+            balance = 0;
+        } else {
+            balance = balance - pendingRedemptions;
+        }
+
+        // get the asset value of the redeem request
         uint256 assets = convertToAssets(shares);
 
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+        // note: trialing this solution needs testing
+        int256 reserveRatioAfterTX;
+        if (balance > assets ) {
+            reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+        } 
+        else {
+            reserveRatioAfterTX = 0;
+        }
 
         // gets the assets to be returned to the user after applying swingfactor to tx
         uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
@@ -280,8 +299,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         uint256 index = controllerToRedeemIndex[controller];
 
-        if (index > 0) {
-            // TODO: come back to this as def can be gamed
+        if (index > 0) {            
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({

@@ -293,12 +293,13 @@ contract VaultTests is BaseTest {
     function testGetPendingRedeemAssets() public {
         // seed the bestia vault and rebalance into underlying assets
         seedBestia();
+        bestia.enableLiquiateReserveBelowTarget(true);
 
         // assert getPendingRedeemAssets returns zero after setup
         assertEq(bestia.getPendingRedeemAssets(), 0);
 
         // select a value of share to redeem that is 10% of user shares in bestia
-        uint256 redemption = bestia.convertToShares(bestia.balanceOf(address(user1)) / 10);
+        uint256 redemption = bestia.convertToShares(bestia.balanceOf(address(user1)) / 100);
 
         // user requests redeem
         vm.startPrank(user1);
@@ -318,23 +319,46 @@ contract VaultTests is BaseTest {
 
         // user 2 deposits and immediately requests a redemption of same value
         vm.startPrank(user2);
-        bestia.deposit(DEPOSIT_100, address(user2));    
+        bestia.deposit(DEPOSIT_100, address(user2));
         bestia.requestRedeem(redemption, address(user2), address(user2));
         vm.stopPrank();
 
         // assert getPendingRedeemAssets correctly tracking balance for user 2
         assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption * 3));
-        
+
         // fulfils 2 x redemption for user 1 and assert getPendingRedeemAssets reduced correctly
-        vm.startPrank(banker);     
+        vm.startPrank(banker);
         bestia.fulfilRedeemFromReserve(user1);
         assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption));
 
         // fulfil pending redeem for user 2 and assert getPendingRedeemAssets == 0
         bestia.fulfilRedeemFromReserve(user2);
-        assertEq(bestia.getPendingRedeemAssets(), 0);
+        assertEq(bestia.getPendingRedeemAssets(), 0);    
 
         vm.stopPrank();
 
+        // banker rebalances into illiquid vault
+        bankerInvestsInAsyncVault(address(liquidityPool));
+
+        // banker rebalances bestia instant vaults
+        bankerInvestsCash(address(vaultA));
+        bankerInvestsCash(address(vaultB));
+        bankerInvestsCash(address(vaultC));
+        
+        // grab total value of user shares still remaining
+        uint256 totalShares = bestia.balanceOf(address(user1));
+        console2.log("bestia.convertToAssets(totalShares) :", bestia.convertToAssets(totalShares));
+        console2.log("bestia.totalAssets() :", bestia.totalAssets());
+        console2.log("usdcMock.balanceOf(address(bestia)) :", usdcMock.balanceOf(address(bestia)));
+
+        // bestia.totalAssets(): 197.994950 USDC
+        // bestia.convertToAssets(totalShares): 98.494949 USDC
+        // usdcMock.balanceOf(address(bestia)): 19.799495 USDC
+
+        vm.startPrank(user1);
+        bestia.requestRedeem(totalShares, address(user1), address(user1));
+        vm.stopPrank();
+
+        assertGt(bestia.getPendingRedeemAssets(), usdcMock.balanceOf(address(bestia)));
     }
 }
