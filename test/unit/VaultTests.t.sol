@@ -289,4 +289,126 @@ contract VaultTests is BaseTest {
         assertEq(bestia.getComponentRatio(component), targetRatio);
         assertFalse(bestia.isAsync(component));
     }
+
+    function testGetPendingRedeemAssets() public {
+        // seed the bestia vault and rebalance into underlying assets
+        seedBestia();
+        bestia.enableLiquiateReserveBelowTarget(true);
+
+        // assert getPendingRedeemAssets returns zero after setup
+        assertEq(bestia.getPendingRedeemAssets(), 0);
+
+        // select a value of share to redeem that is 10% of user shares in bestia
+        uint256 redemption = bestia.convertToShares(bestia.balanceOf(address(user1)) / 100);
+
+        // user requests redeem
+        vm.startPrank(user1);
+        bestia.requestRedeem(redemption, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert getPendingRedeemAssets is correctly tallying the request
+        assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption));
+
+        // user requests to redeem same # of shares again
+        vm.startPrank(user1);
+        bestia.requestRedeem(redemption, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert getPendingRedeemAssets is correctly tallying the request
+        assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption * 2));
+
+        // user 2 deposits and immediately requests a redemption of same value
+        vm.startPrank(user2);
+        bestia.deposit(DEPOSIT_100, address(user2));
+        bestia.requestRedeem(redemption, address(user2), address(user2));
+        vm.stopPrank();
+
+        // assert getPendingRedeemAssets correctly tracking balance for user 2
+        assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption * 3));
+
+        // fulfils 2 x redemption for user 1 and assert getPendingRedeemAssets reduced correctly
+        vm.startPrank(banker);
+        bestia.fulfilRedeemFromReserve(user1);
+        assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption));
+
+        // fulfil pending redeem for user 2 and assert getPendingRedeemAssets == 0
+        bestia.fulfilRedeemFromReserve(user2);
+        assertEq(bestia.getPendingRedeemAssets(), 0);
+
+        vm.stopPrank();
+
+        // banker rebalances strategies so that cash reserve is depleted down to target ratio 10%
+        bankerInvestsInAsyncVault(address(liquidityPool));
+        bankerInvestsCash(address(vaultA));
+        bankerInvestsCash(address(vaultB));
+        bankerInvestsCash(address(vaultC));
+
+        // grab total value of user shares still remaining
+        uint256 totalShares = bestia.balanceOf(address(user1));
+
+        // assert that the shares are worth more than available reserve
+        assertGt(bestia.convertToAssets(totalShares), usdcMock.balanceOf(address(bestia)));
+
+        // user 1 request redeem for all their shares
+        vm.startPrank(user1);
+        bestia.requestRedeem(totalShares, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert the pending redeem assets > cash reserve
+        assertGt(bestia.getPendingRedeemAssets(), usdcMock.balanceOf(address(bestia)));
+    }
+
+    function testSwingFactorAppliedToPending() public {
+        seedBestia();
+        bestia.enableSwingPricing(true);
+
+        // select a value of share to redeem that is 10% of user shares in bestia
+        uint256 redemption = bestia.convertToShares(bestia.balanceOf(address(user1)) / 100);
+
+        // user2 deposits to bestia
+        vm.startPrank(user2);
+        bestia.deposit(DEPOSIT_100, address(user2));
+        vm.stopPrank();
+
+        // banker rebalances strategies so that cash reserve is depleted down to target ratio 10%
+        bankerInvestsInAsyncVault(address(liquidityPool));
+        bankerInvestsCash(address(vaultA));
+        bankerInvestsCash(address(vaultB));
+        bankerInvestsCash(address(vaultC));
+
+        // user 1 requests redemption
+        vm.startPrank(user1);
+        bestia.requestRedeem(redemption, address(user1), address(user1));
+        vm.stopPrank();
+
+        // Get the index for the redeem request from controllerToRedeemIndex mapping
+        uint256 index1 = bestia.controllerToRedeemIndex(user1);
+
+        // Retrieve the swingFactor from the redeem request by accessing its tuple
+        (, uint256 user1SharesPending,,, uint256 user1SharesAdjusted) = bestia.redeemRequests(index1 - 1);
+
+        // assert thats shares adjusted is lower as swing pricing is applied
+        assertGt(user1SharesPending, user1SharesAdjusted);
+
+        // user 2 requests redeem
+        vm.startPrank(user2);
+        bestia.requestRedeem(redemption, address(user2), address(user2));
+        vm.stopPrank();
+
+        // Get the index for the redeem request from controllerToRedeemIndex mapping
+        uint256 index2 = bestia.controllerToRedeemIndex(user2);
+
+        // Retrieve the swingFactor from the redeem request by accessing its tuple
+        (, uint256 user2SharesPending,,, uint256 user2SharesAdjusted) = bestia.redeemRequests(index2 - 1);
+
+        // assert thats shares adjusted is lower as swing pricing is applied
+        assertGt(user2SharesPending, user2SharesAdjusted);
+
+        // grab the delta between the two for both users
+        uint256 delta1 = user1SharesPending - user1SharesAdjusted;
+        uint256 delta2 = user2SharesPending - user2SharesAdjusted;
+
+        // assert delta is higher for user two as greater swing price applied
+        assertGt(delta2, delta1);
+    }
 }

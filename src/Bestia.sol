@@ -140,8 +140,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
     event SwingPricingStatusUpdated(bool status);
     event LiquidateReserveBelowTargetStatus(bool status);
-
-    ////// 7540 EVENTS //////
     event RedeemRequest(
         address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares
     );
@@ -181,7 +179,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         uint256 investedAssets = 0;
         for (uint256 i = 0; i < components.length; i++) {
-            Component storage component = components[i];
+            Component memory component = components[i];
 
             if (!component.isAsync) {
                 IERC4626 syncAsset = IERC4626(component.component);
@@ -268,12 +266,30 @@ contract Bestia is ERC4626, ERC165, Ownable {
         // Transfer ERC4626 share tokens from owner back to vault
         require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
 
-        // get the cash balance of the node and asset value of the redeem request
+        // get the cash balance of the node and pending redemptions
         uint256 balance = depositAsset.balanceOf(address(this));
+        uint256 pendingRedemptions = getPendingRedeemAssets();
+
+        // check if pending redemptions exceed current cash balance
+        // if not subtract pending redemptions from balance
+        if (pendingRedemptions > balance) {
+            balance = 0;
+        } else {
+            balance = balance - pendingRedemptions;
+        }
+
+        // get the asset value of the redeem request
         uint256 assets = convertToAssets(shares);
 
         // gets the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+        // check redemption (assets) exceed current cash balance
+        // if not get reserve ratio
+        int256 reserveRatioAfterTX;
+        if (assets > balance) {
+            reserveRatioAfterTX = 0;
+        } else {
+            reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+        }
 
         // gets the assets to be returned to the user after applying swingfactor to tx
         uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
@@ -283,7 +299,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
         uint256 index = controllerToRedeemIndex[controller];
 
         if (index > 0) {
-            // TODO: come back to this as def can be gamed
             redeemRequests[index - 1].sharesPending += shares;
         } else {
             Request memory newRequest = Request({
@@ -342,9 +357,6 @@ contract Bestia is ERC4626, ERC165, Ownable {
         Request storage request = redeemRequests[index - 1];
         address escrowAddress = address(escrow);
 
-        // note: this introduces a potential bug where you have to set the withdrawal asset value
-        // at the time the deposit is requested
-        // possibly could be fixed by making the liquidation request based on the sum of adjustedShares
         uint256 sharesPending = request.sharesPending;
         uint256 sharesAdjusted = request.sharesAdjusted;
 
@@ -618,7 +630,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
         // checks all async vaults to see if they are below range will revert if true for any True
         // ensures
         for (uint256 i = 0; i < components.length; i++) {
-            Component storage component = components[i];
+            Component memory component = components[i];
             if (component.isAsync) {
                 if (isAsyncAssetsBelowMinimum(address(component.component))) {
                     revert AsyncAssetBelowMinimum();
@@ -817,6 +829,16 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
+    }
+
+    function getPendingRedeemAssets() public view returns (uint256 pendingAssets) {
+        pendingAssets = 0;
+
+        for (uint256 i; i < redeemRequests.length; i++) {
+            Request memory request = redeemRequests[i];
+            pendingAssets += convertToAssets(request.sharesPending);
+        }
+        return pendingAssets;
     }
 
     /*//////////////////////////////////////////////////////////////
