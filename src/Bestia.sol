@@ -357,10 +357,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
         Request storage request = redeemRequests[index - 1];
         address escrowAddress = address(escrow);
-
-        // note: this introduces a potential bug where you have to set the withdrawal asset value
-        // at the time the deposit is requested
-        // possibly could be fixed by making the liquidation request based on the sum of adjustedShares
+        
         uint256 sharesPending = request.sharesPending;
         uint256 sharesAdjusted = request.sharesAdjusted;
 

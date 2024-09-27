@@ -337,28 +337,24 @@ contract VaultTests is BaseTest {
 
         vm.stopPrank();
 
-        // banker rebalances into illiquid vault
-        bankerInvestsInAsyncVault(address(liquidityPool));
-
-        // banker rebalances bestia instant vaults
+        // banker rebalances strategies so that cash reserve is depleted down to target ratio 10%
+        bankerInvestsInAsyncVault(address(liquidityPool));        
         bankerInvestsCash(address(vaultA));
         bankerInvestsCash(address(vaultB));
         bankerInvestsCash(address(vaultC));
         
         // grab total value of user shares still remaining
-        uint256 totalShares = bestia.balanceOf(address(user1));
-        console2.log("bestia.convertToAssets(totalShares) :", bestia.convertToAssets(totalShares));
-        console2.log("bestia.totalAssets() :", bestia.totalAssets());
-        console2.log("usdcMock.balanceOf(address(bestia)) :", usdcMock.balanceOf(address(bestia)));
+        uint256 totalShares = bestia.balanceOf(address(user1));     
 
-        // bestia.totalAssets(): 197.994950 USDC
-        // bestia.convertToAssets(totalShares): 98.494949 USDC
-        // usdcMock.balanceOf(address(bestia)): 19.799495 USDC
+        // assert that the shares are worth more than available reserve
+        assertGt(bestia.convertToAssets(totalShares), usdcMock.balanceOf(address(bestia)));   
 
+        // user 1 request redeem for all their shares 
         vm.startPrank(user1);
         bestia.requestRedeem(totalShares, address(user1), address(user1));
         vm.stopPrank();
 
+        // assert the pending redeem assets > cash reserve
         assertGt(bestia.getPendingRedeemAssets(), usdcMock.balanceOf(address(bestia)));
     }
 }
