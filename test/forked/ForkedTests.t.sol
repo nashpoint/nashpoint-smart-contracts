@@ -199,15 +199,6 @@ contract ForkedTests is BaseTest {
         // add liquidityPool as component to Bestia with 90% allocation (10% is reserve cash)
         bestia.addComponent(address(liquidityPool), 90e16, true, liquidityPool.share());
 
-        // user approves and deposits to vaultA
-        // note: adding this in for temp debugging: tx does succeed so not the issue
-        vm.startPrank(user1);
-        asset.approve(address(vaultA), MAX_ALLOWANCE);
-        vaultA.deposit(initialDeposit, address(user1)); // note: this is the part failing
-        vm.stopPrank();
-
-        seedBestia(); // throwing shit at a wall
-
         // user approves and deposits to bestia
         vm.startPrank(user1);
         asset.approve(address(bestia), MAX_ALLOWANCE);

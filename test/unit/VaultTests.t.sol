@@ -8,13 +8,6 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract VaultTests is BaseTest {
     function testDeposit() public {
-        bestia.addComponent(address(vaultA), 0, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
-
-        // test fails unless you add an async asset
-        bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
-
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
@@ -26,13 +19,6 @@ contract VaultTests is BaseTest {
     }
 
     function testMint() public {
-        bestia.addComponent(address(vaultA), 0, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
-
-        // test fails unless you add an async asset
-        bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
-
         // user1 deposits 10 units and it is rebalanced into proportions
         seedBestia();
 
@@ -63,12 +49,6 @@ contract VaultTests is BaseTest {
 
     // TODO: write a test to get total assets even when you have no async assets
     function testTotalAssets() public {
-        bestia.addComponent(address(vaultA), 0, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
-        // test fails unless you add an async asset
-        bestia.addComponent(address(liquidityPool), 90, true, address(liquidityPool));
-
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
@@ -77,10 +57,8 @@ contract VaultTests is BaseTest {
     }
 
     function testInvestCash() public {
+        // add one component at 90% target ratio
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
-        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));
@@ -172,9 +150,6 @@ contract VaultTests is BaseTest {
     function testAdjustedDeposit() public {
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
-        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         // enable swing pricing
         bestia.enableSwingPricing(true);
@@ -254,9 +229,6 @@ contract VaultTests is BaseTest {
 
         // set the strategy to one asset at 90% holding
         bestia.addComponent(address(vaultA), 90e16, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 0, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 0, false, address(vaultC));
-        bestia.addComponent(address(liquidityPool), 0, true, address(liquidityPool)); // added to test to prevent revert: Component does not exist
 
         vm.startPrank(user1);
         bestia.deposit(DEPOSIT_100, address(user1));

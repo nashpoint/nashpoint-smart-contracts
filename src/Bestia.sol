@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 // TODO: create multiple factories so we can have different token types - even a meta factory
-// TODO: pull out all of the assets with 0 target in your tests. should work without
 // TODO: global rebalancing toggle???? opt in or out for managers
 // TODO: go through every single function and think about incentives from speculator vs investor
 // TODO: implement ternaries where you can
@@ -514,6 +513,9 @@ contract Bestia is ERC4626, ERC165, Ownable {
         return assets;
     }
 
+    // abi.encodeWtihSignature senditt
+    // abi.decode receive it
+
     // TODO: Check for reused code between this and investInSync vault.
     function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
@@ -608,7 +610,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
 
     // TODO: should I have fallback managerLiquidation() function that can instantly liquidate and top up reserve.  note: think about this... even that fact that it is on the contract changes the game theory for speculators vs long term investors
 
-    // called by banker to deposit excess reserve into strategies    
+    // called by banker to deposit excess reserve into strategies
     function investInSyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -618,7 +620,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
         }
 
         // checks all async vaults to see if they are below range will revert if true for any True
-        // ensures 
+        // ensures
         for (uint256 i = 0; i < components.length; i++) {
             Component storage component = components[i];
             if (component.isAsync) {
