@@ -83,7 +83,7 @@ contract Bestia is ERC4626, ERC165, Ownable {
         uint256 sharesPending;
         uint256 sharesClaimable;
         uint256 assetsClaimable;
-        uint256 sharesAdjusted; // compute share value after swing price applied
+        uint256 sharesAdjusted; // holds share value after swing price applied
     }
 
     // NOTE: the order that components are added to the protocol determines their withdrawal order
@@ -319,10 +319,12 @@ contract Bestia is ERC4626, ERC165, Ownable {
         return redeemRequests[index - 1].sharesClaimable;
     }
 
+    // check if controller has set an operator
     function isOperator(address controller, address operator) public view returns (bool status) {
         return _operators[controller][operator];
     }
 
+    // controller sets operator
     function setOperator(address operator, bool approved) public returns (bool success) {
         _operators[msg.sender][operator] = approved;
         emit OperatorSet(msg.sender, operator, approved);
@@ -604,11 +606,9 @@ contract Bestia is ERC4626, ERC165, Ownable {
                 SYNCHRONOUS ASSET MANAGEMENT LOGIC (4626)
     //////////////////////////////////////////////////////////////*/
 
-    // TODO: need a fallback managerLiquidation() function that can instantly liquidate and top up reserve
-    // note: think about this... even that fact that it is on the contract changes the game theory for speculators vs long term investors
+    // TODO: should I have fallback managerLiquidation() function that can instantly liquidate and top up reserve.  note: think about this... even that fact that it is on the contract changes the game theory for speculators vs long term investors
 
-    // called by banker to deposit excess reserve into strategies
-    // TODO: refactor this into something more efficient and include getDepositAmount logic
+    // called by banker to deposit excess reserve into strategies    
     function investInSyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -617,10 +617,15 @@ contract Bestia is ERC4626, ERC165, Ownable {
             revert IsAsyncVault();
         }
 
-        // temp: delete after you fix logic
-        IERC7540 tempLiquidityPool = IERC7540(components[3].component);
-        if (isAsyncAssetsBelowMinimum(address(tempLiquidityPool))) {
-            revert AsyncAssetBelowMinimum();
+        // checks all async vaults to see if they are below range will revert if true for any True
+        // ensures 
+        for (uint256 i = 0; i < components.length; i++) {
+            Component storage component = components[i];
+            if (component.isAsync) {
+                if (isAsyncAssetsBelowMinimum(address(component.component))) {
+                    revert AsyncAssetBelowMinimum();
+                }
+            }
         }
 
         uint256 totalAssets_ = totalAssets();
