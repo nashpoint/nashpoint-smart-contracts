@@ -289,4 +289,52 @@ contract VaultTests is BaseTest {
         assertEq(bestia.getComponentRatio(component), targetRatio);
         assertFalse(bestia.isAsync(component));
     }
+
+    function testGetPendingRedeemAssets() public {
+        // seed the bestia vault and rebalance into underlying assets
+        seedBestia();
+
+        // assert getPendingRedeemAssets returns zero after setup
+        assertEq(bestia.getPendingRedeemAssets(), 0);
+
+        // select a value of share to redeem that is 10% of user shares in bestia
+        uint256 redemption = bestia.convertToShares(bestia.balanceOf(address(user1)) / 10);
+
+        // user requests redeem
+        vm.startPrank(user1);
+        bestia.requestRedeem(redemption, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert getPendingRedeemAssets is correctly tallying the request
+        assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption));
+
+        // user requests to redeem same # of shares again
+        vm.startPrank(user1);
+        bestia.requestRedeem(redemption, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert getPendingRedeemAssets is correctly tallying the request
+        assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption * 2));
+
+        // user 2 deposits and immediately requests a redemption of same value
+        vm.startPrank(user2);
+        bestia.deposit(DEPOSIT_100, address(user2));    
+        bestia.requestRedeem(redemption, address(user2), address(user2));
+        vm.stopPrank();
+
+        // assert getPendingRedeemAssets correctly tracking balance for user 2
+        assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption * 3));
+        
+        // fulfils 2 x redemption for user 1 and assert getPendingRedeemAssets reduced correctly
+        vm.startPrank(banker);     
+        bestia.fulfilRedeemFromReserve(user1);
+        assertEq(bestia.getPendingRedeemAssets(), bestia.convertToAssets(redemption));
+
+        // fulfil pending redeem for user 2 and assert getPendingRedeemAssets == 0
+        bestia.fulfilRedeemFromReserve(user2);
+        assertEq(bestia.getPendingRedeemAssets(), 0);
+
+        vm.stopPrank();
+
+    }
 }

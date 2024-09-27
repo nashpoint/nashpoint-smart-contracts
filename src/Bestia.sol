@@ -817,6 +817,16 @@ contract Bestia is ERC4626, ERC165, Ownable {
         return delta;
     }
 
+    function getPendingRedeemAssets() public view returns (uint256 pendingAssets) {
+        pendingAssets = 0;
+
+        for (uint256 i; i < redeemRequests.length; i++) {
+            Request memory request = redeemRequests[i];
+            pendingAssets += convertToAssets(request.sharesPending);
+        }
+        return pendingAssets;
+    }
+
     /*//////////////////////////////////////////////////////////////
                               ERC-7575 SUPPORT
     //////////////////////////////////////////////////////////////*/
