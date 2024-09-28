@@ -28,8 +28,8 @@ contract EscrowTest is BaseTest {
         // grab full balance of USDC tokens
         uint256 tokensToSend = usdcMock.balanceOf(address(node));
 
-        // banker executes deposit to escrow
-        vm.startPrank(banker);
+        // rebalancer executes deposit to escrow
+        vm.startPrank(rebalancer);
         node.executeEscrowDeposit(address(usdcMock), tokensToSend);
         vm.stopPrank();
 

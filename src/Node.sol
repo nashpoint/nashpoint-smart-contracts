@@ -61,7 +61,7 @@ contract Node is ERC4626, ERC165, Ownable {
     SD59x18 scalingFactorSD;
 
     // ADDRESSES
-    address public banker;
+    address public rebalancer;
     IEscrow public escrow;
     IERC20Metadata public depositAsset;
 
@@ -107,7 +107,7 @@ contract Node is ERC4626, ERC165, Ownable {
         address _asset,
         string memory _name,
         string memory _symbol,
-        address _banker,
+        address _rebalancer,
         uint256 _maxDiscount,
         uint256 _targetReserveRatio,
         uint256 _maxDelta,
@@ -115,7 +115,7 @@ contract Node is ERC4626, ERC165, Ownable {
         address _owner
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(_owner) {
         depositAsset = IERC20Metadata(_asset);
-        banker = _banker;
+        rebalancer = _rebalancer;
         maxDiscount = _maxDiscount;
         targetReserveRatio = _targetReserveRatio;
         maxDelta = _maxDelta;
@@ -344,8 +344,8 @@ contract Node is ERC4626, ERC165, Ownable {
         return true;
     }
 
-    // Banker only function to process redemptions from reserve
-    function fulfilRedeemFromReserve(address _controller) public onlyBanker {
+    // Rebalancer only function to process redemptions from reserve
+    function fulfilRedeemFromReserve(address _controller) public onlyRebalancer {
         uint256 index = controllerToRedeemIndex[_controller];
         uint256 balance = depositAsset.balanceOf(address(this));
 
@@ -525,7 +525,7 @@ contract Node is ERC4626, ERC165, Ownable {
     }
 
     // TODO: Check for reused code between this and investInSync vault.
-    function investInAsyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
+    function investInAsyncVault(address _component) external onlyRebalancer returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }
@@ -568,7 +568,7 @@ contract Node is ERC4626, ERC165, Ownable {
         return (depositAmount);
     }
 
-    function mintClaimableShares(address _component) public onlyBanker returns (uint256) {
+    function mintClaimableShares(address _component) public onlyRebalancer returns (uint256) {
         uint256 claimableShares = IERC7540(_component).maxMint(address(this));
 
         IERC7540(_component).mint(claimableShares, address(this));
@@ -578,7 +578,7 @@ contract Node is ERC4626, ERC165, Ownable {
     }
 
     // requests withdrawal from async vault
-    function requestAsyncWithdrawal(address _component, uint256 _shares) public onlyBanker {
+    function requestAsyncWithdrawal(address _component, uint256 _shares) public onlyRebalancer {
         IERC20 shareToken = IERC20(getComponentShareAddress(_component));
         if (_shares > shareToken.balanceOf(address(this))) {
             revert TooManySharesRequested();
@@ -597,7 +597,7 @@ contract Node is ERC4626, ERC165, Ownable {
     }
 
     // withdraws claimable assets from async vault
-    function executeAsyncWithdrawal(address _component, uint256 _assets) public onlyBanker {
+    function executeAsyncWithdrawal(address _component, uint256 _assets) public onlyRebalancer {
         if (_assets > IERC7540(_component).maxWithdraw(address(this))) {
             revert TooManyAssetsRequested();
         }
@@ -618,8 +618,8 @@ contract Node is ERC4626, ERC165, Ownable {
 
     // TODO: should I have fallback managerLiquidation() function that can instantly liquidate and top up reserve.  note: think about this... even that fact that it is on the contract changes the game theory for speculators vs long term investors
 
-    // called by banker to deposit excess reserve into strategies
-    function investInSyncVault(address _component) external onlyBanker returns (uint256 cashInvested) {
+    // called by rebalancer to deposit excess reserve into strategies
+    function investInSyncVault(address _component) external onlyRebalancer returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
         }
@@ -669,10 +669,10 @@ contract Node is ERC4626, ERC165, Ownable {
         return (depositAmount);
     }
 
-    // banker to use this function to liquidate underlying vault to meet redeem requests
+    // rebalancer to use this function to liquidate underlying vault to meet redeem requests
     function liquidateSyncVaultPosition(address _component, uint256 shares)
         public
-        onlyBanker
+        onlyRebalancer
         returns (uint256 assetsReturned)
     {
         if (!isComponent(_component)) {
@@ -766,7 +766,7 @@ contract Node is ERC4626, ERC165, Ownable {
                         ESCROW INTERACTIONS
     ////////////////////////////////////////////////////////////////*/
 
-    function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyBanker {
+    function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyRebalancer {
         IERC20 token = IERC20(_tokenAddress);
         address escrowAddress = address(escrow);
 
@@ -786,15 +786,15 @@ contract Node is ERC4626, ERC165, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        BANKER AND PERMISSIONS
+                        REBALANCER AND PERMISSIONS
     ////////////////////////////////////////////////////////////////*/
 
-    function setBanker(address _banker) public onlyOwner {
-        banker = _banker;
+    function setRebalancer(address _rebalancer) public onlyOwner {
+        rebalancer = _rebalancer;
     }
 
-    modifier onlyBanker() {
-        require(msg.sender == banker, "Issuer: Only banker can call this function");
+    modifier onlyRebalancer() {
+        require(msg.sender == rebalancer, "Issuer: Only rebalancer can call this function");
         _;
     }
 

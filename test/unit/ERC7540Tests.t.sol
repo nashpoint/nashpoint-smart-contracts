@@ -38,8 +38,8 @@ contract ERC7540Tests is BaseTest {
         address vaultAddress = address(vaultA);
         uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim);
 
-        // banker liquidates asset from sync vault position to top up
-        vm.startPrank(banker);
+        // rebalancer liquidates asset from sync vault position to top up
+        vm.startPrank(rebalancer);
         node.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
         node.fulfilRedeemFromReserve(address(user1));
         vm.stopPrank();
@@ -73,8 +73,8 @@ contract ERC7540Tests is BaseTest {
         address vaultAddress = address(vaultA);
         uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim);
 
-        // banker liquidates asset from sync vault position to top up
-        vm.startPrank(banker);
+        // rebalancer liquidates asset from sync vault position to top up
+        vm.startPrank(rebalancer);
         node.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
         node.fulfilRedeemFromReserve(address(user1));
         vm.stopPrank();
@@ -112,8 +112,8 @@ contract ERC7540Tests is BaseTest {
         address vaultAddress = address(vaultA);
         uint256 sharesToLiquidate = vaultA.convertToShares(assetsToClaim / 2);
 
-        // banker liquidates asset from sync vault position to top up
-        vm.startPrank(banker);
+        // rebalancer liquidates asset from sync vault position to top up
+        vm.startPrank(rebalancer);
         node.liquidateSyncVaultPosition(vaultAddress, sharesToLiquidate);
 
         // revert: no claimable assets for user
@@ -160,8 +160,8 @@ contract ERC7540Tests is BaseTest {
         // assert that the sharesAdjusted have been reduced by swing factor
         assertGt(sharesPending, sharesAdjusted);
 
-        // banker to process redemption
-        vm.startPrank(banker);
+        // rebalancer to process redemption
+        vm.startPrank(rebalancer);
 
         // grab the value of assets to liquid and assert they are reduced by swing factor
         uint256 assetsToLiquidate = node.convertToAssets(sharesAdjusted);
@@ -175,7 +175,7 @@ contract ERC7540Tests is BaseTest {
         // assert that the current balance exceeds the original reserve cash
         assertGt(usdcMock.balanceOf(address(node)), startingReserveCash);
 
-        // banker fulfils redeem request with the excess cash in the reserve
+        // rebalancer fulfils redeem request with the excess cash in the reserve
         node.fulfilRedeemFromReserve(address(user1));
 
         vm.stopPrank();
@@ -259,8 +259,8 @@ contract ERC7540Tests is BaseTest {
         // assert that pendingRedeemRequest for user 1 == sharesToRedeem
         assertEq(node.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
 
-        // banker fulfils request from reserve cash
-        vm.startPrank(banker);
+        // rebalancer fulfils request from reserve cash
+        vm.startPrank(rebalancer);
         node.fulfilRedeemFromReserve(address(user1));
         vm.stopPrank();
 
@@ -312,8 +312,8 @@ contract ERC7540Tests is BaseTest {
         // assert that pendingRedeemRequest for user 1 == sharesToRedeem
         assertEq(node.pendingRedeemRequest(0, address(user1)), sharesToRedeem);
 
-        // banker fulfils request from reserve cash
-        vm.startPrank(banker);
+        // rebalancer fulfils request from reserve cash
+        vm.startPrank(rebalancer);
         node.fulfilRedeemFromReserve(address(user1));
         vm.stopPrank();
 

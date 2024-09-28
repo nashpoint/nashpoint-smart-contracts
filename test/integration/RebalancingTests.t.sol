@@ -28,14 +28,14 @@ contract RebalancingTests is BaseTest {
         node.deposit(DEPOSIT_10, address(user1));
         vm.stopPrank();
 
-        // banker rebalances into liquid assets
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
+        // rebalancer rebalances into liquid assets
+        rebalancerInvestsCash(address(vaultA));
+        rebalancerInvestsCash(address(vaultB));
+        rebalancerInvestsCash(address(vaultC));
 
-        // banker cannot rebalance into liquidityPool as lower threshold not breached
+        // rebalancer cannot rebalance into liquidityPool as lower threshold not breached
         vm.expectRevert();
-        bankerInvestsInAsyncVault(address(liquidityPool));
+        rebalancerInvestsInAsyncVault(address(liquidityPool));
 
         totalAssets = node.totalAssets();
         vaultAHoldings = vaultA.balanceOf(address(node));
@@ -61,19 +61,19 @@ contract RebalancingTests is BaseTest {
         // check that blocks investInCash when RWAs below target
         // note: leave this here as failing test will remind you to fix later
         vm.expectRevert();
-        bankerInvestsCash(address(vaultA));
+        rebalancerInvestsCash(address(vaultA));
 
         // note: maybe delete, not sure I need this anymore
         // // should reject investCash as async vault is below threshold
         // console2.log(node.isAsyncAssetsBelowMinimum(address(liquidityPool)));
 
         // must invest in async first to ensure it gets full amount
-        bankerInvestsInAsyncVault(address(liquidityPool));
+        rebalancerInvestsInAsyncVault(address(liquidityPool));
 
         // then invest in liquid asset
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
+        rebalancerInvestsCash(address(vaultA));
+        rebalancerInvestsCash(address(vaultB));
+        rebalancerInvestsCash(address(vaultC));
 
         totalAssets = node.totalAssets();
         // pendingDeposits = node.pendingDeposits();
@@ -126,7 +126,7 @@ contract RebalancingTests is BaseTest {
         assertEq(asyncAssets, claimableDeposits, "Async assets don't match claimable deposits");
 
         // mint the claimable shares
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.mintClaimableShares(address(liquidityPool));
         vm.stopPrank();
 
@@ -156,7 +156,7 @@ contract RebalancingTests is BaseTest {
         uint256 mintedShares = liquidityPool.balanceOf(address(node));
 
         // request async asset withdrawal
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.requestAsyncWithdrawal(address(liquidityPool), mintedShares);
         vm.stopPrank();
 
@@ -181,7 +181,7 @@ contract RebalancingTests is BaseTest {
         uint256 maxWithdraw = liquidityPool.maxWithdraw(address(node));
 
         // execute the withdrawal
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.executeAsyncWithdrawal(address(liquidityPool), maxWithdraw);
         vm.stopPrank();
 

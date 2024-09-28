@@ -222,8 +222,8 @@ contract ForkedTests is BaseTest {
         asset.approve(address(liquidityPool), MAX_ALLOWANCE);
         vm.stopPrank();
 
-        // banker invests node in cfg vault
-        vm.startPrank(banker);
+        // rebalancer invests node in cfg vault
+        vm.startPrank(rebalancer);
         node.investInAsyncVault(address(liquidityPool));
         vm.stopPrank();
 
@@ -258,8 +258,8 @@ contract ForkedTests is BaseTest {
         // assert node is calculating claimableDepositRequest in totalAssets correctly after rounding
         assertApproxEqAbs(node.totalAssets(), initialDeposit, 1);
 
-        // banker mints claimable shares for node
-        vm.startPrank(banker);
+        // rebalancer mints claimable shares for node
+        vm.startPrank(rebalancer);
         node.mintClaimableShares(address(liquidityPool));
         vm.stopPrank();
 
@@ -282,8 +282,8 @@ contract ForkedTests is BaseTest {
 
         // START WITHDRAWAL FLOW
 
-        // banker calls request asyncWithdrawal on Node
-        vm.startPrank(banker);
+        // rebalancer calls request asyncWithdrawal on Node
+        vm.startPrank(rebalancer);
         node.requestAsyncWithdrawal(address(liquidityPool), mintedShares);
         vm.stopPrank();
 
@@ -334,8 +334,8 @@ contract ForkedTests is BaseTest {
         // grab max amount of assets that can be withdrawn from cfg liquidityPool
         uint256 maxWithdraw = liquidityPool.maxWithdraw(address(node));
 
-        // banker executes the withdrawal on the node contract
-        vm.startPrank(banker);
+        // rebalancer executes the withdrawal on the node contract
+        vm.startPrank(rebalancer);
         node.executeAsyncWithdrawal(address(liquidityPool), maxWithdraw);
         vm.stopPrank();
 

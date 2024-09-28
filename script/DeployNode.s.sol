@@ -11,7 +11,7 @@ contract DeployNode is Script {
         HelperConfig helperConfig = new HelperConfig();
         (
             , // ignore manager
-            address banker,
+            address rebalancer,
             address usdc,
             ,
             ,
@@ -23,7 +23,7 @@ contract DeployNode is Script {
             address(usdc),
             "Node",
             "BEST",
-            address(banker),
+            address(rebalancer),
             //  percentages: 1e18 == 100%
             2e16, // maxDiscount (percentage)
             10e16, // targetReserveRatio (percentage)

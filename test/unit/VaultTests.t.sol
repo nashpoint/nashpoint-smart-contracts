@@ -64,7 +64,7 @@ contract VaultTests is BaseTest {
         node.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
@@ -77,7 +77,7 @@ contract VaultTests is BaseTest {
         node.requestRedeem(node.convertToShares(2e6), address(user1), address(user1));
         vm.stopPrank();
 
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.fulfilRedeemFromReserve(address(user1));
         vm.stopPrank();
 
@@ -85,7 +85,7 @@ contract VaultTests is BaseTest {
         usdcMock.mint(address(vaultA), 10e6 + 1);
 
         // expect revert
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         vm.expectRevert(); // error CashBelowTargetRatio();
         node.investInSyncVault(address(vaultA));
         vm.stopPrank();
@@ -95,7 +95,7 @@ contract VaultTests is BaseTest {
         node.deposit(4e6, address(user2));
         vm.stopPrank();
 
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
@@ -108,7 +108,7 @@ contract VaultTests is BaseTest {
         node.deposit(START_BALANCE_1000, address(user3));
         vm.stopPrank();
 
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
@@ -158,7 +158,7 @@ contract VaultTests is BaseTest {
         node.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
@@ -189,7 +189,7 @@ contract VaultTests is BaseTest {
         assertApproxEqAbs(sharesReceived, nonAdjustedShares, 1e12);
 
         // invest cash to return reserve ratio to 100%
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
@@ -200,7 +200,7 @@ contract VaultTests is BaseTest {
         node.requestRedeem(node.convertToShares(redeemRequest), (address(user2)), address((user2)));
         vm.stopPrank();
 
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.fulfilRedeemFromReserve(address(user2));
 
         // get the shares to be minted from a deposit with no swing factor applied
@@ -234,7 +234,7 @@ contract VaultTests is BaseTest {
         node.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
@@ -254,8 +254,8 @@ contract VaultTests is BaseTest {
         // assert user2 has zero usdc balance
         assertEq(usdcMock.balanceOf(address(user2)), 0);
 
-        // banker invests excess reserve
-        vm.startPrank(banker);
+        // rebalancer invests excess reserve
+        vm.startPrank(rebalancer);
         node.investInSyncVault(address(vaultA));
         vm.stopPrank();
 
@@ -327,7 +327,7 @@ contract VaultTests is BaseTest {
         assertEq(node.getPendingRedeemAssets(), node.convertToAssets(redemption * 3));
 
         // fulfils 2 x redemption for user 1 and assert getPendingRedeemAssets reduced correctly
-        vm.startPrank(banker);
+        vm.startPrank(rebalancer);
         node.fulfilRedeemFromReserve(user1);
         assertEq(node.getPendingRedeemAssets(), node.convertToAssets(redemption));
 
@@ -337,11 +337,11 @@ contract VaultTests is BaseTest {
 
         vm.stopPrank();
 
-        // banker rebalances strategies so that cash reserve is depleted down to target ratio 10%
-        bankerInvestsInAsyncVault(address(liquidityPool));
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
+        // rebalancer rebalances strategies so that cash reserve is depleted down to target ratio 10%
+        rebalancerInvestsInAsyncVault(address(liquidityPool));
+        rebalancerInvestsCash(address(vaultA));
+        rebalancerInvestsCash(address(vaultB));
+        rebalancerInvestsCash(address(vaultC));
 
         // grab total value of user shares still remaining
         uint256 totalShares = node.balanceOf(address(user1));
@@ -370,11 +370,11 @@ contract VaultTests is BaseTest {
         node.deposit(DEPOSIT_100, address(user2));
         vm.stopPrank();
 
-        // banker rebalances strategies so that cash reserve is depleted down to target ratio 10%
-        bankerInvestsInAsyncVault(address(liquidityPool));
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
+        // rebalancer rebalances strategies so that cash reserve is depleted down to target ratio 10%
+        rebalancerInvestsInAsyncVault(address(liquidityPool));
+        rebalancerInvestsCash(address(vaultA));
+        rebalancerInvestsCash(address(vaultB));
+        rebalancerInvestsCash(address(vaultC));
 
         // user 1 requests redemption
         vm.startPrank(user1);

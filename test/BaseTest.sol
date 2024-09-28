@@ -54,7 +54,7 @@ contract BaseTest is Test {
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;
     IERC7540 public liquidityPool;
-    address public banker;
+    address public rebalancer;
     address public manager;
 
     // fork test contracts and addresses
@@ -85,7 +85,7 @@ contract BaseTest is Test {
 
         (
             address managerAddress,
-            address bankerAddress,
+            address rebalancerAddress,
             address usdcAddress,
             address vaultAAddress,
             address vaultBAddress,
@@ -93,7 +93,7 @@ contract BaseTest is Test {
             address liquidityPoolAddress
         ) = helperConfig.activeNetworkConfig();
 
-        banker = bankerAddress;
+        rebalancer = rebalancerAddress;
         manager = managerAddress;
         usdcMock = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
@@ -122,7 +122,7 @@ contract BaseTest is Test {
 
         (
             address managerAddress,
-            address bankerAddress,
+            address rebalancerAddress,
             address usdcAddress,
             address vaultAAddress,
             address vaultBAddress,
@@ -130,7 +130,7 @@ contract BaseTest is Test {
             address liquidityPoolAddress
         ) = helperConfig.activeNetworkConfig();
 
-        banker = bankerAddress;
+        rebalancer = rebalancerAddress;
         manager = managerAddress;
         // diff 7540 manager from local tests
         usdc = IERC20(usdcAddress);
@@ -157,7 +157,7 @@ contract BaseTest is Test {
 
         (
             address managerAddress,
-            address bankerAddress,
+            address rebalancerAddress,
             address usdcAddress,
             address vaultAAddress,
             address vaultBAddress,
@@ -165,7 +165,7 @@ contract BaseTest is Test {
             address liquidityPoolAddress
         ) = helperConfig.activeNetworkConfig();
 
-        banker = bankerAddress;
+        rebalancer = rebalancerAddress;
         manager = managerAddress;
         usdcMock = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
@@ -222,14 +222,14 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
-    function bankerInvestsCash(address _component) public {
-        vm.startPrank(banker);
+    function rebalancerInvestsCash(address _component) public {
+        vm.startPrank(rebalancer);
         node.investInSyncVault(_component);
         vm.stopPrank();
     }
 
-    function bankerInvestsInAsyncVault(address _component) public {
-        vm.startPrank(banker);
+    function rebalancerInvestsInAsyncVault(address _component) public {
+        vm.startPrank(rebalancer);
         node.investInAsyncVault(address(_component));
         vm.stopPrank();
     }
@@ -249,13 +249,13 @@ contract BaseTest is Test {
         node.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
-        // banker rebalances into illiquid vault
-        bankerInvestsInAsyncVault(address(liquidityPool));
+        // rebalancer rebalances into illiquid vault
+        rebalancerInvestsInAsyncVault(address(liquidityPool));
 
-        // banker rebalances node instant vaults
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
+        // rebalancer rebalances node instant vaults
+        rebalancerInvestsCash(address(vaultA));
+        rebalancerInvestsCash(address(vaultB));
+        rebalancerInvestsCash(address(vaultC));
     }
 
     function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {

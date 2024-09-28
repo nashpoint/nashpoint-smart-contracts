@@ -15,7 +15,7 @@ contract FactoryTest is BaseTest {
             address(usdcMock), // deposit asset (mocked USDC)
             "Pilot Node", // Name of the node
             "PNODE", // Symbol for the node
-            address(banker), // Banker's address
+            address(rebalancer), // Rebalancer's address
             2e16, // max discount
             10e16, // target reserve ratio
             1e16, // max delta

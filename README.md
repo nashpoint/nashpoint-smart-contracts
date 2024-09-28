@@ -24,7 +24,7 @@ Currenty this is being built as a single 4626 vault that can handle investment l
 - Adjusts the effective exchange rate based on the current reserve ratio
 
 ### 3.  Capital Allocation
-- **Banker** role invests excess funds into various asset strategies
+- **Rebalancer** role invests excess funds into various asset strategies
 - Separate logic for investing in liquid (ERC4626) and illiquid (ERC7540) assets
 - Maintains a target cash reserve ratio for liquidity management
 

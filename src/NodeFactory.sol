@@ -15,7 +15,7 @@ contract NodeFactory {
         address _depositAsset,
         string memory _name,
         string memory _symbol,
-        address _banker,
+        address _rebalancer,
         uint256 _maxDiscount,
         uint256 _targetReserveRatio,
         uint256 _maxDelta,
@@ -24,7 +24,7 @@ contract NodeFactory {
     ) external returns (address) {
         // TODO: build a bunch of require statements for the numbers to make sure they will work
         Node node = new Node(
-            _depositAsset, _name, _symbol, _banker, _maxDiscount, _targetReserveRatio, _maxDelta, _asyncMaxDelta, _owner
+            _depositAsset, _name, _symbol, _rebalancer, _maxDiscount, _targetReserveRatio, _maxDelta, _asyncMaxDelta, _owner
         );
         return address(node);
     }
