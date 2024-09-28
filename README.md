@@ -1,6 +1,6 @@
-# node_v0
+# CONSTELLATION (Development Name)
 
-Node is an in-development protocol that structures illiquid on chain credit assets, such as Real World Assets (RWAs), into Liquid Yield Tokens. It implements innovative mechanisms for efficient capital allocation and risk management.
+Constellation is an in-development protocol that structures illiquid on chain credit assets, such as Real World Assets (RWAs), into Liquid Yield Tokens. It implements innovative mechanisms for efficient capital allocation and risk management.
 
 For more detailed information about the first pool that will launch on Node see the draft [WHITEPAPER](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
 
@@ -91,9 +91,9 @@ This project uses Foundry for development and testing. Follow these steps to get
 1. Clone the repository:
 
 ```
-git clone https://github.com/0xCSMNT/node_v0.git
+git clone https://github.com/0xCSMNT/constellation.git
 
-cd node_v0
+cd constellation
 ```
 Install dependencies:
 
@@ -118,7 +118,7 @@ Run the test suite locally with anvil:
 forge test
 ```
 
-Run the [fork tests]([url](https://github.com/0xCSMNT/node_v0/blob/main/test/forked/ForkedTests.t.sol)) on Centrifuge Liquidity Pool:
+Run the [fork tests]([url](https://github.com/0xCSMNT/constellation/blob/main/test/forked/ForkedTests.t.sol)) on Centrifuge Liquidity Pool:
 ```
 forge test --match-contract ForkedTests --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun
 ```
