@@ -30,7 +30,7 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // TEMP: Delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-contract Bestia is ERC4626, ERC165, Ownable {
+contract Node is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                               DATA
     //////////////////////////////////////////////////////////////*/

@@ -7,35 +7,35 @@ import {console2} from "forge-std/Test.sol";
 
 contract EscrowTest is BaseTest {
     function testEscrowSetup() public {
-        bestia.setEscrow(address(escrow));
+        node.setEscrow(address(escrow));
 
-        escrow.setBestia(address(bestia));
+        escrow.setNode(address(node));
 
-        // assert that both bestia and escrow are identifying each other correctly
-        assertEq(address(bestia.escrow()), address(escrow));
-        assertEq(address(escrow.bestia()), address(bestia));
+        // assert that both node and escrow are identifying each other correctly
+        assertEq(address(node.escrow()), address(escrow));
+        assertEq(address(escrow.node()), address(node));
 
-        // revert: only bestia address can call deposit
+        // revert: only node address can call deposit
         vm.startPrank(user1);
         vm.expectRevert();
         escrow.deposit(address(usdcMock), 1e6);
         vm.stopPrank();
     }
 
-    function testBestiaCanDepositToEscrow() public {
-        seedBestia();
+    function testNodeCanDepositToEscrow() public {
+        seedNode();
 
         // grab full balance of USDC tokens
-        uint256 tokensToSend = usdcMock.balanceOf(address(bestia));
+        uint256 tokensToSend = usdcMock.balanceOf(address(node));
 
         // banker executes deposit to escrow
         vm.startPrank(banker);
-        bestia.executeEscrowDeposit(address(usdcMock), tokensToSend);
+        node.executeEscrowDeposit(address(usdcMock), tokensToSend);
         vm.stopPrank();
 
         // assert full balance of usdc tokens have been transferred to escrow
         assertEq(usdcMock.balanceOf(address(escrow)), tokensToSend);
-        assertEq(usdcMock.balanceOf(address(bestia)), 0);
+        assertEq(usdcMock.balanceOf(address(node)), 0);
     }
 
     // TODO: write test to check user withdrawal

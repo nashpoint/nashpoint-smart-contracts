@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
-import {Bestia} from "src/bestia.sol";
+import {Node} from "src/Node.sol";
 
 // TODO's
 // DONE: Update Constructor and vault handling (Node)
@@ -23,9 +23,9 @@ contract NodeFactory {
         address _owner
     ) external returns (address) {
         // TODO: build a bunch of require statements for the numbers to make sure they will work
-        Bestia bestia = new Bestia(
+        Node node = new Node(
             _depositAsset, _name, _symbol, _banker, _maxDiscount, _targetReserveRatio, _maxDelta, _asyncMaxDelta, _owner
         );
-        return address(bestia);
+        return address(node);
     }
 }
