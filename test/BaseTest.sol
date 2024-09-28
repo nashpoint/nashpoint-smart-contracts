@@ -2,24 +2,22 @@
 
 pragma solidity ^0.8.20;
 
-import {Bestia} from "../src/Bestia.sol";
+import {Node} from "../src/Node.sol";
 import {NodeFactory} from "src/NodeFactory.sol";
-import {DeployBestia} from "script/DeployBestia.s.sol";
+import {Escrow, IEscrow} from "src/Escrow.sol";
+import {DeployNode} from "script/DeployNode.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
-
-// escrow contract for bestia
-import {Escrow, IEscrow} from "src/Escrow.sol";
 
 // centrifuge interfaces
 import {IInvestmentManager} from "test/interfaces/centrifuge/IInvestmentManager.sol";
@@ -42,8 +40,8 @@ contract BaseTest is Test {
     uint256 public constant DEPOSIT_10 = 10 * DECIMALS;
     uint256 public constant DEPOSIT_1 = 1 * DECIMALS;
 
-    // NashPoint V1 Core Contracts
-    Bestia public bestia;
+    // Core Contracts
+    Node public node;
     NodeFactory public nodeFactory;
     Escrow public escrow;
 
@@ -54,10 +52,10 @@ contract BaseTest is Test {
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;
     IERC7540 public liquidityPool;
-    address public banker;
+    address public rebalancer;
     address public manager;
 
-    // fork test contracts and addresses
+    // centrifuge: fork test contracts and addresses
     IInvestmentManager public investmentManager;
     IRestrictionManager public restrictionManager;
     IPoolManager public poolManager;
@@ -80,12 +78,12 @@ contract BaseTest is Test {
     }
 
     function _setupLocalAnvil() internal {
-        DeployBestia deployer = new DeployBestia();
-        (bestia, helperConfig) = deployer.run();
+        DeployNode deployer = new DeployNode();
+        (node, helperConfig) = deployer.run();
 
         (
             address managerAddress,
-            address bankerAddress,
+            address rebalancerAddress,
             address usdcAddress,
             address vaultAAddress,
             address vaultBAddress,
@@ -93,7 +91,7 @@ contract BaseTest is Test {
             address liquidityPoolAddress
         ) = helperConfig.activeNetworkConfig();
 
-        banker = bankerAddress;
+        rebalancer = rebalancerAddress;
         manager = managerAddress;
         usdcMock = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
@@ -105,24 +103,24 @@ contract BaseTest is Test {
         escrow = new Escrow();
 
         // and config each others addresses
-        escrow.setBestia(address(bestia));
-        bestia.setEscrow(address(escrow));
+        escrow.setNode(address(node));
+        node.setEscrow(address(escrow));
 
         nodeFactory = new NodeFactory();
 
         _setupUserBalancesAndApprovals();
-        _setupBestiaApprovals();
+        _setupNodeApprovals();
         _setupInitialLiquidity();
     }
 
     // MAINNET SETUP FOR CFG TESTING
     function _setupMainnet() internal {
-        DeployBestia deployer = new DeployBestia();
-        (bestia, helperConfig) = deployer.run();
+        DeployNode deployer = new DeployNode();
+        (node, helperConfig) = deployer.run();
 
         (
             address managerAddress,
-            address bankerAddress,
+            address rebalancerAddress,
             address usdcAddress,
             address vaultAAddress,
             address vaultBAddress,
@@ -130,7 +128,7 @@ contract BaseTest is Test {
             address liquidityPoolAddress
         ) = helperConfig.activeNetworkConfig();
 
-        banker = bankerAddress;
+        rebalancer = rebalancerAddress;
         manager = managerAddress;
         // diff 7540 manager from local tests
         usdc = IERC20(usdcAddress);
@@ -152,12 +150,12 @@ contract BaseTest is Test {
     }
 
     function _setupArbitrumSepolia() internal {
-        DeployBestia deployer = new DeployBestia();
-        (bestia, helperConfig) = deployer.run();
+        DeployNode deployer = new DeployNode();
+        (node, helperConfig) = deployer.run();
 
         (
             address managerAddress,
-            address bankerAddress,
+            address rebalancerAddress,
             address usdcAddress,
             address vaultAAddress,
             address vaultBAddress,
@@ -165,7 +163,7 @@ contract BaseTest is Test {
             address liquidityPoolAddress
         ) = helperConfig.activeNetworkConfig();
 
-        banker = bankerAddress;
+        rebalancer = rebalancerAddress;
         manager = managerAddress;
         usdcMock = ERC20Mock(usdcAddress);
         vaultA = ERC4626Mock(vaultAAddress);
@@ -174,7 +172,7 @@ contract BaseTest is Test {
         liquidityPool = ERC7540Mock(liquidityPoolAddress);
 
         _setupUserBalancesAndApprovals();
-        _setupBestiaApprovals();
+        _setupNodeApprovals();
         _setupInitialLiquidity();
     }
 
@@ -188,18 +186,18 @@ contract BaseTest is Test {
 
         for (uint256 i = 0; i < users.length; i++) {
             vm.startPrank(users[i]);
-            usdcMock.approve(address(bestia), MAX_ALLOWANCE);
+            usdcMock.approve(address(node), MAX_ALLOWANCE);
             usdcMock.approve(address(liquidityPool), MAX_ALLOWANCE);
             usdcMock.approve(address(escrow), MAX_ALLOWANCE);
             liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
             usdcMock.mint(users[i], START_BALANCE_1000);
-            bestia.approve(address(bestia), MAX_ALLOWANCE);
+            node.approve(address(node), MAX_ALLOWANCE);
             vm.stopPrank();
         }
     }
 
-    function _setupBestiaApprovals() internal {
-        vm.startPrank(address(bestia));
+    function _setupNodeApprovals() internal {
+        vm.startPrank(address(node));
         usdcMock.approve(address(vaultA), MAX_ALLOWANCE);
         usdcMock.approve(address(vaultB), MAX_ALLOWANCE);
         usdcMock.approve(address(vaultC), MAX_ALLOWANCE);
@@ -208,7 +206,7 @@ contract BaseTest is Test {
         vm.stopPrank();
 
         vm.startPrank(address(escrow));
-        usdcMock.approve(address(bestia), MAX_ALLOWANCE);
+        usdcMock.approve(address(node), MAX_ALLOWANCE);
         vm.stopPrank();
     }
 
@@ -222,44 +220,44 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
-    function bankerInvestsCash(address _component) public {
-        vm.startPrank(banker);
-        bestia.investInSyncVault(_component);
+    function rebalancerInvestsCash(address _component) public {
+        vm.startPrank(rebalancer);
+        node.investInSyncVault(_component);
         vm.stopPrank();
     }
 
-    function bankerInvestsInAsyncVault(address _component) public {
-        vm.startPrank(banker);
-        bestia.investInAsyncVault(address(_component));
+    function rebalancerInvestsInAsyncVault(address _component) public {
+        vm.startPrank(rebalancer);
+        node.investInAsyncVault(address(_component));
         vm.stopPrank();
     }
 
-    function seedBestia() public {
+    function seedNode() public {
         // SET THE STRATEGY
         // add the 4626 Vaults
-        bestia.addComponent(address(vaultA), 18e16, false, address(vaultA));
-        bestia.addComponent(address(vaultB), 20e16, false, address(vaultB));
-        bestia.addComponent(address(vaultC), 22e16, false, address(vaultC));
+        node.addComponent(address(vaultA), 18e16, false, address(vaultA));
+        node.addComponent(address(vaultB), 20e16, false, address(vaultB));
+        node.addComponent(address(vaultC), 22e16, false, address(vaultC));
 
         // add the 7540 Vault (RWA)
-        bestia.addComponent(address(liquidityPool), 30e16, true, address(liquidityPool));
+        node.addComponent(address(liquidityPool), 30e16, true, address(liquidityPool));
 
         // SEED VAULT WITH 100 UNITS
         vm.startPrank(user1);
-        bestia.deposit(DEPOSIT_100, address(user1));
+        node.deposit(DEPOSIT_100, address(user1));
         vm.stopPrank();
 
-        // banker rebalances into illiquid vault
-        bankerInvestsInAsyncVault(address(liquidityPool));
+        // rebalancer rebalances into illiquid vault
+        rebalancerInvestsInAsyncVault(address(liquidityPool));
 
-        // banker rebalances bestia instant vaults
-        bankerInvestsCash(address(vaultA));
-        bankerInvestsCash(address(vaultB));
-        bankerInvestsCash(address(vaultC));
+        // rebalancer rebalances node instant vaults
+        rebalancerInvestsCash(address(vaultA));
+        rebalancerInvestsCash(address(vaultB));
+        rebalancerInvestsCash(address(vaultC));
     }
 
     function getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        uint256 currentReserveRatio = Math.mulDiv(usdcMock.balanceOf(address(bestia)), 1e18, bestia.totalAssets());
+        uint256 currentReserveRatio = Math.mulDiv(usdcMock.balanceOf(address(node)), 1e18, node.totalAssets());
 
         return (currentReserveRatio);
     }

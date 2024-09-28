@@ -9,7 +9,7 @@ remappings = [
     '@prb/math/=lib/prb-math/'
 ]
 
-# gas_reports = ["Bestia"]
+# gas_reports = ["Node"]
 
 solc = '0.8.26'
 

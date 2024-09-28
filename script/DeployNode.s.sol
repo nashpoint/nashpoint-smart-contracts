@@ -4,14 +4,14 @@ pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
-import {Bestia} from "../src/Bestia.sol";
+import {Node} from "../src/Node.sol";
 
-contract DeployBestia is Script {
-    function run() external returns (Bestia, HelperConfig) {
+contract DeployNode is Script {
+    function run() external returns (Node, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
         (
             , // ignore manager
-            address banker,
+            address rebalancer,
             address usdc,
             ,
             ,
@@ -19,11 +19,11 @@ contract DeployBestia is Script {
         ) = helperConfig.activeNetworkConfig();
 
         vm.startBroadcast();
-        Bestia bestia = new Bestia(
+        Node node = new Node(
             address(usdc),
-            "Bestia",
+            "Node",
             "BEST",
-            address(banker),
+            address(rebalancer),
             //  percentages: 1e18 == 100%
             2e16, // maxDiscount (percentage)
             10e16, // targetReserveRatio (percentage)
@@ -32,6 +32,6 @@ contract DeployBestia is Script {
             address(msg.sender) // using msg.sender as owner for local testing
         );
         vm.stopBroadcast();
-        return (bestia, helperConfig);
+        return (node, helperConfig);
     }
 }

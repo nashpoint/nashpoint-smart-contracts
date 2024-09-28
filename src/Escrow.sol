@@ -10,10 +10,10 @@ interface IEscrow {
 }
 
 contract Escrow is IEscrow, Ownable {
-    address public bestia;
+    address public node;
 
-    modifier onlyBestia() {
-        require(msg.sender == bestia, "Only Bestia contract can call this");
+    modifier onlyNode() {
+        require(msg.sender == node, "Only Node contract can call this");
         _;
     }
 
@@ -25,20 +25,20 @@ contract Escrow is IEscrow, Ownable {
     event Withdrawal(address indexed withdrawer, address indexed tokenAddress, uint256 tokenAmount);
 
     // Deposit function
-    function deposit(address tokenAddress, uint256 tokenAmount) external onlyBestia {
+    function deposit(address tokenAddress, uint256 tokenAmount) external onlyNode {
         // Assume tokens have already been transferred to this contract
         emit Deposit(tokenAddress, tokenAmount);
     }
 
     // Withdraw function
-    function withdraw(address withdrawer, address tokenAddress, uint256 tokenAmount) external onlyBestia {
+    function withdraw(address withdrawer, address tokenAddress, uint256 tokenAmount) external onlyNode {
         IERC20 token = IERC20(tokenAddress);
         require(token.transfer(withdrawer, tokenAmount), "Transfer failed");
         emit Withdrawal(withdrawer, tokenAddress, tokenAmount);
     }
 
-    function setBestia(address _bestia) public onlyOwner {
-        bestia = _bestia;
+    function setNode(address _node) public onlyOwner {
+        node = _node;
     }
 
     // TODO: rescue function for lost tokens. Ignore for now

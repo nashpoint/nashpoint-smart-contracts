@@ -1,8 +1,8 @@
-# bestia_v0
+# CONSTELLATION (Development Name)
 
-Bestia is an in-development protocol that structures illiquid on chain credit assets, such as Real World Assets (RWAs), into Liquid Yield Tokens. It implements innovative mechanisms for efficient capital allocation and risk management.
+Constellation is an in-development protocol that structures illiquid on chain credit assets, such as Real World Assets (RWAs), into Liquid Yield Tokens. It implements innovative mechanisms for efficient capital allocation and risk management.
 
-For more detailed information about the first pool that will launch on Bestia see the draft [WHITEPAPER](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
+For more detailed information about the first pool that will launch on see the draft [WHITEPAPER](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
 
 Currenty this is being built as a single 4626 vault that can handle investment logic for the user. Future features include :
 - Modular smart contract design pattern for upgradeability
@@ -24,7 +24,7 @@ Currenty this is being built as a single 4626 vault that can handle investment l
 - Adjusts the effective exchange rate based on the current reserve ratio
 
 ### 3.  Capital Allocation
-- **Banker** role invests excess funds into various asset strategies
+- **Rebalancer** role invests excess funds into various asset strategies
 - Separate logic for investing in liquid (ERC4626) and illiquid (ERC7540) assets
 - Maintains a target cash reserve ratio for liquidity management
 
@@ -91,9 +91,9 @@ This project uses Foundry for development and testing. Follow these steps to get
 1. Clone the repository:
 
 ```
-git clone https://github.com/0xCSMNT/bestia_v0.git
+git clone https://github.com/0xCSMNT/constellation.git
 
-cd bestia_v0
+cd constellation
 ```
 Install dependencies:
 
@@ -118,7 +118,7 @@ Run the test suite locally with anvil:
 forge test
 ```
 
-Run the [fork tests]([url](https://github.com/0xCSMNT/bestia_v0/blob/main/test/forked/ForkedTests.t.sol)) on Centrifuge Liquidity Pool:
+Run the [fork tests]([url](https://github.com/0xCSMNT/constellation/blob/main/test/forked/ForkedTests.t.sol)) on Centrifuge Liquidity Pool:
 ```
 forge test --match-contract ForkedTests --fork-url $ETHEREUM_RPC_URL --fork-block-number 20591573 --evm-version cancun
 ```

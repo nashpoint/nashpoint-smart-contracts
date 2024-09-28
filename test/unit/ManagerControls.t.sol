@@ -12,12 +12,12 @@ contract ManagerControls is BaseTest {
         // all tests start with swing pricing disabled
 
         // assert returns 0
-        assertEq(bestia.getSwingFactor(9e16), 0);
+        assertEq(node.getSwingFactor(9e16), 0);
 
         // owner enables swing pricing
-        bestia.enableSwingPricing(true);
+        node.enableSwingPricing(true);
 
         // assert that returns a value
-        assertGt(bestia.getSwingFactor(9e16), 0);
+        assertGt(node.getSwingFactor(9e16), 0);
     }
 }
