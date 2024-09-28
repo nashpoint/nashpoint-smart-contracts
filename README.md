@@ -1,9 +1,6 @@
-<h1>
-  <img src="images/logo.jpg" alt="Project Logo" height="24" style="vertical-align: down; margin-right: 10px;">
+<h1>  
   CONSTELLATION
 </h1>
-
-
 
 Constellation is an in-development protocol that structures illiquid on chain credit assets, such as Real World Assets (RWAs), into Liquid Yield Tokens. It implements innovative mechanisms for efficient capital allocation and risk management.
 
