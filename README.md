@@ -1,5 +1,7 @@
 # CONSTELLATION 
 
+<img src="images/logo.jpg" alt="Project Logo" width="300" style="display:block; margin-left:auto; margin-right:auto;">
+
 Constellation is an in-development protocol that structures illiquid on chain credit assets, such as Real World Assets (RWAs), into Liquid Yield Tokens. It implements innovative mechanisms for efficient capital allocation and risk management.
 
 For more detailed information about the first pool that will launch on see the draft [WHITEPAPER](https://www.notion.so/punia/USDB-Whitepaper-WIP-External-a69ffd38e05f47999c1874fe8cf8a0b6)
