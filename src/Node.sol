@@ -37,12 +37,12 @@ contract Node is ERC4626, ERC165, Ownable {
 
     // CONSTANTS
     // TODO: create detailed notes for for managers to read
-
-    // NOTE: parameters used for unit tests
-    uint256 public maxDiscount; // percentage = 2e16
-    uint256 public targetReserveRatio; // percentage = 10e16
-    uint256 public maxDelta; // percentage = 1e16
-    uint256 public asyncMaxDelta; //percentage = 3e16
+    // manager controller parameters 
+    // percentages: 1e16 == 1%
+    uint256 public maxDiscount; 
+    uint256 public targetReserveRatio; 
+    uint256 public maxDelta;  
+    uint256 public asyncMaxDelta; 
 
     // these should be hardcoded
     int256 public constant scalingFactor = -5e18; // negative integer
