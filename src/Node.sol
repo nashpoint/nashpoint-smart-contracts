@@ -13,7 +13,6 @@ pragma solidity ^0.8.20;
 
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {IEscrow} from "src/Escrow.sol";
-
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
@@ -35,10 +34,9 @@ contract Node is ERC4626, ERC165, Ownable {
                               DATA
     //////////////////////////////////////////////////////////////*/
 
-    // CONSTANTS
+    // CONSTANTS    
+    // manager controller parameters || percentages: 1% = 1e16
     // TODO: create detailed notes for for managers to read
-    // manager controller parameters 
-    // percentages: 1e16 == 1%
     uint256 public maxDiscount; 
     uint256 public targetReserveRatio; 
     uint256 public maxDelta;  
