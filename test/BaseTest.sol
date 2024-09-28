@@ -4,22 +4,20 @@ pragma solidity ^0.8.20;
 
 import {Node} from "../src/Node.sol";
 import {NodeFactory} from "src/NodeFactory.sol";
+import {Escrow, IEscrow} from "src/Escrow.sol";
 import {DeployNode} from "script/DeployNode.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
-
-// escrow contract for node
-import {Escrow, IEscrow} from "src/Escrow.sol";
 
 // centrifuge interfaces
 import {IInvestmentManager} from "test/interfaces/centrifuge/IInvestmentManager.sol";
@@ -42,7 +40,7 @@ contract BaseTest is Test {
     uint256 public constant DEPOSIT_10 = 10 * DECIMALS;
     uint256 public constant DEPOSIT_1 = 1 * DECIMALS;
 
-    // NashPoint V1 Core Contracts
+    // Core Contracts
     Node public node;
     NodeFactory public nodeFactory;
     Escrow public escrow;
@@ -57,7 +55,7 @@ contract BaseTest is Test {
     address public rebalancer;
     address public manager;
 
-    // fork test contracts and addresses
+    // centrifuge: fork test contracts and addresses
     IInvestmentManager public investmentManager;
     IRestrictionManager public restrictionManager;
     IPoolManager public poolManager;
