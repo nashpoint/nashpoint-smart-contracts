@@ -1,25 +1,23 @@
 # NashPoint 
 
-### Smart Contracts:
-- Node.sol
-- NodeFactory.sol
-- Escrow.sol
+## Architecture
 
-Node.sol contains all of the asset managment and user interactions logic. 
-NodeFactory.sol is used to permissionlessly creates Nodes. 
-Escrow.sol is unique to each Node. It holds shares and assets for user funds that are being withdrawn from the Node.
+### Smart Contracts:
+- **Node.sol** contains all of the asset managment and user interactions logic. 
+- **NodeFactory.sol** is used to permissionlessly creates Nodes. 
+- **Escrow.sol** is unique to each Node. It holds shares and assets for user funds that are being withdrawn from the Node.
 
 ### Key Roles:
-#### Owner (address)
-Owns the node. Sets the strategy by selecting the underlying assets and what proportions to allocate into them. Also sets the parameters for features like swing pricing and rebalancing frequency.
+**Owner:** Owns the node. Sets the strategy by selecting the underlying assets and what proportions to allocate into them. Also sets the parameters for features like swing pricing and rebalancing frequency.
 
-#### Rebalancer (address)
-Address set by the owner. Has allowances to execute asset management functions such as investing to a strategy or processing a user withdrawal according to the parameters defined by the owner.
+**Rebalancer:** Address set by the owner. Has allowances to execute asset management functions such as investing to a strategy or processing a user withdrawal according to the parameters defined by the owner.
 
-### Deposits & Mints
+## Interacting with a Node
+
+### Deposits & Mints (ERC4626)
 A Node is an async withdrawal ERC-7540 vault. Deposits follow a standard ERC-4626 interface. Users deposit assets to receive shares that are a pro-rata receipt for their holdings in the node contract.
 
-### Withdrawals & Redemptions
+### Withdrawals & Redemptions (ERC7540)
 Withdrawals follow an ERC-7540 interface. To withdraw from the node, a user must `requestRedeem()`. During this transaction, their shares are returned to the node and held at the Escrow address. Their request is stored in a pending state until a rebalancer account processes the redemption and updates the request status to claimable. When a pending request is made claimable, the user’s shares at the escrow address are burned, and assets that can be withdrawn are moved to the escrow address. A `maxWithdrawal` allowance is set for the user by the rebalancer.
 
 ### Swing Pricing
@@ -33,10 +31,12 @@ As an example, an owner can set `TargetReserveRatio = 10e16` (10%) and `MaxDisco
 
 $$\text{Discount} = \text{maxDiscount} \times e^{\frac{\text{scalingFactor}}{\text{TargetReserveRatio}} \times \text{CurrentReserveRatio}}$$
 
-The discount is also in effect for depositors. When the reserve ratio is below target, a depositor will receive shares that are discounted by the swing factor. This incentivizes users to keep the reserve ratio at or near the target. While the reserve ratio is belong target. There is an arbitrage opportunity for users to take a position in the vault for below NAV price.
+The discount is also in effect for depositors. When the reserve ratio is below target, a depositor will receive shares that are discounted by the swing factor. This incentivizes users to keep the reserve ratio at or near the target. While the reserve ratio is below target, there is an arbitrage opportunity for users to take a position in the vault for below NAV price.
 
-### Asset Management
+## Asset Management
 A node is able to allocate user-deposited funds to a pre-defined portfolio of underlying assets. It contains the logic to allocate to and interact with synchronous vaults that follow the ERC-4626 standard, and asynchronous vaults that follow the ERC-7540 standard.
+
+For more on ERC-7540, see the [EIP](https://eips.ethereum.org/EIPS/eip-7540).
 
 #### Synchronous Asset Management (ERC-4626)
 - `investInSyncVault()`
@@ -51,11 +51,10 @@ A node has found `onlyRebalancer` functions that relate to each of the stages of
 - `requestAsyncWithdrawal()`
 - `executeAsyncWithdrawal()`
 
-The read function `getAsyncAssets()`, which is able to calculate the asset value of a position in an async vault regardless of what state it is in or if it is in multiple states—pending, claimable, etc. This is used by `totalAssets()` to calculate the NAV of the Node underlying positions.
+The read function `getAsyncAssets()` calculates the asset value of a position in an async vault regardless of what state it is in or if it is in multiple states: e.g. pending, claimable, etc. This is used by `totalAssets()` to calculate the NAV of the Node underlying positions.
 
 ### Component Management
-The contract allows adding and managing multiple components (synchronous or asynchronous). Components are added in a specific order, which determines their withdrawal priority: synchronous components are handled first, followed by asynchronous ones.
-
+The contract allows for adding and managing multiple components (synchronous or asynchronous). Components are added in a specific order, which determines their withdrawal priority: synchronous components are handled first, followed by asynchronous ones.
 
 ### Current Status
 
