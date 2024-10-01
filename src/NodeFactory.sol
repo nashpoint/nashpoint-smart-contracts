@@ -24,7 +24,15 @@ contract NodeFactory {
     ) external returns (address) {
         // TODO: build a bunch of require statements for the numbers to make sure they will work
         Node node = new Node(
-            _depositAsset, _name, _symbol, _rebalancer, _maxDiscount, _targetReserveRatio, _maxDelta, _asyncMaxDelta, _owner
+            _depositAsset,
+            _name,
+            _symbol,
+            _rebalancer,
+            _maxDiscount,
+            _targetReserveRatio,
+            _maxDelta,
+            _asyncMaxDelta,
+            _owner
         );
         return address(node);
     }

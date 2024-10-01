@@ -162,8 +162,7 @@ contract RebalancingTests is BaseTest {
 
         // assert the asset value of the redeeming shares == async assets
         asyncAssets = node.getAsyncAssets(address(liquidityPool));
-        uint256 pendingWithdrawals =
-            liquidityPool.convertToAssets(liquidityPool.pendingRedeemRequest(0, address(node)));
+        uint256 pendingWithdrawals = liquidityPool.convertToAssets(liquidityPool.pendingRedeemRequest(0, address(node)));
         assertEq(asyncAssets, pendingWithdrawals, "Async assets don't match pending withdrawals");
 
         // process pending deposits

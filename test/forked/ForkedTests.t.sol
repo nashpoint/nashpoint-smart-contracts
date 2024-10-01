@@ -319,8 +319,7 @@ contract ForkedTests is BaseTest {
         vm.stopPrank();
 
         // grab assets due from redemption
-        uint256 claimableRedeem =
-            liquidityPool.convertToAssets(liquidityPool.claimableRedeemRequest(0, address(node)));
+        uint256 claimableRedeem = liquidityPool.convertToAssets(liquidityPool.claimableRedeemRequest(0, address(node)));
 
         // assert correct assets are now available for redemption
         assertEq(redeemableAssets, claimableRedeem);

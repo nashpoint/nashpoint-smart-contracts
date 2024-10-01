@@ -34,13 +34,13 @@ contract Node is ERC4626, ERC165, Ownable {
                               DATA
     //////////////////////////////////////////////////////////////*/
 
-    // CONSTANTS    
+    // CONSTANTS
     // manager controller parameters || percentages: 1% = 1e16
     // TODO: create detailed notes for for managers to read
-    uint256 public maxDiscount; 
-    uint256 public targetReserveRatio; 
-    uint256 public maxDelta;  
-    uint256 public asyncMaxDelta; 
+    uint256 public maxDiscount;
+    uint256 public targetReserveRatio;
+    uint256 public maxDelta;
+    uint256 public asyncMaxDelta;
 
     // these should be hardcoded
     int256 public constant scalingFactor = -5e18; // negative integer
@@ -101,6 +101,21 @@ contract Node is ERC4626, ERC165, Ownable {
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Initializes the contract with initial values and settings.
+     * @dev Initializes ERC20, ERC4626, and Ownable inheritance. Configures initial parameters and rebalancer.
+     * @param _asset The address of the ERC20 token used for deposits.
+     * @param _name The name of the ERC20 token.
+     * @param _symbol The symbol of the ERC20 token.
+     * @param _rebalancer The address of the rebalancer.
+     * @param _maxDiscount The maximum discount for swing pricing.
+     * @param _targetReserveRatio The target ratio for the cash reserve.
+     * @param _maxDelta The maximum delta allowed for the asset allocation.
+     * @param _asyncMaxDelta The maximum delta for asynchronous assets.
+     * @param _owner The address of the contract owner.
+     */
+
+    // todo: take rebalancer address out of the constructor and add it with a bool instead
     constructor(
         address _asset,
         string memory _name,
@@ -196,26 +211,38 @@ contract Node is ERC4626, ERC165, Ownable {
     // up a deposit into smaller transactions to receive a greater discount.
     // TODO: fix this by changing the logic to increase the size of the discount proportional to the
     // amount that the deposit closes the gap to the target reserve ratio
+
+    /**
+     * @notice Deposits assets into the vault for and returns the number of shares minted.
+     * @dev This function applies swing pricing based on the reserve ratio after the transaction.
+     * @param _assets The amount of assets being deposited.
+     * @param receiver The address that will receive the minted shares.
+     * @return sharesToMint The amount of shares minted for the given assets.
+     */
     function deposit(uint256 _assets, address receiver) public override returns (uint256) {
         uint256 internalAssets = _assets;
         uint256 maxAssets = maxDeposit(receiver);
+        
+        // Revert if the deposit exceeds the maximum allowed deposit for the receiver.
         if (internalAssets > maxAssets) {
             revert ERC4626ExceededMaxDeposit(receiver, _assets, maxAssets);
         }
 
-        // gets the expected reserve ratio after tx
+        // calculates the expected reserve ratio after tx
         int256 reserveRatioAfterTX = int256(
             Math.mulDiv(depositAsset.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets)
         );
 
-        // gets the assets to be returned to the user after applying swingfactor to tx
+        // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
 
-        // cache the shares to mint for swing factor applied
+        // Calculate the number of shares to mint based on the adjusted assets.
         uint256 sharesToMint = convertToShares(adjustedAssets);
 
-        // recieves deposited assets but mints adjusted shares based on swing factor applied
+        // Mint shares for the receiver.
         _deposit(_msgSender(), receiver, _assets, sharesToMint);
+
+        // TODO: emit an event to match 4626
 
         return (sharesToMint);
     }
@@ -787,7 +814,7 @@ contract Node is ERC4626, ERC165, Ownable {
                         REBALANCER AND PERMISSIONS
     ////////////////////////////////////////////////////////////////*/
 
-    function setRebalancer(address _rebalancer) public onlyOwner {
+    function setRebalancer(address _rebalancer, bool allowed) public onlyOwner {
         rebalancer = _rebalancer;
     }
 
