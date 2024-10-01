@@ -107,7 +107,7 @@ contract Node is ERC4626, ERC165, Ownable {
      * @param _asset The address of the ERC20 token used for deposits.
      * @param _name The name of the ERC20 token.
      * @param _symbol The symbol of the ERC20 token.
-     * @param _rebalancer The address of the rebalancer.
+     * @param _rebalancer The address of the rebalancer. todo: remove
      * @param _maxDiscount The maximum discount for swing pricing.
      * @param _targetReserveRatio The target ratio for the cash reserve.
      * @param _maxDelta The maximum delta allowed for the asset allocation.
@@ -205,7 +205,7 @@ contract Node is ERC4626, ERC165, Ownable {
         return cashReserve + investedAssets;
     }
 
-    // TODO: Think about logical BUG
+    // TODO: Think about logical BUG in deposit function swing pricing implementation
     // We are basing the discount on the reserve ratio after the transaction.
     // This means while the RR is below target. There is actually an incentive to break
     // up a deposit into smaller transactions to receive a greater discount.

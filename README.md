@@ -1,10 +1,16 @@
 # NashPoint 
 
+NashPoint is a in-development asset management protocol. Asset managers can permissionlessly create nodes that can accept user funds and invest them in various DeFi and RWA assets. All logic to express the strategy is held on the Node contract - customer deposits, target weightings, rebalance cooldown, maximum deviation from target weighting, accepted rebalancer addresses etc. All actions to execute the strategy are carried out by the rebalancer. This includes executing the transactions to invest user assets, liquidating underlying assets to meet withdrawal demand, and processessing withdrawal requests by making user funds available for withdrawal.
+
+The core unit of the protocol is the node contract that is created by the owner. Each instance of these contracts is not an isolated vault, but instead a node in a network of liquidity. All actions to execute the individual strategy of a node can all be executed at a protocol-wide level. This include investing in assets, liquidating the underlying, rebalancing towards new target weightings. Asset managers benefit from greater capital efficiency due to the combined liquidity of a multitude of nodes aggregating their liquidity. The rebalancer address can see the state of all nodes in the network at any time, and aggregate actions to push multiple nodes towards their strategy in a single transaction.
+
+At launch NashPoint, will invest to Centrifuge liquidity pools via an ERC-7540 integration, and to any (compliant) ERC4626 vault on the Arbitrum ecosystem.
+
 ## Architecture
 
 ### Smart Contracts:
 - **Node.sol** contains all of the asset managment and user interactions logic. 
-- **NodeFactory.sol** is used to permissionlessly creates Nodes. 
+- **NodeFactory.sol** is used to permissionlessly create Nodes. 
 - **Escrow.sol** is unique to each Node. It holds shares and assets for user funds that are being withdrawn from the Node.
 
 ### Key Roles:
@@ -21,13 +27,13 @@ A Node is an async withdrawal ERC-7540 vault. Deposits follow a standard ERC-462
 Withdrawals follow an ERC-7540 interface. To withdraw from the node, a user must `requestRedeem()`. During this transaction, their shares are returned to the node and held at the Escrow address. Their request is stored in a pending state until a rebalancer account processes the redemption and updates the request status to claimable. When a pending request is made claimable, the user’s shares at the escrow address are burned, and assets that can be withdrawn are moved to the escrow address. A `maxWithdrawal` allowance is set for the user by the rebalancer.
 
 ### Swing Pricing
-Node implements a swing pricing mechanism to disincentivize speculative withdrawals. An owner can define a target percentage of the deposit asset for the node to hold. While the node holdings are below this target percentage, a discount will be applied to withdrawals to disincentivize further withdrawals. Users who request to redeem from the node will see their returned assets reduced by the swing factor. The swing factor increases on an exponential function until a maximum swing factor is applied.
+Nodes implement a swing pricing mechanism to disincentivize speculative withdrawals. An owner can define a target percentage of the deposit asset for the node to hold. While the node holdings are below this target percentage, a discount will be applied to withdrawals to disincentivize further withdrawals. Users who request to redeem from the node will see their returned assets reduced by the swing factor. The swing factor increases on an exponential function until a maximum swing factor is applied.
 
 #### Swing pricing owner controls:
 - **TargetReserveRatio**: the ratio of the asset to hold proportional to `totalAssets()`. When Current Reserve Ratio == TargetReserveRatio, swing factor = 0.
 - **MaxDiscount**: the maximum discount to be applied to a withdrawal request. When Current Reserve Ratio == 0, MaxDiscount is applied to withdrawal requests.
 
-As an example, an owner can set `TargetReserveRatio = 10e16` (10%) and `MaxDiscount = 2e16` (2%). When there is zero cash in the reserve, a 2% discount will be applied to withdrawal requests. All values from a current reserve ratio of zero to `TargetReserveRatio` are defined by the function:
+As an example, an owner can set `TargetReserveRatio = 10e16` (10%) and `MaxDiscount = 2e16` (2%). When there is 10% or greater deposit asset, zero swing factor will be applied to redeem requests. When there is zero cash in the reserve, a 2% discount will be applied to redeem requests. All values from a current reserve ratio of zero to `TargetReserveRatio` are defined by the function:
 
 $$\text{Discount} = \text{maxDiscount} \times e^{\frac{\text{scalingFactor}}{\text{TargetReserveRatio}} \times \text{CurrentReserveRatio}}$$
 
@@ -45,13 +51,15 @@ For more on ERC-7540, see the [EIP](https://eips.ethereum.org/EIPS/eip-7540).
 Both are `onlyRebalancer` functions that can be called to move capital in and out of ERC4626 positions.
 
 #### Asynchronous Asset Management (ERC-7540)
-A node has found `onlyRebalancer` functions that relate to each of the stages of depositing and withdrawing from a fully asynchronous 7540 vault:
+A node implements functions that relate to each of the stages of depositing and withdrawing from a fully asynchronous 7540 vault:
 - `investInAsyncVault()`
 - `mintClaimableShares()`
 - `requestAsyncWithdrawal()`
 - `executeAsyncWithdrawal()`
 
-The read function `getAsyncAssets()` calculates the asset value of a position in an async vault regardless of what state it is in or if it is in multiple states: e.g. pending, claimable, etc. This is used by `totalAssets()` to calculate the NAV of the Node underlying positions.
+These asset management functions all use the `onlyRebalancer` modifier.
+
+The read function `getAsyncAssets()` calculates the asset value of a position in an async vault regardless of what state it is in or if it is in multiple states: e.g. some withdrawals pending, some deposits claimable etc. This is used by `totalAssets()` to calculate the NAV underlying positions in the node.
 
 ### Component Management
 The contract allows for adding and managing multiple components (synchronous or asynchronous). Components are added in a specific order, which determines their withdrawal priority: synchronous components are handled first, followed by asynchronous ones.
