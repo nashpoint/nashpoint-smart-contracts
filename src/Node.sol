@@ -1,16 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.20;
 
-// TODO: create multiple factories so we can have different token types - even a meta factory
-// TODO: global rebalancing toggle???? opt in or out for managers
-// TODO: go through every single function and think about incentives from speculator vs investor
-// TODO: implement ternaries where you can
-// TODO: requestRedeem: operator must have ERC20 approval to transfer tokens ???
-// TODO: figure out how the controller and operator role relate to integrators
-// -- Think about permissioning for arbitrary operator accounts being added by users later
-
-// NOTE: re factory. it might make sense to have a factory that deploys a contract that can have parameters changed, and another factory that is more permanent. Prioritize flexibility for now but think about this more later.
-
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {IEscrow} from "src/Escrow.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
@@ -22,79 +12,83 @@ import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC165} from "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
-
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
-// TEMP: Delete before deploying
+// temp: delete before deploying
 import {console2} from "forge-std/Test.sol";
 
 contract Node is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
-                              DATA
+                                    DATA
     //////////////////////////////////////////////////////////////*/
 
-    // CONSTANTS
-    // manager controller parameters || percentages: 1% = 1e16
-    // TODO: create detailed notes for for managers to read
+    /// @notice parameter values set by node owner to control rebalancing and swing pricing
+    ///     maxDiscount: Maximum discount applied by swing pricing.
+    ///     targetReserveRatio: Target reserve ratio to maintain in the vault.
+    ///     maxDelta: Max allowable deviation for synchronous assets from target ratio.
+    ///     asyncMaxDelta: Max allowable deviation for asynchronous assets from target ratio.
+    ///     instantLiquidationsEnabled: Controls whether instant liquidations are allowed.
+    ///     swingPricingEnabled: Enables/disables swing pricing.
+    ///     liquidateReserveBelowTarget: rebalancer can use reserve below target ratio to fulfilRedeem
+    /// @notice hardcoded values:
+    ///     scalingFactor: Used in swing pricing calculations. Fixed at -5e18.
+    ///     internalPrecision: Precision used for internal asset calculations, fixed at 1e18.
+
     uint256 public maxDiscount;
     uint256 public targetReserveRatio;
     uint256 public maxDelta;
     uint256 public asyncMaxDelta;
-
-    // these should be hardcoded
-    int256 public constant scalingFactor = -5e18; // negative integer
-    uint256 public constant internalPrecision = 1e18; // todo: convert all assets to this precision
-
-    bool public instantLiquidationsEnabled = true; // todo: also set by manager
-    bool public swingPricingEnabled = false; // set by manager
+    bool public instantLiquidationsEnabled = true;
+    bool public swingPricingEnabled = false;
     bool public liquidateReserveBelowTarget = true;
+    int256 public immutable scalingFactor = -5e18;
+    uint256 public immutable internalPrecision = 1e18;
 
-    // Requests for nodes are non-fungible and all have ID = 0
+    /// @dev Requests for nodes are non-fungible and all have ID = 0 (ERC-7540)
     uint256 private constant REQUEST_ID = 0;
 
-    // PRBMath Types and Conversions
-    SD59x18 maxDiscountSD;
-    SD59x18 targetReserveRatioSD;
-    SD59x18 scalingFactorSD;
-
-    // ADDRESSES
+    /// @notice key addresses
+    ///     rebalancer: initial rebalancer address set by constructor
+    ///     escrow: address used for storing pending shares and claimable assets
+    ///     depositAsset: ERC4626 asset()
     address public rebalancer;
     IEscrow public escrow;
     IERC20Metadata public depositAsset;
 
-    // COMPONENTS DATA
+    /// @dev PRBMath types and conversions: used for swing price calculations
+    SD59x18 maxDiscountSD;
+    SD59x18 targetReserveRatioSD;
+    SD59x18 scalingFactorSD;
+
+    /// @dev holds information about each asset in the node
     struct Component {
-        // TODO: decide on a plan for upgradeability
-        // -- 1. adding a component, you must also add the module it requires
-        // -- 2. module factory - standardize module creation for devs
         address component;
         uint256 targetRatio;
-        bool isAsync; // note: simple binary is too limited, needs to scale over time
+        bool isAsync; // todo: make this more flexible when we add modules
         address shareToken;
     }
 
-    // 7540 WITHDRAWAL REQUESTS
+    /// @dev holds data for withdrawal requests (ERC-7540)
+    /// @notice sharesAdjusted holds reduced share value after swing price applied
     struct Request {
         address controller;
         uint256 sharesPending;
         uint256 sharesClaimable;
         uint256 assetsClaimable;
-        uint256 sharesAdjusted; // holds share value after swing price applied
+        uint256 sharesAdjusted;
     }
 
-    // NOTE: the order that components are added to the protocol determines their withdrawal order
-    // This will require a lot of manager controls. see list of TODO's in COMPONENTS section
-    // NOTE: components MUST be ordered: 1. synchronous assets, 2. asynchronous assets
-    // Otherwise instantUserLiquidation() will revert
+    /// @dev components array & mapping to index of component addresses
     Component[] public components;
     mapping(address => uint256) public componentIndex;
 
-    // 7540 Arrays
+    /// @dev requests array & mapping to index of controllers redeeming
     Request[] public redeemRequests;
     mapping(address => uint256) public controllerToRedeemIndex;
 
-    // 7540 MAPPINGS
+    /// @dev mapping of valid operators set by controllers (users depositing in the node)
+    /// @notice enables a controller to grant permission to operator to execute async redeems
     mapping(address => mapping(address => bool)) private _operators;
 
     /*//////////////////////////////////////////////////////////////
@@ -107,15 +101,13 @@ contract Node is ERC4626, ERC165, Ownable {
      * @param _asset The address of the ERC20 token used for deposits.
      * @param _name The name of the ERC20 token.
      * @param _symbol The symbol of the ERC20 token.
-     * @param _rebalancer The address of the rebalancer. todo: remove
+     * @param _rebalancer The address of the rebalancer.
      * @param _maxDiscount The maximum discount for swing pricing.
      * @param _targetReserveRatio The target ratio for the cash reserve.
      * @param _maxDelta The maximum delta allowed for the asset allocation.
      * @param _asyncMaxDelta The maximum delta for asynchronous assets.
      * @param _owner The address of the contract owner.
      */
-
-    // todo: take rebalancer address out of the constructor and add it with a bool instead
     constructor(
         address _asset,
         string memory _name,
@@ -162,8 +154,6 @@ contract Node is ERC4626, ERC165, Ownable {
                             ERROR HANDLING
     ////////////////////////////////////////////////////////////////*/
 
-    // TODO: rename these errors to be more descriptive and include contract name
-    // TODO: add returns values
     error ReserveBelowTargetRatio();
     error AsyncAssetBelowMinimum();
     error NotEnoughReserveCash();
@@ -186,17 +176,29 @@ contract Node is ERC4626, ERC165, Ownable {
                         USER DEPOSIT LOGIC 
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice A Swing Factor is applied to deposits that rewards users who deposit while the cash
+     * reserve is below target ratio with a discount on their share price. The swing factor is applied
+     * in the function getSwingFactor() that take a value for the reserve ratio after the deposit.
+     * @dev The swing factor relies on the PRBMath library: https://github.com/PaulRBerg/prb-math to
+     * handle e^ exponents and other computations.
+     * @dev the user deposit/mint logic follows standard ERC-4626 interface.
+     */
     function totalAssets() public view override returns (uint256) {
         // gets the cash reserve
         uint256 cashReserve = depositAsset.balanceOf(address(this));
 
+        // set investedAssets to zero and start cycle through components array
         uint256 investedAssets = 0;
         for (uint256 i = 0; i < components.length; i++) {
             Component memory component = components[i];
 
+            // if not async use 4626 interface to store assets
             if (!component.isAsync) {
                 IERC4626 syncAsset = IERC4626(component.component);
                 investedAssets += syncAsset.convertToAssets(syncAsset.balanceOf(address(this)));
+
+                /// @notice Async asset can be in several states - pending, claimable, deposit, withdrawal. getAsyncAssets converts a position in any of those states to assets value based on  current price
             } else {
                 investedAssets += getAsyncAssets(address(component.component));
             }
@@ -205,24 +207,11 @@ contract Node is ERC4626, ERC165, Ownable {
         return cashReserve + investedAssets;
     }
 
-    // TODO: Think about logical BUG in deposit function swing pricing implementation
-    // We are basing the discount on the reserve ratio after the transaction.
-    // This means while the RR is below target. There is actually an incentive to break
-    // up a deposit into smaller transactions to receive a greater discount.
-    // TODO: fix this by changing the logic to increase the size of the discount proportional to the
-    // amount that the deposit closes the gap to the target reserve ratio
-
-    /**
-     * @notice Deposits assets into the vault for and returns the number of shares minted.
-     * @dev This function applies swing pricing based on the reserve ratio after the transaction.
-     * @param _assets The amount of assets being deposited.
-     * @param receiver The address that will receive the minted shares.
-     * @return sharesToMint The amount of shares minted for the given assets.
-     */
+    // todo: fix logical bug in deposits. Should use amount of swing factor shortfall closed by the deposit to assign the discount. i.e. more shortfall closed gets more discount
     function deposit(uint256 _assets, address receiver) public override returns (uint256) {
         uint256 internalAssets = _assets;
         uint256 maxAssets = maxDeposit(receiver);
-        
+
         // Revert if the deposit exceeds the maximum allowed deposit for the receiver.
         if (internalAssets > maxAssets) {
             revert ERC4626ExceededMaxDeposit(receiver, _assets, maxAssets);
@@ -242,11 +231,12 @@ contract Node is ERC4626, ERC165, Ownable {
         // Mint shares for the receiver.
         _deposit(_msgSender(), receiver, _assets, sharesToMint);
 
-        // TODO: emit an event to match 4626
+        // todo: emit an event to match 4626
 
         return (sharesToMint);
     }
 
+    /// @notice reuses the same logic as deposit()
     function mint(uint256 _shares, address receiver) public override returns (uint256) {
         uint256 _assets = convertToAssets(_shares);
         deposit(_assets, receiver);
@@ -254,8 +244,8 @@ contract Node is ERC4626, ERC165, Ownable {
         return _assets;
     }
 
-    // getSwingFactor() converts from int to uint
-    // TODO: change to private internal later and change test use a wrapper function in test contract
+    /// @dev getSwingFactor() converts from int to uint to use PRBMath SD59x18 type
+    // todo: change to private internal later and change test use a wrapper function in test contract
     function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
         if (!swingPricingEnabled) {
             return 0;
@@ -281,6 +271,25 @@ contract Node is ERC4626, ERC165, Ownable {
     /*//////////////////////////////////////////////////////////////
                         ASYNC USER WITHDRAWAL LOGIC (7540)
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice node.sol is a asynchronous ERC-7540 withdrawal vault. To remove funds, controllers must
+     * request a redemption to receive their deposited funds & accrued interest. When a user requests
+     * a redemptions, their shares are transfered to the escrow.sol address specific to this node.
+     * Their request will remain in a pending state until a rebalancer address makes funds available
+     * or withdrawal. At this time, the request is made claimable, and the shares previously
+     * transfered to escrow are burned and the corresponding amount of assets are transfered to the
+     * escrow where the controller can withdraw.
+     *
+     * @dev This ensure totalAssets() and totalSupply of the node address are in sync
+     * @dev A controller can also whitelist an operator to execute this withdrawal function
+     * @dev the amount of assets available for withdrawal is stored in maxWithdraw and maxRedeem
+     * @dev redeem() and withdaw() will both revert if the controller address has no claimable assets
+     *
+     * @notice Swing Pricing is applied to redemptions requests based on the amount of reserve asset
+     * that will remain in the vault when all pendingRedemptions have been liquidated. This ensures
+     * withdrawing users will always pay for the liquidity they use per swing factor logic
+     */
 
     // user requests to redeem their funds from the vault. they send their shares to the escrow contract
     function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
@@ -369,7 +378,7 @@ contract Node is ERC4626, ERC165, Ownable {
         return true;
     }
 
-    // Rebalancer only function to process redemptions from reserve
+    /// @dev rebalancer only function to process redemptions from reserve
     function fulfilRedeemFromReserve(address _controller) public onlyRebalancer {
         uint256 index = controllerToRedeemIndex[_controller];
         uint256 balance = depositAsset.balanceOf(address(this));
@@ -423,6 +432,16 @@ contract Node is ERC4626, ERC165, Ownable {
 
     ////////////////////////// OVERRIDES ///////////////////////////
 
+    /**
+     * @dev these functions override ERC-4626 functions per ERC-7540 spec as they now relate to
+     * redeem requests in a claimable state:
+     * 1. maxWithdraw()
+     * 2. maxRedeem()
+     * 3. withdraw()
+     * 4. redeem()
+     *
+     * See: https://eips.ethereum.org/EIPS/eip-7540
+     */
     function maxWithdraw(address controller) public view override returns (uint256 maxAssets) {
         uint256 index = controllerToRedeemIndex[controller];
         if (index == 0) {
@@ -516,10 +535,14 @@ contract Node is ERC4626, ERC165, Ownable {
     }
 
     /*//////////////////////////////////////////////////////////////
-                    ASYNC ASSET MANAGEMENT LOGIC (7540)
+                ASYNC ASSET MANAGEMENT LOGIC (ERC-7540)
     //////////////////////////////////////////////////////////////*/
 
-    // TODO: check how much gas this uses. might need to cache data instead
+    /**
+     * @dev this section contains all of the functions to define a value (in asset() terms) for any Async vault, and all of the functions to execute the investment strategy: requesting deposits and redemptions, executing the transfer of funds. Write functions can only be called by an authorized rebalancer account
+     */
+
+    // todo: check how much gas this uses. might need to cache data instead
     function getAsyncAssets(address _component) public view returns (uint256 assets) {
         // Get the asset value of any shares already minted
         IERC20 shareToken = IERC20(getComponentShareAddress(_component));
@@ -549,7 +572,6 @@ contract Node is ERC4626, ERC165, Ownable {
         return assets;
     }
 
-    // TODO: Check for reused code between this and investInSync vault.
     function investInAsyncVault(address _component) external onlyRebalancer returns (uint256 cashInvested) {
         if (!isComponent(_component)) {
             revert NotAComponent();
@@ -618,7 +640,7 @@ contract Node is ERC4626, ERC165, Ownable {
 
         emit AsyncWithdrawalRequested(_component, _shares);
 
-        // anything I should return here?
+        // todo: decide on return value (if any)
     }
 
     // withdraws claimable assets from async vault
@@ -641,7 +663,9 @@ contract Node is ERC4626, ERC165, Ownable {
                 SYNCHRONOUS ASSET MANAGEMENT LOGIC (4626)
     //////////////////////////////////////////////////////////////*/
 
-    // TODO: should I have fallback managerLiquidation() function that can instantly liquidate and top up reserve.  note: think about this... even that fact that it is on the contract changes the game theory for speculators vs long term investors
+    /**
+     * @dev these two write functions relate to investing in a standard ERC-4626 synchronous vault. They can only be called by an authorized rebalancer account
+     */
 
     // called by rebalancer to deposit excess reserve into strategies
     function investInSyncVault(address _component) external onlyRebalancer returns (uint256 cashInvested) {
@@ -732,12 +756,16 @@ contract Node is ERC4626, ERC165, Ownable {
                         COMPONENT MANAGEMENT
     ////////////////////////////////////////////////////////////////*/
 
-    // TODO: create a set components function
-    // -- must revert if percentages !=100 OR async before synchronous in order
-    // TODO: create a function to swap order by move a component within the index
-    // TODO: create function to completely reorder the components using a list of (valid) addresses
-    // TODO: create a read function that will return the withdrawal position of a component as a uint
-    // TODO: create a read function that will return the withdrawal order as a list of addressess
+    /* 
+    * The order in which components are added to the protocol determines their withdrawal order.
+    * This requires careful management by the protocol operator 
+    * Components must be ordered as follows:
+    * 1. Synchronous assets
+    * 2. Asynchronous assets
+    * Failure to maintain this order will cause functions that interate through component array to revert.
+    * note: formerly this logic was applied to "instant user liquidations", now removed
+    * todo: add this functionality to constraints on balancer liquidation ability
+    */
 
     function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken) public {
         uint256 index = componentIndex[_component];
@@ -791,6 +819,11 @@ contract Node is ERC4626, ERC165, Ownable {
                         ESCROW INTERACTIONS
     ////////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Escrow.sol receives shares for pending redeems and assets for claimable redeems.
+     * @dev calling escrow.deposit() emits an event on escrow contract, not a write function so no
+     * security checks
+     */
     function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyRebalancer {
         IERC20 token = IERC20(_tokenAddress);
         address escrowAddress = address(escrow);
@@ -815,7 +848,7 @@ contract Node is ERC4626, ERC165, Ownable {
     ////////////////////////////////////////////////////////////////*/
 
     function setRebalancer(address _rebalancer, bool allowed) public onlyOwner {
-        rebalancer = _rebalancer;
+        // TODO: create a mapping to hold valid rebalancer addresses
     }
 
     modifier onlyRebalancer() {
