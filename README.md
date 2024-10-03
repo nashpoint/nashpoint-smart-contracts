@@ -35,7 +35,7 @@ Nodes implement a swing pricing mechanism to disincentivize speculative withdraw
 
 As an example, an owner can set `TargetReserveRatio = 10e16` (10%) and `MaxDiscount = 2e16` (2%). When there is 10% or greater deposit asset, zero swing factor will be applied to redeem requests. When there is zero cash in the reserve, a 2% discount will be applied to redeem requests. All values from a current reserve ratio of zero to `TargetReserveRatio` are defined by the function:
 
-$$\text{Discount} = \text{maxDiscount} \times e^{\frac{\text{scalingFactor}}{\text{TargetReserveRatio}} \times \text{CurrentReserveRatio}}$$
+$$\text{Discount} = \text{maxDiscount} \times e^{\frac{\text{scalingFactor}}{\text{TargetReserveRatio}} \times \text{ReserveRatioAfterTx}}$$
 
 The discount is also in effect for depositors. When the reserve ratio is below target, a depositor will receive shares that are discounted by the swing factor. This incentivizes users to keep the reserve ratio at or near the target. While the reserve ratio is below target, there is an arbitrage opportunity for users to take a position in the vault for below NAV price.
 
