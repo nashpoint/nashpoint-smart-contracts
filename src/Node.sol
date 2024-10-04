@@ -209,28 +209,26 @@ contract Node is ERC4626, ERC165, Ownable {
     }
 
     // todo: fix logical bug in deposits. Should use amount of swing factor shortfall closed by the deposit to assign the discount. i.e. more shortfall closed gets more discount
-    function deposit(uint256 _assets, address receiver) public override returns (uint256) {
-        uint256 internalAssets = _assets;
+    function deposit(uint256 assets, address receiver) public override returns (uint256) {
         uint256 maxAssets = maxDeposit(receiver);
 
         // Revert if the deposit exceeds the maximum allowed deposit for the receiver.
-        if (internalAssets > maxAssets) {
-            revert ERC4626ExceededMaxDeposit(receiver, _assets, maxAssets);
+        if (assets > maxAssets) {
+            revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
         }
 
         // calculates the expected reserve ratio after tx
-        int256 reserveRatioAfterTX = int256(
-            Math.mulDiv(depositAsset.balanceOf(address(this)) + internalAssets, 1e18, totalAssets() + internalAssets)
-        );
+        int256 reserveRatioAfterTX =
+            int256(Math.mulDiv(depositAsset.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets = Math.mulDiv(internalAssets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
+        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
 
         // Calculate the number of shares to mint based on the adjusted assets.
         uint256 sharesToMint = convertToShares(adjustedAssets);
 
         // Mint shares for the receiver.
-        _deposit(_msgSender(), receiver, _assets, sharesToMint);
+        _deposit(_msgSender(), receiver, assets, sharesToMint);
 
         // todo: emit an event to match 4626
 
