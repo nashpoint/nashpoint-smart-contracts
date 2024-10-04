@@ -121,9 +121,12 @@ contract VaultTests is BaseTest {
         // enable swing pricing
         node.enableSwingPricing(true);
 
+        // note: no longer check on reverting as 0 is ok when using on deposits
+        // a value at zero just means a deposit when reserve is full
         // reverts on withdrawal exceeds available reserve
-        vm.expectRevert();
-        node.getSwingFactor(0);
+
+        // vm.expectRevert();
+        // node.getSwingFactor(0);
 
         vm.expectRevert();
         node.getSwingFactor(-1e16);

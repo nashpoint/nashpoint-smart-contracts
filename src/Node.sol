@@ -157,6 +157,7 @@ contract Node is ERC4626, ERC165, Ownable {
     error ReserveBelowTargetRatio();
     error AsyncAssetBelowMinimum();
     error NotEnoughReserveCash();
+    error InvalidNumberToGetSwingFactor(int256 value);
     error NotAComponent();
     error ComponentWithinTargetRange();
     error IsAsyncVault();
@@ -236,6 +237,14 @@ contract Node is ERC4626, ERC165, Ownable {
         return (sharesToMint);
     }
 
+    function newDeposit(uint256 _assets, address receiver) public returns (uint256) {
+        // preview the new deposit function in here
+
+        // note: you need to completely rethink how swing factor is checked and accessed by all functions to ensure feeding it proper data. Zoom out before making any changes
+
+        // grab total assets
+    }
+
     /// @notice reuses the same logic as deposit()
     function mint(uint256 _shares, address receiver) public override returns (uint256) {
         uint256 _assets = convertToAssets(_shares);
@@ -250,9 +259,9 @@ contract Node is ERC4626, ERC165, Ownable {
         if (!swingPricingEnabled) {
             return 0;
         }
-        // checks if withdrawal will exceed available reserve
-        if (_reserveRatioAfterTX <= 0) {
-            revert NotEnoughReserveCash();
+        // checks if a negative number
+        if (_reserveRatioAfterTX < 0) {
+            revert InvalidNumberToGetSwingFactor(_reserveRatioAfterTX);
 
             // else if reserve exceeds target after deposit no swing factor is applied
         } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
