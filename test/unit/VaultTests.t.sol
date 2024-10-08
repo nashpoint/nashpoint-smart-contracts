@@ -174,7 +174,7 @@ contract VaultTests is BaseTest {
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
-        uint256 nonAdjustedShares = node.previewDeposit(DEPOSIT_10);
+        uint256 nonAdjustedShares = node.convertToShares(DEPOSIT_10);
 
         // user 2 deposits 10e6 to node
         vm.startPrank(user2);
@@ -207,7 +207,7 @@ contract VaultTests is BaseTest {
         node.fulfilRedeemFromReserve(address(user2));
 
         // get the shares to be minted from a deposit with no swing factor applied
-        nonAdjustedShares = node.previewDeposit(2e6);
+        nonAdjustedShares = node.convertToShares(2e6);
 
         vm.startPrank(user3);
         node.deposit(2e6, address(user3));
@@ -218,18 +218,14 @@ contract VaultTests is BaseTest {
         // get the reserve ratio after the deposit and assert it is less than target reserve ratio
         reserveRatioAfterTX = getCurrentReserveRatio();
         assertLt(reserveRatioAfterTX, node.targetReserveRatio());
+        console2.log(getCurrentReserveRatio());
 
         // get the actual shares received and assert they are greater than & have swing factor applied
         sharesReceived = node.balanceOf(address(user3));
         assertGt(sharesReceived, nonAdjustedShares);
-
-        console2.log(getCurrentReserveRatio());
     }
 
-    function testAdjustedWithdraw() public {
-        // enable swing pricing
-        node.enableSwingPricing(true);
-
+    function testAdjustedWithdraw() public {      
         // set the strategy to one asset at 90% holding
         node.addComponent(address(vaultA), 90e16, false, address(vaultA));
 
@@ -246,13 +242,16 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, node.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdcMock.mint(address(vaultA), 10e6 + 1);
+        usdcMock.mint(address(vaultA), 10e6 + 1);        
 
         // user 2 deposits 10e6 to node and burns the rest of their usdc
         vm.startPrank(user2);
         node.deposit(DEPOSIT_10, address(user2));
         usdcMock.transfer(0x000000000000000000000000000000000000dEaD, usdcMock.balanceOf(address(user2)));
         vm.stopPrank();
+
+        // enable swing pricing
+        node.enableSwingPricing(true);
 
         // assert user2 has zero usdc balance
         assertEq(usdcMock.balanceOf(address(user2)), 0);

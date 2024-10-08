@@ -246,7 +246,7 @@ contract Node is ERC4626, ERC165, Ownable {
         uint256 deltaClosedAbs = reserveDeltaAbs - deltaAfter;
         uint256 deltaClosedPercent = Math.mulDiv(deltaClosedAbs, WAD, targetReserve);
 
-        int256 inverseValue = int256((WAD - deltaClosedPercent) * targetReserveRatio);
+        int256 inverseValue = int256((WAD - deltaClosedPercent) * targetReserveRatio / WAD);
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets = Math.mulDiv(assets, (WAD + getSwingFactor(inverseValue)), WAD);
@@ -259,16 +259,7 @@ contract Node is ERC4626, ERC165, Ownable {
 
         // todo: emit an event to match 4626
 
-        return (sharesToMint);
-
-        // console2.log("investedAssets :", investedAssets);
-        // console2.log("targetReserve :", targetReserve);
-        // console2.log("sum of invested assets and ideal reserve: ", investedAssets + targetReserve);
-        // console2.log("_assets :", assets);
-        // console2.log("targetReserveRatio :", targetReserveRatio);
-        // console2.log("deltaClosed :", deltaClosedPercent);
-        // console2.log("deltaClosed :", deltaClosedPercent / 1e16);
-        // console2.log("reserveDeltaAbs :", reserveDeltaAbs);
+        return (sharesToMint);        
     }
 
     /// @notice reuses the same logic as deposit()
