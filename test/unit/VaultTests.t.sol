@@ -121,9 +121,12 @@ contract VaultTests is BaseTest {
         // enable swing pricing
         node.enableSwingPricing(true);
 
+        // note: no longer check on reverting as 0 is ok when using on deposits
+        // a value at zero just means a deposit when reserve is full
         // reverts on withdrawal exceeds available reserve
-        vm.expectRevert();
-        node.getSwingFactor(0);
+
+        // vm.expectRevert();
+        // node.getSwingFactor(0);
 
         vm.expectRevert();
         node.getSwingFactor(-1e16);
@@ -171,7 +174,7 @@ contract VaultTests is BaseTest {
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
-        uint256 nonAdjustedShares = node.previewDeposit(DEPOSIT_10);
+        uint256 nonAdjustedShares = node.convertToShares(DEPOSIT_10);
 
         // user 2 deposits 10e6 to node
         vm.startPrank(user2);
@@ -204,7 +207,7 @@ contract VaultTests is BaseTest {
         node.fulfilRedeemFromReserve(address(user2));
 
         // get the shares to be minted from a deposit with no swing factor applied
-        nonAdjustedShares = node.previewDeposit(2e6);
+        nonAdjustedShares = node.convertToShares(2e6);
 
         vm.startPrank(user3);
         node.deposit(2e6, address(user3));
@@ -215,18 +218,14 @@ contract VaultTests is BaseTest {
         // get the reserve ratio after the deposit and assert it is less than target reserve ratio
         reserveRatioAfterTX = getCurrentReserveRatio();
         assertLt(reserveRatioAfterTX, node.targetReserveRatio());
+        console2.log(getCurrentReserveRatio());
 
         // get the actual shares received and assert they are greater than & have swing factor applied
         sharesReceived = node.balanceOf(address(user3));
         assertGt(sharesReceived, nonAdjustedShares);
-
-        console2.log(getCurrentReserveRatio());
     }
 
-    function testAdjustedWithdraw() public {
-        // enable swing pricing
-        node.enableSwingPricing(true);
-
+    function testAdjustedWithdraw() public {      
         // set the strategy to one asset at 90% holding
         node.addComponent(address(vaultA), 90e16, false, address(vaultA));
 
@@ -243,13 +242,16 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, node.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdcMock.mint(address(vaultA), 10e6 + 1);
+        usdcMock.mint(address(vaultA), 10e6 + 1);        
 
         // user 2 deposits 10e6 to node and burns the rest of their usdc
         vm.startPrank(user2);
         node.deposit(DEPOSIT_10, address(user2));
         usdcMock.transfer(0x000000000000000000000000000000000000dEaD, usdcMock.balanceOf(address(user2)));
         vm.stopPrank();
+
+        // enable swing pricing
+        node.enableSwingPricing(true);
 
         // assert user2 has zero usdc balance
         assertEq(usdcMock.balanceOf(address(user2)), 0);
@@ -410,5 +412,45 @@ contract VaultTests is BaseTest {
 
         // assert delta is higher for user two as greater swing price applied
         assertGt(delta2, delta1);
+    }
+
+    function testNewDeposit() public {
+        // add a single component at 90% of totalAssets
+        node.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        node.enableLiquiateReserveBelowTarget(true);
+
+        // user makes deposit of 100 units
+        vm.startPrank(user1);
+        node.deposit(DEPOSIT_100, address(user1));
+        vm.stopPrank();
+
+        // rebalancer rebalances node instant vaults
+        rebalancerInvestsCash(address(vaultA));
+
+        // assert totalAssets == 100 & reserve == 10
+        assertEq(node.totalAssets(), DEPOSIT_100);
+        assertEq(usdcMock.balanceOf(address(node)), DEPOSIT_10);
+
+        // user requests 10 units
+        vm.startPrank(user1);
+        node.requestRedeem(node.convertToShares(DEPOSIT_10), address(user1), address(user1));
+        vm.stopPrank();
+
+        // rebalancer fulfils user request for 10
+        vm.startPrank(rebalancer);
+        node.fulfilRedeemFromReserve(address(user1));
+        vm.stopPrank();
+
+        // user withdraws
+        vm.startPrank(user1);
+        node.withdraw(DEPOSIT_10, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert zero reserve
+        assertEq(usdcMock.balanceOf(address(node)), 0);
+
+        vm.startPrank(user1);
+        node.deposit(DEPOSIT_1, address(user1));
+        vm.stopPrank();
     }
 }
