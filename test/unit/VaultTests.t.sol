@@ -414,4 +414,44 @@ contract VaultTests is BaseTest {
         // assert delta is higher for user two as greater swing price applied
         assertGt(delta2, delta1);
     }
+
+    function testNewDeposit() public {
+        // add a single component at 90% of totalAssets
+        node.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        node.enableLiquiateReserveBelowTarget(true);
+
+        // user makes deposit of 100 units
+        vm.startPrank(user1);
+        node.deposit(DEPOSIT_100, address(user1));
+        vm.stopPrank();
+
+        // rebalancer rebalances node instant vaults
+        rebalancerInvestsCash(address(vaultA));
+
+        // assert totalAssets == 100 & reserve == 10
+        assertEq(node.totalAssets(), DEPOSIT_100);  
+        assertEq(usdcMock.balanceOf(address(node)), DEPOSIT_10);     
+        
+        // user requests 10 units
+        vm.startPrank(user1);
+        node.requestRedeem(node.convertToShares(DEPOSIT_10), address(user1), address(user1));        
+        vm.stopPrank();
+
+        // rebalancer fulfils user request for 10
+        vm.startPrank(rebalancer);
+        node.fulfilRedeemFromReserve(address(user1));
+        vm.stopPrank();
+
+        // user withdraws
+        vm.startPrank(user1);
+        node.withdraw(DEPOSIT_10, address(user1), address(user1));
+        vm.stopPrank();
+
+        // assert zero reserve
+        assertEq(usdcMock.balanceOf(address(node)), 0);
+
+        vm.startPrank(user1);
+        node.newDeposit(DEPOSIT_1, address(user1));
+        vm.stopPrank();
+    }
 }

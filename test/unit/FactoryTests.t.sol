@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 
 import {BaseTest} from "test/BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
-import {Node} from "src/node.sol"; // Ensure you're importing Node contract
+import {Node} from "src/Node.sol"; // Ensure you're importing Node contract
 
 contract FactoryTest is BaseTest {
     function testCreateNode() public {

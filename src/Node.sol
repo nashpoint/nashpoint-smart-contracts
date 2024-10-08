@@ -210,11 +210,9 @@ contract Node is ERC4626, ERC165, Ownable {
 
     // todo: fix logical bug in deposits. Should use amount of swing factor shortfall closed by the deposit to assign the discount. i.e. more shortfall closed gets more discount
     function deposit(uint256 assets, address receiver) public override returns (uint256) {
-        uint256 maxAssets = maxDeposit(receiver);
-
         // Revert if the deposit exceeds the maximum allowed deposit for the receiver.
-        if (assets > maxAssets) {
-            revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+        if (assets > maxDeposit(receiver)) {
+            revert ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
         }
 
         // calculates the expected reserve ratio after tx
@@ -236,11 +234,30 @@ contract Node is ERC4626, ERC165, Ownable {
     }
 
     function newDeposit(uint256 _assets, address receiver) public returns (uint256) {
-        // preview the new deposit function in here
+        
 
-        // note: you need to completely rethink how swing factor is checked and accessed by all functions to ensure feeding it proper data. Zoom out before making any changes
+        // avoid divide by zero when current reserve == target reserve
+        // new deposit = _assets
+        uint256 investedAssets = totalAssets() - depositAsset.balanceOf(address(this));
+        uint256 idealReserve = ((investedAssets * 1e18) / (1e18 - targetReserveRatio)) - investedAssets;
+        uint256 deltaClosedPercent = Math.mulDiv(_assets, internalPrecision, idealReserve); 
+        
 
-        // grab total assets
+        // get absolute value of reserve delta (dont think I need this)
+        //      get total assets
+        //      get current reserve (exclude pending redeems)
+        //      subtract current cash from total assets to get invested assets
+        //      get max possible reserve (need this later)
+
+        //
+
+        console2.log("investedAssets :", investedAssets);
+        console2.log("idealReserve :", idealReserve);
+        console2.log("sum of invested assets and ideal reserve: ", investedAssets + idealReserve);
+        console2.log("_assets :", _assets);
+        console2.log("targetReserveRatio :", targetReserveRatio);
+        console2.log("deltaClosed :", deltaClosedPercent);
+        console2.log("deltaClosed :", deltaClosedPercent / 1e16);
     }
 
     /// @notice reuses the same logic as deposit()
