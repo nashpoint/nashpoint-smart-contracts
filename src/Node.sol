@@ -42,8 +42,8 @@ contract Node is ERC4626, ERC165, Ownable {
     bool public instantLiquidationsEnabled = true;
     bool public swingPricingEnabled = false;
     bool public liquidateReserveBelowTarget = true;
-    int256 public immutable scalingFactor = -5e18;
-    uint256 public immutable internalPrecision = 1e18;
+    int256 public immutable FACTOR = -5e18;
+    uint256 public immutable WAD = 1e18;
 
     /// @dev Requests for nodes are non-fungible and all have ID = 0 (ERC-7540)
     uint256 private constant REQUEST_ID = 0;
@@ -129,7 +129,7 @@ contract Node is ERC4626, ERC165, Ownable {
         // PRBMath Types and Conversions
         maxDiscountSD = sd(int256(maxDiscount));
         targetReserveRatioSD = sd(int256(targetReserveRatio));
-        scalingFactorSD = sd(scalingFactor);
+        scalingFactorSD = sd(FACTOR);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -240,7 +240,7 @@ contract Node is ERC4626, ERC165, Ownable {
         // new deposit = _assets
         uint256 investedAssets = totalAssets() - depositAsset.balanceOf(address(this));
         uint256 idealReserve = ((investedAssets * 1e18) / (1e18 - targetReserveRatio)) - investedAssets;
-        uint256 deltaClosedPercent = Math.mulDiv(_assets, internalPrecision, idealReserve); 
+        uint256 deltaClosedPercent = Math.mulDiv(_assets, WAD, idealReserve); 
         
 
         // get absolute value of reserve delta (dont think I need this)
