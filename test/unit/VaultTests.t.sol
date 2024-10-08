@@ -451,7 +451,7 @@ contract VaultTests is BaseTest {
         assertEq(usdcMock.balanceOf(address(node)), 0);
 
         vm.startPrank(user1);
-        node.newDeposit(DEPOSIT_1, address(user1));
+        node.deposit(DEPOSIT_1, address(user1));
         vm.stopPrank();
     }
 }

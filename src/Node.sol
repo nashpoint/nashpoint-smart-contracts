@@ -208,34 +208,21 @@ contract Node is ERC4626, ERC165, Ownable {
         return cashReserve + investedAssets;
     }
 
-    // todo: fix logical bug in deposits. Should use amount of swing factor shortfall closed by the deposit to assign the discount. i.e. more shortfall closed gets more discount
     function deposit(uint256 assets, address receiver) public override returns (uint256) {
+        // Handle initial deposit separately to avoid divide by zero
+        uint256 sharesToMint;
+        if (totalAssets() == 0) {
+            // This is the first deposit
+            sharesToMint = convertToShares(assets);
+            _deposit(_msgSender(), receiver, assets, sharesToMint);
+            return sharesToMint;
+        }
+
         // Revert if the deposit exceeds the maximum allowed deposit for the receiver.
         if (assets > maxDeposit(receiver)) {
             revert ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
         }
 
-        // calculates the expected reserve ratio after tx
-        int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(depositAsset.balanceOf(address(this)) + assets, WAD, totalAssets() + assets));
-
-        // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets = Math.mulDiv(assets, (WAD + getSwingFactor(reserveRatioAfterTX)), WAD);
-
-        // Calculate the number of shares to mint based on the adjusted assets.
-        uint256 sharesToMint = convertToShares(adjustedAssets);
-
-        // Mint shares for the receiver.
-        _deposit(_msgSender(), receiver, assets, sharesToMint);
-
-        // todo: emit an event to match 4626
-
-        return (sharesToMint);
-    }
-
-    function newDeposit(uint256 assets, address receiver) public returns (uint256) {
-        // avoid divide by zero when current reserve == target reserve
-              
         uint256 reserveCash = depositAsset.balanceOf(address(this));
         uint256 investedAssets = totalAssets() - reserveCash;
         uint256 targetReserve = ((investedAssets * WAD) / (WAD - targetReserveRatio)) - investedAssets;
@@ -254,10 +241,10 @@ contract Node is ERC4626, ERC165, Ownable {
         } else {
             deltaAfter = 0;
         }
-        
+
         // get the absolute value of the delta closed and divide by target reserve to get the percentage of the reserve delta that was closed by the deposit
         uint256 deltaClosedAbs = reserveDeltaAbs - deltaAfter;
-        uint256 deltaClosedPercent = Math.mulDiv(deltaClosedAbs, WAD, targetReserve);   
+        uint256 deltaClosedPercent = Math.mulDiv(deltaClosedAbs, WAD, targetReserve);
 
         int256 inverseValue = int256((WAD - deltaClosedPercent) * targetReserveRatio);
 
@@ -265,7 +252,7 @@ contract Node is ERC4626, ERC165, Ownable {
         uint256 adjustedAssets = Math.mulDiv(assets, (WAD + getSwingFactor(inverseValue)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
-        uint256 sharesToMint = convertToShares(adjustedAssets);
+        sharesToMint = convertToShares(adjustedAssets);
 
         // Mint shares for the receiver.
         _deposit(_msgSender(), receiver, assets, sharesToMint);
@@ -274,8 +261,6 @@ contract Node is ERC4626, ERC165, Ownable {
 
         return (sharesToMint);
 
-
-        
         // console2.log("investedAssets :", investedAssets);
         // console2.log("targetReserve :", targetReserve);
         // console2.log("sum of invested assets and ideal reserve: ", investedAssets + targetReserve);
