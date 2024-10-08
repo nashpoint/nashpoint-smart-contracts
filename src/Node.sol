@@ -233,31 +233,57 @@ contract Node is ERC4626, ERC165, Ownable {
         return (sharesToMint);
     }
 
-    function newDeposit(uint256 _assets, address receiver) public returns (uint256) {
-        
-
+    function newDeposit(uint256 assets, address receiver) public returns (uint256) {
         // avoid divide by zero when current reserve == target reserve
-        // new deposit = _assets
-        uint256 investedAssets = totalAssets() - depositAsset.balanceOf(address(this));
-        uint256 idealReserve = ((investedAssets * WAD) / (WAD - targetReserveRatio)) - investedAssets;
-        uint256 deltaClosedPercent = Math.mulDiv(_assets, WAD, idealReserve); 
+              
+        uint256 reserveCash = depositAsset.balanceOf(address(this));
+        uint256 investedAssets = totalAssets() - reserveCash;
+        uint256 targetReserve = ((investedAssets * WAD) / (WAD - targetReserveRatio)) - investedAssets;
+
+        // get the absolute value of delta between actual and target reserve
+        uint256 reserveDeltaAbs;
+        if (reserveCash < targetReserve) {
+            reserveDeltaAbs = targetReserve - reserveCash;
+        }
+
+        // subtract the value of the new deposit to get the reserve delta after
+        // if new deposit exceeds the reserve delta, the reserve delta after will be zero
+        uint256 deltaAfter;
+        if (reserveDeltaAbs > assets) {
+            deltaAfter = reserveDeltaAbs - assets;
+        } else {
+            deltaAfter = 0;
+        }
         
+        // get the absolute value of the delta closed and divide by target reserve to get the percentage of the reserve delta that was closed by the deposit
+        uint256 deltaClosedAbs = reserveDeltaAbs - deltaAfter;
+        uint256 deltaClosedPercent = Math.mulDiv(deltaClosedAbs, WAD, targetReserve);   
 
-        // get absolute value of reserve delta (dont think I need this)
-        //      get total assets
-        //      get current reserve (exclude pending redeems)
-        //      subtract current cash from total assets to get invested assets
-        //      get max possible reserve (need this later)
+        int256 inverseValue = int256((WAD - deltaClosedPercent) * targetReserveRatio);
 
-        //
+        // Adjust the deposited assets based on the swing pricing factor.
+        uint256 adjustedAssets = Math.mulDiv(assets, (WAD + getSwingFactor(inverseValue)), WAD);
 
-        console2.log("investedAssets :", investedAssets);
-        console2.log("idealReserve :", idealReserve);
-        console2.log("sum of invested assets and ideal reserve: ", investedAssets + idealReserve);
-        console2.log("_assets :", _assets);
-        console2.log("targetReserveRatio :", targetReserveRatio);
-        console2.log("deltaClosed :", deltaClosedPercent);
-        console2.log("deltaClosed :", deltaClosedPercent / 1e16);
+        // Calculate the number of shares to mint based on the adjusted assets.
+        uint256 sharesToMint = convertToShares(adjustedAssets);
+
+        // Mint shares for the receiver.
+        _deposit(_msgSender(), receiver, assets, sharesToMint);
+
+        // todo: emit an event to match 4626
+
+        return (sharesToMint);
+
+
+        
+        // console2.log("investedAssets :", investedAssets);
+        // console2.log("targetReserve :", targetReserve);
+        // console2.log("sum of invested assets and ideal reserve: ", investedAssets + targetReserve);
+        // console2.log("_assets :", assets);
+        // console2.log("targetReserveRatio :", targetReserveRatio);
+        // console2.log("deltaClosed :", deltaClosedPercent);
+        // console2.log("deltaClosed :", deltaClosedPercent / 1e16);
+        // console2.log("reserveDeltaAbs :", reserveDeltaAbs);
     }
 
     /// @notice reuses the same logic as deposit()

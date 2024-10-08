@@ -429,12 +429,12 @@ contract VaultTests is BaseTest {
         rebalancerInvestsCash(address(vaultA));
 
         // assert totalAssets == 100 & reserve == 10
-        assertEq(node.totalAssets(), DEPOSIT_100);  
-        assertEq(usdcMock.balanceOf(address(node)), DEPOSIT_10);     
-        
+        assertEq(node.totalAssets(), DEPOSIT_100);
+        assertEq(usdcMock.balanceOf(address(node)), DEPOSIT_10);
+
         // user requests 10 units
         vm.startPrank(user1);
-        node.requestRedeem(node.convertToShares(DEPOSIT_10), address(user1), address(user1));        
+        node.requestRedeem(node.convertToShares(DEPOSIT_10), address(user1), address(user1));
         vm.stopPrank();
 
         // rebalancer fulfils user request for 10
