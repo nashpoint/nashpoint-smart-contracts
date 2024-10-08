@@ -217,10 +217,10 @@ contract Node is ERC4626, ERC165, Ownable {
 
         // calculates the expected reserve ratio after tx
         int256 reserveRatioAfterTX =
-            int256(Math.mulDiv(depositAsset.balanceOf(address(this)) + assets, 1e18, totalAssets() + assets));
+            int256(Math.mulDiv(depositAsset.balanceOf(address(this)) + assets, WAD, totalAssets() + assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 + getSwingFactor(reserveRatioAfterTX)), 1e18);
+        uint256 adjustedAssets = Math.mulDiv(assets, (WAD + getSwingFactor(reserveRatioAfterTX)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
         uint256 sharesToMint = convertToShares(adjustedAssets);
@@ -239,7 +239,7 @@ contract Node is ERC4626, ERC165, Ownable {
         // avoid divide by zero when current reserve == target reserve
         // new deposit = _assets
         uint256 investedAssets = totalAssets() - depositAsset.balanceOf(address(this));
-        uint256 idealReserve = ((investedAssets * 1e18) / (1e18 - targetReserveRatio)) - investedAssets;
+        uint256 idealReserve = ((investedAssets * WAD) / (WAD - targetReserveRatio)) - investedAssets;
         uint256 deltaClosedPercent = Math.mulDiv(_assets, WAD, idealReserve); 
         
 
@@ -346,11 +346,11 @@ contract Node is ERC4626, ERC165, Ownable {
         if (assets > balance) {
             reserveRatioAfterTX = 0;
         } else {
-            reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, 1e18, totalAssets() - assets));
+            reserveRatioAfterTX = int256(Math.mulDiv(balance - assets, WAD, totalAssets() - assets));
         }
 
         // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = Math.mulDiv(assets, (1e18 - getSwingFactor(reserveRatioAfterTX)), 1e18);
+        uint256 adjustedAssets = Math.mulDiv(assets, (WAD - getSwingFactor(reserveRatioAfterTX)), WAD);
 
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
@@ -421,7 +421,7 @@ contract Node is ERC4626, ERC165, Ownable {
         uint256 assets = convertToAssets(sharesAdjusted);
 
         // get reserve ratio after tx
-        uint256 reserveRatioAfterTx = Math.mulDiv(balance - assets, 1e18, totalAssets() - assets);
+        uint256 reserveRatioAfterTx = Math.mulDiv(balance - assets, WAD, totalAssets() - assets);
 
         // first checks if manager has enabled liquidate below target
         // -- will revert if withdawal will reduce reserve below target ratio
@@ -606,7 +606,7 @@ contract Node is ERC4626, ERC165, Ownable {
         }
 
         uint256 totalAssets_ = totalAssets();
-        uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
+        uint256 idealCashReserve = totalAssets_ * targetReserveRatio / WAD;
         uint256 currentCash = depositAsset.balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
@@ -618,7 +618,7 @@ contract Node is ERC4626, ERC165, Ownable {
         uint256 depositAmount = getInvestmentSize(_component);
 
         // Check if the current allocation is below the lower bound
-        uint256 currentAllocation = getAsyncAssets(_component) * 1e18 / totalAssets_;
+        uint256 currentAllocation = getAsyncAssets(_component) * WAD / totalAssets_;
         uint256 lowerBound = getComponentRatio(_component) - asyncMaxDelta;
 
         if (currentAllocation >= lowerBound) {
@@ -712,7 +712,7 @@ contract Node is ERC4626, ERC165, Ownable {
         }
 
         uint256 totalAssets_ = totalAssets();
-        uint256 idealCashReserve = totalAssets_ * targetReserveRatio / 1e18;
+        uint256 idealCashReserve = totalAssets_ * targetReserveRatio / WAD;
         uint256 currentCash = depositAsset.balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
@@ -724,7 +724,7 @@ contract Node is ERC4626, ERC165, Ownable {
         uint256 depositAmount = getInvestmentSize(_component);
 
         // checks if asset is within acceptable range of target
-        if (depositAmount < (totalAssets_ * maxDelta / 1e18)) {
+        if (depositAmount < (totalAssets_ * maxDelta / WAD)) {
             revert ComponentWithinTargetRange();
         }
 
@@ -836,7 +836,7 @@ contract Node is ERC4626, ERC165, Ownable {
     function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
         uint256 targetRatio = getComponentRatio(_component);
         if (targetRatio == 0) return false; // Always in range if target is 0
-        return getAsyncAssets(_component) * 1e18 / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
+        return getAsyncAssets(_component) * WAD / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -899,7 +899,7 @@ contract Node is ERC4626, ERC165, Ownable {
     // logic is used to create investment size for both sync and async assets
     // might be better to just move that logic into each function for readability
     function getInvestmentSize(address _component) public view returns (uint256 depositAmount) {
-        uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / 1e18;
+        uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / WAD;
 
         uint256 currentBalance;
 
