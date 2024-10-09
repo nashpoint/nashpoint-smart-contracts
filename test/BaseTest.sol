@@ -192,6 +192,7 @@ contract BaseTest is Test {
             liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
             usdcMock.mint(users[i], START_BALANCE_1000);
             node.approve(address(node), MAX_ALLOWANCE);
+            node.approve(users[i], MAX_ALLOWANCE);
             vm.stopPrank();
         }
     }

@@ -324,7 +324,7 @@ contract Node is ERC4626, ERC165, Ownable {
         require(_owner == msg.sender || isOperator(_owner, msg.sender), "Not authorized");
 
         // Transfer ERC4626 share tokens from owner back to vault
-        require(IERC20((address(this))).transferFrom(_owner, address(escrow), shares), "Transfer failed");
+        require(transferFrom(_owner, address(escrow), shares), "Transfer failed");
 
         // get the cash balance of the node and pending redemptions
         uint256 balance = depositAsset.balanceOf(address(this));
