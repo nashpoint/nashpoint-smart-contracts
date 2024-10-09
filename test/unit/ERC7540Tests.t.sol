@@ -247,6 +247,7 @@ contract ERC7540Tests is BaseTest {
         // user 1 sets user 2 as operator
         vm.startPrank(user1);
         node.setOperator(address(user2), true);
+        node.approve(address(user2), sharesToRedeem);
         vm.stopPrank();
 
         // user 2 can request redeem as now operator
@@ -299,9 +300,11 @@ contract ERC7540Tests is BaseTest {
 
         uint256 sharesToRedeem = node.balanceOf(address(user1)) / 10;
 
-        // user 1 sets user 2 as operator
+        // user 1 sets user as operator
+        // operatorNoAllowance address does not have an allowance set in the test setup
         vm.startPrank(user1);
         node.setOperator(address(operatorNoAllowance), true);
+        node.approve(address(operatorNoAllowance), sharesToRedeem);
         vm.stopPrank();
 
         // user 2 can request redeem as now operator
