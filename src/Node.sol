@@ -784,7 +784,7 @@ contract Node is ERC4626, ERC165, Ownable {
 
     /* 
     * The order in which components are added to the protocol determines their withdrawal order.
-    * This requires careful management by the protocol operator 
+    * This requires careful management by the node owner 
     * Components must be ordered as follows:
     * 1. Synchronous assets
     * 2. Asynchronous assets
@@ -793,7 +793,7 @@ contract Node is ERC4626, ERC165, Ownable {
     * todo: add this functionality to constraints on balancer liquidation ability
     */
 
-    function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken) public {
+    function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken) public onlyOwner {
         uint256 index = componentIndex[_component];
 
         if (index > 0) {
@@ -874,7 +874,8 @@ contract Node is ERC4626, ERC165, Ownable {
     ////////////////////////////////////////////////////////////////*/
 
     function setRebalancer(address _rebalancer, bool allowed) public onlyOwner {
-        // TODO: create a mapping to hold valid rebalancer addresses
+        // todo: create a mapping to hold valid rebalancer addresses
+        // note: also need to hold valid rebalancer address on the factory contract 
     }
 
     modifier onlyRebalancer() {
