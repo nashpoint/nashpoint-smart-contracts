@@ -288,7 +288,7 @@ contract Node is ERC4626, ERC165, Ownable {
         } else {
             SD59x18 reserveRatioAfterTX = sd(int256(_reserveRatioAfterTX));
 
-            SD59x18 result = maxDiscountSD * exp(scalingFactorSD.div(targetReserveRatioSD).mul(reserveRatioAfterTX));
+            SD59x18 result = maxDiscountSD * exp(scalingFactorSD.mul(reserveRatioAfterTX).div(targetReserveRatioSD));
 
             return uint256(result.unwrap());
         }
