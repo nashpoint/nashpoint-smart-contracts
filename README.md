@@ -29,6 +29,10 @@ Withdrawals follow an ERC-7540 interface. To withdraw from the node, a user must
 ### Swing Pricing
 Nodes implement a swing pricing mechanism to disincentivize speculative withdrawals. An owner can define a target percentage of the deposit asset for the node to hold. While the node holdings are below this target percentage, a discount will be applied to withdrawals to disincentivize further withdrawals. Users who request to redeem from the node will see their returned assets reduced by the swing factor. The swing factor increases on an exponential function until a maximum swing factor is applied.
 
+The swing factor is also applied to deposits. If there is a delta between the current reserve ratio and the target reserve ratio, depositor will be rewarded with a additional shares based on the proportion of the delta their deposit helps to close.
+
+These two applications of swing pricing in tandem should help to incentivize more a consistent stock of reserve liquidity.
+
 #### Swing pricing owner controls:
 - **TargetReserveRatio**: the ratio of the asset to hold proportional to `totalAssets()`. When Current Reserve Ratio == TargetReserveRatio, swing factor = 0.
 - **MaxDiscount**: the maximum discount to be applied to a withdrawal request. When Current Reserve Ratio == 0, MaxDiscount is applied to withdrawal requests.
