@@ -382,15 +382,22 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     // view function to see redeem requests that cannot yet be withdrawn
     function pendingRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
         uint256 index = controllerToRedeemIndex[controller];
-        require(index > 0, "No pending redemption for controller");
-        return redeemRequests[index - 1].sharesPending;
+        if (index > 0) {
+            return redeemRequests[index - 1].sharesPending;
+        } else {
+            return 0;
+        }
     }
 
     // view function to see redeem requests that can be withdrawn
     function claimableRedeemRequest(uint256, address controller) public view returns (uint256 shares) {
         uint256 index = controllerToRedeemIndex[controller];
-        require(index > 0, "No claimable redemption for controller");
-        return redeemRequests[index - 1].sharesClaimable;
+        if (index > 0) {
+            return redeemRequests[index - 1].sharesClaimable;
+        } else {
+            return 0;
+        }
+        
     }
 
     // check if controller has set an operator
