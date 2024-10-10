@@ -2,7 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IEscrow {
     function deposit(address tokenAddress, uint256 tokenAmount) external;
@@ -10,6 +11,7 @@ interface IEscrow {
 }
 
 contract Escrow is IEscrow, Ownable {
+    using SafeERC20 for IERC20;
     address public node;
 
     modifier onlyNode() {
@@ -32,8 +34,9 @@ contract Escrow is IEscrow, Ownable {
 
     // Withdraw function
     function withdraw(address withdrawer, address tokenAddress, uint256 tokenAmount) external onlyNode {
-        IERC20 token = IERC20(tokenAddress);
-        require(token.transfer(withdrawer, tokenAmount), "Transfer failed");
+        IERC20 token = IERC20(tokenAddress);        
+        token.safeTransfer(withdrawer, tokenAmount);
+
         emit Withdrawal(withdrawer, tokenAddress, tokenAmount);
     }
 

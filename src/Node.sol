@@ -12,6 +12,7 @@ import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC165} from "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
@@ -19,6 +20,7 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 import {console2} from "forge-std/Test.sol";
 
 contract Node is ERC4626, ERC165, Ownable {
+    using SafeERC20 for IERC20;
     /*//////////////////////////////////////////////////////////////
                                     DATA
     //////////////////////////////////////////////////////////////*/
@@ -324,7 +326,7 @@ contract Node is ERC4626, ERC165, Ownable {
         require(_owner == msg.sender || isOperator(_owner, msg.sender), "Not authorized");
 
         // Transfer ERC4626 share tokens from owner back to vault
-        require(transferFrom(_owner, address(escrow), shares), "Transfer failed");
+        IERC20(address(this)).safeTransferFrom(_owner, address(escrow), shares);        
 
         // get the cash balance of the node and pending redemptions
         uint256 balance = depositAsset.balanceOf(address(this));
@@ -443,7 +445,7 @@ contract Node is ERC4626, ERC165, Ownable {
         _burn(escrowAddress, sharesPending);
 
         // Transfer tokens to Escrow
-        IERC20(asset()).transfer(escrowAddress, assets);
+        IERC20(asset()).safeTransfer(escrowAddress, assets);
 
         // Call deposit function on Escrow
         escrow.deposit(asset(), assets);
@@ -502,16 +504,14 @@ contract Node is ERC4626, ERC165, Ownable {
             revert ExceededMaxWithdraw(controller, assets, maxAssets);
         }
 
-        Request storage request = redeemRequests[_index - 1];
-        address escrowAddress = address(escrow);
+        Request storage request = redeemRequests[_index - 1];        
 
         shares = (assets * maxShares) / maxAssets;
 
         request.sharesClaimable -= shares;
-        request.assetsClaimable -= assets;
+        request.assetsClaimable -= assets;        
 
-        // using transferFrom as shares already burned when redeem made claimable
-        IERC20(asset()).transferFrom(escrowAddress, receiver, assets);
+        escrow.withdraw(receiver, asset(), assets);
 
         // Need to emit anything?
         // TODO: overriding withdraw (4626) so need some event logic
@@ -544,7 +544,7 @@ contract Node is ERC4626, ERC165, Ownable {
         request.assetsClaimable -= assets;
 
         // using transferFrom as shares already burned when redeem made claimable
-        IERC20(asset()).transferFrom(escrowAddress, receiver, assets);
+        IERC20(asset()).safeTransferFrom(escrowAddress, receiver, assets);
 
         // Need to emit anything?
         // TODO: overriding withdraw (4626) so need some event logic
@@ -853,11 +853,8 @@ contract Node is ERC4626, ERC165, Ownable {
     function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyRebalancer {
         IERC20 token = IERC20(_tokenAddress);
         address escrowAddress = address(escrow);
-
-        // Transfer tokens to Escrow
-        if (!token.transfer(escrowAddress, _amount)) {
-            revert DepositToEscrowFailed();
-        }
+        
+        token.safeTransfer(escrowAddress, _amount);      
 
         // Call deposit function on Escrow
         escrow.deposit(_tokenAddress, _amount);
