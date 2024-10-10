@@ -504,16 +504,14 @@ contract Node is ERC4626, ERC165, Ownable {
             revert ExceededMaxWithdraw(controller, assets, maxAssets);
         }
 
-        Request storage request = redeemRequests[_index - 1];
-        address escrowAddress = address(escrow);
+        Request storage request = redeemRequests[_index - 1];        
 
         shares = (assets * maxShares) / maxAssets;
 
         request.sharesClaimable -= shares;
-        request.assetsClaimable -= assets;
+        request.assetsClaimable -= assets;        
 
-        // using transferFrom as shares already burned when redeem made claimable
-        IERC20(asset()).safeTransferFrom(escrowAddress, receiver, assets);
+        escrow.withdraw(receiver, asset(), assets);
 
         // Need to emit anything?
         // TODO: overriding withdraw (4626) so need some event logic

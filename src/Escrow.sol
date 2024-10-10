@@ -34,8 +34,7 @@ contract Escrow is IEscrow, Ownable {
 
     // Withdraw function
     function withdraw(address withdrawer, address tokenAddress, uint256 tokenAmount) external onlyNode {
-        IERC20 token = IERC20(tokenAddress);
-        // require(token.transfer(withdrawer, tokenAmount), "Transfer failed");
+        IERC20 token = IERC20(tokenAddress);        
         token.safeTransfer(withdrawer, tokenAmount);
 
         emit Withdrawal(withdrawer, tokenAddress, tokenAmount);
