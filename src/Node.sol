@@ -174,6 +174,7 @@ contract Node is ERC4626, ERC165, Ownable {
     error NoRedeemRequestForController();
     error ExceededMaxWithdraw(address controller, uint256 assets, uint256 maxAssets);
     error ExceededMaxRedeem(address controller, uint256 shares, uint256 maxShares);
+    error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
 
     /*//////////////////////////////////////////////////////////////
                         USER DEPOSIT LOGIC 
@@ -737,11 +738,17 @@ contract Node is ERC4626, ERC165, Ownable {
         // limits the depositAmount to this transaction size
         if (depositAmount > availableReserve) {
             depositAmount = availableReserve;
+
+            // Get the maximum deposit allowed by the component vault
+            uint256 maxDepositAmount = ERC4626(_component).maxDeposit(address(this));
+            if (depositAmount > maxDepositAmount) {
+                revert ExceedsMaxVaultDeposit(_component, depositAmount, maxDepositAmount);
+            }
         }
 
         // Approve the _component vault to spend depositAsset tokens & deposit to vault
         IERC20(depositAsset).safeIncreaseAllowance(_component, depositAmount);
-        ERC4626(_component).deposit(depositAmount, address(this));        
+        ERC4626(_component).deposit(depositAmount, address(this));
 
         emit CashInvested(depositAmount, address(_component));
         return (depositAmount);

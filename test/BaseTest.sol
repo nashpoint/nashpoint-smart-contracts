@@ -9,6 +9,7 @@ import {DeployNode} from "script/DeployNode.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {ERC4626Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
+import {ERC4626MockLimited} from "test/mocks/ERC4626MockLimited.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
@@ -51,6 +52,7 @@ contract BaseTest is Test {
     ERC4626Mock public vaultA;
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;
+    ERC4626MockLimited public limitedVault;
     IERC7540 public liquidityPool;
     address public rebalancer;
     address public manager;
@@ -107,6 +109,8 @@ contract BaseTest is Test {
         node.setEscrow(address(escrow));
 
         nodeFactory = new NodeFactory();
+
+        limitedVault = new ERC4626MockLimited(address(usdcMock));
 
         _setupUserBalancesAndApprovals();
         _setupNodeApprovals();
@@ -198,9 +202,9 @@ contract BaseTest is Test {
     }
 
     function _setupNodeApprovals() internal {
-        vm.startPrank(address(node));  
-        // todo: decide if this is the correct design for approvals      
-        liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE); 
+        vm.startPrank(address(node));
+        // todo: decide if this is the correct design for approvals
+        liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
         vm.stopPrank();
 
         vm.startPrank(address(escrow));

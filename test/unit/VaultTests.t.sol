@@ -453,4 +453,23 @@ contract VaultTests is BaseTest {
         node.deposit(DEPOSIT_1, address(user1));
         vm.stopPrank();
     }
+
+    function testCannotExceedVaultMaxDeposit() public {
+        node.addComponent(address(limitedVault), 90e16, false, address(limitedVault));
+
+        // grab the max deposit value
+        uint256 maxDeposit = limitedVault.maxDeposit(address(node));
+        usdcMock.mint(address(user1), maxDeposit * 10);
+
+        // user 1 deposits 10 x maxDeposit to node
+        vm.startPrank(user1);
+        node.deposit(maxDeposit * 10, address(user1));
+        vm.stopPrank();
+
+        // revert: exceeds maxDeposit
+        vm.startPrank(rebalancer);
+        vm.expectRevert();
+        node.investInSyncVault(address(limitedVault));
+        vm.stopPrank();
+    }
 }
