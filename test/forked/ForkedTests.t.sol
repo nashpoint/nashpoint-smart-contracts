@@ -217,11 +217,6 @@ contract ForkedTests is BaseTest {
         (bool isMember,) = restrictionManager.isMember(address(share), address(node));
         assertTrue(isMember);
 
-        // approve max allowance for cfg to node
-        vm.startPrank(address(node));
-        asset.approve(address(liquidityPool), MAX_ALLOWANCE);
-        vm.stopPrank();
-
         // rebalancer invests node in cfg vault
         vm.startPrank(rebalancer);
         node.investInAsyncVault(address(liquidityPool));
