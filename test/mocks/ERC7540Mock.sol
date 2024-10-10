@@ -380,12 +380,8 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // ERC-165 support
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IERC4626).interfaceId || interfaceId == 0xe3bc4e65 // ERC-7540 operator methods
-            || interfaceId == 0x2f0a18c5 // ERC-7575 interface
-            || interfaceId == 0xce3bbe50 // Asynchronous deposit methods
-            || interfaceId == 0x620ee8e4 // Asynchronous redemption methods
-            || super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+        return interfaceId == type(IERC165).interfaceId;
     }
 
     // ERC-7575 compliance
