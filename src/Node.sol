@@ -635,6 +635,7 @@ contract Node is ERC4626, ERC165, Ownable {
             depositAmount = availableReserve;
         }
 
+        IERC20(depositAsset).safeIncreaseAllowance(_component, depositAmount);
         IERC7540(_component).requestDeposit(depositAmount, address(this), address(this));
 
         emit DepositRequested(depositAmount, address(_component));
@@ -738,9 +739,8 @@ contract Node is ERC4626, ERC165, Ownable {
             depositAmount = availableReserve;
         }
 
-        // Approve the _component vault to spend depositAsset tokens
+        // Approve the _component vault to spend depositAsset tokens & deposit to vault
         IERC20(depositAsset).safeIncreaseAllowance(_component, depositAmount);
-
         ERC4626(_component).deposit(depositAmount, address(this));        
 
         emit CashInvested(depositAmount, address(_component));

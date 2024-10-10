@@ -198,15 +198,13 @@ contract BaseTest is Test {
     }
 
     function _setupNodeApprovals() internal {
-        vm.startPrank(address(node));
-        // usdcMock.approve(address(vaultA), MAX_ALLOWANCE);
-        // usdcMock.approve(address(vaultB), MAX_ALLOWANCE);
-        // usdcMock.approve(address(vaultC), MAX_ALLOWANCE);
-        usdcMock.approve(address(liquidityPool), MAX_ALLOWANCE);
-        liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE);
+        vm.startPrank(address(node));  
+        // todo: decide if this is the correct design for approvals      
+        liquidityPool.approve(address(liquidityPool), MAX_ALLOWANCE); 
         vm.stopPrank();
 
         vm.startPrank(address(escrow));
+        // todo: decide if this is the correct design for approvals
         usdcMock.approve(address(node), MAX_ALLOWANCE);
         vm.stopPrank();
     }
