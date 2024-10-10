@@ -202,7 +202,7 @@ contract ForkedTests is BaseTest {
         // user approves and deposits to node
         vm.startPrank(user1);
         asset.approve(address(node), MAX_ALLOWANCE);
-        node.deposit(initialDeposit, address(user1)); // note: this is the part failing
+        node.deposit(initialDeposit, address(user1));
         vm.stopPrank();
 
         // assert node has issued correct shares to user for 100 deposit
