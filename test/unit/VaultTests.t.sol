@@ -225,7 +225,7 @@ contract VaultTests is BaseTest {
         assertGt(sharesReceived, nonAdjustedShares);
     }
 
-    function testAdjustedWithdraw() public {      
+    function testAdjustedWithdraw() public {
         // set the strategy to one asset at 90% holding
         node.addComponent(address(vaultA), 90e16, false, address(vaultA));
 
@@ -242,7 +242,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, node.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        usdcMock.mint(address(vaultA), 10e6 + 1);        
+        usdcMock.mint(address(vaultA), 10e6 + 1);
 
         // user 2 deposits 10e6 to node and burns the rest of their usdc
         vm.startPrank(user2);

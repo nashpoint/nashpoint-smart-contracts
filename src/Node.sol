@@ -261,7 +261,7 @@ contract Node is ERC4626, ERC165, Ownable {
 
         // todo: emit an event to match 4626
 
-        return (sharesToMint);        
+        return (sharesToMint);
     }
 
     /// @notice reuses the same logic as deposit()
@@ -326,7 +326,7 @@ contract Node is ERC4626, ERC165, Ownable {
         require(_owner == msg.sender || isOperator(_owner, msg.sender), "Not authorized");
 
         // Transfer ERC4626 share tokens from owner back to vault
-        IERC20(address(this)).safeTransferFrom(_owner, address(escrow), shares);        
+        IERC20(address(this)).safeTransferFrom(_owner, address(escrow), shares);
 
         // get the cash balance of the node and pending redemptions
         uint256 balance = depositAsset.balanceOf(address(this));
@@ -504,12 +504,12 @@ contract Node is ERC4626, ERC165, Ownable {
             revert ExceededMaxWithdraw(controller, assets, maxAssets);
         }
 
-        Request storage request = redeemRequests[_index - 1];        
+        Request storage request = redeemRequests[_index - 1];
 
         shares = (assets * maxShares) / maxAssets;
 
         request.sharesClaimable -= shares;
-        request.assetsClaimable -= assets;        
+        request.assetsClaimable -= assets;
 
         escrow.withdraw(receiver, asset(), assets);
 
@@ -738,7 +738,10 @@ contract Node is ERC4626, ERC165, Ownable {
             depositAmount = availableReserve;
         }
 
-        ERC4626(_component).deposit(depositAmount, address(this));
+        // Approve the _component vault to spend depositAsset tokens
+        IERC20(depositAsset).safeIncreaseAllowance(_component, depositAmount);
+
+        ERC4626(_component).deposit(depositAmount, address(this));        
 
         emit CashInvested(depositAmount, address(_component));
         return (depositAmount);
@@ -793,7 +796,10 @@ contract Node is ERC4626, ERC165, Ownable {
     * todo: add this functionality to constraints on balancer liquidation ability
     */
 
-    function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken) public onlyOwner {
+    function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken)
+        public
+        onlyOwner
+    {
         uint256 index = componentIndex[_component];
 
         if (index > 0) {
@@ -853,8 +859,8 @@ contract Node is ERC4626, ERC165, Ownable {
     function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyRebalancer {
         IERC20 token = IERC20(_tokenAddress);
         address escrowAddress = address(escrow);
-        
-        token.safeTransfer(escrowAddress, _amount);      
+
+        token.safeTransfer(escrowAddress, _amount);
 
         // Call deposit function on Escrow
         escrow.deposit(_tokenAddress, _amount);
@@ -872,7 +878,7 @@ contract Node is ERC4626, ERC165, Ownable {
 
     function setRebalancer(address _rebalancer, bool allowed) public onlyOwner {
         // todo: create a mapping to hold valid rebalancer addresses
-        // note: also need to hold valid rebalancer address on the factory contract 
+        // note: also need to hold valid rebalancer address on the factory contract
     }
 
     modifier onlyRebalancer() {

@@ -12,6 +12,7 @@ interface IEscrow {
 
 contract Escrow is IEscrow, Ownable {
     using SafeERC20 for IERC20;
+
     address public node;
 
     modifier onlyNode() {
@@ -34,7 +35,7 @@ contract Escrow is IEscrow, Ownable {
 
     // Withdraw function
     function withdraw(address withdrawer, address tokenAddress, uint256 tokenAmount) external onlyNode {
-        IERC20 token = IERC20(tokenAddress);        
+        IERC20 token = IERC20(tokenAddress);
         token.safeTransfer(withdrawer, tokenAmount);
 
         emit Withdrawal(withdrawer, tokenAddress, tokenAmount);
