@@ -354,14 +354,6 @@ contract ERC7540Tests is BaseTest {
         bytes4 erc165InterfaceId = 0x01ffc9a7;
         assertTrue(node.supportsInterface(erc165InterfaceId));
 
-        // ERC-7540 Operator Methods Interface ID
-        bytes4 operatorMethodsInterfaceId = 0xe3bc4e65;
-        assertTrue(node.supportsInterface(operatorMethodsInterfaceId));
-
-        // ERC-7575 Interface ID
-        bytes4 erc7575InterfaceId = 0x2f0a18c5;
-        assertTrue(node.supportsInterface(erc7575InterfaceId));
-
         // Asynchronous Redemption Interface ID
         bytes4 asyncRedemptionInterfaceId = 0x620ee8e4;
         assertTrue(node.supportsInterface(asyncRedemptionInterfaceId));

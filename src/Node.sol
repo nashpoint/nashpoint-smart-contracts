@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IERC7540} from "src/interfaces/IERC7540.sol";
+import {IERC7540Redeem} from "src/interfaces/IERC7540Redeem.sol";
 import {IEscrow} from "src/Escrow.sol";
 import {ERC4626} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
@@ -19,7 +20,7 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 // temp: delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-contract Node is ERC4626, ERC165, Ownable {
+contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     using SafeERC20 for IERC20;
     /*//////////////////////////////////////////////////////////////
                                     DATA
@@ -147,9 +148,6 @@ contract Node is ERC4626, ERC165, Ownable {
     event WithdrawalFundsSentToEscrow(address escrow, address token, uint256 assets);
     event SwingPricingStatusUpdated(bool status);
     event LiquidateReserveBelowTargetStatus(bool status);
-    event RedeemRequest(
-        address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares
-    );
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
     /*//////////////////////////////////////////////////////////////
@@ -949,10 +947,8 @@ contract Node is ERC4626, ERC165, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     // Override the supportsInterface function
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IERC165).interfaceId // ERC-165
-            || interfaceId == 0xe3bc4e65 // ERC-7540 operator methods
-            || interfaceId == 0x2f0a18c5 // ERC-7575
-            || interfaceId == 0x620ee8e4; // Asynchronous redemption interface
+
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return interfaceId == type(IERC7540Redeem).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 }
