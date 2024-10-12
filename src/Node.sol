@@ -948,7 +948,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
 
     // Override the supportsInterface function
 
-    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
         return interfaceId == type(IERC7540Redeem).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 }

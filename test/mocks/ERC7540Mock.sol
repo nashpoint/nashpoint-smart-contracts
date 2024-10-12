@@ -380,7 +380,7 @@ contract ERC7540Mock is IERC7540, ERC4626, ERC165 {
     }
 
     // ERC-165 support
-    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
         return interfaceId == type(IERC165).interfaceId;
     }
 
