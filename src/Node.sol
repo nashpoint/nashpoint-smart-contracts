@@ -646,7 +646,10 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         }
 
         IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
-        IERC7540(component).requestDeposit(depositAmount, address(this), address(this));
+        (uint256 requestId) = IERC7540(component).requestDeposit(depositAmount, address(this), address(this));
+        
+        // checks request ID is returned successfully
+        require(requestId == 0, "No requestId returned");
 
         emit DepositRequested(depositAmount, address(component));
         return (depositAmount);
@@ -655,7 +658,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     function mintClaimableShares(address component) public onlyRebalancer returns (uint256) {
         uint256 claimableShares = IERC7540(component).maxMint(address(this));
 
-        IERC7540(component).mint(claimableShares, address(this));
+        uint256 assets = IERC7540(component).mint(claimableShares, address(this));
+        require(assets > 0, "No claimable shares minted");
 
         emit AsyncSharesMinted(component, claimableShares);
         return claimableShares;
@@ -673,7 +677,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         if (!isAsync(component)) {
             revert IsNotAsyncVault();
         }
-        IERC7540(component).requestRedeem(_shares, address(this), (address(this)));
+        uint256 requestId = IERC7540(component).requestRedeem(_shares, address(this), (address(this)));
+        require(requestId == 0, "No requestId returned");
 
         emit AsyncWithdrawalRequested(component, _shares);
 
@@ -691,7 +696,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         if (!isAsync(component)) {
             revert IsNotAsyncVault();
         }
-        IERC7540(component).withdraw(assets, address(this), address(this));
+        uint256 shares = IERC7540(component).withdraw(assets, address(this), address(this));
+        require(shares > 0, "async withdrawal not executed");
 
         emit AsyncWithdrawalExecuted(component, assets);
     }
@@ -757,7 +763,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         // Approve the _component vault to spend depositAsset tokens & deposit to vault
         IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
-        ERC4626(component).deposit(depositAmount, address(this));
+        uint256 shares = ERC4626(component).deposit(depositAmount, address(this));
+        require(shares > 0, "synchronous deposit not executed");
 
         emit CashInvested(depositAmount, address(component));
         return (depositAmount);
