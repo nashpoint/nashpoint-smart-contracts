@@ -812,55 +812,55 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     * todo: add this functionality to constraints on balancer liquidation ability
     */
 
-    function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken)
+    function addComponent(address component, uint256 targetRatio, bool isAsync, address shareToken)
         public
         onlyOwner
     {
-        uint256 index = componentIndex[_component];
+        uint256 index = componentIndex[component];
 
         if (index > 0) {
-            components[index - 1].targetRatio = _targetRatio;
-            components[index - 1].isAsync = _isAsync;
+            components[index - 1].targetRatio = targetRatio;
+            components[index - 1].isAsync = isAsync;
         } else {
             Component memory newComponent = Component({
-                component: _component,
-                targetRatio: _targetRatio,
-                isAsync: _isAsync,
-                shareToken: _shareToken
+                component: component,
+                targetRatio: targetRatio,
+                isAsync: isAsync,
+                shareToken: shareToken
             });
 
             components.push(newComponent);
-            componentIndex[_component] = components.length;
+            componentIndex[component] = components.length;
         }
-        emit ComponentAdded(_component, _targetRatio, _isAsync, _shareToken);
+        emit ComponentAdded(component, targetRatio, isAsync, shareToken);
     }
 
-    function isComponent(address _component) public view returns (bool) {
-        return componentIndex[_component] != 0;
+    function isComponent(address component) public view returns (bool) {
+        return componentIndex[component] != 0;
     }
 
-    function getComponentRatio(address _component) public view returns (uint256) {
-        uint256 index = componentIndex[_component];
+    function getComponentRatio(address component) public view returns (uint256) {
+        uint256 index = componentIndex[component];
         require(index != 0, "Component does not exist");
         return components[index - 1].targetRatio;
     }
 
-    function getComponentShareAddress(address _component) public view returns (address) {
-        uint256 index = componentIndex[_component];
+    function getComponentShareAddress(address component) public view returns (address) {
+        uint256 index = componentIndex[component];
         require(index != 0, "Component does not exist");
         return components[index - 1].shareToken;
     }
 
-    function isAsync(address _component) public view returns (bool) {
-        uint256 index = componentIndex[_component];
+    function isAsync(address component) public view returns (bool) {
+        uint256 index = componentIndex[component];
         require(index != 0, "Component does not exist");
         return components[index - 1].isAsync;
     }
 
-    function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
-        uint256 targetRatio = getComponentRatio(_component);
+    function isAsyncAssetsBelowMinimum(address component) public view returns (bool) {
+        uint256 targetRatio = getComponentRatio(component);
         if (targetRatio == 0) return false; // Always in range if target is 0
-        return getAsyncAssets(_component) * WAD / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
+        return getAsyncAssets(component) * WAD / totalAssets() < getComponentRatio(component) - asyncMaxDelta;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -872,16 +872,16 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
      * @dev calling escrow.deposit() emits an event on escrow contract, not a write function so no
      * security checks
      */
-    function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyRebalancer {
-        IERC20 token = IERC20(_tokenAddress);
+    function executeEscrowDeposit(address tokenAddress, uint256 amount) external onlyRebalancer {
+        IERC20 token = IERC20(tokenAddress);
         address escrowAddress = address(escrow);
 
-        token.safeTransfer(escrowAddress, _amount);
+        token.safeTransfer(escrowAddress, amount);
 
         // Call deposit function on Escrow
-        escrow.deposit(_tokenAddress, _amount);
+        escrow.deposit(tokenAddress, amount);
 
-        emit WithdrawalFundsSentToEscrow(escrowAddress, _tokenAddress, _amount);
+        emit WithdrawalFundsSentToEscrow(escrowAddress, tokenAddress, amount);
     }
 
     function setEscrow(address _escrow) public onlyOwner {
@@ -920,15 +920,15 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
 
     // logic is used to create investment size for both sync and async assets
     // might be better to just move that logic into each function for readability
-    function getInvestmentSize(address _component) public view returns (uint256 depositAmount) {
-        uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / WAD;
+    function getInvestmentSize(address component) public view returns (uint256 depositAmount) {
+        uint256 targetHoldings = totalAssets() * getComponentRatio(component) / WAD;
 
         uint256 currentBalance;
 
-        if (isAsync(_component)) {
-            currentBalance = getAsyncAssets(_component);
+        if (isAsync(component)) {
+            currentBalance = getAsyncAssets(component);
         } else {
-            currentBalance = ERC20(_component).balanceOf(address(this));
+            currentBalance = ERC20(component).balanceOf(address(this));
         }
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
