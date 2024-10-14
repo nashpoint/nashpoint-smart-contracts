@@ -125,7 +125,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         require(_rebalancer != address(0), "Rebalancer address cannot be zero");
 
-        depositAsset = IERC20Metadata(_asset);
+        // depositAsset = IERC20Metadata(_asset);
 
         rebalancer = _rebalancer;
         maxDiscount = _maxDiscount;
@@ -665,7 +665,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         emit DepositRequested(depositAmount, address(component));
 
-        IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
+        IERC20(asset()).safeIncreaseAllowance(component, depositAmount);
         (uint256 requestId) = IERC7540(component).requestDeposit(depositAmount, address(this), address(this));
 
         // checks request ID is returned successfully
@@ -788,7 +788,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         emit CashInvested(depositAmount, address(component));
 
         // Approve the _component vault to spend depositAsset tokens & deposit to vault
-        IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
+        IERC20(asset()).safeIncreaseAllowance(component, depositAmount);
         uint256 shares = ERC4626(component).deposit(depositAmount, address(this));
         require(shares > 0, "synchronous deposit not executed");
 
