@@ -810,20 +810,20 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     * todo: add this functionality to constraints on balancer liquidation ability
     */
 
-    function addComponent(address component, uint256 targetRatio, bool isAsync, address shareToken) public onlyOwner {
+    function addComponent(address component, uint256 targetRatio, bool _isAsync, address shareToken) public onlyOwner {
         uint256 index = componentIndex[component];
 
         if (index > 0) {
             components[index - 1].targetRatio = targetRatio;
-            components[index - 1].isAsync = isAsync;
+            components[index - 1].isAsync = _isAsync;
         } else {
             Component memory newComponent =
-                Component({component: component, targetRatio: targetRatio, isAsync: isAsync, shareToken: shareToken});
+                Component({component: component, targetRatio: targetRatio, isAsync: _isAsync, shareToken: shareToken});
 
             components.push(newComponent);
             componentIndex[component] = components.length;
         }
-        emit ComponentAdded(component, targetRatio, isAsync, shareToken);
+        emit ComponentAdded(component, targetRatio, _isAsync, shareToken);
     }
 
     function isComponent(address component) public view returns (bool) {
