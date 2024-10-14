@@ -56,11 +56,9 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     /// @notice key addresses
     ///     rebalancer: initial rebalancer address set by constructor
     ///     escrow: address used for storing pending shares and claimable assets
-    ///     depositAsset: ERC4626 asset()
     address public rebalancer;
     IEscrow public escrow;
-    IERC20Metadata public depositAsset;
-
+    
     /// @dev PRBMath types and conversions: used for swing price calculations
     SD59x18 maxDiscountSD;
     SD59x18 targetReserveRatioSD;
@@ -124,9 +122,11 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         uint256 _asyncMaxDelta,
         address _owner
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(_owner) {
+
         require(_rebalancer != address(0), "Rebalancer address cannot be zero");
 
         depositAsset = IERC20Metadata(_asset);
+
         rebalancer = _rebalancer;
         maxDiscount = _maxDiscount;
         targetReserveRatio = _targetReserveRatio;
@@ -192,7 +192,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
      */
     function totalAssets() public view override returns (uint256) {
         // gets the cash reserve
-        uint256 cashReserve = depositAsset.balanceOf(address(this));
+        uint256 cashReserve = IERC20(asset()).balanceOf(address(this));
 
         // set investedAssets to zero and start cycle through components array
         uint256 investedAssets = 0;
@@ -228,7 +228,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
             revert ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
         }
 
-        uint256 reserveCash = depositAsset.balanceOf(address(this));
+        uint256 reserveCash = IERC20(asset()).balanceOf(address(this));
         uint256 investedAssets = totalAssets() - reserveCash;
         uint256 targetReserve = ((investedAssets * WAD) / (WAD - targetReserveRatio)) - investedAssets;
 
@@ -336,7 +336,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         require(_owner == msg.sender || isOperator(_owner, msg.sender), "msg.sender is not owner");
 
         // get the cash balance of the node and pending redemptions
-        uint256 balance = depositAsset.balanceOf(address(this));
+        uint256 balance = IERC20(asset()).balanceOf(address(this));
         uint256 pendingRedemptions = getPendingRedeemAssets();
 
         // check if pending redemptions exceed current cash balance
@@ -425,7 +425,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     /// @dev rebalancer only function to process redemptions from reserve
     function fulfilRedeemFromReserve(address _controller) public onlyRebalancer {
         uint256 index = controllerToRedeemIndex[_controller];
-        uint256 balance = depositAsset.balanceOf(address(this));
+        uint256 balance = IERC20(asset()).balanceOf(address(this));
 
         // Ensure there is a pending request for this controller
         if (index == 0) {
@@ -636,7 +636,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / WAD;
-        uint256 currentCash = depositAsset.balanceOf(address(this));
+        uint256 currentCash = IERC20(asset()).balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
@@ -662,6 +662,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
             depositAmount = availableReserve;
         }
 
+
         emit DepositRequested(depositAmount, address(component));
 
         IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
@@ -669,6 +670,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         // checks request ID is returned successfully
         require(requestId == 0, "No requestId returned");
+
 
         return (depositAmount);
     }
@@ -753,7 +755,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         uint256 totalAssets_ = totalAssets();
         uint256 idealCashReserve = totalAssets_ * targetReserveRatio / WAD;
-        uint256 currentCash = depositAsset.balanceOf(address(this));
+        uint256 currentCash = IERC20(asset()).balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
@@ -782,12 +784,14 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
             }
         }
 
+
         emit CashInvested(depositAmount, address(component));
 
         // Approve the _component vault to spend depositAsset tokens & deposit to vault
         IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
         uint256 shares = ERC4626(component).deposit(depositAmount, address(this));
         require(shares > 0, "synchronous deposit not executed");
+
 
         return (depositAmount);
     }
