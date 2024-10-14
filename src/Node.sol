@@ -14,14 +14,16 @@ import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC165} from "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 // temp: delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
+contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    
     /*//////////////////////////////////////////////////////////////
                                     DATA
     //////////////////////////////////////////////////////////////*/
@@ -209,7 +211,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         return cashReserve + investedAssets;
     }
 
-    function deposit(uint256 assets, address receiver) public override returns (uint256) {
+    function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256) {
         // Handle initial deposit separately to avoid divide by zero
         uint256 sharesToMint;
         if (totalAssets() == 0 && totalSupply() == 0) {
@@ -322,7 +324,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
      */
 
     // user requests to redeem their funds from the vault. they send their shares to the escrow contract
-    function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
+    function requestRedeem(uint256 shares, address controller, address _owner) external nonReentrant returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(_owner) >= shares, "Insufficient shares");
         require(_owner == msg.sender || isOperator(_owner, msg.sender), "msg.sender is not owner");
@@ -496,7 +498,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         }
     }
 
-    function withdraw(uint256 assets, address receiver, address controller) public override returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address controller) public override nonReentrant returns (uint256 shares) {
         // grab the index for the controller
         uint256 _index = controllerToRedeemIndex[controller];
 
@@ -527,7 +529,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         return shares;
     }
 
-    function redeem(uint256 shares, address receiver, address controller) public override returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address controller) public override nonReentrant returns (uint256 assets) {
         // grab the index for the controller
         uint256 _index = controllerToRedeemIndex[controller];
 
