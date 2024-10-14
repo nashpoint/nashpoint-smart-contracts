@@ -326,7 +326,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(_owner) >= shares, "Insufficient shares");
-        require(_owner == msg.sender || isOperator(_owner, msg.sender), "Not authorized");
+        require(_owner == msg.sender || isOperator(_owner, msg.sender), "msg.sender is not owner");
 
         // Transfer ERC4626 share tokens from owner back to vault
         IERC20(address(this)).safeTransferFrom(_owner, address(escrow), shares);
