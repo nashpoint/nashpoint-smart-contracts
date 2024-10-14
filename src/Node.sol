@@ -45,7 +45,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     bool public instantLiquidationsEnabled = true;
     bool public swingPricingEnabled = false;
     bool public liquidateReserveBelowTarget = true;
-    int256 public immutable FACTOR = -5e18;
+    int256 public immutable SCALING_FACTOR = -5e18;
     uint256 public immutable WAD = 1e18;
 
     /// @dev Requests for nodes are non-fungible and all have ID = 0 (ERC-7540)
@@ -129,7 +129,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         // PRBMath Types and Conversions
         maxDiscountSD = sd(int256(maxDiscount));
         targetReserveRatioSD = sd(int256(targetReserveRatio));
-        scalingFactorSD = sd(FACTOR);
+        scalingFactorSD = sd(SCALING_FACTOR);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -261,32 +261,36 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     }
 
     /// @notice reuses the same logic as deposit()
-    function mint(uint256 _shares, address receiver) public override returns (uint256) {
-        uint256 _assets = convertToAssets(_shares);
-        deposit(_assets, receiver);
+    function mint(uint256 shares, address receiver) public override returns (uint256) {
+        uint256 assets = convertToAssets(shares);
+        deposit(assets, receiver);
 
-        return _assets;
+        return assets;
     }
 
+    
+    /// @notice reserveImpact is a different value based on what transaction is executed
+    ///     for deposits: input value is reserve delta closed by transaction
+    ///     for withdrawals: input value is reserve ratio after transaction
     /// @dev getSwingFactor() converts from int to uint to use PRBMath SD59x18 type
     // todo: change to private internal later and change test use a wrapper function in test contract
-    function getSwingFactor(int256 _reserveRatioAfterTX) public view returns (uint256 swingFactor) {
+    function getSwingFactor(int256 reserveImpact) public view returns (uint256 swingFactor) {
         if (!swingPricingEnabled) {
             return 0;
         }
         // checks if a negative number
-        if (_reserveRatioAfterTX < 0) {
-            revert InvalidNumberToGetSwingFactor(_reserveRatioAfterTX);
+        if (reserveImpact < 0) {
+            revert InvalidNumberToGetSwingFactor(reserveImpact);
 
             // else if reserve exceeds target after deposit no swing factor is applied
-        } else if (uint256(_reserveRatioAfterTX) >= targetReserveRatio) {
+        } else if (uint256(reserveImpact) >= targetReserveRatio) {
             return 0;
 
             // else swing factor is applied
         } else {
-            SD59x18 reserveRatioAfterTX = sd(int256(_reserveRatioAfterTX));
+            SD59x18 reserveImpactSd = sd(int256(reserveImpact));
 
-            SD59x18 result = maxDiscountSD * exp(scalingFactorSD.mul(reserveRatioAfterTX).div(targetReserveRatioSD));
+            SD59x18 result = maxDiscountSD * exp(scalingFactorSD.mul(reserveImpactSd).div(targetReserveRatioSD));
 
             return uint256(result.unwrap());
         }
@@ -572,41 +576,41 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
      */
 
     // todo: check how much gas this uses. might need to cache data instead
-    function getAsyncAssets(address _component) public view returns (uint256 assets) {
+    function getAsyncAssets(address component) public view returns (uint256 assets) {
         // Get the asset value of any shares already minted
-        IERC20 shareToken = IERC20(getComponentShareAddress(_component));
+        IERC20 shareToken = IERC20(getComponentShareAddress(component));
         uint256 shareBalance = shareToken.balanceOf(address(this));
-        assets = IERC7540(_component).convertToAssets(shareBalance);
+        assets = IERC7540(component).convertToAssets(shareBalance);
 
         // Add pending deposits (in assets)
-        try IERC7540(_component).pendingDepositRequest(0, address(this)) returns (uint256 pendingDepositAssets) {
+        try IERC7540(component).pendingDepositRequest(0, address(this)) returns (uint256 pendingDepositAssets) {
             assets += pendingDepositAssets;
         } catch {}
 
         // Add claimable deposits assets
-        try IERC7540(_component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
+        try IERC7540(component).claimableDepositRequest(0, address(this)) returns (uint256 claimableAssets) {
             assets += claimableAssets;
         } catch {}
 
         // Add pending redemptions (convert shares to assets)
-        try IERC7540(_component).pendingRedeemRequest(0, address(this)) returns (uint256 pendingRedeemShares) {
-            assets += IERC7540(_component).convertToAssets(pendingRedeemShares);
+        try IERC7540(component).pendingRedeemRequest(0, address(this)) returns (uint256 pendingRedeemShares) {
+            assets += IERC7540(component).convertToAssets(pendingRedeemShares);
         } catch {}
 
         // Add claimable redemptions (convert shares to assets)
-        try IERC7540(_component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemShares) {
-            assets += IERC7540(_component).convertToAssets(claimableRedeemShares);
+        try IERC7540(component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemShares) {
+            assets += IERC7540(component).convertToAssets(claimableRedeemShares);
         } catch {}
 
         return assets;
     }
 
-    function investInAsyncVault(address _component) external onlyRebalancer returns (uint256 cashInvested) {
-        if (!isComponent(_component)) {
+    function investInAsyncVault(address component) external onlyRebalancer returns (uint256 cashInvested) {
+        if (!isComponent(component)) {
             revert NotAComponent();
         }
 
-        if (!isAsync(_component)) {
+        if (!isAsync(component)) {
             revert IsNotAsyncVault();
         }
 
@@ -620,11 +624,11 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         }
 
         // gets deposit amount
-        uint256 depositAmount = getInvestmentSize(_component);
+        uint256 depositAmount = getInvestmentSize(component);
 
         // Check if the current allocation is below the lower bound
-        uint256 currentAllocation = getAsyncAssets(_component) * WAD / totalAssets_;
-        uint256 lowerBound = getComponentRatio(_component) - asyncMaxDelta;
+        uint256 currentAllocation = getAsyncAssets(component) * WAD / totalAssets_;
+        uint256 lowerBound = getComponentRatio(component) - asyncMaxDelta;
 
         if (currentAllocation >= lowerBound) {
             revert ComponentWithinTargetRange();
@@ -641,52 +645,52 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         IERC20(asset()).safeIncreaseAllowance(_component, depositAmount);
         IERC7540(_component).requestDeposit(depositAmount, address(this), address(this));
 
-        emit DepositRequested(depositAmount, address(_component));
+        emit DepositRequested(depositAmount, address(component));
         return (depositAmount);
     }
 
-    function mintClaimableShares(address _component) public onlyRebalancer returns (uint256) {
-        uint256 claimableShares = IERC7540(_component).maxMint(address(this));
+    function mintClaimableShares(address component) public onlyRebalancer returns (uint256) {
+        uint256 claimableShares = IERC7540(component).maxMint(address(this));
 
-        IERC7540(_component).mint(claimableShares, address(this));
+        IERC7540(component).mint(claimableShares, address(this));
 
-        emit AsyncSharesMinted(_component, claimableShares);
+        emit AsyncSharesMinted(component, claimableShares);
         return claimableShares;
     }
 
     // requests withdrawal from async vault
-    function requestAsyncWithdrawal(address _component, uint256 _shares) public onlyRebalancer {
-        IERC20 shareToken = IERC20(getComponentShareAddress(_component));
+    function requestAsyncWithdrawal(address component, uint256 _shares) public onlyRebalancer {
+        IERC20 shareToken = IERC20(getComponentShareAddress(component));
         if (_shares > shareToken.balanceOf(address(this))) {
             revert TooManySharesRequested();
         }
-        if (!isComponent(_component)) {
+        if (!isComponent(component)) {
             revert NotAComponent();
         }
-        if (!isAsync(_component)) {
+        if (!isAsync(component)) {
             revert IsNotAsyncVault();
         }
-        IERC7540(_component).requestRedeem(_shares, address(this), (address(this)));
+        IERC7540(component).requestRedeem(_shares, address(this), (address(this)));
 
-        emit AsyncWithdrawalRequested(_component, _shares);
+        emit AsyncWithdrawalRequested(component, _shares);
 
         // todo: decide on return value (if any)
     }
 
     // withdraws claimable assets from async vault
-    function executeAsyncWithdrawal(address _component, uint256 _assets) public onlyRebalancer {
-        if (_assets > IERC7540(_component).maxWithdraw(address(this))) {
+    function executeAsyncWithdrawal(address component, uint256 assets) public onlyRebalancer {
+        if (assets > IERC7540(component).maxWithdraw(address(this))) {
             revert TooManyAssetsRequested();
         }
-        if (!isComponent(_component)) {
+        if (!isComponent(component)) {
             revert NotAComponent();
         }
-        if (!isAsync(_component)) {
+        if (!isAsync(component)) {
             revert IsNotAsyncVault();
         }
-        IERC7540(_component).withdraw(_assets, address(this), address(this));
+        IERC7540(component).withdraw(assets, address(this), address(this));
 
-        emit AsyncWithdrawalExecuted(_component, _assets);
+        emit AsyncWithdrawalExecuted(component, assets);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -698,20 +702,20 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
      */
 
     // called by rebalancer to deposit excess reserve into strategies
-    function investInSyncVault(address _component) external onlyRebalancer returns (uint256 cashInvested) {
-        if (!isComponent(_component)) {
+    function investInSyncVault(address component) external onlyRebalancer returns (uint256 cashInvested) {
+        if (!isComponent(component)) {
             revert NotAComponent();
         }
-        if (isAsync(_component)) {
+        if (isAsync(component)) {
             revert IsAsyncVault();
         }
 
         // checks all async vaults to see if they are below range will revert if true for any True
         // ensures
         for (uint256 i = 0; i < components.length; i++) {
-            Component memory component = components[i];
-            if (component.isAsync) {
-                if (isAsyncAssetsBelowMinimum(address(component.component))) {
+            Component memory _component = components[i];
+            if (_component.isAsync) {
+                if (isAsyncAssetsBelowMinimum(address(_component.component))) {
                     revert AsyncAssetBelowMinimum();
                 }
             }
@@ -727,7 +731,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         }
 
         // gets deposit amount
-        uint256 depositAmount = getInvestmentSize(_component);
+        uint256 depositAmount = getInvestmentSize(component);
 
         // checks if asset is within acceptable range of target
         if (depositAmount < (totalAssets_ * maxDelta / WAD)) {
@@ -742,9 +746,9 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
             depositAmount = availableReserve;
 
             // Get the maximum deposit allowed by the component vault
-            uint256 maxDepositAmount = ERC4626(_component).maxDeposit(address(this));
+            uint256 maxDepositAmount = ERC4626(component).maxDeposit(address(this));
             if (depositAmount > maxDepositAmount) {
-                revert ExceedsMaxVaultDeposit(_component, depositAmount, maxDepositAmount);
+                revert ExceedsMaxVaultDeposit(component, depositAmount, maxDepositAmount);
             }
         }
 
@@ -752,25 +756,25 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         IERC20(asset()).safeIncreaseAllowance(_component, depositAmount);
         ERC4626(_component).deposit(depositAmount, address(this));
 
-        emit CashInvested(depositAmount, address(_component));
+        emit CashInvested(depositAmount, address(component));
         return (depositAmount);
     }
 
     // rebalancer to use this function to liquidate underlying vault to meet redeem requests
-    function liquidateSyncVaultPosition(address _component, uint256 shares)
+    function liquidateSyncVaultPosition(address component, uint256 shares)
         public
         onlyRebalancer
         returns (uint256 assetsReturned)
     {
-        if (!isComponent(_component)) {
+        if (!isComponent(component)) {
             revert NotAComponent();
         }
 
-        if (isAsync(_component)) {
+        if (isAsync(component)) {
             revert IsAsyncVault();
         }
 
-        if (ERC4626(_component).balanceOf(address(this)) < shares) {
+        if (ERC4626(component).balanceOf(address(this)) < shares) {
             revert TooManySharesRequested();
         }
 
@@ -779,10 +783,10 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         }
 
         // Preview the expected assets from redemption
-        uint256 expectedAssets = ERC4626(_component).previewRedeem(shares);
+        uint256 expectedAssets = ERC4626(component).previewRedeem(shares);
 
         // Perform the edemption
-        uint256 assets = ERC4626(_component).redeem(shares, address(this), address(this));
+        uint256 assets = ERC4626(component).redeem(shares, address(this), address(this));
 
         // Ensure assets returned is within an acceptable range of expectedAssets
         require(assets >= expectedAssets, "Redeemed assets less than expected");
@@ -805,55 +809,55 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     * todo: add this functionality to constraints on balancer liquidation ability
     */
 
-    function addComponent(address _component, uint256 _targetRatio, bool _isAsync, address _shareToken)
+    function addComponent(address component, uint256 targetRatio, bool isAsync, address shareToken)
         public
         onlyOwner
     {
-        uint256 index = componentIndex[_component];
+        uint256 index = componentIndex[component];
 
         if (index > 0) {
-            components[index - 1].targetRatio = _targetRatio;
-            components[index - 1].isAsync = _isAsync;
+            components[index - 1].targetRatio = targetRatio;
+            components[index - 1].isAsync = isAsync;
         } else {
             Component memory newComponent = Component({
-                component: _component,
-                targetRatio: _targetRatio,
-                isAsync: _isAsync,
-                shareToken: _shareToken
+                component: component,
+                targetRatio: targetRatio,
+                isAsync: isAsync,
+                shareToken: shareToken
             });
 
             components.push(newComponent);
-            componentIndex[_component] = components.length;
+            componentIndex[component] = components.length;
         }
-        emit ComponentAdded(_component, _targetRatio, _isAsync, _shareToken);
+        emit ComponentAdded(component, targetRatio, isAsync, shareToken);
     }
 
-    function isComponent(address _component) public view returns (bool) {
-        return componentIndex[_component] != 0;
+    function isComponent(address component) public view returns (bool) {
+        return componentIndex[component] != 0;
     }
 
-    function getComponentRatio(address _component) public view returns (uint256) {
-        uint256 index = componentIndex[_component];
+    function getComponentRatio(address component) public view returns (uint256) {
+        uint256 index = componentIndex[component];
         require(index != 0, "Component does not exist");
         return components[index - 1].targetRatio;
     }
 
-    function getComponentShareAddress(address _component) public view returns (address) {
-        uint256 index = componentIndex[_component];
+    function getComponentShareAddress(address component) public view returns (address) {
+        uint256 index = componentIndex[component];
         require(index != 0, "Component does not exist");
         return components[index - 1].shareToken;
     }
 
-    function isAsync(address _component) public view returns (bool) {
-        uint256 index = componentIndex[_component];
+    function isAsync(address component) public view returns (bool) {
+        uint256 index = componentIndex[component];
         require(index != 0, "Component does not exist");
         return components[index - 1].isAsync;
     }
 
-    function isAsyncAssetsBelowMinimum(address _component) public view returns (bool) {
-        uint256 targetRatio = getComponentRatio(_component);
+    function isAsyncAssetsBelowMinimum(address component) public view returns (bool) {
+        uint256 targetRatio = getComponentRatio(component);
         if (targetRatio == 0) return false; // Always in range if target is 0
-        return getAsyncAssets(_component) * WAD / totalAssets() < getComponentRatio(_component) - asyncMaxDelta;
+        return getAsyncAssets(component) * WAD / totalAssets() < getComponentRatio(component) - asyncMaxDelta;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -865,16 +869,16 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
      * @dev calling escrow.deposit() emits an event on escrow contract, not a write function so no
      * security checks
      */
-    function executeEscrowDeposit(address _tokenAddress, uint256 _amount) external onlyRebalancer {
-        IERC20 token = IERC20(_tokenAddress);
+    function executeEscrowDeposit(address tokenAddress, uint256 amount) external onlyRebalancer {
+        IERC20 token = IERC20(tokenAddress);
         address escrowAddress = address(escrow);
 
-        token.safeTransfer(escrowAddress, _amount);
+        token.safeTransfer(escrowAddress, amount);
 
         // Call deposit function on Escrow
-        escrow.deposit(_tokenAddress, _amount);
+        escrow.deposit(tokenAddress, amount);
 
-        emit WithdrawalFundsSentToEscrow(escrowAddress, _tokenAddress, _amount);
+        emit WithdrawalFundsSentToEscrow(escrowAddress, tokenAddress, amount);
     }
 
     function setEscrow(address _escrow) public onlyOwner {
@@ -913,15 +917,15 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
 
     // logic is used to create investment size for both sync and async assets
     // might be better to just move that logic into each function for readability
-    function getInvestmentSize(address _component) public view returns (uint256 depositAmount) {
-        uint256 targetHoldings = totalAssets() * getComponentRatio(_component) / WAD;
+    function getInvestmentSize(address component) public view returns (uint256 depositAmount) {
+        uint256 targetHoldings = totalAssets() * getComponentRatio(component) / WAD;
 
         uint256 currentBalance;
 
-        if (isAsync(_component)) {
-            currentBalance = getAsyncAssets(_component);
+        if (isAsync(component)) {
+            currentBalance = getAsyncAssets(component);
         } else {
-            currentBalance = ERC20(_component).balanceOf(address(this));
+            currentBalance = ERC20(component).balanceOf(address(this));
         }
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
