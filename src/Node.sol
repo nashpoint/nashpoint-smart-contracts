@@ -212,7 +212,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     function deposit(uint256 assets, address receiver) public override returns (uint256) {
         // Handle initial deposit separately to avoid divide by zero
         uint256 sharesToMint;
-        if (totalAssets() == 0) {
+        if (totalAssets() == 0 && totalSupply() == 0) {
             // This is the first deposit
             sharesToMint = convertToShares(assets);
             _deposit(_msgSender(), receiver, assets, sharesToMint);
@@ -271,7 +271,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         return assets;
     }
 
-    
     /// @notice reserveImpact is a different value based on what transaction is executed
     ///     for deposits: input value is reserve delta closed by transaction
     ///     for withdrawals: input value is reserve ratio after transaction
@@ -401,7 +400,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         } else {
             return 0;
         }
-        
     }
 
     // check if controller has set an operator
@@ -812,22 +810,15 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     * todo: add this functionality to constraints on balancer liquidation ability
     */
 
-    function addComponent(address component, uint256 targetRatio, bool isAsync, address shareToken)
-        public
-        onlyOwner
-    {
+    function addComponent(address component, uint256 targetRatio, bool isAsync, address shareToken) public onlyOwner {
         uint256 index = componentIndex[component];
 
         if (index > 0) {
             components[index - 1].targetRatio = targetRatio;
             components[index - 1].isAsync = isAsync;
         } else {
-            Component memory newComponent = Component({
-                component: component,
-                targetRatio: targetRatio,
-                isAsync: isAsync,
-                shareToken: shareToken
-            });
+            Component memory newComponent =
+                Component({component: component, targetRatio: targetRatio, isAsync: isAsync, shareToken: shareToken});
 
             components.push(newComponent);
             componentIndex[component] = components.length;
