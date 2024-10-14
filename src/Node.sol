@@ -764,20 +764,20 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     }
 
     // rebalancer to use this function to liquidate underlying vault to meet redeem requests
-    function liquidateSyncVaultPosition(address _component, uint256 shares)
+    function liquidateSyncVaultPosition(address component, uint256 shares)
         public
         onlyRebalancer
         returns (uint256 assetsReturned)
     {
-        if (!isComponent(_component)) {
+        if (!isComponent(component)) {
             revert NotAComponent();
         }
 
-        if (isAsync(_component)) {
+        if (isAsync(component)) {
             revert IsAsyncVault();
         }
 
-        if (ERC4626(_component).balanceOf(address(this)) < shares) {
+        if (ERC4626(component).balanceOf(address(this)) < shares) {
             revert TooManySharesRequested();
         }
 
@@ -786,10 +786,10 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         }
 
         // Preview the expected assets from redemption
-        uint256 expectedAssets = ERC4626(_component).previewRedeem(shares);
+        uint256 expectedAssets = ERC4626(component).previewRedeem(shares);
 
         // Perform the edemption
-        uint256 assets = ERC4626(_component).redeem(shares, address(this), address(this));
+        uint256 assets = ERC4626(component).redeem(shares, address(this), address(this));
 
         // Ensure assets returned is within an acceptable range of expectedAssets
         require(assets >= expectedAssets, "Redeemed assets less than expected");
