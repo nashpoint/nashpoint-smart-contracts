@@ -26,6 +26,7 @@ contract Escrow is IEscrow, Ownable {
     // Events
     event Deposit(address indexed tokenAddress, uint256 tokenAmount);
     event Withdrawal(address indexed withdrawer, address indexed tokenAddress, uint256 tokenAmount);
+    event NodeDefined(address indexed nodeAddress);
 
     // Deposit function
     function deposit(address tokenAddress, uint256 tokenAmount) external onlyNode {
@@ -34,15 +35,18 @@ contract Escrow is IEscrow, Ownable {
     }
 
     // Withdraw function
-    function withdraw(address withdrawer, address tokenAddress, uint256 tokenAmount) external onlyNode {
+    function withdraw(address withdrawer, address tokenAddress, uint256 tokenAmount) external onlyNode {    
+        emit Withdrawal(withdrawer, tokenAddress, tokenAmount);
         IERC20 token = IERC20(tokenAddress);
         token.safeTransfer(withdrawer, tokenAmount);
 
-        emit Withdrawal(withdrawer, tokenAddress, tokenAmount);
+        
     }
 
     function setNode(address _node) public onlyOwner {
+        require(_node != address(0), "invalid zero address for node");
         node = _node;
+        emit NodeDefined(_node);
     }
 
     // TODO: rescue function for lost tokens. Ignore for now

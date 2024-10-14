@@ -472,4 +472,32 @@ contract VaultTests is BaseTest {
         node.investInSyncVault(address(limitedVault));
         vm.stopPrank();
     }
+
+    function testEqualitiesFirstDeposit() public {
+        // add one component at 90% target ratio
+        node.addComponent(address(vaultA), 90e16, false, address(vaultA));
+        node.enableSwingPricing(true);
+
+        // assert node has zero assets
+        assertEq(node.totalAssets(), 0);
+
+        // user1 transfers cash to node
+        vm.startPrank(user1);
+        usdcMock.transfer(address(node), DEPOSIT_10);
+        vm.stopPrank();
+
+        // assert total asset > 0 && total supply == 0
+        assertGt(node.totalAssets(), 0);
+        assertEq(node.totalSupply(), 0);
+
+        vm.startPrank(rebalancer);
+        node.investInSyncVault(address(vaultA));
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        node.deposit(DEPOSIT_100, address(user1));
+        vm.stopPrank();
+
+        console2.log(node.totalSupply());
+    }
 }
