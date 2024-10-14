@@ -124,8 +124,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(_owner) {
         require(_rebalancer != address(0), "Rebalancer address cannot be zero");
 
-        // depositAsset = IERC20Metadata(_asset);
-
         rebalancer = _rebalancer;
         maxDiscount = _maxDiscount;
         targetReserveRatio = _targetReserveRatio;
@@ -230,7 +228,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         uint256 reserveCash = IERC20(asset()).balanceOf(address(this));
         uint256 investedAssets = totalAssets() - reserveCash;
-        uint256 targetReserve = ((investedAssets * WAD) / (WAD - targetReserveRatio)) - investedAssets;
+        uint256 targetReserve = Math.mulDiv(investedAssets, WAD, (WAD - targetReserveRatio)) - investedAssets;
 
         // get the absolute value of delta between actual and target reserve
         uint256 reserveDeltaAbs = 0;
@@ -251,7 +249,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         uint256 deltaClosedAbs = reserveDeltaAbs - deltaAfter;
         uint256 deltaClosedPercent = Math.mulDiv(deltaClosedAbs, WAD, targetReserve);
 
-        int256 inverseValue = int256((WAD - deltaClosedPercent) * targetReserveRatio / WAD);
+        int256 inverseValue = int256(Math.mulDiv((WAD - deltaClosedPercent), targetReserveRatio, WAD));
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets = Math.mulDiv(assets, (WAD + getSwingFactor(inverseValue)), WAD);
@@ -528,7 +526,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         Request storage request = redeemRequests[_index - 1];
 
-        shares = (assets * maxShares) / maxAssets;
+        shares = Math.mulDiv(assets, maxShares, maxAssets);
 
         request.sharesClaimable -= shares;
         request.assetsClaimable -= assets;
@@ -565,7 +563,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         Request storage request = redeemRequests[_index - 1];
         address escrowAddress = address(escrow);
 
-        assets = (shares * maxAssets) / maxShares;
+        assets = Math.mulDiv(shares, maxAssets, maxShares);
 
         request.sharesClaimable -= shares;
         request.assetsClaimable -= assets;
@@ -618,8 +616,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         } catch {}
 
         // Add claimable redemptions (convert shares to assets)
-        try IERC7540(component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemShares) {
-            assets += IERC7540(component).convertToAssets(claimableRedeemShares);
+        try IERC7540(component).maxWithdraw(address(this)) returns (uint256 claimableAssets) {
+            assets += claimableAssets;
         } catch {}
 
         return assets;
@@ -635,7 +633,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         }
 
         uint256 totalAssets_ = totalAssets();
-        uint256 idealCashReserve = totalAssets_ * targetReserveRatio / WAD;
+        uint256 idealCashReserve = Math.mulDiv(totalAssets_, targetReserveRatio, WAD);
         uint256 currentCash = IERC20(asset()).balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
@@ -647,7 +645,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         uint256 depositAmount = getInvestmentSize(component);
 
         // Check if the current allocation is below the lower bound
-        uint256 currentAllocation = getAsyncAssets(component) * WAD / totalAssets_;
+        uint256 currentAllocation = Math.mulDiv(getAsyncAssets(component), WAD, totalAssets_);
         uint256 lowerBound = getComponentRatio(component) - asyncMaxDelta;
 
         if (currentAllocation >= lowerBound) {
@@ -753,7 +751,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         }
 
         uint256 totalAssets_ = totalAssets();
-        uint256 idealCashReserve = totalAssets_ * targetReserveRatio / WAD;
+        uint256 idealCashReserve = Math.mulDiv(totalAssets_, targetReserveRatio, WAD);
         uint256 currentCash = IERC20(asset()).balanceOf(address(this));
 
         // checks if available reserve exceeds target ratio
@@ -765,7 +763,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         uint256 depositAmount = getInvestmentSize(component);
 
         // checks if asset is within acceptable range of target
-        if (depositAmount < (totalAssets_ * maxDelta / WAD)) {
+        if (depositAmount < Math.mulDiv(totalAssets_, maxDelta, WAD)) {
             revert ComponentWithinTargetRange();
         }
 
@@ -883,7 +881,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     function isAsyncAssetsBelowMinimum(address component) public view returns (bool) {
         uint256 targetRatio = getComponentRatio(component);
         if (targetRatio == 0) return false; // Always in range if target is 0
-        return getAsyncAssets(component) * WAD / totalAssets() < getComponentRatio(component) - asyncMaxDelta;
+        return Math.mulDiv(getAsyncAssets(component), WAD, totalAssets()) < getComponentRatio(component) - asyncMaxDelta;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -944,7 +942,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     // logic is used to create investment size for both sync and async assets
     // might be better to just move that logic into each function for readability
     function getInvestmentSize(address component) public view returns (uint256 depositAmount) {
-        uint256 targetHoldings = totalAssets() * getComponentRatio(component) / WAD;
+        uint256 targetHoldings = Math.mulDiv(totalAssets(), getComponentRatio(component), WAD);
 
         uint256 currentBalance;
 
