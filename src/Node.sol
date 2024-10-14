@@ -58,7 +58,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     ///     escrow: address used for storing pending shares and claimable assets
     address public rebalancer;
     IEscrow public escrow;
-    
+
     /// @dev PRBMath types and conversions: used for swing price calculations
     SD59x18 maxDiscountSD;
     SD59x18 targetReserveRatioSD;
@@ -122,7 +122,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         uint256 _asyncMaxDelta,
         address _owner
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(_owner) {
-
         require(_rebalancer != address(0), "Rebalancer address cannot be zero");
 
         // depositAsset = IERC20Metadata(_asset);
@@ -196,7 +195,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         // set investedAssets to zero and start cycle through components array
         uint256 investedAssets = 0;
-        for (uint256 i = 0; i < components.length; i++) {
+        uint256 length = components.length;
+        for (uint256 i = 0; i < length; i++) {
             Component memory component = components[i];
 
             // if not async use 4626 interface to store assets
@@ -662,7 +662,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
             depositAmount = availableReserve;
         }
 
-
         emit DepositRequested(depositAmount, address(component));
 
         IERC20(asset()).safeIncreaseAllowance(component, depositAmount);
@@ -670,7 +669,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         // checks request ID is returned successfully
         require(requestId == 0, "No requestId returned");
-
 
         return (depositAmount);
     }
@@ -744,7 +742,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
 
         // checks all async vaults to see if they are below range will revert if true for any True
         // ensures
-        for (uint256 i = 0; i < components.length; i++) {
+        uint256 length = components.length;
+        for (uint256 i = 0; i < length; i++) {
             Component memory _component = components[i];
             if (_component.isAsync) {
                 if (isAsyncAssetsBelowMinimum(address(_component.component))) {
@@ -784,14 +783,12 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
             }
         }
 
-
         emit CashInvested(depositAmount, address(component));
 
         // Approve the _component vault to spend depositAsset tokens & deposit to vault
         IERC20(asset()).safeIncreaseAllowance(component, depositAmount);
         uint256 shares = ERC4626(component).deposit(depositAmount, address(this));
         require(shares > 0, "synchronous deposit not executed");
-
 
         return (depositAmount);
     }
@@ -903,13 +900,11 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         address escrowAddress = address(escrow);
 
         emit WithdrawalFundsSentToEscrow(escrowAddress, tokenAddress, amount);
-        
-        token.safeTransfer(escrowAddress, amount);    
-        
+
+        token.safeTransfer(escrowAddress, amount);
+
         // Call deposit function on Escrow
         escrow.deposit(tokenAddress, amount);
-
-        
     }
 
     function setEscrow(address _escrow) public onlyOwner {
@@ -966,7 +961,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     function getPendingRedeemAssets() public view returns (uint256 pendingAssets) {
         pendingAssets = 0;
 
-        for (uint256 i; i < redeemRequests.length; i++) {
+        uint256 length = redeemRequests.length;
+        for (uint256 i; i < length; i++) {
             Request memory request = redeemRequests[i];
             pendingAssets += convertToAssets(request.sharesPending);
         }
