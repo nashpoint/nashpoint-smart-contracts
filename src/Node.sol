@@ -45,7 +45,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     bool public instantLiquidationsEnabled = true;
     bool public swingPricingEnabled = false;
     bool public liquidateReserveBelowTarget = true;
-    int256 public immutable FACTOR = -5e18;
+    int256 public immutable SCALING_FACTOR = -5e18;
     uint256 public immutable WAD = 1e18;
 
     /// @dev Requests for nodes are non-fungible and all have ID = 0 (ERC-7540)
@@ -132,7 +132,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         // PRBMath Types and Conversions
         maxDiscountSD = sd(int256(maxDiscount));
         targetReserveRatioSD = sd(int256(targetReserveRatio));
-        scalingFactorSD = sd(FACTOR);
+        scalingFactorSD = sd(SCALING_FACTOR);
     }
 
     /*//////////////////////////////////////////////////////////////
