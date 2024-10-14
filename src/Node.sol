@@ -705,20 +705,20 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
      */
 
     // called by rebalancer to deposit excess reserve into strategies
-    function investInSyncVault(address _component) external onlyRebalancer returns (uint256 cashInvested) {
-        if (!isComponent(_component)) {
+    function investInSyncVault(address component) external onlyRebalancer returns (uint256 cashInvested) {
+        if (!isComponent(component)) {
             revert NotAComponent();
         }
-        if (isAsync(_component)) {
+        if (isAsync(component)) {
             revert IsAsyncVault();
         }
 
         // checks all async vaults to see if they are below range will revert if true for any True
         // ensures
         for (uint256 i = 0; i < components.length; i++) {
-            Component memory component = components[i];
-            if (component.isAsync) {
-                if (isAsyncAssetsBelowMinimum(address(component.component))) {
+            Component memory _component = components[i];
+            if (_component.isAsync) {
+                if (isAsyncAssetsBelowMinimum(address(_component.component))) {
                     revert AsyncAssetBelowMinimum();
                 }
             }
@@ -734,7 +734,7 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         }
 
         // gets deposit amount
-        uint256 depositAmount = getInvestmentSize(_component);
+        uint256 depositAmount = getInvestmentSize(component);
 
         // checks if asset is within acceptable range of target
         if (depositAmount < (totalAssets_ * maxDelta / WAD)) {
@@ -749,17 +749,17 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
             depositAmount = availableReserve;
 
             // Get the maximum deposit allowed by the component vault
-            uint256 maxDepositAmount = ERC4626(_component).maxDeposit(address(this));
+            uint256 maxDepositAmount = ERC4626(component).maxDeposit(address(this));
             if (depositAmount > maxDepositAmount) {
-                revert ExceedsMaxVaultDeposit(_component, depositAmount, maxDepositAmount);
+                revert ExceedsMaxVaultDeposit(component, depositAmount, maxDepositAmount);
             }
         }
 
         // Approve the _component vault to spend depositAsset tokens & deposit to vault
-        IERC20(depositAsset).safeIncreaseAllowance(_component, depositAmount);
-        ERC4626(_component).deposit(depositAmount, address(this));
+        IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
+        ERC4626(component).deposit(depositAmount, address(this));
 
-        emit CashInvested(depositAmount, address(_component));
+        emit CashInvested(depositAmount, address(component));
         return (depositAmount);
     }
 
