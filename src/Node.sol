@@ -264,11 +264,11 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     }
 
     /// @notice reuses the same logic as deposit()
-    function mint(uint256 _shares, address receiver) public override returns (uint256) {
-        uint256 _assets = convertToAssets(_shares);
-        deposit(_assets, receiver);
+    function mint(uint256 shares, address receiver) public override returns (uint256) {
+        uint256 assets = convertToAssets(shares);
+        deposit(assets, receiver);
 
-        return _assets;
+        return assets;
     }
 
     /// @dev getSwingFactor() converts from int to uint to use PRBMath SD59x18 type
