@@ -231,14 +231,14 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         uint256 targetReserve = ((investedAssets * WAD) / (WAD - targetReserveRatio)) - investedAssets;
 
         // get the absolute value of delta between actual and target reserve
-        uint256 reserveDeltaAbs;
+        uint256 reserveDeltaAbs = 0;
         if (reserveCash < targetReserve) {
             reserveDeltaAbs = targetReserve - reserveCash;
         }
 
         // subtract the value of the new deposit to get the reserve delta after
         // if new deposit exceeds the reserve delta, the reserve delta after will be zero
-        uint256 deltaAfter;
+        uint256 deltaAfter = 0;
         if (reserveDeltaAbs > assets) {
             deltaAfter = reserveDeltaAbs - assets;
         } else {
