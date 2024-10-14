@@ -362,4 +362,35 @@ contract ERC7540Tests is BaseTest {
         bytes4 unsupportedInterfaceId = 0xffffffff;
         assertFalse(node.supportsInterface(unsupportedInterfaceId));
     }
+
+    function testArbitraryTransferFrom() public {
+        seedNode();
+        uint256 sharesToRedeem = node.balanceOf(address(user1)) / 10;
+        node.enableLiquiateReserveBelowTarget(true);
+
+        // revert user 2 tries to redeem user1 shares
+        vm.startPrank(user2);
+        vm.expectRevert();
+        node.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // user 1 requests redeem and rebalancer fulfils request
+        vm.startPrank(user1);
+        node.requestRedeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
+        node.fulfilRedeemFromReserve(user1);
+        vm.stopPrank();
+
+        // revert user 2 tries to redeem user 1 shares
+        vm.startPrank(user2);
+        vm.expectRevert();
+        node.redeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+
+        // user 2 successfully redeems shares
+        vm.startPrank(user1);
+        node.redeem(sharesToRedeem, address(user1), address(user1));
+        vm.stopPrank();
+    }
 }

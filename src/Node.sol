@@ -14,14 +14,16 @@ import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC165} from "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 
 // temp: delete before deploying
 import {console2} from "forge-std/Test.sol";
 
-contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
+contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
     using SafeERC20 for IERC20;
+
     /*//////////////////////////////////////////////////////////////
                                     DATA
     //////////////////////////////////////////////////////////////*/
@@ -120,6 +122,11 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         uint256 _asyncMaxDelta,
         address _owner
     ) ERC20(_name, _symbol) ERC4626(IERC20Metadata(_asset)) Ownable(_owner) {
+
+        require(_rebalancer != address(0), "Rebalancer address cannot be zero");
+
+        depositAsset = IERC20Metadata(_asset);
+
         rebalancer = _rebalancer;
         maxDiscount = _maxDiscount;
         targetReserveRatio = _targetReserveRatio;
@@ -206,10 +213,10 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         return cashReserve + investedAssets;
     }
 
-    function deposit(uint256 assets, address receiver) public override returns (uint256) {
+    function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256) {
         // Handle initial deposit separately to avoid divide by zero
         uint256 sharesToMint;
-        if (totalAssets() == 0) {
+        if (totalAssets() == 0 && totalSupply() == 0) {
             // This is the first deposit
             sharesToMint = convertToShares(assets);
             _deposit(_msgSender(), receiver, assets, sharesToMint);
@@ -226,14 +233,14 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         uint256 targetReserve = ((investedAssets * WAD) / (WAD - targetReserveRatio)) - investedAssets;
 
         // get the absolute value of delta between actual and target reserve
-        uint256 reserveDeltaAbs;
+        uint256 reserveDeltaAbs = 0;
         if (reserveCash < targetReserve) {
             reserveDeltaAbs = targetReserve - reserveCash;
         }
 
         // subtract the value of the new deposit to get the reserve delta after
         // if new deposit exceeds the reserve delta, the reserve delta after will be zero
-        uint256 deltaAfter;
+        uint256 deltaAfter = 0;
         if (reserveDeltaAbs > assets) {
             deltaAfter = reserveDeltaAbs - assets;
         } else {
@@ -268,7 +275,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         return assets;
     }
 
-    
     /// @notice reserveImpact is a different value based on what transaction is executed
     ///     for deposits: input value is reserve delta closed by transaction
     ///     for withdrawals: input value is reserve ratio after transaction
@@ -320,13 +326,14 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
      */
 
     // user requests to redeem their funds from the vault. they send their shares to the escrow contract
-    function requestRedeem(uint256 shares, address controller, address _owner) external returns (uint256) {
+    function requestRedeem(uint256 shares, address controller, address _owner)
+        external
+        nonReentrant
+        returns (uint256)
+    {
         require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(_owner) >= shares, "Insufficient shares");
-        require(_owner == msg.sender || isOperator(_owner, msg.sender), "Not authorized");
-
-        // Transfer ERC4626 share tokens from owner back to vault
-        IERC20(address(this)).safeTransferFrom(_owner, address(escrow), shares);
+        require(_owner == msg.sender || isOperator(_owner, msg.sender), "msg.sender is not owner");
 
         // get the cash balance of the node and pending redemptions
         uint256 balance = IERC20(asset()).balanceOf(address(this));
@@ -377,6 +384,9 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
 
         emit RedeemRequest(controller, _owner, REQUEST_ID, msg.sender, shares);
 
+        // Transfer ERC4626 share tokens from owner back to vault
+        IERC20(address(this)).safeTransferFrom(_owner, address(escrow), shares);
+
         return REQUEST_ID;
     }
 
@@ -398,7 +408,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         } else {
             return 0;
         }
-        
     }
 
     // check if controller has set an operator
@@ -408,8 +417,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
 
     // controller sets operator
     function setOperator(address operator, bool approved) public returns (bool success) {
-        _operators[msg.sender][operator] = approved;
         emit OperatorSet(msg.sender, operator, approved);
+        _operators[msg.sender][operator] = approved;
         return true;
     }
 
@@ -448,21 +457,22 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
             revert NotEnoughReserveCash();
         }
 
+        // update balances in Request
+        request.sharesPending -= sharesPending; // shares removed from pending
+        request.sharesClaimable += sharesPending; // shares added to claimable
+        request.assetsClaimable += assets; // assets added to claimable
+        request.sharesAdjusted -= sharesAdjusted; // shares removed from adjusted
+
         // Burn the shares on escrow
         _burn(escrowAddress, sharesPending);
+
+        emit WithdrawalFundsSentToEscrow(escrowAddress, asset(), assets);
 
         // Transfer tokens to Escrow
         IERC20(asset()).safeTransfer(escrowAddress, assets);
 
         // Call deposit function on Escrow
         escrow.deposit(asset(), assets);
-        emit WithdrawalFundsSentToEscrow(escrowAddress, asset(), assets);
-
-        // update balances in Request
-        request.sharesPending -= sharesPending; // shares removed from pending
-        request.sharesClaimable += sharesPending; // shares added to claimable
-        request.assetsClaimable += assets; // assets added to claimable
-        request.sharesAdjusted -= sharesAdjusted; // shares removed from adjusted
     }
 
     ////////////////////////// OVERRIDES ///////////////////////////
@@ -495,7 +505,12 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         }
     }
 
-    function withdraw(uint256 assets, address receiver, address controller) public override returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address controller)
+        public
+        override
+        nonReentrant
+        returns (uint256 shares)
+    {
         // grab the index for the controller
         uint256 _index = controllerToRedeemIndex[controller];
 
@@ -526,7 +541,12 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         return shares;
     }
 
-    function redeem(uint256 shares, address receiver, address controller) public override returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address controller)
+        public
+        override
+        nonReentrant
+        returns (uint256 assets)
+    {
         // grab the index for the controller
         uint256 _index = controllerToRedeemIndex[controller];
 
@@ -642,19 +662,27 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
             depositAmount = availableReserve;
         }
 
-        IERC20(asset()).safeIncreaseAllowance(_component, depositAmount);
-        IERC7540(_component).requestDeposit(depositAmount, address(this), address(this));
 
         emit DepositRequested(depositAmount, address(component));
+
+        IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
+        (uint256 requestId) = IERC7540(component).requestDeposit(depositAmount, address(this), address(this));
+
+        // checks request ID is returned successfully
+        require(requestId == 0, "No requestId returned");
+
+
         return (depositAmount);
     }
 
     function mintClaimableShares(address component) public onlyRebalancer returns (uint256) {
         uint256 claimableShares = IERC7540(component).maxMint(address(this));
 
-        IERC7540(component).mint(claimableShares, address(this));
-
         emit AsyncSharesMinted(component, claimableShares);
+
+        uint256 assets = IERC7540(component).mint(claimableShares, address(this));
+        require(assets > 0, "No claimable shares minted");
+
         return claimableShares;
     }
 
@@ -670,9 +698,11 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         if (!isAsync(component)) {
             revert IsNotAsyncVault();
         }
-        IERC7540(component).requestRedeem(_shares, address(this), (address(this)));
 
         emit AsyncWithdrawalRequested(component, _shares);
+
+        uint256 requestId = IERC7540(component).requestRedeem(_shares, address(this), (address(this)));
+        require(requestId == 0, "No requestId returned");
 
         // todo: decide on return value (if any)
     }
@@ -688,9 +718,11 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         if (!isAsync(component)) {
             revert IsNotAsyncVault();
         }
-        IERC7540(component).withdraw(assets, address(this), address(this));
 
         emit AsyncWithdrawalExecuted(component, assets);
+
+        uint256 shares = IERC7540(component).withdraw(assets, address(this), address(this));
+        require(shares > 0, "async withdrawal not executed");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -752,11 +784,15 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
             }
         }
 
-        // Approve the _component vault to spend asset() tokens & deposit to vault
-        IERC20(asset()).safeIncreaseAllowance(_component, depositAmount);
-        ERC4626(_component).deposit(depositAmount, address(this));
 
         emit CashInvested(depositAmount, address(component));
+
+        // Approve the _component vault to spend depositAsset tokens & deposit to vault
+        IERC20(depositAsset).safeIncreaseAllowance(component, depositAmount);
+        uint256 shares = ERC4626(component).deposit(depositAmount, address(this));
+        require(shares > 0, "synchronous deposit not executed");
+
+
         return (depositAmount);
     }
 
@@ -809,27 +845,20 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
     * todo: add this functionality to constraints on balancer liquidation ability
     */
 
-    function addComponent(address component, uint256 targetRatio, bool isAsync, address shareToken)
-        public
-        onlyOwner
-    {
+    function addComponent(address component, uint256 targetRatio, bool _isAsync, address shareToken) public onlyOwner {
         uint256 index = componentIndex[component];
 
         if (index > 0) {
             components[index - 1].targetRatio = targetRatio;
-            components[index - 1].isAsync = isAsync;
+            components[index - 1].isAsync = _isAsync;
         } else {
-            Component memory newComponent = Component({
-                component: component,
-                targetRatio: targetRatio,
-                isAsync: isAsync,
-                shareToken: shareToken
-            });
+            Component memory newComponent =
+                Component({component: component, targetRatio: targetRatio, isAsync: _isAsync, shareToken: shareToken});
 
             components.push(newComponent);
             componentIndex[component] = components.length;
         }
-        emit ComponentAdded(component, targetRatio, isAsync, shareToken);
+        emit ComponentAdded(component, targetRatio, _isAsync, shareToken);
     }
 
     function isComponent(address component) public view returns (bool) {
@@ -873,12 +902,14 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         IERC20 token = IERC20(tokenAddress);
         address escrowAddress = address(escrow);
 
-        token.safeTransfer(escrowAddress, amount);
-
+        emit WithdrawalFundsSentToEscrow(escrowAddress, tokenAddress, amount);
+        
+        token.safeTransfer(escrowAddress, amount);    
+        
         // Call deposit function on Escrow
         escrow.deposit(tokenAddress, amount);
 
-        emit WithdrawalFundsSentToEscrow(escrowAddress, tokenAddress, amount);
+        
     }
 
     function setEscrow(address _escrow) public onlyOwner {
