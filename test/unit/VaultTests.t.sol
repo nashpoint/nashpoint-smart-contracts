@@ -492,7 +492,7 @@ contract VaultTests is BaseTest {
 
         vm.startPrank(rebalancer);
         node.investInSyncVault(address(vaultA));
-        vm.stopPrank();        
+        vm.stopPrank();
 
         vm.startPrank(user1);
         node.deposit(DEPOSIT_100, address(user1));

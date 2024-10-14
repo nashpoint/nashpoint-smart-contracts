@@ -327,9 +327,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         require(balanceOf(_owner) >= shares, "Insufficient shares");
         require(_owner == msg.sender || isOperator(_owner, msg.sender), "msg.sender is not owner");
 
-        // Transfer ERC4626 share tokens from owner back to vault
-        IERC20(address(this)).safeTransferFrom(_owner, address(escrow), shares);
-
         // get the cash balance of the node and pending redemptions
         uint256 balance = depositAsset.balanceOf(address(this));
         uint256 pendingRedemptions = getPendingRedeemAssets();
@@ -376,6 +373,9 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
             redeemRequests.push(newRequest);
             controllerToRedeemIndex[controller] = redeemRequests.length;
         }
+
+        // Transfer ERC4626 share tokens from owner back to vault
+        IERC20(address(this)).safeTransferFrom(_owner, address(escrow), shares);
 
         emit RedeemRequest(controller, _owner, REQUEST_ID, msg.sender, shares);
 
@@ -449,6 +449,12 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
             revert NotEnoughReserveCash();
         }
 
+        // update balances in Request
+        request.sharesPending -= sharesPending; // shares removed from pending
+        request.sharesClaimable += sharesPending; // shares added to claimable
+        request.assetsClaimable += assets; // assets added to claimable
+        request.sharesAdjusted -= sharesAdjusted; // shares removed from adjusted
+
         // Burn the shares on escrow
         _burn(escrowAddress, sharesPending);
 
@@ -458,12 +464,6 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem {
         // Call deposit function on Escrow
         escrow.deposit(asset(), assets);
         emit WithdrawalFundsSentToEscrow(escrowAddress, asset(), assets);
-
-        // update balances in Request
-        request.sharesPending -= sharesPending; // shares removed from pending
-        request.sharesClaimable += sharesPending; // shares added to claimable
-        request.assetsClaimable += assets; // assets added to claimable
-        request.sharesAdjusted -= sharesAdjusted; // shares removed from adjusted
     }
 
     ////////////////////////// OVERRIDES ///////////////////////////
