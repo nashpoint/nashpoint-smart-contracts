@@ -616,8 +616,8 @@ contract Node is ERC4626, ERC165, Ownable, IERC7540Redeem, ReentrancyGuard {
         } catch {}
 
         // Add claimable redemptions (convert shares to assets)
-        try IERC7540(component).claimableRedeemRequest(0, address(this)) returns (uint256 claimableRedeemShares) {
-            assets += IERC7540(component).convertToAssets(claimableRedeemShares);
+        try IERC7540(component).maxWithdraw(address(this)) returns (uint256 claimableAssets) {
+            assets += claimableAssets;
         } catch {}
 
         return assets;
