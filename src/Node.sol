@@ -2,12 +2,12 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title NashPoint
+ * @title Node
  * @author ODND Studios
  * @notice This contract includes components from OpenZeppelin and PRB Math libraries.
  *
- * OpenZeppelin Contracts (last updated v4.8.0) (https://github.com/OpenZeppelin/openzeppelin-contracts)
- * PRB Math (last updated v2.0.0) (https://github.com/PaulRBerg/prb-math)
+ * OpenZeppelin Contracts (last updated v5.0.2) (https://github.com/OpenZeppelin/openzeppelin-contracts)
+ * PRB Math (last updated v4.0.3) (https://github.com/PaulRBerg/prb-math)
  *
  * The OpenZeppelin Contracts and PRB Math are MIT-licensed.
  * See the LICENSE file in the repository for a copy of the MIT License.
