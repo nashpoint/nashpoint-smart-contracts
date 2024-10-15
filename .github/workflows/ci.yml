@@ -1,0 +1,34 @@
+name: Foundry CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Run Tests and Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Foundry
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          foundryup
+
+      - name: Install dependencies
+        run: |
+          forge install
+
+      - name: Run tests
+        run: forge test --gas-report
+
+      - name: Run Slither for static analysis
+        run: |
+          pip3 install slither-analyzer
+          slither .
