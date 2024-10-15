@@ -42,7 +42,9 @@ As an example, an owner can set `TargetReserveRatio = 10e16` (10%) and `MaxDisco
 
 $$\text{Discount} = \text{maxDiscount} \times e^{\frac{\text{scalingFactor}}{\text{TargetReserveRatio}} \times \text{ReserveRatioAfterTx}}$$
 
-The discount is also in effect for depositors. When the reserve ratio is below target, a depositor will receive shares that are discounted by the swing factor. This incentivizes users to keep the reserve ratio at or near the target. While the reserve ratio is below target, there is an arbitrage opportunity for users to take a position in the vault for below NAV price.
+The discount is also in effect for depositors. When the reserve ratio is below target, a depositor will receive shares that are discounted by the swing factor. This incentivizes users to keep the reserve ratio at or near the target. While the reserve ratio is below target, there is an arbitrage opportunity for users to take a position in the vault for below NAV price. The discount available to depositors for all values from zero reserve ratio to 100% target reserve ratio are defined by the function:
+
+$$\text{Discount} = \text{maxDiscount} \times e^{\frac{\text{scalingFactor}}{\text{TargetReserveRatio}} \times \text{inverseReserveDeltaClosed}}$$
 
 ## Asset Management
 A node is able to allocate user-deposited funds to a pre-defined portfolio of underlying assets. It contains the logic to allocate to and interact with synchronous vaults that follow the ERC-4626 standard, and asynchronous vaults that follow the ERC-7540 standard.
