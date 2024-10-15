@@ -1,5 +1,17 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.20;
+
+/**
+ * @title Node
+ * @author ODND Studios
+ * @notice This contract includes components from OpenZeppelin and PRB Math libraries.
+ *
+ * OpenZeppelin Contracts (last updated v5.0.2) (https://github.com/OpenZeppelin/openzeppelin-contracts)
+ * PRB Math (last updated v4.0.3) (https://github.com/PaulRBerg/prb-math)
+ *
+ * The OpenZeppelin Contracts and PRB Math are MIT-licensed.
+ * See the LICENSE file in the repository for a copy of the MIT License.
+ */
 
 import {IERC7540} from "src/interfaces/IERC7540.sol";
 import {IERC7540Redeem} from "src/interfaces/IERC7540Redeem.sol";
