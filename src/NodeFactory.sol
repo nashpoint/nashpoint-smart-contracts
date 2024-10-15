@@ -12,27 +12,27 @@ import {Node} from "src/Node.sol";
 
 contract NodeFactory {
     function create(
-        address _depositAsset,
-        string memory _name,
-        string memory _symbol,
-        address _rebalancer,
-        uint256 _maxDiscount,
-        uint256 _targetReserveRatio,
-        uint256 _maxDelta,
-        uint256 _asyncMaxDelta,
-        address _owner
+        address depositAsset,
+        string memory name,
+        string memory symbol,
+        address rebalancer,
+        uint256 maxDiscount,
+        uint256 targetReserveRatio,
+        uint256 maxDelta,
+        uint256 asyncMaxDelta,
+        address owner
     ) external returns (address) {
         // TODO: build a bunch of require statements for the numbers to make sure they will work
         Node node = new Node(
-            _depositAsset,
-            _name,
-            _symbol,
-            _rebalancer,
-            _maxDiscount,
-            _targetReserveRatio,
-            _maxDelta,
-            _asyncMaxDelta,
-            _owner
+            depositAsset,
+            name,
+            symbol,
+            rebalancer,
+            maxDiscount,
+            targetReserveRatio,
+            maxDelta,
+            asyncMaxDelta,
+            owner
         );
         return address(node);
     }
