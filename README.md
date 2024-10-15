@@ -79,13 +79,13 @@ This is a work-in-progress prototype. Many of the core mechanisms are in place, 
 ### Next Steps
 
 - [ ] Finalize and optimize the ERC7540 integration
-    - [ ] Confirm the ERC7540 asset management logic is accurate to the Centrifuge integration
-    - [ ] Confirm the ERC7540 interface is accurate and suitable for integrators (i.e. Superform)
+    - [x] Confirm the ERC7540 asset management logic is accurate to the Centrifuge integration
+    - [x] Confirm the ERC7540 interface is accurate and suitable for integrators (i.e. Superform)
     - [ ] Enforce Withdrawal Queue on rebalancer liquidations logic
-    - [ ] Fix Logical Bug for Deposits (see TODO in Node.sol)
+    - [x] Fix Logical Bug for Deposits (see TODO in Node.sol)
     - [ ] Implement Rebalance Cooldown
     - [ ] Optimize Code and use caching where neccessary
-    - [ ] Implement Slither static analysis
+    - [x] Implement Slither static analysis
     - [ ] Fuzz & Invariant Testing
 - [ ] Modular Architecture (TBD: these are just suggestions)
     - [ ] Split Functionality over Modules and Libraries
