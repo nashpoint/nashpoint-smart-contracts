@@ -1,4 +1,5 @@
 # NashPoint 
+[![Foundry](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml)
 
 NashPoint is a in-development onchain banking system. Asset managers can permissionlessly create nodes that can accept user funds and invest them in various DeFi and RWA assets. All logic to express the strategy is held on the Node contract - customer deposits, target weightings, rebalance cooldown, maximum deviation from target weighting, accepted rebalancer addresses etc. All actions to execute the strategy are carried out by the rebalancer. This includes executing the transactions to invest user assets, liquidating underlying assets to meet withdrawal demand, and processessing withdrawal requests by making user funds available for withdrawal.
 
