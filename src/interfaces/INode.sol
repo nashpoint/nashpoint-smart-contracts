@@ -1,11 +1,25 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
+import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
+struct ComponentData {
+    /// @notice The target ratio of the component. 100% = 1e18.
+    uint256 targetRatio;
+    /// @notice Whether the component is async.
+    bool isAsync;
+    /// @notice The share token of the component.
+    address shareToken;
+}
+
 /**
  * @title INode
  * @author ODND Studios
  */
-interface INode {
+interface INode is IERC20Metadata {
+    /// @notice The address of the escrow.
+    function escrow() external view returns (address);
+
     /// @notice Sets the escrow.
     /// @param newEscrow The address of the new escrow.
     function setEscrow(address newEscrow) external;

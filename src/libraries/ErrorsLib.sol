@@ -21,4 +21,10 @@ library ErrorsLib {
 
     /// @notice Thrown when the safe approve failed.
     error SafeApproveFailed();
+
+    /// @notice Thrown when no name is provided.
+    error InvalidName();
+
+    /// @notice Thrown when no symbol is provided.
+    error InvalidSymbol();
 }

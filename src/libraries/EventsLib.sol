@@ -14,7 +14,7 @@ library EventsLib {
     event RemoveRebalancer(address indexed oldRebalancer);
 
     /// @notice Emitted when `node` is created.
-    event CreateNode(address indexed node, address asset, string name, string symbol, address[] rebalancers, address owner, bytes32 salt);
+    event CreateNode(address indexed node, address asset, string name, string symbol, address owner, bytes32 salt);
 
     /// @notice Emitted when a Rebalancer executes an external call.
     event Execute(address indexed target, uint256 value, bytes data, bytes result);

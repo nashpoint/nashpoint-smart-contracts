@@ -15,16 +15,12 @@ interface INodeFactory {
     /// @param asset The address of the underlying asset.
     /// @param name The name of the vault.
     /// @param symbol The symbol of the vault.
-    /// @param escrow The address of the escrow.
-    /// @param rebalancers The addresses of the rebalancers.
     /// @param owner The owner of the contract.
     /// @param salt The salt to use for the Node's CREATE2 address.
     function createNode(
         address asset,
         string memory name,
         string memory symbol,
-        address escrow,
-        address[] memory rebalancers,
         address owner,
         bytes32 salt
     ) external returns (INode node);

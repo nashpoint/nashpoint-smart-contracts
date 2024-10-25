@@ -12,9 +12,10 @@ import {
 import {Address} from "../lib/openzeppelin-contracts/contracts/utils/Address.sol";
 import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Ownable2Step, Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-import {INode} from "./interfaces/INode.sol";
+import {INode, ComponentData} from "./interfaces/INode.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
+import {UtilsLib} from "./libraries/UtilsLib.sol";
 
 /**
  * @title Node
@@ -22,6 +23,7 @@ import {EventsLib} from "./libraries/EventsLib.sol";
  */
 contract Node is ERC4626, Ownable2Step, INode {
     using Math for uint256;
+    using UtilsLib for uint256;
     using SafeERC20 for IERC20;
     using Address for address;
 
@@ -37,6 +39,9 @@ contract Node is ERC4626, Ownable2Step, INode {
     address public escrow;
 
     mapping(address => bool) public isRebalancer;
+
+    address[] public components;
+    mapping(address => ComponentData) public componentData;
 
     /* CONSTRUCTOR */
 
@@ -61,7 +66,7 @@ contract Node is ERC4626, Ownable2Step, INode {
             isRebalancer[rebalancers[i]] = true;
         }
 
-        DECIMALS_OFFSET = uint8(uint256(18) - IERC20Metadata(asset).decimals());
+        DECIMALS_OFFSET = uint8(uint256(18).zeroFloorSub(IERC20Metadata(asset).decimals()));
     }
 
     /* MODIFIERS */
@@ -125,7 +130,7 @@ contract Node is ERC4626, Ownable2Step, INode {
     /* ERC4626 (PUBLIC) */
 
     /// @inheritdoc IERC20Metadata
-    function decimals() public view override(ERC4626) returns (uint8) {
+    function decimals() public view override(ERC4626, IERC20Metadata) returns (uint8) {
         return ERC4626.decimals();
     }
 
