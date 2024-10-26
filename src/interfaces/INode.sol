@@ -2,21 +2,24 @@
 pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-
-struct ComponentData {
-    /// @notice The target ratio of the component. 100% = 1e18.
-    uint256 targetRatio;
-    /// @notice Whether the component is async.
-    bool isAsync;
-    /// @notice The share token of the component.
-    address shareToken;
-}
+import {IERC7575} from "./IERC7575.sol";
+import "./IERC7540.sol";
 
 /**
  * @title INode
  * @author ODND Studios
  */
-interface INode is IERC20Metadata {
+interface INode is 
+    IERC20Metadata,
+    IERC7540Deposit,
+    IERC7540Redeem,
+    IERC7540CancelDeposit,
+    IERC7540CancelRedeem,
+    IERC7575
+{
+    event DepositClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
+    event RedeemClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
+
     /// @notice The address of the escrow.
     function escrow() external view returns (address);
 
