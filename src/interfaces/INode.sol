@@ -5,6 +5,12 @@ import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/E
 import {IERC7575} from "./IERC7575.sol";
 import "./IERC7540.sol";
 
+struct ComponentTargetWeight {
+    uint256 minTargetWeight;
+    uint256 maxTargetWeight;
+    uint256 targetWeight;
+}
+
 /**
  * @title INode
  * @author ODND Studios

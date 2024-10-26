@@ -3,14 +3,15 @@ pragma solidity 0.8.26;
 
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "src/interfaces/IERC7540.sol";
+import "src/interfaces/IERC7575.sol";
 import {Address} from "../lib/openzeppelin-contracts/contracts/utils/Address.sol";
 import {Ownable2Step, Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-import {INode} from "./interfaces/INode.sol";
+import {INode, ComponentTargetWeight} from "./interfaces/INode.sol";
 import {IQueueManager} from "./interfaces/IQueueManager.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {UtilsLib} from "./libraries/UtilsLib.sol";
-
 
 /**
  * @title Node
@@ -132,7 +133,7 @@ contract Node is ERC20, Ownable2Step, INode {
         if (IERC20(asset).balanceOf(owner) < assets) revert ErrorsLib.InsufficientBalance();
 
         require(
-            manager.requestDeposit(address(this), assets, controller, owner, msg.sender),
+            manager.requestDeposit(assets, controller, owner, msg.sender),
             ErrorsLib.RequestDepositFailed()
         );
         SafeTransferLib.safeTransferFrom(asset, owner, address(escrow), assets);
@@ -143,7 +144,7 @@ contract Node is ERC20, Ownable2Step, INode {
 
     /// @inheritdoc IERC7540Deposit
     function pendingDepositRequest(uint256, address controller) public view returns (uint256 pendingAssets) {
-        pendingAssets = manager.pendingDepositRequest(address(this), controller);
+        pendingAssets = manager.pendingDepositRequest(controller);
     }
 
     /// @inheritdoc IERC7540Deposit
@@ -160,18 +161,18 @@ contract Node is ERC20, Ownable2Step, INode {
         address sender = isOperator[owner][msg.sender] ? owner : msg.sender;
 
         require(
-            manager.requestRedeem(address(this), shares, controller, owner, sender),
+            manager.requestRedeem(shares, controller, owner, sender),
             ErrorsLib.RequestRedeemFailed()
         );
         SafeTransferLib.safeTransferFrom(share, owner, address(escrow), shares);
 
-        emit RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
+        emit EventsLib.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
 
     /// @inheritdoc IERC7540Redeem
     function pendingRedeemRequest(uint256, address controller) public view returns (uint256 pendingShares) {
-        pendingShares = manager.pendingRedeemRequest(address(this), controller);
+        pendingShares = manager.pendingRedeemRequest(controller);
     }
 
     /// @inheritdoc IERC7540Redeem
@@ -200,29 +201,29 @@ contract Node is ERC20, Ownable2Step, INode {
 
     /// @inheritdoc IERC7575
     function totalAssets() external view returns (uint256) {
-        return convertToAssets(IERC20Metadata(share).totalSupply());
+        return convertToAssets(totalSupply());
     }
 
     /// @inheritdoc IERC7575
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        shares = manager.convertToShares(address(this), assets);
+        shares = manager.convertToShares(assets);
     }
 
     /// @inheritdoc IERC7575
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        assets = manager.convertToAssets(address(this), shares);
+        assets = manager.convertToAssets(shares);
     }
 
     /// @inheritdoc IERC7575
     function maxDeposit(address controller) public view returns (uint256 maxAssets) {
-        maxAssets = manager.maxDeposit(address(this), controller);
+        maxAssets = manager.maxDeposit(controller);
     }
 
     /// @inheritdoc IERC7540Deposit
     function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
         _validateController(controller);
-        shares = manager.deposit(address(this), assets, receiver, controller);
-        emit Deposit(receiver, controller, assets, shares);
+        shares = manager.deposit(assets, receiver, controller);
+        emit EventsLib.Deposit(receiver, controller, assets, shares);
     }
 
     /// @inheritdoc IERC7575
@@ -232,14 +233,14 @@ contract Node is ERC20, Ownable2Step, INode {
 
     /// @inheritdoc IERC7575
     function maxMint(address controller) public view returns (uint256 maxShares) {
-        maxShares = manager.maxMint(address(this), controller);
+        maxShares = manager.maxMint(controller);
     }
 
     /// @inheritdoc IERC7540Deposit
     function mint(uint256 shares, address receiver, address controller) public returns (uint256 assets) {
         _validateController(controller);
-        assets = manager.mint(address(this), shares, receiver, controller);
-        emit Deposit(receiver, controller, assets, shares);
+        assets = manager.mint(shares, receiver, controller);
+        emit EventsLib.Deposit(receiver, controller, assets, shares);
     }
 
     /// @inheritdoc IERC7575
@@ -249,20 +250,20 @@ contract Node is ERC20, Ownable2Step, INode {
 
     /// @inheritdoc IERC7575
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
-        maxAssets = manager.maxWithdraw(address(this), controller);
+        maxAssets = manager.maxWithdraw(controller);
     }
 
     /// @inheritdoc IERC7575
     /// @notice     DOES NOT support controller != msg.sender since shares are already transferred on requestRedeem
     function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
         _validateController(controller);
-        shares = manager.withdraw(address(this), assets, receiver, controller);
-        emit Withdraw(msg.sender, receiver, controller, assets, shares);
+        shares = manager.withdraw(assets, receiver, controller);
+        emit EventsLib.Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
     /// @inheritdoc IERC7575
     function maxRedeem(address controller) public view returns (uint256 maxShares) {
-        maxShares = manager.maxRedeem(address(this), controller);
+        maxShares = manager.maxRedeem(controller);
     }
 
     /// @inheritdoc IERC7575
@@ -271,8 +272,8 @@ contract Node is ERC20, Ownable2Step, INode {
     ///             It is recommended to use withdraw() to claim redemption requests instead.
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
         _validateController(controller);
-        assets = manager.redeem(address(this), shares, receiver, controller);
-        emit Withdraw(msg.sender, receiver, controller, assets, shares);
+        assets = manager.redeem(shares, receiver, controller);
+        emit EventsLib.Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
     /// @dev Preview functions for ERC-7540 vaults revert

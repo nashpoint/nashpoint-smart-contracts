@@ -27,4 +27,7 @@ contract Quoter is Ownable2Step, IQuoter {
 
     function getTotalAssets() external view returns (uint256) {
     }
+
+    function getPrice() external view returns (uint256) {
+    }
 }
