@@ -138,3 +138,5 @@ interface IERC7540Redeem is IERC7540Operator {
         view
         returns (uint256 claimableShares);
 }
+
+interface IERC7540 is IERC7540Deposit, IERC7540Redeem {}

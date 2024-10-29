@@ -290,6 +290,11 @@ contract Node is INode, ERC20, Ownable2Step {
         return convertToAssets(10 ** decimals());
     }
 
+    /// @notice Returns the components of the node
+    function getComponents() external view returns (address[] memory) {
+        return components;
+    }
+
     /* ERC-20 MINT/BURN FUNCTIONS */
     /// @inheritdoc INode
     function mint(address user, uint256 value) external onlyQueueManager {

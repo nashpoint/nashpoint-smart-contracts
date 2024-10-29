@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575} from "./IERC7575.sol";
-import "./IERC7540.sol";
+import {IERC7540} from "./IERC7540.sol";
 
 struct ComponentAllocation {
     uint256 minimumWeight;
@@ -17,8 +17,7 @@ struct ComponentAllocation {
  */
 interface INode is 
     IERC20Metadata,
-    IERC7540Deposit,
-    IERC7540Redeem,
+    IERC7540,
     IERC7575
 {
     event DepositClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
@@ -61,4 +60,7 @@ interface INode is
 
     /// @notice Function for the QueueManager to burn tokens
     function burn(address user, uint256 value) external;
+
+    /// @notice Returns the components of the node
+    function getComponents() external view returns (address[] memory);
 }
