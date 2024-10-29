@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
+import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Ownable, Ownable2Step} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {INode} from "./interfaces/INode.sol";
 import {IQueueManager, QueueState} from "./interfaces/IQueueManager.sol";
@@ -17,7 +19,7 @@ import {MathLib} from "./libraries/MathLib.sol";
  */
 contract QueueManager is IQueueManager, Ownable2Step {
     using MathLib for uint256;
-
+    using SafeERC20 for IERC20;
     /* CONSTANTS */
     uint8 internal constant PRICE_DECIMALS = 18;
 
@@ -76,9 +78,37 @@ contract QueueManager is IQueueManager, Ownable2Step {
         return true;
     }
 
-    // function fulfillDepositRequest
+    /// @inheritdoc IQueueManager
+    function fulfillDepositRequest(
+        address user,
+        uint128 assets,
+        uint128 shares
+    ) public onlyOwner {
+        QueueState storage state = queueStates[user];
+        if (state.pendingDepositRequest == 0) revert ErrorsLib.NoPendingDepositRequest();
+        state.depositPrice = _calculatePrice(_maxDeposit(user) + assets, state.maxMint + shares);
+        state.maxMint = state.maxMint + shares;
+        state.pendingDepositRequest = state.pendingDepositRequest > assets ? state.pendingDepositRequest - assets : 0;
 
-    // function fulfillRedeemRequest
+        node.mint(node.escrow(), shares);
+        node.onDepositClaimable(user, assets, shares);
+    }
+
+    /// @inheritdoc IQueueManager
+    function fulfillRedeemRequest(
+        address user,
+        uint128 assets,
+        uint128 shares
+    ) public onlyOwner {
+        QueueState storage state = queueStates[user];
+        if (state.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
+        state.redeemPrice = _calculatePrice(state.maxWithdraw + assets, _maxRedeem(user) + shares);
+        state.maxWithdraw = state.maxWithdraw > assets ? state.maxWithdraw - assets : 0;
+        state.pendingRedeemRequest = state.pendingRedeemRequest > shares ? state.pendingRedeemRequest - shares : 0;
+
+        node.burn(node.escrow(), shares);
+        node.onRedeemClaimable(user, assets, shares);
+    }
 
     /* VIEW */
     /// @inheritdoc IQueueManager
@@ -94,39 +124,126 @@ contract QueueManager is IQueueManager, Ownable2Step {
     }
 
     /// @inheritdoc IQueueManager
-    function maxDeposit(address controller) public view returns (uint256 assets) {
-        QueueState storage state = queueStates[controller];
+    function maxDeposit(address user) public view returns (uint256 assets) {
+        assets = uint256(_maxDeposit(user));
+    }
+
+    function _maxDeposit(address user) internal view returns (uint128 assets) {
+        QueueState storage state = queueStates[user];
         assets = _calculateAssets(state.maxMint, state.depositPrice, MathLib.Rounding.Down);
     }
 
     /// @inheritdoc IQueueManager
-    function maxMint(address controller) public view returns (uint256 shares) {
-        QueueState storage state = queueStates[controller];
+    function maxMint(address user) public view returns (uint256 shares) {
+        QueueState storage state = queueStates[user];
         shares = state.maxMint;
     }
 
     /// @inheritdoc IQueueManager
-    function maxWithdraw(address controller) public view returns (uint256 assets) {
-        QueueState storage state = queueStates[controller];
+    function maxWithdraw(address user) public view returns (uint256 assets) {
+        QueueState storage state = queueStates[user];
         assets = state.maxWithdraw;
     }
 
     /// @inheritdoc IQueueManager
-    function maxRedeem(address controller) public view returns (uint256 shares) {
-        QueueState storage state = queueStates[controller];
-        shares = uint256(_calculateShares(state.maxWithdraw, state.redeemPrice, MathLib.Rounding.Down));
+    function maxRedeem(address user) public view returns (uint256 shares) {
+        shares = uint256(_maxRedeem(user));
+    }
+
+    function _maxRedeem(address user) internal view returns (uint128 shares) {
+        QueueState storage state = queueStates[user];
+        shares = _calculateShares(state.maxWithdraw, state.redeemPrice, MathLib.Rounding.Down);
     }
 
     /// @inheritdoc IQueueManager
-    function pendingDepositRequest(address controller) public view returns (uint256 assets) {
-        QueueState storage state = queueStates[controller];
+    function pendingDepositRequest(address user) public view returns (uint256 assets) {
+        QueueState storage state = queueStates[user];
         assets = state.pendingDepositRequest;
     }
 
     /// @inheritdoc IQueueManager
-    function pendingRedeemRequest(address controller) public view returns (uint256 shares) {
-        QueueState storage state = queueStates[controller];
+    function pendingRedeemRequest(address user) public view returns (uint256 shares) {
+        QueueState storage state = queueStates[user];
         shares = state.pendingRedeemRequest;
+    }
+
+    /* VAULT CLAIM FUNCTIONS */
+    /// @inheritdoc IQueueManager
+    function deposit(uint256 assets, address receiver, address controller)
+        public
+        onlyNode
+        returns (uint256 shares)
+    {
+        if (assets > maxDeposit(controller)) revert ErrorsLib.ExceedsMaxDeposit();
+
+        QueueState storage state = queueStates[controller];
+        uint128 sharesUp = _calculateShares(assets.toUint128(), state.depositPrice, MathLib.Rounding.Up);
+        uint128 sharesDown = _calculateShares(assets.toUint128(), state.depositPrice, MathLib.Rounding.Down);
+        _processDeposit(state, sharesUp, sharesDown, receiver);
+        shares = uint256(sharesDown);
+    }
+
+    /// @inheritdoc IQueueManager
+    function mint(uint256 shares, address receiver, address controller)
+        public
+        onlyNode
+        returns (uint256 assets)
+    {
+        QueueState storage state = queueStates[controller];
+        uint128 shares_ = shares.toUint128();
+        _processDeposit(state, shares_, shares_, receiver);
+        assets = uint256(_calculateAssets(shares_, state.depositPrice, MathLib.Rounding.Down));
+    }
+
+    function _processDeposit(
+        QueueState storage state,
+        uint128 sharesUp,
+        uint128 sharesDown,
+        address receiver
+    ) internal {
+        if (sharesUp > state.maxMint) revert ErrorsLib.ExceedsMaxDeposit();
+        state.maxMint = state.maxMint > sharesUp ? state.maxMint - sharesUp : 0;
+        if (sharesDown > 0) {
+            IERC20(node).safeTransferFrom(node.escrow(), receiver, sharesDown);
+        }
+    }
+
+    /// @inheritdoc IQueueManager
+    function redeem(uint256 shares, address receiver, address controller)
+        public
+        onlyNode
+        returns (uint256 assets)
+    {
+        if (shares > maxRedeem(controller)) revert ErrorsLib.ExceedsMaxRedeem();
+
+        QueueState storage state = queueStates[controller];
+        uint128 assetsUp = _calculateAssets(shares.toUint128(), state.redeemPrice, MathLib.Rounding.Up);
+        uint128 assetsDown = _calculateAssets(shares.toUint128(), state.redeemPrice, MathLib.Rounding.Down);
+        _processRedeem(state, assetsUp, assetsDown, receiver);
+        assets = uint256(assetsDown);
+    }
+
+    /// @inheritdoc IQueueManager
+    function withdraw(uint256 assets, address receiver, address controller)
+        public
+        onlyNode
+        returns (uint256 shares)
+    {
+        QueueState storage state = queueStates[controller];
+        uint128 assets_ = assets.toUint128();
+        _processRedeem(state, assets_, assets_, receiver);
+        shares = uint256(_calculateShares(assets_, state.redeemPrice, MathLib.Rounding.Down));
+    }
+
+    function _processRedeem(
+        QueueState storage state,
+        uint128 assetsUp,
+        uint128 assetsDown,
+        address receiver
+    ) internal {
+        if (assetsUp > state.maxWithdraw) revert ErrorsLib.ExceedsMaxWithdraw();
+        state.maxWithdraw = state.maxWithdraw > assetsUp ? state.maxWithdraw - assetsUp : 0;
+        if (assetsDown > 0) IERC20(node.asset()).safeTransferFrom(node.escrow(), receiver, assetsDown);
     }
 
     /* INTERNAL */
@@ -167,7 +284,7 @@ contract QueueManager is IQueueManager, Ownable2Step {
     }
 
     /// @dev    Calculates share price and returns the value in price decimals
-    function _calculatePrice(address vault, uint128 assets, uint128 shares) internal view returns (uint256) {
+    function _calculatePrice(uint128 assets, uint128 shares) internal view returns (uint256) {
         if (assets == 0 || shares == 0) {
             return 0;
         }

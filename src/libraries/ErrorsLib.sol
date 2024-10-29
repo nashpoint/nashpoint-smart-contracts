@@ -51,4 +51,19 @@ library ErrorsLib {
 
     /// @notice Thrown when trying to set self as operator.
     error CannotSetSelfAsOperator();
+
+    /// @notice Thrown when there is no pending deposit request.
+    error NoPendingDepositRequest();
+
+    /// @notice Thrown when there is no pending redeem request.
+    error NoPendingRedeemRequest();
+
+    /// @notice Thrown when the max deposit is exceeded.
+    error ExceedsMaxDeposit();
+
+    /// @notice Thrown when the max redeem is exceeded.
+    error ExceedsMaxRedeem();
+
+    /// @notice Thrown when the max withdraw is exceeded.
+    error ExceedsMaxWithdraw();
 }

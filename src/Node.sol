@@ -86,6 +86,11 @@ contract Node is INode, ERC20, Ownable2Step {
         _;
     }
 
+    modifier onlyQueueManager() {
+        if (msg.sender != address(manager)) revert ErrorsLib.InvalidSender();
+        _;
+    }
+
     /* OWNER FUNCTIONS */
     /// @inheritdoc INode
     function addRebalancer(address newRebalancer) external onlyOwner {
@@ -293,6 +298,26 @@ contract Node is INode, ERC20, Ownable2Step {
     /// @notice Price of 1 unit of share, quoted in the decimals of the asset.
     function pricePerShare() external view returns (uint256) {
         return convertToAssets(10 ** decimals());
+    }
+
+    /* ERC-20 MINT/BURN FUNCTIONS */
+    /// @inheritdoc INode
+    function mint(address user, uint256 value) external onlyQueueManager {
+        _mint(user, value);
+    }
+
+    /// @inheritdoc INode
+    function burn(address user, uint256 value) external onlyQueueManager {
+        _burn(user, value);
+    }
+
+    /* EVENT EMITTERS */
+    function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {
+        emit DepositClaimable(controller, REQUEST_ID, assets, shares);
+    }
+
+    function onRedeemClaimable(address controller, uint256 assets, uint256 shares) public {
+        emit RedeemClaimable(controller, REQUEST_ID, assets, shares);
     }
 
     /* INTERNAL */

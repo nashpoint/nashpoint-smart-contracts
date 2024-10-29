@@ -49,4 +49,16 @@ interface INode is
         uint256 value,
         bytes calldata data
     ) external returns (bytes memory result);
+
+    /// @notice Callback when a deposit Request becomes claimable
+    function onDepositClaimable(address owner, uint256 assets, uint256 shares) external;
+
+    /// @notice Callback when a redeem Request becomes claimable
+    function onRedeemClaimable(address owner, uint256 assets, uint256 shares) external;
+
+    /// @notice Function for the QueueManager to mint tokens
+    function mint(address user, uint256 value) external;
+
+    /// @notice Function for the QueueManager to burn tokens
+    function burn(address user, uint256 value) external;
 }
