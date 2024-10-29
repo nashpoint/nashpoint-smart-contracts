@@ -35,17 +35,13 @@ contract Node is INode, ERC20, Ownable2Step {
     address public immutable share;
 
     /* STORAGE */
-    /// @inheritdoc INode
     address[] public components;
-    /// @inheritdoc INode
     mapping(address => ComponentAllocation) public componentAllocations;
     /// @inheritdoc INode
     address public escrow;
-    /// @inheritdoc INode
     mapping(address => bool) public isRebalancer;
     /// @inheritdoc IERC7540Operator
     mapping(address => mapping(address => bool)) public isOperator;
-    /// @inheritdoc INode
     IQueueManager public manager;
 
     /* CONSTRUCTOR */
@@ -133,10 +129,9 @@ contract Node is INode, ERC20, Ownable2Step {
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert ErrorsLib.InvalidOwner();
         if (IERC20(asset).balanceOf(owner) < assets) revert ErrorsLib.InsufficientBalance();
 
-        require(
-            manager.requestDeposit(assets, controller, owner, msg.sender),
-            ErrorsLib.RequestDepositFailed()
-        );
+        if (!manager.requestDeposit(assets, controller)) {
+            revert ErrorsLib.RequestDepositFailed();
+        }
         IERC20(asset).safeTransferFrom(owner, address(escrow), assets);
 
         emit IERC7540Deposit.DepositRequest(controller, owner, REQUEST_ID, msg.sender, assets);
@@ -157,14 +152,9 @@ contract Node is INode, ERC20, Ownable2Step {
     function requestRedeem(uint256 shares, address controller, address owner) public returns (uint256) {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
 
-        // If msg.sender is operator of owner, the transfer is executed as if
-        // the sender is the owner, to bypass the allowance check
-        address sender = isOperator[owner][msg.sender] ? owner : msg.sender;
-
-        require(
-            manager.requestRedeem(shares, controller, owner, sender),
-            ErrorsLib.RequestRedeemFailed()
-        );
+        if (!manager.requestRedeem(shares, controller)) {
+            revert ErrorsLib.RequestRedeemFailed();
+        }
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
 
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);

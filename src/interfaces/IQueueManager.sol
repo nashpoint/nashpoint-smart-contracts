@@ -26,13 +26,11 @@ interface IQueueManager {
 
     /// @notice Initiates a deposit request by locking assets in escrow
     /// @dev Assets are transferred from owner to escrow immediately upon request
-    function requestDeposit(uint256 assets, address receiver, address owner, address source)
-        external
-        returns (bool);
+    function requestDeposit(uint256 assets, address receiver) external returns (bool);
 
-    function requestRedeem(uint256 shares, address receiver, address, /* owner */ address source)
-        external
-        returns (bool);
+    /// @notice Initiates a redeem request by locking shares in escrow
+    /// @dev Shares are transferred from owner to escrow immediately upon request
+    function requestRedeem(uint256 shares, address receiver) external returns (bool);
 
     // --- View functions ---
     /// @notice Converts the assets value to share decimals.
@@ -63,6 +61,30 @@ interface IQueueManager {
 
     /// @notice Indicates whether a user has pending redeem requests and returns the total share request value.
     function pendingRedeemRequest(address user) external view returns (uint256 shares);
+
+    /// @notice Fulfills pending deposit requests after successful epoch execution on Centrifuge.
+    ///         The amount of shares that can be claimed by the user is minted and moved to the escrow contract.
+    ///         The MaxMint bookkeeping value is updated.
+    ///         The request fulfillment can be partial.
+    /// @dev    The shares in the escrow are reserved for the user and are transferred to the user on deposit
+    ///         and mint calls.
+    function fulfillDepositRequest(
+        address user,
+        uint128 assets,
+        uint128 shares
+    ) external;
+
+    /// @notice Fulfills pending redeem requests after successful epoch execution on Centrifuge.
+    ///         The amount of redeemed shares is burned. The amount of assets that can be claimed by the user in
+    ///         return is locked in the escrow contract. The MaxWithdraw bookkeeping value is updated.
+    ///         The request fulfillment can be partial.
+    /// @dev    The assets in the escrow are reserved for the user and are transferred to the user on redeem
+    ///         and withdraw calls.
+    function fulfillRedeemRequest(
+        address user,
+        uint128 assets,
+        uint128 shares
+    ) external;
 
     // --- Vault claim functions ---
     /// @notice Processes owner's asset deposit after the epoch has been executed on Centrifuge and the deposit order

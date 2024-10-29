@@ -20,6 +20,7 @@ import {MathLib} from "./libraries/MathLib.sol";
 contract QueueManager is IQueueManager, Ownable2Step {
     using MathLib for uint256;
     using SafeERC20 for IERC20;
+
     /* CONSTANTS */
     uint8 internal constant PRICE_DECIMALS = 18;
 
@@ -28,9 +29,7 @@ contract QueueManager is IQueueManager, Ownable2Step {
     INode public immutable node;
 
     /* STORAGE */
-    /// @inheritdoc IQueueManager
     IQuoter public quoter;
-    /// @inheritdoc IQueueManager
     mapping(address => QueueState) public queueStates;
 
     /* CONSTRUCTOR */
@@ -53,7 +52,7 @@ contract QueueManager is IQueueManager, Ownable2Step {
 
     /* EXTERNAL */
     /// @inheritdoc IQueueManager
-    function requestDeposit(uint256 assets, address controller, address, /* owner */ address source)
+    function requestDeposit(uint256 assets, address controller)
         public
         onlyNode
         returns (bool)
@@ -66,7 +65,7 @@ contract QueueManager is IQueueManager, Ownable2Step {
     }
 
     /// @inheritdoc IQueueManager
-    function requestRedeem(uint256 shares, address controller, address, /* owner */ address source)
+    function requestRedeem(uint256 shares, address controller)
         public
         onlyNode
         returns (bool)
