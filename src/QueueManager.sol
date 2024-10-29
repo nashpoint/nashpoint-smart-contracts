@@ -1,59 +1,65 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
+import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {Ownable, Ownable2Step} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+
 import {INode} from "./interfaces/INode.sol";
-import {Ownable2Step, Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {IQueueManager, QueueState} from "./interfaces/IQueueManager.sol";
 import {IQuoter} from "./interfaces/IQuoter.sol";
-import {IQueueManager} from "./interfaces/IQueueManager.sol";
+
+import {ErrorsLib} from "./libraries/ErrorsLib.sol";
+import {MathLib} from "./libraries/MathLib.sol";
 
 /**
  * @title QueueManager
  * @author ODND Studios
  */
-contract QueueManager is Ownable2Step, IQueueManager {
+contract QueueManager is IQueueManager, Ownable2Step {
+    using MathLib for uint256;
 
     /* CONSTANTS */
-
-    /// @dev Prices are fixed-point integers with 18 decimals
     uint8 internal constant PRICE_DECIMALS = 18;
 
     /* IMMUTABLES */
-
+    /// @dev Reference to the Node contract this queue manager serves
     INode public immutable node;
 
     /* STORAGE */
-
     /// @inheritdoc IQueueManager
     IQuoter public quoter;
-
     /// @inheritdoc IQueueManager
     mapping(address => QueueState) public queueStates;
 
     /* CONSTRUCTOR */
-
-    constructor(address node_, address quoter_, address owner_) Ownable(owner_) {
+    constructor(
+        address node_,
+        address quoter_,
+        address owner_
+    ) Ownable(owner_) {
+        if (node_ == address(0) || quoter_ == address(0)) revert ErrorsLib.ZeroAddress();
+        
         node = INode(node_);
         quoter = IQuoter(quoter_);
     }
 
     /* MODIFIERS */
-
     modifier onlyNode() {
         if (msg.sender != address(node)) revert ErrorsLib.InvalidSender();
         _;
     }
 
     /* EXTERNAL */
-
     /// @inheritdoc IQueueManager
     function requestDeposit(uint256 assets, address controller, address, /* owner */ address source)
         public
         onlyNode
         returns (bool)
     {
-        if (assets == 0) revert ErrorsLib.ZeroAmount();
+        uint128 _assets = assets.toUint128();
+        if (_assets == 0) revert ErrorsLib.ZeroAmount();
         QueueState storage state = queueStates[controller];
-        state.pendingDepositRequest = state.pendingDepositRequest + assets;
+        state.pendingDepositRequest = state.pendingDepositRequest + _assets;
         return true;
     }
 
@@ -63,9 +69,10 @@ contract QueueManager is Ownable2Step, IQueueManager {
         onlyNode
         returns (bool)
     {
-        if (shares == 0) revert ErrorsLib.ZeroAmount();
+        uint128 _shares = shares.toUint128();
+        if (_shares == 0) revert ErrorsLib.ZeroAmount();
         QueueState storage state = queueStates[controller];
-        state.pendingRedeemRequest = state.pendingRedeemRequest + shares;
+        state.pendingRedeemRequest = state.pendingRedeemRequest + _shares;
         return true;
     }
 
@@ -74,17 +81,16 @@ contract QueueManager is Ownable2Step, IQueueManager {
     // function fulfillRedeemRequest
 
     /* VIEW */
-
     /// @inheritdoc IQueueManager
     function convertToShares(uint256 _assets) public view returns (uint256 shares) {
-        uint256 latestPrice = quoter.getPrice();
-        shares = uint256(_calculateShares(_assets, latestPrice, MathLib.Rounding.Down));
+        uint128 latestPrice = quoter.getPrice();
+        shares = uint256(_calculateShares(_assets.toUint128(), latestPrice, MathLib.Rounding.Down));
     }
 
     /// @inheritdoc IQueueManager
     function convertToAssets(uint256 _shares) public view returns (uint256 assets) {
-        uint256 latestPrice = quoter.getPrice();
-        assets = uint256(_calculateAssets(_shares, latestPrice, MathLib.Rounding.Down));
+        uint128 latestPrice = quoter.getPrice();
+        assets = uint256(_calculateAssets(_shares.toUint128(), latestPrice, MathLib.Rounding.Down));
     }
 
     /// @inheritdoc IQueueManager
@@ -117,14 +123,13 @@ contract QueueManager is Ownable2Step, IQueueManager {
         assets = state.pendingDepositRequest;
     }
 
-    /// @inheritdoc IInvestmentManager
+    /// @inheritdoc IQueueManager
     function pendingRedeemRequest(address controller) public view returns (uint256 shares) {
         QueueState storage state = queueStates[controller];
         shares = state.pendingRedeemRequest;
     }
 
     /* INTERNAL */
-
     /// @dev    Calculates share amount based on asset amount and share price. Returned value is in share decimals.
     function _calculateShares(uint128 assets, uint256 price, MathLib.Rounding rounding)
         internal
@@ -190,11 +195,5 @@ contract QueueManager is Ownable2Step, IQueueManager {
     function _getNodeDecimals() internal view returns (uint8 assetDecimals, uint8 nodeDecimals) {
         assetDecimals = IERC20Metadata(node.asset()).decimals();
         nodeDecimals = node.decimals();
-    }
-
-    /// @dev    Checks transfer restrictions for the vault shares. Sender (from) and receiver (to) have both to pass the
-    ///         restrictions for a successful share transfer.
-    function _canTransfer(address from, address to, uint256 value) internal view returns (bool) {
-        return node.checkTransferRestriction(from, to, value);
     }
 }

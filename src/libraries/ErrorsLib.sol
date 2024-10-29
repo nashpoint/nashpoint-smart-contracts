@@ -27,4 +27,28 @@ library ErrorsLib {
 
     /// @notice Thrown when no symbol is provided.
     error InvalidSymbol();
+
+    /// @notice Thrown when zero amount is provided.
+    error ZeroAmount();
+
+    /// @notice Thrown when the sender is invalid.
+    error InvalidSender();
+
+    /// @notice Thrown when the owner is invalid.
+    error InvalidOwner();
+
+    /// @notice Thrown when the controller is invalid.
+    error InvalidController();
+
+    /// @notice Thrown when the balance is insufficient.
+    error InsufficientBalance();
+
+    /// @notice Thrown when the deposit request failed.
+    error RequestDepositFailed();
+
+    /// @notice Thrown when the redeem request failed.
+    error RequestRedeemFailed();
+
+    /// @notice Thrown when trying to set self as operator.
+    error CannotSetSelfAsOperator();
 }

@@ -2,11 +2,11 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
+import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
+import {Escrow} from "src/Escrow.sol";
+import {Node} from "src/Node.sol";
 import {INode} from "src/interfaces/INode.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
-import {Node} from "src/Node.sol";
-import {Escrow} from "src/Escrow.sol";
-import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
 contract NodeFactoryTest is BaseTest {
     event CreateNode(
@@ -19,39 +19,37 @@ contract NodeFactoryTest is BaseTest {
         bytes32 salt
     );
 
+    address public randomNode;
+    address public randomQuoter;
+
     function setUp() public override {
         super.setUp();
+        randomNode = makeAddr("node");
+        randomQuoter = makeAddr("quoter");
     }
 
-    function test_isNode() public {
-        INode node = nodeFactory.createNode(address(erc20), "Test Node", "TNODE", deployer, keccak256(abi.encodePacked("salt", block.timestamp)));
-
-        assertTrue(nodeFactory.isNode(address(node)));
-        assertFalse(nodeFactory.isNode(address(0x1234)));
+    /* TEST FACTORY CREATION */
+    function test_createERC4626Rebalancer() public {
+        bytes32 salt = keccak256("rebalancer");
+        address rebalancer = address(nodeFactory.createERC4626Rebalancer(randomNode, deployer, salt));
+        assertTrue(rebalancer != address(0));
     }
 
-    function test_createNodeWithZeroAddressAsset() public {
-        vm.expectRevert();
-        nodeFactory.createNode(address(0), "Zero Asset Node", "ZERO", address(this), keccak256("zero"));
+    function test_createEscrow() public {
+        bytes32 salt = keccak256("escrow");
+        address escrow = address(nodeFactory.createEscrow(deployer, salt));
+        assertTrue(escrow != address(0));
     }
 
-    function test_createNodeWithEmptyName() public {
-        vm.expectRevert();
-        nodeFactory.createNode(address(erc20), "", "EMPTY", address(this), keccak256("empty"));
+    function test_createQueueManager() public {
+        bytes32 salt = keccak256("manager");
+        address manager = address(nodeFactory.createQueueManager(randomNode, randomQuoter, deployer, salt));
+        assertTrue(manager != address(0));
     }
 
-    function test_createNodeWithEmptySymbol() public {
-        vm.expectRevert();
-        nodeFactory.createNode(address(erc20), "Empty Symbol Node", "", address(this), keccak256("empty_symbol"));
-    }
-
-    function test_createNodeWithZeroAddressOwner() public {
-        vm.expectRevert();
-        nodeFactory.createNode(address(erc20), "Zero Owner Node", "ZERO", address(0), keccak256("zero_owner"));
-    }
-
-    function test_nodeOwnership() public {
-        INode node = nodeFactory.createNode(address(erc20), "Owned Node", "OWNED", deployer, keccak256("owned"));
-        assertEq(Node(address(node)).owner(), deployer, "Node owner should be set correctly");
+    function test_createQuoter() public {
+        bytes32 salt = keccak256("quoter");
+        address quoter = address(nodeFactory.createQuoter(randomNode, deployer, salt));
+        assertTrue(quoter != address(0));
     }
 }

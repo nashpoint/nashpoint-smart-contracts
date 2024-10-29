@@ -5,4 +5,7 @@ interface IQuoter {
 
     /// @notice Returns the total assets in the Node based on valuation of the underlying components
     function getTotalAssets() external view returns (uint256);
+
+    /// @notice Returns the price of a share of the Node
+    function getPrice() external view returns (uint128);
 }

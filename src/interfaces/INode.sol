@@ -5,9 +5,9 @@ import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/E
 import {IERC7575} from "./IERC7575.sol";
 import "./IERC7540.sol";
 
-struct ComponentTargetWeight {
-    uint256 minTargetWeight;
-    uint256 maxTargetWeight;
+struct ComponentAllocation {
+    uint256 minimumWeight;
+    uint256 maximumWeight;
     uint256 targetWeight;
 }
 
@@ -19,8 +19,6 @@ interface INode is
     IERC20Metadata,
     IERC7540Deposit,
     IERC7540Redeem,
-    IERC7540CancelDeposit,
-    IERC7540CancelRedeem,
     IERC7575
 {
     event DepositClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);

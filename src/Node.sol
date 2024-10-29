@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
+import {Address} from "../lib/openzeppelin-contracts/contracts/utils/Address.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "src/interfaces/IERC7540.sol";
-import "src/interfaces/IERC7575.sol";
-import {Address} from "../lib/openzeppelin-contracts/contracts/utils/Address.sol";
-import {Ownable2Step, Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-import {INode, ComponentTargetWeight} from "./interfaces/INode.sol";
+import {Ownable, Ownable2Step} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+
+import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {IQueueManager} from "./interfaces/IQueueManager.sol";
+import {IERC7540Deposit, IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
+import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
+
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {UtilsLib} from "./libraries/UtilsLib.sol";
@@ -17,52 +20,43 @@ import {UtilsLib} from "./libraries/UtilsLib.sol";
  * @title Node
  * @author ODND Studios
  */
-contract Node is ERC20, Ownable2Step, INode {
-    using UtilsLib for uint256;
+contract Node is INode, ERC20, Ownable2Step {
     using Address for address;
+    using SafeERC20 for IERC20;
+    using UtilsLib for uint256;
 
     /* CONSTANTS */
-
-    /// @dev Requests are non-fungible and all have ID = 0
     uint256 private constant REQUEST_ID = 0;
 
     /* IMMUTABLES */
-
     /// @inheritdoc IERC7575
     address public immutable asset;
-
     /// @inheritdoc IERC7575
     address public immutable share;
 
     /* STORAGE */
-
+    /// @inheritdoc INode
+    address[] public components;
+    /// @inheritdoc INode
+    mapping(address => ComponentAllocation) public componentAllocations;
     /// @inheritdoc INode
     address public escrow;
-
+    /// @inheritdoc INode
+    mapping(address => bool) public isRebalancer;
+    /// @inheritdoc IERC7540Operator
+    mapping(address => mapping(address => bool)) public isOperator;
     /// @inheritdoc INode
     IQueueManager public manager;
 
-    /// @inheritdoc INode
-    mapping(address => bool) public isRebalancer;
-
-    /// @inheritdoc INode
-    address[] public components;
-
-    /// @inheritdoc INode
-    mapping(address => ComponentTargetWeight) public componentTargetWeights;
-
-    /// @inheritdoc IERC7540Operator
-    mapping(address => mapping(address => bool)) public isOperator;
-
     /* CONSTRUCTOR */
-
-    /// @dev Initializes the contract.
-    /// @param asset_ The address of the underlying asset.
-    /// @param name The name of the vault.
-    /// @param symbol The symbol of the vault.
-    /// @param escrow_ The address of the escrow.
-    /// @param rebalancers The addresses of the initial rebalancers.
-    /// @param owner The owner of the contract.
+    /// @notice Initializes the vault with asset, escrow, and rebalancer configuration
+    /// @param asset_ Underlying asset address
+    /// @param name ERC20 token name
+    /// @param symbol ERC20 token symbol
+    /// @param escrow_ Escrow contract address
+    /// @param manager_ Queue manager address
+    /// @param rebalancers Initial set of rebalancer addresses
+    /// @param owner Initial owner address
     constructor(
         address asset_,
         string memory name,
@@ -72,33 +66,27 @@ contract Node is ERC20, Ownable2Step, INode {
         address[] memory rebalancers,
         address owner
     ) ERC20(name, symbol) Ownable(owner) {
+        if (asset_ == address(0) || escrow_ == address(0) || manager_ == address(0)) revert ErrorsLib.ZeroAddress();
+        
         asset = asset_;
         share = address(this);
         escrow = escrow_;
         manager = IQueueManager(manager_);
 
-        for (uint256 i = 0; i < rebalancers.length; i++) {
-            isRebalancer[rebalancers[i]] = true;
+        unchecked {
+            for (uint256 i; i < rebalancers.length; ++i) {
+                isRebalancer[rebalancers[i]] = true;
+            }
         }
     }
 
     /* MODIFIERS */
-
-    /// @dev Reverts if the caller is not a rebalancer.
     modifier onlyRebalancer() {
         if (!isRebalancer[msg.sender]) revert ErrorsLib.NotRebalancer();
         _;
     }
 
-    /* OWNER */
-
-    /// @inheritdoc INode
-    function setEscrow(address newEscrow) external onlyOwner {
-        if (newEscrow == escrow) revert ErrorsLib.AlreadySet();
-        escrow = newEscrow;
-        emit EventsLib.SetEscrow(newEscrow);
-    }
-
+    /* OWNER FUNCTIONS */
     /// @inheritdoc INode
     function addRebalancer(address newRebalancer) external onlyOwner {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
@@ -113,20 +101,28 @@ contract Node is ERC20, Ownable2Step, INode {
         emit EventsLib.RemoveRebalancer(oldRebalancer);
     }
 
-    /* REBALANCER */
+    /// @inheritdoc INode
+    function setEscrow(address newEscrow) external onlyOwner {
+        if (newEscrow == escrow) revert ErrorsLib.AlreadySet();
+        escrow = newEscrow;
+        emit EventsLib.SetEscrow(newEscrow);
+    }
 
+    /* REBALANCER FUNCTIONS */
     /// @inheritdoc INode
     function execute(
         address target,
         uint256 value,
         bytes calldata data
-    ) external onlyRebalancer returns (bytes memory result) {
-        result = target.functionCallWithValue(data, value);
+    ) external onlyRebalancer returns (bytes memory) {
+        if (target == address(0)) revert ErrorsLib.ZeroAddress();
+        
+        bytes memory result = target.functionCallWithValue(data, value);
         emit EventsLib.Execute(target, value, data, result);
+        return result;
     }
 
-    /* ERC-7540 */
-
+    /* ERC-7540 FUNCTIONS */
     /// @inheritdoc IERC7540Deposit
     function requestDeposit(uint256 assets, address controller, address owner) public returns (uint256) {
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert ErrorsLib.InvalidOwner();
@@ -136,9 +132,9 @@ contract Node is ERC20, Ownable2Step, INode {
             manager.requestDeposit(assets, controller, owner, msg.sender),
             ErrorsLib.RequestDepositFailed()
         );
-        SafeTransferLib.safeTransferFrom(asset, owner, address(escrow), assets);
+        IERC20(asset).safeTransferFrom(owner, address(escrow), assets);
 
-        emit EventsLib.DepositRequest(controller, owner, REQUEST_ID, msg.sender, assets);
+        emit IERC7540Deposit.DepositRequest(controller, owner, REQUEST_ID, msg.sender, assets);
         return REQUEST_ID;
     }
 
@@ -164,9 +160,9 @@ contract Node is ERC20, Ownable2Step, INode {
             manager.requestRedeem(shares, controller, owner, sender),
             ErrorsLib.RequestRedeemFailed()
         );
-        SafeTransferLib.safeTransferFrom(share, owner, address(escrow), shares);
+        IERC20(share).safeTransferFrom(owner, address(escrow), shares);
 
-        emit EventsLib.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
+        emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
 
@@ -188,8 +184,7 @@ contract Node is ERC20, Ownable2Step, INode {
         success = true;
     }
 
-    /* ERC-165 */
-
+    /* ERC-165 FUNCTIONS */
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IERC7540Deposit).interfaceId || interfaceId == type(IERC7540Redeem).interfaceId
@@ -197,8 +192,7 @@ contract Node is ERC20, Ownable2Step, INode {
             || interfaceId == type(IERC165).interfaceId;
     }
 
-    /* ERC-4626 */
-
+    /* ERC-4626 FUNCTIONS */
     /// @inheritdoc IERC7575
     function totalAssets() external view returns (uint256) {
         return convertToAssets(totalSupply());
@@ -223,7 +217,7 @@ contract Node is ERC20, Ownable2Step, INode {
     function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
         _validateController(controller);
         shares = manager.deposit(assets, receiver, controller);
-        emit EventsLib.Deposit(receiver, controller, assets, shares);
+        emit IERC7575.Deposit(receiver, controller, assets, shares);
     }
 
     /// @inheritdoc IERC7575
@@ -240,7 +234,7 @@ contract Node is ERC20, Ownable2Step, INode {
     function mint(uint256 shares, address receiver, address controller) public returns (uint256 assets) {
         _validateController(controller);
         assets = manager.mint(shares, receiver, controller);
-        emit EventsLib.Deposit(receiver, controller, assets, shares);
+        emit IERC7575.Deposit(receiver, controller, assets, shares);
     }
 
     /// @inheritdoc IERC7575
@@ -258,7 +252,7 @@ contract Node is ERC20, Ownable2Step, INode {
     function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
         _validateController(controller);
         shares = manager.withdraw(assets, receiver, controller);
-        emit EventsLib.Withdraw(msg.sender, receiver, controller, assets, shares);
+        emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
     /// @inheritdoc IERC7575
@@ -273,7 +267,7 @@ contract Node is ERC20, Ownable2Step, INode {
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
         _validateController(controller);
         assets = manager.redeem(shares, receiver, controller);
-        emit EventsLib.Withdraw(msg.sender, receiver, controller, assets, shares);
+        emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
     /// @dev Preview functions for ERC-7540 vaults revert
@@ -302,7 +296,6 @@ contract Node is ERC20, Ownable2Step, INode {
     }
 
     /* INTERNAL */
-
     /// @notice Ensures msg.sender can operate on behalf of controller.
     function _validateController(address controller) internal view {
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();

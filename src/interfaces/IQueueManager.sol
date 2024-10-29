@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
+import {INode} from "./INode.sol";
+
 /// @dev Queue requests and deposit/redeem bookkeeping per user
 struct QueueState {
     /// @dev Shares that can be claimed using `mint()`
@@ -19,9 +21,11 @@ struct QueueState {
 
 interface IQueueManager {
 
-    /// @notice Node that the QueueManager manages 
-    function node() external view returns (address);
+    /// @notice Node that the QueueManager manages
+    function node() external view returns (INode);
 
+    /// @notice Initiates a deposit request by locking assets in escrow
+    /// @dev Assets are transferred from owner to escrow immediately upon request
     function requestDeposit(uint256 assets, address receiver, address owner, address source)
         external
         returns (bool);

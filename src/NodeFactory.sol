@@ -1,51 +1,100 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import {INode} from "./interfaces/INode.sol";
-import {Node} from "./Node.sol";
-import {Escrow} from "./Escrow.sol";
 import {ERC4626Rebalancer} from "./rebalancers/ERC4626Rebalancer.sol";
+import {Escrow} from "./Escrow.sol";
+import {Node} from "./Node.sol";
+import {QueueManager} from "./QueueManager.sol";
+import {Quoter} from "./Quoter.sol";
+
+import {IERC4626Rebalancer} from "./interfaces/IERC4626Rebalancer.sol";
+import {IEscrow} from "./interfaces/IEscrow.sol";
+import {INode} from "./interfaces/INode.sol";
 import {INodeFactory} from "./interfaces/INodeFactory.sol";
-import {EventsLib} from "./libraries/EventsLib.sol";
+import {IQueueManager} from "./interfaces/IQueueManager.sol";
+import {IQuoter} from "./interfaces/IQuoter.sol";
+
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
-/**
- * @title NodeFactory
- * @author ODND Studios
- * @notice Factory for creating Nodes and indexing them.
- */
+import {EventsLib} from "./libraries/EventsLib.sol";
+
+/// @title NodeFactory
+/// @author ODND Studios
 contract NodeFactory is INodeFactory {
     /* STORAGE */
-
     /// @inheritdoc INodeFactory
     mapping(address => bool) public isNode;
 
-    /* EXTERNAL */
+    /* EXTERNAL FUNCTIONS */
+    /// @inheritdoc INodeFactory
+    function createERC4626Rebalancer(
+        address node,
+        address owner,
+        bytes32 salt
+    ) external returns (IERC4626Rebalancer rebalancer) {
+        if (node == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
+        rebalancer = IERC4626Rebalancer(address(new ERC4626Rebalancer{salt: salt}(node, owner)));
+    }
+
+    /// @inheritdoc INodeFactory
+    function createEscrow(
+        address owner,
+        bytes32 salt
+    ) external returns (IEscrow escrow) {
+        if (owner == address(0)) revert ErrorsLib.ZeroAddress();
+        escrow = IEscrow(address(new Escrow{salt: salt}(owner)));
+    }
 
     /// @inheritdoc INodeFactory
     function createNode(
         address asset,
         string memory name,
         string memory symbol,
+        address escrow,
+        address manager,
         address owner,
         bytes32 salt
     ) external returns (INode node) {
-        if (asset == address(0)) revert ErrorsLib.ZeroAddress();
+        if (
+            asset == address(0) ||
+            escrow == address(0) ||
+            manager == address(0) ||
+            owner == address(0)
+        ) revert ErrorsLib.ZeroAddress();
         if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
         if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
-        if (owner == address(0)) revert ErrorsLib.ZeroAddress();
 
-        node = INode(address(new Node{salt: salt}(asset, name, symbol, address(0), new address[](0), owner)));
+        node = INode(address(new Node{salt: salt}(
+            asset,
+            name,
+            symbol,
+            escrow,
+            manager,
+            new address[](0),
+            owner
+        )));
 
         isNode[address(node)] = true;
-
         emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, salt);
     }
 
-    function createEscrow(address owner, bytes32 salt) external returns (Escrow escrow) {
-        escrow = Escrow(address(new Escrow{salt: salt}(owner)));
+    /// @inheritdoc INodeFactory
+    function createQueueManager(
+        address node,
+        address quoter,
+        address owner,
+        bytes32 salt
+    ) external returns (IQueueManager manager) {
+        if (node == address(0) || quoter == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
+        manager = IQueueManager(address(new QueueManager{salt: salt}(node, quoter, owner)));
     }
 
-    function createERC4626Rebalancer(address node, address owner, bytes32 salt) external returns (ERC4626Rebalancer rebalancer) {
-        rebalancer = ERC4626Rebalancer(address(new ERC4626Rebalancer{salt: salt}(node, owner)));
+    /// @inheritdoc INodeFactory
+    function createQuoter(
+        address node,
+        address owner,
+        bytes32 salt
+    ) external returns (IQuoter quoter) {
+        if (node == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
+        quoter = IQuoter(address(new Quoter{salt: salt}(node, owner)));
     }
 }
