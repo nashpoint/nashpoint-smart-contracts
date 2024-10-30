@@ -71,11 +71,7 @@ interface IQueueManager {
     ///         The request fulfillment can be partial.
     /// @dev    The shares in the escrow are reserved for the user and are transferred to the user on deposit
     ///         and mint calls.
-    function fulfillDepositRequest(
-        address user,
-        uint128 assets,
-        uint128 shares
-    ) external;
+    function fulfillDepositRequest(address user, uint128 assets, uint128 shares) external;
 
     /// @notice Fulfills pending redeem requests after successful epoch execution on Centrifuge.
     ///         The amount of redeemed shares is burned. The amount of assets that can be claimed by the user in
@@ -83,11 +79,7 @@ interface IQueueManager {
     ///         The request fulfillment can be partial.
     /// @dev    The assets in the escrow are reserved for the user and are transferred to the user on redeem
     ///         and withdraw calls.
-    function fulfillRedeemRequest(
-        address user,
-        uint128 assets,
-        uint128 shares
-    ) external;
+    function fulfillRedeemRequest(address user, uint128 assets, uint128 shares) external;
 
     // --- Vault claim functions ---
     /// @notice Processes owner's asset deposit after the epoch has been executed on Centrifuge and the deposit order
@@ -98,9 +90,7 @@ interface IQueueManager {
     ///         The shares required to fulfill the deposit have already been minted and transferred to the escrow on
     ///         fulfillDepositRequest.
     ///         Receiver has to pass all the share token restrictions in order to receive the shares.
-    function deposit(uint256 assets, address receiver, address owner)
-        external
-        returns (uint256 shares);
+    function deposit(uint256 assets, address receiver, address owner) external returns (uint256 shares);
 
     /// @notice Processes owner's share mint after the epoch has been executed on Centrifuge and the deposit order has
     ///         been successfully processed (partial fulfillment possible).
@@ -128,7 +118,5 @@ interface IQueueManager {
     ///         on fulfillRedeemRequest.
     ///         The assets required to fulfill the withdrawal have already been reserved in escrow on
     ///         fulfillRedeemtRequest.
-    function withdraw(uint256 assets, address receiver, address owner)
-        external
-        returns (uint256 shares);
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
 }

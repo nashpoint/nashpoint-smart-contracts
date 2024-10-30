@@ -28,13 +28,16 @@ contract NodeFactory is INodeFactory {
 
     /* EXTERNAL FUNCTIONS */
     /// @inheritdoc INodeFactory
-    function deployFullNode(
-        address asset,
-        string memory name,
-        string memory symbol,
-        address owner,
-        bytes32 salt
-    ) external returns (INode node, IEscrow escrow, IQuoter quoter, IQueueManager manager, IERC4626Rebalancer erc4626Rebalancer) {
+    function deployFullNode(address asset, string memory name, string memory symbol, address owner, bytes32 salt)
+        external
+        returns (
+            INode node,
+            IEscrow escrow,
+            IQuoter quoter,
+            IQueueManager manager,
+            IERC4626Rebalancer erc4626Rebalancer
+        )
+    {
         escrow = createEscrow(owner, salt);
 
         node = createNode(asset, name, symbol, address(escrow), address(0), address(this), salt);
@@ -51,20 +54,16 @@ contract NodeFactory is INodeFactory {
     }
 
     /// @inheritdoc INodeFactory
-    function createERC4626Rebalancer(
-        address node,
-        address owner,
-        bytes32 salt
-    ) public returns (IERC4626Rebalancer rebalancer) {
+    function createERC4626Rebalancer(address node, address owner, bytes32 salt)
+        public
+        returns (IERC4626Rebalancer rebalancer)
+    {
         if (node == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
         rebalancer = IERC4626Rebalancer(address(new ERC4626Rebalancer{salt: salt}(node, owner)));
     }
 
     /// @inheritdoc INodeFactory
-    function createEscrow(
-        address owner,
-        bytes32 salt
-    ) public returns (IEscrow escrow) {
+    function createEscrow(address owner, bytes32 salt) public returns (IEscrow escrow) {
         if (owner == address(0)) revert ErrorsLib.ZeroAddress();
         escrow = IEscrow(address(new Escrow{salt: salt}(owner)));
     }
@@ -79,45 +78,27 @@ contract NodeFactory is INodeFactory {
         address owner,
         bytes32 salt
     ) public returns (INode node) {
-        if (
-            asset == address(0) ||
-            escrow == address(0) ||
-            owner == address(0)
-        ) revert ErrorsLib.ZeroAddress();
+        if (asset == address(0) || escrow == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
         if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
         if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
 
-        node = INode(address(new Node{salt: salt}(
-            asset,
-            name,
-            symbol,
-            escrow,
-            manager,
-            new address[](0),
-            owner
-        )));
+        node = INode(address(new Node{salt: salt}(asset, name, symbol, escrow, manager, new address[](0), owner)));
 
         isNode[address(node)] = true;
         emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, salt);
     }
 
     /// @inheritdoc INodeFactory
-    function createQueueManager(
-        address node,
-        address quoter,
-        address owner,
-        bytes32 salt
-    ) public returns (IQueueManager manager) {
+    function createQueueManager(address node, address quoter, address owner, bytes32 salt)
+        public
+        returns (IQueueManager manager)
+    {
         if (node == address(0) || quoter == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
         manager = IQueueManager(address(new QueueManager{salt: salt}(node, quoter, owner)));
     }
 
     /// @inheritdoc INodeFactory
-    function createQuoter(
-        address node,
-        address owner,
-        bytes32 salt
-    ) public returns (IQuoter quoter) {
+    function createQuoter(address node, address owner, bytes32 salt) public returns (IQuoter quoter) {
         if (node == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
         quoter = IQuoter(address(new Quoter{salt: salt}(node, owner)));
     }

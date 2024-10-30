@@ -28,4 +28,3 @@ interface IERC4626Rebalancer is IBaseRebalancer {
     /// @param shares The amount of shares to burn.
     function redeem(address vault, address shares) external;
 }
-

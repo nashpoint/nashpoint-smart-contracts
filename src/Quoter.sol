@@ -22,10 +22,7 @@ contract Quoter is IQuoter, Ownable {
     mapping(address => bool) public isErc4626;
     mapping(address => bool) public isErc7540;
 
-    constructor(
-        address node_,
-        address owner_
-    ) Ownable(owner_) {
+    constructor(address node_, address owner_) Ownable(owner_) {
         if (node_ == address(0)) revert ErrorsLib.ZeroAddress();
         node = INode(node_);
     }

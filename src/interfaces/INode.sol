@@ -16,11 +16,7 @@ struct ComponentAllocation {
  * @title INode
  * @author ODND Studios
  */
-interface INode is 
-    IERC20Metadata,
-    IERC7540,
-    IERC7575
-{
+interface INode is IERC20Metadata, IERC7540, IERC7575 {
     event DepositClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
     event RedeemClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
 
@@ -48,11 +44,7 @@ interface INode is
     /// @param value The amount of Ether to send with the call.
     /// @param data The calldata for the function to be called.
     /// @return result The data returned by the external call.
-    function execute(
-        address target,
-        uint256 value,
-        bytes calldata data
-    ) external returns (bytes memory result);
+    function execute(address target, uint256 value, bytes calldata data) external returns (bytes memory result);
 
     /// @notice Callback when a deposit Request becomes claimable
     function onDepositClaimable(address owner, uint256 assets, uint256 shares) external;
