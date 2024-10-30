@@ -155,4 +155,28 @@ contract NodeTest is BaseTest {
         
         vm.stopPrank();
     }
+
+    function test_requestDeposit() public {
+        uint256 amount = 100e18;
+
+        vm.expectRevert();
+        vm.startPrank(user);
+        node.requestDeposit(amount, user, user);
+
+        erc20.approve(address(node), amount);
+        node.requestDeposit(amount, user, user);
+
+        uint256 pendingDeposits = node.pendingDepositRequest(0, address(user));
+        assertEq(amount, pendingDeposits);
+    }
+
+    function test_setOperator() public {
+        vm.prank(user);
+        node.setOperator(address(mockOperator), true);
+
+        assertTrue(node.isOperator(user, mockOperator));
+        assertFalse(node.isOperator(user, randomUser));
+        assertFalse(node.isOperator(mockOperator, user));
+    }
+
 }
