@@ -24,4 +24,7 @@ library EventsLib {
 
     /// @notice Emitted when `operator` is removed.
     event RemoveOperator(address indexed operator);
+
+    /// @notice Emitted when `newManager` is set.
+    event SetManager(address indexed newManager);
 }

@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {Ownable, Ownable2Step} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 import {IERC7540} from "./interfaces/IERC7540.sol";
 import {INode} from "./interfaces/INode.sol";
@@ -13,7 +13,7 @@ import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
 /// @title Quoter
 /// @author ODND Studios
-contract Quoter is IQuoter, Ownable2Step {
+contract Quoter is IQuoter, Ownable {
     /* IMMUTABLES */
     /// @dev Reference to the Node contract this quoter serves
     INode public immutable node;

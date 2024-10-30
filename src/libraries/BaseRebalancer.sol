@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import {Ownable2Step, Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {INode} from "../interfaces/INode.sol";
 import {ErrorsLib} from "./ErrorsLib.sol";
@@ -11,7 +11,7 @@ import {EventsLib} from "./EventsLib.sol";
  * @title BaseRebalancer
  * @author ODND Studios
  */
-contract BaseRebalancer is Ownable2Step {
+contract BaseRebalancer is Ownable {
     /* IMMUTABLES */
 
     /// @notice The address of the node.

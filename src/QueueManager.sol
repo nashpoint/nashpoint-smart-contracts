@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Ownable, Ownable2Step} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {INode} from "./interfaces/INode.sol";
@@ -17,7 +17,7 @@ import {MathLib} from "./libraries/MathLib.sol";
  * @title QueueManager
  * @author ODND Studios
  */
-contract QueueManager is IQueueManager, Ownable2Step {
+contract QueueManager is IQueueManager, Ownable {
     using MathLib for uint256;
     using SafeERC20 for IERC20;
 
@@ -29,6 +29,7 @@ contract QueueManager is IQueueManager, Ownable2Step {
     INode public immutable node;
 
     /* STORAGE */
+    /// @inheritdoc IQueueManager
     IQuoter public quoter;
     mapping(address => QueueState) public queueStates;
 

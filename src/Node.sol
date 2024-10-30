@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {Address} from "../lib/openzeppelin-contracts/contracts/utils/Address.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {Ownable, Ownable2Step} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
@@ -20,7 +20,7 @@ import {UtilsLib} from "./libraries/UtilsLib.sol";
  * @title Node
  * @author ODND Studios
  */
-contract Node is INode, ERC20, Ownable2Step {
+contract Node is INode, ERC20, Ownable {
     using Address for address;
     using SafeERC20 for IERC20;
     using UtilsLib for uint256;
@@ -39,9 +39,11 @@ contract Node is INode, ERC20, Ownable2Step {
     mapping(address => ComponentAllocation) public componentAllocations;
     /// @inheritdoc INode
     address public escrow;
+    /// @inheritdoc INode
     mapping(address => bool) public isRebalancer;
     /// @inheritdoc IERC7540Operator
     mapping(address => mapping(address => bool)) public isOperator;
+    /// @inheritdoc INode
     IQueueManager public manager;
 
     /* CONSTRUCTOR */
@@ -62,7 +64,7 @@ contract Node is INode, ERC20, Ownable2Step {
         address[] memory rebalancers,
         address owner
     ) ERC20(name, symbol) Ownable(owner) {
-        if (asset_ == address(0) || escrow_ == address(0) || manager_ == address(0)) revert ErrorsLib.ZeroAddress();
+        if (asset_ == address(0) || escrow_ == address(0)) revert ErrorsLib.ZeroAddress();
         
         asset = asset_;
         share = address(this);
@@ -107,6 +109,13 @@ contract Node is INode, ERC20, Ownable2Step {
         if (newEscrow == escrow) revert ErrorsLib.AlreadySet();
         escrow = newEscrow;
         emit EventsLib.SetEscrow(newEscrow);
+    }
+
+    /// @inheritdoc INode
+    function setManager(address newManager) external onlyOwner {
+        if (newManager == address(manager)) revert ErrorsLib.AlreadySet();
+        manager = IQueueManager(newManager);
+        emit EventsLib.SetManager(newManager);
     }
 
     /* REBALANCER FUNCTIONS */

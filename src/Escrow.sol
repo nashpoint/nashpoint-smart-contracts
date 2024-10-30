@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import {Ownable2Step, Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
+
 /// @title  Escrow
 /// @notice Escrow contract that holds tokens for pending Node withdrawals.
-contract Escrow is Ownable2Step, IEscrow {
+contract Escrow is Ownable, IEscrow {
     constructor(address _owner) Ownable(_owner) {}
 
     /* TOKEN APPROVALS */

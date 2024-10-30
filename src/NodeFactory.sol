@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
 import {ERC4626Rebalancer} from "./rebalancers/ERC4626Rebalancer.sol";
 import {Escrow} from "./Escrow.sol";
 import {Node} from "./Node.sol";
@@ -26,11 +28,34 @@ contract NodeFactory is INodeFactory {
 
     /* EXTERNAL FUNCTIONS */
     /// @inheritdoc INodeFactory
+    function deployFullNode(
+        address asset,
+        string memory name,
+        string memory symbol,
+        address owner,
+        bytes32 salt
+    ) external returns (INode node, IEscrow escrow, IQuoter quoter, IQueueManager manager, IERC4626Rebalancer erc4626Rebalancer) {
+        escrow = createEscrow(owner, salt);
+
+        node = createNode(asset, name, symbol, address(escrow), address(0), address(this), salt);
+
+        quoter = createQuoter(address(node), owner, salt);
+
+        manager = createQueueManager(address(node), address(quoter), owner, salt);
+
+        erc4626Rebalancer = createERC4626Rebalancer(address(node), owner, salt);
+
+        node.setManager(address(manager));
+        node.addRebalancer(address(erc4626Rebalancer));
+        Ownable(address(node)).transferOwnership(owner);
+    }
+
+    /// @inheritdoc INodeFactory
     function createERC4626Rebalancer(
         address node,
         address owner,
         bytes32 salt
-    ) external returns (IERC4626Rebalancer rebalancer) {
+    ) public returns (IERC4626Rebalancer rebalancer) {
         if (node == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
         rebalancer = IERC4626Rebalancer(address(new ERC4626Rebalancer{salt: salt}(node, owner)));
     }
@@ -39,7 +64,7 @@ contract NodeFactory is INodeFactory {
     function createEscrow(
         address owner,
         bytes32 salt
-    ) external returns (IEscrow escrow) {
+    ) public returns (IEscrow escrow) {
         if (owner == address(0)) revert ErrorsLib.ZeroAddress();
         escrow = IEscrow(address(new Escrow{salt: salt}(owner)));
     }
@@ -53,11 +78,10 @@ contract NodeFactory is INodeFactory {
         address manager,
         address owner,
         bytes32 salt
-    ) external returns (INode node) {
+    ) public returns (INode node) {
         if (
             asset == address(0) ||
             escrow == address(0) ||
-            manager == address(0) ||
             owner == address(0)
         ) revert ErrorsLib.ZeroAddress();
         if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
@@ -83,7 +107,7 @@ contract NodeFactory is INodeFactory {
         address quoter,
         address owner,
         bytes32 salt
-    ) external returns (IQueueManager manager) {
+    ) public returns (IQueueManager manager) {
         if (node == address(0) || quoter == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
         manager = IQueueManager(address(new QueueManager{salt: salt}(node, quoter, owner)));
     }
@@ -93,7 +117,7 @@ contract NodeFactory is INodeFactory {
         address node,
         address owner,
         bytes32 salt
-    ) external returns (IQuoter quoter) {
+    ) public returns (IQuoter quoter) {
         if (node == address(0) || owner == address(0)) revert ErrorsLib.ZeroAddress();
         quoter = IQuoter(address(new Quoter{salt: salt}(node, owner)));
     }

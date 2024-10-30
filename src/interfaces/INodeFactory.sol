@@ -12,6 +12,25 @@ import {IERC4626Rebalancer} from "./IERC4626Rebalancer.sol";
  * @author ODND Studios
  */
 interface INodeFactory {
+    /// @notice Creates a full Node with Escrow, Manager, Quoter and ERC4626Rebalancer
+    /// @param asset The underlying asset address
+    /// @param name The ERC20 name of the vault
+    /// @param symbol The ERC20 symbol of the vault
+    /// @param owner The owner of the node
+    /// @param salt The salt to use for CREATE2 deployment
+    /// @return node The deployed Node contract
+    /// @return escrow The deployed Escrow contract
+    /// @return quoter The deployed Quoter contract
+    /// @return manager The deployed QueueManager contract
+    /// @return erc4626Rebalancer The deployed ERC4626Rebalancer contract
+    function deployFullNode(
+        address asset,
+        string memory name,
+        string memory symbol,
+        address owner,
+        bytes32 salt
+    ) external returns (INode node, IEscrow escrow, IQuoter quoter, IQueueManager manager, IERC4626Rebalancer erc4626Rebalancer);
+
     /// @notice Creates a new ERC4626 rebalancer
     /// @param node Address of the Node contract this rebalancer will serve
     /// @param owner Address that will own the rebalancer

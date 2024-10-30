@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {INode} from "./INode.sol";
+import {IQuoter} from "./IQuoter.sol";
 
 /// @dev Queue requests and deposit/redeem bookkeeping per user
 struct QueueState {
@@ -20,6 +21,8 @@ struct QueueState {
 }
 
 interface IQueueManager {
+    /// @notice Returns the quoter
+    function quoter() external view returns (IQuoter);
 
     /// @notice Node that the QueueManager manages
     function node() external view returns (INode);
