@@ -106,7 +106,6 @@ contract BaseTest is Test {
         ) = nodeFactory.deployFullNode(asset, name, symbol, nodeOwner, salt);
     }
 
-    // Helper functions
     function mintAndApprove(address to, uint256 amount, address spender) public {
         erc20.mint(to, amount);
         vm.prank(to);

@@ -30,6 +30,7 @@ contract BaseRebalancer is Ownable {
         address node_,
         address owner
     ) Ownable(owner) {
+        if (node_ == address(0)) revert ErrorsLib.ZeroAddress();
         node = INode(node_);
     }
 

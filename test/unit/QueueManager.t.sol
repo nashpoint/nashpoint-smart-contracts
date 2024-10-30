@@ -20,7 +20,6 @@ contract QueueManagerTest is BaseTest {
         super.setUp();
     }
 
-    /* TEST DEPLOYMENT */
     function test_deployment() public {
         QueueManager newManager = new QueueManager(
             address(node),
@@ -51,7 +50,6 @@ contract QueueManagerTest is BaseTest {
         );
     }
 
-    /* TEST QUEUE MANAGEMENT */
     function test_requestDeposit() public {
         uint256 amount = 1000;
         address controller = makeAddr("controller");
@@ -74,7 +72,6 @@ contract QueueManagerTest is BaseTest {
         assertEq(queueManager.pendingRedeemRequest(controller), shares);
     }
 
-    /* TEST PRICE CALCULATION */
     function testPrice() public {
         QueueManagerHarness harness = new QueueManagerHarness(address(node), address(quoter), owner);
         assertEq(harness.calculatePrice(1, 0), 0);

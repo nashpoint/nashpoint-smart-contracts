@@ -17,7 +17,6 @@ import {IQuoter} from "src/interfaces/IQuoter.sol";
 import {IQueueManager} from "src/interfaces/IQueueManager.sol";
 
 contract NodeFactoryTest is BaseTest {
-    /* EVENTS */
     event CreateNode(
         address indexed node,
         address indexed asset,
@@ -27,12 +26,10 @@ contract NodeFactoryTest is BaseTest {
         bytes32 salt
     );
 
-    /* SETUP */
     function setUp() public override {
         super.setUp();
     }
 
-    /* TEST DEPLOYMENT */
     function test_deployFullNode() public {
         bytes32 salt = keccak256("test");
         address nodeOwner = makeAddr("nodeOwner");
@@ -55,29 +52,23 @@ contract NodeFactoryTest is BaseTest {
             salt
         );
 
-        // Verify addresses
         assertTrue(address(node) != address(0));
         assertTrue(address(escrow) != address(0));
         assertTrue(address(quoter) != address(0));
         assertTrue(address(queueManager) != address(0));
         assertTrue(address(erc4626Rebalancer) != address(0));
-
-        // Verify node registration
         assertTrue(nodeFactory.isNode(address(node)));
 
-        // Verify ownership
         assertEq(Ownable(address(node)).owner(), nodeOwner);
         assertEq(Ownable(address(escrow)).owner(), nodeOwner);
         assertEq(Ownable(address(quoter)).owner(), nodeOwner);
         assertEq(Ownable(address(queueManager)).owner(), nodeOwner);
         assertEq(Ownable(address(erc4626Rebalancer)).owner(), nodeOwner);
 
-        // Verify node configuration
         assertEq(address(node.manager()), address(queueManager));
         assertTrue(node.isRebalancer(address(erc4626Rebalancer)));
     }
 
-    /* TEST VALIDATIONS */
     function test_deployFullNode_RevertIf_ZeroAsset() public {
         bytes32 salt = keccak256("zero_asset");
         
@@ -130,7 +121,6 @@ contract NodeFactoryTest is BaseTest {
         );
     }
 
-    /* TEST INDIVIDUAL DEPLOYMENTS */
     function test_createEscrow() public {
         bytes32 salt = keccak256("escrow");
         IEscrow escrow_ = nodeFactory.createEscrow(owner, salt);

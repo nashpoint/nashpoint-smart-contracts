@@ -82,13 +82,11 @@ contract QuoterTest is BaseTest {
 
         vm.startPrank(owner);
         
-        // Set multiple ERC4626 components
         for(uint i = 0; i < erc4626Components.length; i++) {
             quoter.setErc4626(erc4626Components[i], true);
             assertTrue(quoter.isErc4626(erc4626Components[i]));
         }
 
-        // Set multiple ERC7540 components
         for(uint i = 0; i < erc7540Components.length; i++) {
             quoter.setErc7540(erc7540Components[i], true);
             assertTrue(quoter.isErc7540(erc7540Components[i]));
