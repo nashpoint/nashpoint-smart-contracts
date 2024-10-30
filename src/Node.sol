@@ -93,6 +93,7 @@ contract Node is INode, ERC20, Ownable {
     /// @inheritdoc INode
     function addRebalancer(address newRebalancer) external onlyOwner {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
+        if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
         isRebalancer[newRebalancer] = true;
         emit EventsLib.AddRebalancer(newRebalancer);
     }
@@ -107,6 +108,7 @@ contract Node is INode, ERC20, Ownable {
     /// @inheritdoc INode
     function setEscrow(address newEscrow) external onlyOwner {
         if (newEscrow == escrow) revert ErrorsLib.AlreadySet();
+        if (newEscrow == address(0)) revert ErrorsLib.ZeroAddress();
         escrow = newEscrow;
         emit EventsLib.SetEscrow(newEscrow);
     }
@@ -114,6 +116,7 @@ contract Node is INode, ERC20, Ownable {
     /// @inheritdoc INode
     function setManager(address newManager) external onlyOwner {
         if (newManager == address(manager)) revert ErrorsLib.AlreadySet();
+        if (newManager == address(0)) revert ErrorsLib.ZeroAddress();
         manager = IQueueManager(newManager);
         emit EventsLib.SetManager(newManager);
     }
