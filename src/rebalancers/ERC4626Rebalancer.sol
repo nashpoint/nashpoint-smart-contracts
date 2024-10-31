@@ -9,7 +9,6 @@ import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/e
  * @dev Rebalancer for ERC4626 vaults
  */
 contract ERC4626Rebalancer is BaseRebalancer {
-
     /* CONSTRUCTOR */
 
     constructor(address node_, address owner) BaseRebalancer(node_, owner) {}
@@ -44,4 +43,3 @@ contract ERC4626Rebalancer is BaseRebalancer {
         node.execute(vault, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, address(node), address(node)));
     }
 }
-

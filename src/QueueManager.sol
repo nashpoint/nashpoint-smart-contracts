@@ -34,13 +34,9 @@ contract QueueManager is IQueueManager, Ownable {
     mapping(address => QueueState) public queueStates;
 
     /* CONSTRUCTOR */
-    constructor(
-        address node_,
-        address quoter_,
-        address owner_
-    ) Ownable(owner_) {
+    constructor(address node_, address quoter_, address owner_) Ownable(owner_) {
         if (node_ == address(0) || quoter_ == address(0)) revert ErrorsLib.ZeroAddress();
-        
+
         node = INode(node_);
         quoter = IQuoter(quoter_);
     }
@@ -53,11 +49,7 @@ contract QueueManager is IQueueManager, Ownable {
 
     /* EXTERNAL */
     /// @inheritdoc IQueueManager
-    function requestDeposit(uint256 assets, address controller)
-        public
-        onlyNode
-        returns (bool)
-    {
+    function requestDeposit(uint256 assets, address controller) public onlyNode returns (bool) {
         uint128 _assets = assets.toUint128();
         if (_assets == 0) revert ErrorsLib.ZeroAmount();
         QueueState storage state = queueStates[controller];
@@ -66,11 +58,7 @@ contract QueueManager is IQueueManager, Ownable {
     }
 
     /// @inheritdoc IQueueManager
-    function requestRedeem(uint256 shares, address controller)
-        public
-        onlyNode
-        returns (bool)
-    {
+    function requestRedeem(uint256 shares, address controller) public onlyNode returns (bool) {
         uint128 _shares = shares.toUint128();
         if (_shares == 0) revert ErrorsLib.ZeroAmount();
         QueueState storage state = queueStates[controller];
@@ -79,11 +67,7 @@ contract QueueManager is IQueueManager, Ownable {
     }
 
     /// @inheritdoc IQueueManager
-    function fulfillDepositRequest(
-        address user,
-        uint128 assets,
-        uint128 shares
-    ) public onlyOwner {
+    function fulfillDepositRequest(address user, uint128 assets, uint128 shares) public onlyOwner {
         QueueState storage state = queueStates[user];
         if (state.pendingDepositRequest == 0) revert ErrorsLib.NoPendingDepositRequest();
         state.depositPrice = _calculatePrice(_maxDeposit(user) + assets, state.maxMint + shares);
@@ -95,11 +79,7 @@ contract QueueManager is IQueueManager, Ownable {
     }
 
     /// @inheritdoc IQueueManager
-    function fulfillRedeemRequest(
-        address user,
-        uint128 assets,
-        uint128 shares
-    ) public onlyOwner {
+    function fulfillRedeemRequest(address user, uint128 assets, uint128 shares) public onlyOwner {
         QueueState storage state = queueStates[user];
         if (state.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
         state.redeemPrice = _calculatePrice(state.maxWithdraw + assets, _maxRedeem(user) + shares);
@@ -169,11 +149,7 @@ contract QueueManager is IQueueManager, Ownable {
 
     /* VAULT CLAIM FUNCTIONS */
     /// @inheritdoc IQueueManager
-    function deposit(uint256 assets, address receiver, address controller)
-        public
-        onlyNode
-        returns (uint256 shares)
-    {
+    function deposit(uint256 assets, address receiver, address controller) public onlyNode returns (uint256 shares) {
         if (assets > maxDeposit(controller)) revert ErrorsLib.ExceedsMaxDeposit();
 
         QueueState storage state = queueStates[controller];
@@ -184,23 +160,16 @@ contract QueueManager is IQueueManager, Ownable {
     }
 
     /// @inheritdoc IQueueManager
-    function mint(uint256 shares, address receiver, address controller)
-        public
-        onlyNode
-        returns (uint256 assets)
-    {
+    function mint(uint256 shares, address receiver, address controller) public onlyNode returns (uint256 assets) {
         QueueState storage state = queueStates[controller];
         uint128 shares_ = shares.toUint128();
         _processDeposit(state, shares_, shares_, receiver);
         assets = uint256(_calculateAssets(shares_, state.depositPrice, MathLib.Rounding.Down));
     }
 
-    function _processDeposit(
-        QueueState storage state,
-        uint128 sharesUp,
-        uint128 sharesDown,
-        address receiver
-    ) internal {
+    function _processDeposit(QueueState storage state, uint128 sharesUp, uint128 sharesDown, address receiver)
+        internal
+    {
         if (sharesUp > state.maxMint) revert ErrorsLib.ExceedsMaxDeposit();
         state.maxMint = state.maxMint > sharesUp ? state.maxMint - sharesUp : 0;
         if (sharesDown > 0) {
@@ -209,11 +178,7 @@ contract QueueManager is IQueueManager, Ownable {
     }
 
     /// @inheritdoc IQueueManager
-    function redeem(uint256 shares, address receiver, address controller)
-        public
-        onlyNode
-        returns (uint256 assets)
-    {
+    function redeem(uint256 shares, address receiver, address controller) public onlyNode returns (uint256 assets) {
         if (shares > maxRedeem(controller)) revert ErrorsLib.ExceedsMaxRedeem();
 
         QueueState storage state = queueStates[controller];
@@ -224,23 +189,16 @@ contract QueueManager is IQueueManager, Ownable {
     }
 
     /// @inheritdoc IQueueManager
-    function withdraw(uint256 assets, address receiver, address controller)
-        public
-        onlyNode
-        returns (uint256 shares)
-    {
+    function withdraw(uint256 assets, address receiver, address controller) public onlyNode returns (uint256 shares) {
         QueueState storage state = queueStates[controller];
         uint128 assets_ = assets.toUint128();
         _processRedeem(state, assets_, assets_, receiver);
         shares = uint256(_calculateShares(assets_, state.redeemPrice, MathLib.Rounding.Down));
     }
 
-    function _processRedeem(
-        QueueState storage state,
-        uint128 assetsUp,
-        uint128 assetsDown,
-        address receiver
-    ) internal {
+    function _processRedeem(QueueState storage state, uint128 assetsUp, uint128 assetsDown, address receiver)
+        internal
+    {
         if (assetsUp > state.maxWithdraw) revert ErrorsLib.ExceedsMaxWithdraw();
         state.maxWithdraw = state.maxWithdraw > assetsUp ? state.maxWithdraw - assetsUp : 0;
         if (assetsDown > 0) IERC20(node.asset()).safeTransferFrom(node.escrow(), receiver, assetsDown);

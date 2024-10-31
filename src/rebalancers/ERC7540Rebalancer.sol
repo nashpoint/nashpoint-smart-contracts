@@ -9,7 +9,6 @@ import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/e
  * @dev Rebalancer for ERC7540 vaults
  */
 contract ERC7540Rebalancer is BaseRebalancer {
-
     /* CONSTRUCTOR */
 
     constructor(address node_, address owner) BaseRebalancer(node_, owner) {}

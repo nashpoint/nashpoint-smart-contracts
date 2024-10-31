@@ -65,7 +65,7 @@ contract Node is INode, ERC20, Ownable {
         address owner
     ) ERC20(name, symbol) Ownable(owner) {
         if (asset_ == address(0) || escrow_ == address(0)) revert ErrorsLib.ZeroAddress();
-        
+
         asset = asset_;
         share = address(this);
         escrow = escrow_;
@@ -123,13 +123,13 @@ contract Node is INode, ERC20, Ownable {
 
     /* REBALANCER FUNCTIONS */
     /// @inheritdoc INode
-    function execute(
-        address target,
-        uint256 value,
-        bytes calldata data
-    ) external onlyRebalancer returns (bytes memory) {
+    function execute(address target, uint256 value, bytes calldata data)
+        external
+        onlyRebalancer
+        returns (bytes memory)
+    {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
-        
+
         bytes memory result = target.functionCallWithValue(data, value);
         emit EventsLib.Execute(target, value, data, result);
         return result;

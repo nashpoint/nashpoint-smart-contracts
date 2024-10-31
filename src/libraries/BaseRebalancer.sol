@@ -26,10 +26,7 @@ contract BaseRebalancer is Ownable {
 
     /// @dev Initializes the contract.
     /// @param node_ The address of the node.
-    constructor(
-        address node_,
-        address owner
-    ) Ownable(owner) {
+    constructor(address node_, address owner) Ownable(owner) {
         if (node_ == address(0)) revert ErrorsLib.ZeroAddress();
         node = INode(node_);
     }
