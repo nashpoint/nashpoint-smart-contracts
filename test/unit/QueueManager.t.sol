@@ -21,11 +21,7 @@ contract QueueManagerTest is BaseTest {
     }
 
     function test_deployment() public {
-        QueueManager newManager = new QueueManager(
-            address(node),
-            address(quoter),
-            owner
-        );
+        QueueManager newManager = new QueueManager(address(node), address(quoter), owner);
 
         assertEq(address(newManager.node()), address(node));
         assertEq(address(newManager.quoter()), address(quoter));
@@ -34,20 +30,12 @@ contract QueueManagerTest is BaseTest {
 
     function test_deployment_RevertIf_ZeroNode() public {
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new QueueManager(
-            address(0),
-            address(quoter),
-            owner
-        );
+        new QueueManager(address(0), address(quoter), owner);
     }
 
     function test_deployment_RevertIf_ZeroQuoter() public {
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new QueueManager(
-            address(node),
-            address(0),
-            owner
-        );
+        new QueueManager(address(node), address(0), owner);
     }
 
     function test_requestDeposit() public {

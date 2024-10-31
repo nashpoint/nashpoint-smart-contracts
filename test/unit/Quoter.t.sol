@@ -13,30 +13,24 @@ contract QuoterTest is BaseTest {
 
     function setUp() public override {
         super.setUp();
-        
+
         mockErc4626 = makeAddr("mockErc4626");
         mockErc7540 = makeAddr("mockErc7540");
     }
 
     function test_deployment() public {
-        Quoter newQuoter = new Quoter(
-            address(node),
-            owner
-        );
+        Quoter newQuoter = new Quoter(address(node), owner);
 
         assertEq(address(newQuoter.node()), address(node));
         assertEq(Ownable(address(newQuoter)).owner(), owner);
-        
+
         assertFalse(newQuoter.isErc4626(mockErc4626));
         assertFalse(newQuoter.isErc7540(mockErc7540));
     }
 
     function test_deployment_RevertIf_ZeroNode() public {
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Quoter(
-            address(0),
-            owner
-        );
+        new Quoter(address(0), owner);
     }
 
     function test_setErc4626() public {
@@ -74,20 +68,20 @@ contract QuoterTest is BaseTest {
     function test_setMultipleComponents() public {
         address[] memory erc4626Components = new address[](3);
         address[] memory erc7540Components = new address[](3);
-        
-        for(uint i = 0; i < 3; i++) {
+
+        for (uint256 i = 0; i < 3; i++) {
             erc4626Components[i] = makeAddr(string.concat("erc4626_", vm.toString(i)));
             erc7540Components[i] = makeAddr(string.concat("erc7540_", vm.toString(i)));
         }
 
         vm.startPrank(owner);
-        
-        for(uint i = 0; i < erc4626Components.length; i++) {
+
+        for (uint256 i = 0; i < erc4626Components.length; i++) {
             quoter.setErc4626(erc4626Components[i], true);
             assertTrue(quoter.isErc4626(erc4626Components[i]));
         }
 
-        for(uint i = 0; i < erc7540Components.length; i++) {
+        for (uint256 i = 0; i < erc7540Components.length; i++) {
             quoter.setErc7540(erc7540Components[i], true);
             assertTrue(quoter.isErc7540(erc7540Components[i]));
         }
