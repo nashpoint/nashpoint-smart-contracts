@@ -29,7 +29,7 @@ contract BaseTest is Test {
     IQuoter public quoter;
     IQueueManager public queueManager;
     IERC4626Rebalancer public erc4626Rebalancer;
-    
+
     // Mock tokens
     ERC20Mock public erc20;
 
@@ -39,7 +39,7 @@ contract BaseTest is Test {
     address public owner = makeAddr("owner");
     address public user = makeAddr("user");
     address public randomUser = makeAddr("randomUser");
-    
+
     // Constants
     uint128 public constant MAX_UINT128 = type(uint128).max;
     uint256 public constant INITIAL_BALANCE = 1000000 ether;
@@ -50,24 +50,20 @@ contract BaseTest is Test {
 
         // Deploy mock token
         erc20 = new ERC20Mock("Test Token", "TEST");
-        
+
         // Deploy core contracts
         nodeFactory = new NodeFactory();
 
         console.log(owner);
-        
+
         // Deploy full node setup
-        (node, escrow, quoter, queueManager, erc4626Rebalancer) = deployFullNode(
-            address(erc20),
-            "Test Node",
-            "TNODE",
-            owner
-        );
-        
+        (node, escrow, quoter, queueManager, erc4626Rebalancer) =
+            deployFullNode(address(erc20), "Test Node", "TNODE", owner);
+
         // Deal initial balances
         deal(address(erc20), user, INITIAL_BALANCE);
         deal(address(erc20), randomUser, INITIAL_BALANCE);
-        
+
         // Label addresses for better trace output
         vm.label(address(nodeFactory), "NodeFactory");
         vm.label(address(node), "Node");
@@ -83,27 +79,20 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
-    function deployFullNode(
-        address asset,
-        string memory name,
-        string memory symbol,
-        address nodeOwner
-    ) internal returns (
-        INode node_,
-        IEscrow escrow_,
-        IQuoter quoter_,
-        IQueueManager manager_,
-        IERC4626Rebalancer erc4626Rebalancer_
-    ) {
+    function deployFullNode(address asset, string memory name, string memory symbol, address nodeOwner)
+        internal
+        returns (
+            INode node_,
+            IEscrow escrow_,
+            IQuoter quoter_,
+            IQueueManager manager_,
+            IERC4626Rebalancer erc4626Rebalancer_
+        )
+    {
         bytes32 salt = keccak256(abi.encodePacked("node", name, symbol));
 
-        (
-            node_,
-            escrow_,
-            quoter_,
-            manager_,
-            erc4626Rebalancer_
-        ) = nodeFactory.deployFullNode(asset, name, symbol, nodeOwner, salt);
+        (node_, escrow_, quoter_, manager_, erc4626Rebalancer_) =
+            nodeFactory.deployFullNode(asset, name, symbol, nodeOwner, salt);
     }
 
     function mintAndApprove(address to, uint256 amount, address spender) public {

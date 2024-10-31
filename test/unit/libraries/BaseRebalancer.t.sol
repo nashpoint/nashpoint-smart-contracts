@@ -9,10 +9,7 @@ import {EventsLib} from "src/libraries/EventsLib.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract TestRebalancer is BaseRebalancer {
-    constructor(
-        address node_,
-        address owner_
-    ) BaseRebalancer(node_, owner_) {}
+    constructor(address node_, address owner_) BaseRebalancer(node_, owner_) {}
 }
 
 contract BaseRebalancerTest is BaseTest {
@@ -24,20 +21,14 @@ contract BaseRebalancerTest is BaseTest {
 
     function setUp() public override {
         super.setUp();
-        
+
         operator = makeAddr("operator");
-        
-        rebalancer = new TestRebalancer(
-            address(node),
-            owner
-        );
+
+        rebalancer = new TestRebalancer(address(node), owner);
     }
 
     function test_deployment() public {
-        TestRebalancer newRebalancer = new TestRebalancer(
-            address(node),
-            owner
-        );
+        TestRebalancer newRebalancer = new TestRebalancer(address(node), owner);
 
         assertEq(address(newRebalancer.node()), address(node));
         assertEq(Ownable(address(newRebalancer)).owner(), owner);
@@ -46,27 +37,21 @@ contract BaseRebalancerTest is BaseTest {
 
     function test_deployment_RevertIf_ZeroNode() public {
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new TestRebalancer(
-            address(0),
-            owner
-        );
+        new TestRebalancer(address(0), owner);
     }
 
     function test_deployment_RevertIf_ZeroOwner() public {
         vm.expectRevert();
-        new TestRebalancer(
-            address(node),
-            address(0)
-        );
+        new TestRebalancer(address(node), address(0));
     }
 
     function test_addOperator() public {
         vm.expectEmit(true, false, false, false);
         emit EventsLib.AddOperator(operator);
-        
+
         vm.prank(owner);
         rebalancer.addOperator(operator);
-        
+
         assertTrue(rebalancer.isOperator(operator));
     }
 
@@ -83,7 +68,7 @@ contract BaseRebalancerTest is BaseTest {
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RemoveOperator(operator);
-        
+
         vm.prank(owner);
         rebalancer.removeOperator(operator);
         assertFalse(rebalancer.isOperator(operator));
@@ -103,4 +88,4 @@ contract BaseRebalancerTest is BaseTest {
         vm.prank(randomUser);
         rebalancer.approve(address(erc20), spender, amount);
     }
-} 
+}

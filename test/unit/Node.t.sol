@@ -11,30 +11,25 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract NodeTest is BaseTest {
     address mockManager;
     address mockRebalancer;
+    address mockOperator;
     address[] mockRebalancers;
 
     function setUp() public override {
         super.setUp();
-        
+
         mockManager = makeAddr("mockManager");
         mockRebalancer = makeAddr("mockRebalancer");
-        
+        mockOperator = makeAddr("mockOperator");
+
         mockRebalancers = new address[](3);
-        for(uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             mockRebalancers[i] = makeAddr(string.concat("rebalancer_", vm.toString(i)));
         }
     }
 
     function test_deployment() public {
-        Node newNode = new Node(
-            address(erc20),
-            "Test Node",
-            "NODE",
-            address(escrow),
-            address(0),
-            new address[](0),
-            owner
-        );
+        Node newNode =
+            new Node(address(erc20), "Test Node", "NODE", address(escrow), address(0), new address[](0), owner);
 
         assertEq(address(newNode.asset()), address(erc20));
         assertEq(newNode.name(), "Test Node");
@@ -47,28 +42,12 @@ contract NodeTest is BaseTest {
 
     function test_deployment_RevertIf_ZeroAsset() public {
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Node(
-            address(0),
-            "Test Node",
-            "NODE",
-            address(escrow),
-            address(0),
-            new address[](0),
-            owner
-        );
+        new Node(address(0), "Test Node", "NODE", address(escrow), address(0), new address[](0), owner);
     }
 
     function test_deployment_RevertIf_ZeroEscrow() public {
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Node(
-            address(erc20),
-            "Test Node",
-            "NODE",
-            address(0),
-            address(0),
-            new address[](0),
-            owner
-        );
+        new Node(address(erc20), "Test Node", "NODE", address(0), address(0), new address[](0), owner);
     }
 
     function test_setManager() public {
@@ -111,7 +90,7 @@ contract NodeTest is BaseTest {
     function test_addRebalancer_RevertIf_AlreadyAdded() public {
         vm.startPrank(owner);
         node.addRebalancer(mockRebalancer);
-        
+
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         node.addRebalancer(mockRebalancer);
         vm.stopPrank();
@@ -124,7 +103,7 @@ contract NodeTest is BaseTest {
 
         node.removeRebalancer(mockRebalancer);
         assertFalse(node.isRebalancer(mockRebalancer));
-        
+
         vm.stopPrank();
     }
 
@@ -142,17 +121,17 @@ contract NodeTest is BaseTest {
 
     function test_multipleRebalancers() public {
         vm.startPrank(owner);
-        
-        for(uint i = 0; i < mockRebalancers.length; i++) {
+
+        for (uint256 i = 0; i < mockRebalancers.length; i++) {
             node.addRebalancer(mockRebalancers[i]);
             assertTrue(node.isRebalancer(mockRebalancers[i]));
         }
-        
-        for(uint i = 0; i < mockRebalancers.length; i++) {
+
+        for (uint256 i = 0; i < mockRebalancers.length; i++) {
             node.removeRebalancer(mockRebalancers[i]);
             assertFalse(node.isRebalancer(mockRebalancers[i]));
         }
-        
+
         vm.stopPrank();
     }
 
@@ -178,5 +157,4 @@ contract NodeTest is BaseTest {
         assertFalse(node.isOperator(user, randomUser));
         assertFalse(node.isOperator(mockOperator, user));
     }
-
 }
