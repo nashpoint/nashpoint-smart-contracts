@@ -69,4 +69,28 @@ library ErrorsLib {
 
     /// @notice Thrown when the component is invalid.
     error InvalidComponent();
+
+    /// @notice Thrown when not the factory.
+    error NotFactory();
+
+    /// @notice Thrown when not initialized.
+    error NotInitialized();
+
+    /// @notice Thrown when already initialized.
+    error AlreadyInitialized();
+
+    /// @notice Thrown when not the node owner.
+    error NotNodeOwner();
+
+    /// @notice Thrown when not the node rebalancer.
+    error NotNodeRebalancer();
+
+    /// @notice Thrown when not a router.
+    error NotRouter();
+
+    /// @notice Thrown when not registered.
+    error NotRegistered();
+
+    /// @notice Thrown when not the registry owner.
+    error NotRegistryOwner();
 }

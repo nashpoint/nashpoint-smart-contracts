@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {INode} from "./interfaces/INode.sol";
@@ -17,7 +16,7 @@ import {MathLib} from "./libraries/MathLib.sol";
  * @title QueueManager
  * @author ODND Studios
  */
-contract QueueManager is IQueueManager, Ownable {
+contract QueueManager is IQueueManager {
     using MathLib for uint256;
     using SafeERC20 for IERC20;
 
@@ -29,21 +28,22 @@ contract QueueManager is IQueueManager, Ownable {
     INode public immutable node;
 
     /* STORAGE */
-    /// @inheritdoc IQueueManager
-    IQuoter public quoter;
     mapping(address => QueueState) public queueStates;
 
     /* CONSTRUCTOR */
-    constructor(address node_, address quoter_, address owner_) Ownable(owner_) {
-        if (node_ == address(0) || quoter_ == address(0)) revert ErrorsLib.ZeroAddress();
-
+    constructor(address node_) {
+        if (node_ == address(0)) revert ErrorsLib.ZeroAddress();
         node = INode(node_);
-        quoter = IQuoter(quoter_);
     }
 
     /* MODIFIERS */
     modifier onlyNode() {
         if (msg.sender != address(node)) revert ErrorsLib.InvalidSender();
+        _;
+    }
+
+    modifier onlyNodeRebalancer() {
+        if (msg.sender != node.rebalancer()) revert ErrorsLib.InvalidSender();
         _;
     }
 
@@ -67,7 +67,7 @@ contract QueueManager is IQueueManager, Ownable {
     }
 
     /// @inheritdoc IQueueManager
-    function fulfillDepositRequest(address user, uint128 assets, uint128 shares) public onlyOwner {
+    function fulfillDepositRequest(address user, uint128 assets, uint128 shares) public onlyNodeRebalancer {
         QueueState storage state = queueStates[user];
         if (state.pendingDepositRequest == 0) revert ErrorsLib.NoPendingDepositRequest();
         state.depositPrice = _calculatePrice(_maxDeposit(user) + assets, state.maxMint + shares);
@@ -79,7 +79,7 @@ contract QueueManager is IQueueManager, Ownable {
     }
 
     /// @inheritdoc IQueueManager
-    function fulfillRedeemRequest(address user, uint128 assets, uint128 shares) public onlyOwner {
+    function fulfillRedeemRequest(address user, uint128 assets, uint128 shares) public onlyNodeRebalancer {
         QueueState storage state = queueStates[user];
         if (state.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
         state.redeemPrice = _calculatePrice(state.maxWithdraw + assets, _maxRedeem(user) + shares);
@@ -93,13 +93,13 @@ contract QueueManager is IQueueManager, Ownable {
     /* VIEW */
     /// @inheritdoc IQueueManager
     function convertToShares(uint256 _assets) public view returns (uint256 shares) {
-        uint128 latestPrice = quoter.getPrice();
+        uint128 latestPrice = IQuoter(node.quoter()).getPrice(address(node));
         shares = uint256(_calculateShares(_assets.toUint128(), latestPrice, MathLib.Rounding.Down));
     }
 
     /// @inheritdoc IQueueManager
     function convertToAssets(uint256 _shares) public view returns (uint256 assets) {
-        uint128 latestPrice = quoter.getPrice();
+        uint128 latestPrice = IQuoter(node.quoter()).getPrice(address(node));
         assets = uint256(_calculateAssets(_shares.toUint128(), latestPrice, MathLib.Rounding.Down));
     }
 

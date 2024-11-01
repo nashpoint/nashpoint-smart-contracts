@@ -1,98 +1,102 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-// Test utils
 import "forge-std/Test.sol";
-import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-// Core contracts
+import {Deployer} from "script/Deployer.sol";
+
 import {Node} from "src/Node.sol";
-import {NodeFactory} from "src/NodeFactory.sol";
 import {Escrow} from "src/Escrow.sol";
 import {QueueManager} from "src/QueueManager.sol";
-import {Quoter} from "src/Quoter.sol";
-import {ERC4626Rebalancer} from "src/rebalancers/ERC4626Rebalancer.sol";
-// Interfaces
+
 import {INode} from "src/interfaces/INode.sol";
+import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQueueManager} from "src/interfaces/IQueueManager.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
-import {IERC4626Rebalancer} from "src/interfaces/IERC4626Rebalancer.sol";
-// Mocks
+
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
 contract BaseTest is Test {
-    // Core contracts
-    NodeFactory public nodeFactory;
+    Deployer public deployer;
+
+    INodeRegistry public registry;
+    INodeFactory public nodeFactory;
+    IQuoter public quoter;
+    
     INode public node;
     IEscrow public escrow;
-    IQuoter public quoter;
     IQueueManager public queueManager;
-    IERC4626Rebalancer public erc4626Rebalancer;
 
-    // Mock tokens
     ERC20Mock public erc20;
 
-    // Common addresses
-    address public self = address(this);
-    address public deployer = makeAddr("deployer");
+    address public deployerAddress = makeAddr("deployer");
     address public owner = makeAddr("owner");
+    address public rebalancer = makeAddr("rebalancer");
     address public user = makeAddr("user");
     address public randomUser = makeAddr("randomUser");
 
-    // Constants
     uint128 public constant MAX_UINT128 = type(uint128).max;
     uint256 public constant INITIAL_BALANCE = 1000000 ether;
+    bytes32 public constant SALT = bytes32(uint256(1));
 
     function setUp() public virtual {
         vm.chainId(1);
-        vm.startPrank(deployer);
-
-        // Deploy mock token
+        
         erc20 = new ERC20Mock("Test Token", "TEST");
 
-        // Deploy core contracts
-        nodeFactory = new NodeFactory();
+        deployer = new Deployer();
+        deployer.deploy(deployerAddress);
+        
+        registry = INodeRegistry(address(deployer.nodeRegistry()));
+        nodeFactory = INodeFactory(address(deployer.nodeFactory()));
+        quoter = IQuoter(address(deployer.quoter()));
 
-        console.log(owner);
+        address[] memory factories = new address[](1);
+        factories[0] = address(nodeFactory);
 
-        // Deploy full node setup
-        (node, escrow, quoter, queueManager, erc4626Rebalancer) =
-            deployFullNode(address(erc20), "Test Node", "TNODE", owner);
+        address[] memory routers = new address[](1);
+        routers[0] = address(deployer.erc4626Router());
 
-        // Deal initial balances
+        address[] memory quoters = new address[](1);
+        quoters[0] = address(quoter);
+
+        vm.startPrank(deployerAddress);
+        registry.initialize(factories, routers, quoters);
+        Ownable(address(registry)).transferOwnership(owner);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        (node, escrow, queueManager) = nodeFactory.deployFullNode(
+            "Test Node",
+            "TNODE",
+            address(erc20),
+            owner,
+            rebalancer,
+            address(quoter),
+            routers,
+            SALT
+        );
+        vm.stopPrank();
+
         deal(address(erc20), user, INITIAL_BALANCE);
         deal(address(erc20), randomUser, INITIAL_BALANCE);
 
-        // Label addresses for better trace output
+        vm.label(address(registry), "NodeRegistry");
         vm.label(address(nodeFactory), "NodeFactory");
+        vm.label(address(quoter), "Quoter");
+        vm.label(address(deployer.erc4626Router()), "Router");
         vm.label(address(node), "Node");
         vm.label(address(escrow), "Escrow");
         vm.label(address(queueManager), "QueueManager");
-        vm.label(address(quoter), "Quoter");
         vm.label(address(erc20), "TestToken");
-        vm.label(deployer, "Deployer");
+        vm.label(deployerAddress, "Deployer");
         vm.label(owner, "Owner");
         vm.label(user, "User");
         vm.label(randomUser, "RandomUser");
-
-        vm.stopPrank();
-    }
-
-    function deployFullNode(address asset, string memory name, string memory symbol, address nodeOwner)
-        internal
-        returns (
-            INode node_,
-            IEscrow escrow_,
-            IQuoter quoter_,
-            IQueueManager manager_,
-            IERC4626Rebalancer erc4626Rebalancer_
-        )
-    {
-        bytes32 salt = keccak256(abi.encodePacked("node", name, symbol));
-
-        (node_, escrow_, quoter_, manager_, erc4626Rebalancer_) =
-            nodeFactory.deployFullNode(asset, name, symbol, nodeOwner, salt);
+        vm.label(rebalancer, "Rebalancer");
     }
 
     function mintAndApprove(address to, uint256 amount, address spender) public {

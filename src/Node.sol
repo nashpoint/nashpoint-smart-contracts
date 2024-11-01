@@ -9,6 +9,7 @@ import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/uti
 
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {IQueueManager} from "./interfaces/IQueueManager.sol";
+import {IQuoter} from "./interfaces/IQuoter.sol";
 import {IERC7540Deposit, IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
@@ -29,6 +30,8 @@ contract Node is INode, ERC20, Ownable {
     uint256 private constant REQUEST_ID = 0;
 
     /* IMMUTABLES */
+    /// @inheritdoc INode
+    address public immutable registry;
     /// @inheritdoc IERC7575
     address public immutable asset;
     /// @inheritdoc IERC7575
@@ -37,50 +40,60 @@ contract Node is INode, ERC20, Ownable {
     /* STORAGE */
     address[] public components;
     mapping(address => ComponentAllocation) public componentAllocations;
-    /// @inheritdoc INode
-    address public escrow;
-    /// @inheritdoc INode
-    mapping(address => bool) public isRebalancer;
-    /// @inheritdoc IERC7540Operator
-    mapping(address => mapping(address => bool)) public isOperator;
+
     /// @inheritdoc INode
     IQueueManager public manager;
+    /// @inheritdoc INode
+    IQuoter public quoter;
+    /// @inheritdoc INode
+    address public escrow;
+    /// @inheritdoc IERC7540Operator
+    mapping(address => mapping(address => bool)) public isOperator;
+
+    /// @inheritdoc INode
+    address public rebalancer;
+    /// @inheritdoc INode
+    mapping(address => bool) public isRouter;
+
+    bool public isInitialized;
 
     /* CONSTRUCTOR */
-    /// @notice Initializes the vault with asset, escrow, and rebalancer configuration
-    /// @param asset_ Underlying asset address
-    /// @param name ERC20 token name
-    /// @param symbol ERC20 token symbol
-    /// @param escrow_ Escrow contract address
-    /// @param manager_ Queue manager address
-    /// @param rebalancers Initial set of rebalancer addresses
-    /// @param owner Initial owner address
+    /// @notice Initializes the Node contract
+    /// @param registry_ The address of the node registry
+    /// @param name The name of the Node token
+    /// @param symbol The symbol of the Node token
+    /// @param asset_ The address of the underlying asset token
+    /// @param quoter_ The address of the quoter contract
+    /// @param rebalancer_ The address of the initial rebalancer
+    /// @param owner The address of the initial owner
+    /// @param routers An array of initial router addresses
     constructor(
-        address asset_,
+        address registry_,
         string memory name,
         string memory symbol,
-        address escrow_,
-        address manager_,
-        address[] memory rebalancers,
-        address owner
+        address asset_,
+        address quoter_,
+        address rebalancer_,
+        address owner,
+        address[] memory routers
     ) ERC20(name, symbol) Ownable(owner) {
-        if (asset_ == address(0) || escrow_ == address(0)) revert ErrorsLib.ZeroAddress();
+        if (registry_ == address(0) || asset_ == address(0)) revert ErrorsLib.ZeroAddress();
 
+        registry = registry_;
         asset = asset_;
         share = address(this);
-        escrow = escrow_;
-        manager = IQueueManager(manager_);
-
+        quoter = IQuoter(quoter_);
+        rebalancer = rebalancer_;
         unchecked {
-            for (uint256 i; i < rebalancers.length; ++i) {
-                isRebalancer[rebalancers[i]] = true;
+            for (uint256 i; i < routers.length; ++i) {
+                isRouter[routers[i]] = true;
             }
         }
     }
 
     /* MODIFIERS */
-    modifier onlyRebalancer() {
-        if (!isRebalancer[msg.sender]) revert ErrorsLib.NotRebalancer();
+    modifier onlyRouter() {
+        if (!isRouter[msg.sender]) revert ErrorsLib.NotRouter();
         _;
     }
 
@@ -90,19 +103,40 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* OWNER FUNCTIONS */
-    /// @inheritdoc INode
-    function addRebalancer(address newRebalancer) external onlyOwner {
-        if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
-        if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
-        isRebalancer[newRebalancer] = true;
-        emit EventsLib.AddRebalancer(newRebalancer);
+    /// @notice Initializes the Node with escrow and manager contracts
+    /// @param escrow_ The address of the escrow contract
+    /// @param manager_ The address of the queue manager contract
+    function initialize(address escrow_, address manager_) external onlyOwner {
+        if (isInitialized) revert ErrorsLib.AlreadyInitialized();
+        if (escrow_ == address(0) || manager_ == address(0)) revert ErrorsLib.ZeroAddress();
+
+        escrow = escrow_;
+        manager = IQueueManager(manager_);
+        isInitialized = true;
+
+        emit EventsLib.Initialize(escrow_, manager_);
     }
 
     /// @inheritdoc INode
-    function removeRebalancer(address oldRebalancer) external onlyOwner {
-        if (!isRebalancer[oldRebalancer]) revert ErrorsLib.NotSet();
-        isRebalancer[oldRebalancer] = false;
-        emit EventsLib.RemoveRebalancer(oldRebalancer);
+    function addRouter(address newRouter) external onlyOwner {
+        if (isRouter[newRouter]) revert ErrorsLib.AlreadySet();
+        if (newRouter == address(0)) revert ErrorsLib.ZeroAddress();
+        isRouter[newRouter] = true;
+        emit EventsLib.AddRouter(newRouter);
+    }
+
+    /// @inheritdoc INode
+    function removeRouter(address oldRouter) external onlyOwner {
+        if (!isRouter[oldRouter]) revert ErrorsLib.NotSet();
+        isRouter[oldRouter] = false;
+        emit EventsLib.RemoveRouter(oldRouter);
+    }
+
+    /// @inheritdoc INode
+    function setRebalancer(address newRebalancer) external onlyOwner {
+        if (newRebalancer == rebalancer) revert ErrorsLib.AlreadySet();
+        rebalancer = newRebalancer;
+        emit EventsLib.SetRebalancer(newRebalancer);
     }
 
     /// @inheritdoc INode
@@ -121,11 +155,19 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetManager(newManager);
     }
 
+    /// @inheritdoc INode
+    function setQuoter(address newQuoter) external onlyOwner {
+        if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
+        if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
+        quoter = IQuoter(newQuoter);
+        emit EventsLib.SetQuoter(newQuoter);
+    }
+
     /* REBALANCER FUNCTIONS */
     /// @inheritdoc INode
     function execute(address target, uint256 value, bytes calldata data)
         external
-        onlyRebalancer
+        onlyRouter
         returns (bytes memory)
     {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
