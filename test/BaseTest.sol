@@ -10,7 +10,7 @@ import {Node} from "src/Node.sol";
 import {Escrow} from "src/Escrow.sol";
 import {QueueManager} from "src/QueueManager.sol";
 
-import {INode} from "src/interfaces/INode.sol";
+import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
@@ -68,15 +68,33 @@ contract BaseTest is Test {
         Ownable(address(registry)).transferOwnership(owner);
         vm.stopPrank();
 
+        address[] memory components = new address[](1);
+        components[0] = address(deployer.erc4626Router());
+
+        ComponentAllocation[] memory componentAllocations = new ComponentAllocation[](1);
+        componentAllocations[0] = ComponentAllocation({
+            minimumWeight: 0.3 ether,
+            maximumWeight: 0.7 ether,
+            targetWeight: 0.5 ether
+        });
+
+        ComponentAllocation memory reserveAllocation = ComponentAllocation({
+            minimumWeight: 0.3 ether,
+            maximumWeight: 0.7 ether,
+            targetWeight: 0.5 ether
+        });
+
         vm.startPrank(owner);
         (node, escrow, queueManager) = nodeFactory.deployFullNode(
             "Test Node",
             "TNODE",
             address(erc20),
             owner,
-            rebalancer,
             address(quoter),
             routers,
+            components,
+            componentAllocations,
+            reserveAllocation,
             SALT
         );
         vm.stopPrank();

@@ -8,7 +8,7 @@ import {Node} from "./Node.sol";
 import {QueueManager} from "./QueueManager.sol";
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
-import {INode} from "./interfaces/INode.sol";
+import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {INodeFactory} from "./interfaces/INodeFactory.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
 import {IQueueManager} from "./interfaces/IQueueManager.sol";
@@ -35,9 +35,11 @@ contract NodeFactory is INodeFactory {
         string memory symbol,
         address asset,
         address owner,
-        address rebalancer,
         address quoter,
         address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        ComponentAllocation memory reserveAllocation,
         bytes32 salt
     )
         external
@@ -48,9 +50,11 @@ contract NodeFactory is INodeFactory {
             symbol,
             asset,
             address(this),
-            address(rebalancer),
-            address(quoter),
+            quoter,
             routers,
+            components,
+            componentAllocations,
+            reserveAllocation,
             salt
         );
         escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
@@ -65,15 +69,18 @@ contract NodeFactory is INodeFactory {
         string memory symbol,
         address asset,
         address owner,
-        address rebalancer,
         address quoter,
         address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        ComponentAllocation memory reserveAllocation,
         bytes32 salt
     ) public returns (INode node) {
-        if (asset == address(0) || owner == address(0) || rebalancer == address(0) || quoter == address(0))
+        if (asset == address(0) || owner == address(0) || quoter == address(0))
             revert ErrorsLib.ZeroAddress();
         if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
         if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
+        if (components.length != componentAllocations.length) revert ErrorsLib.LengthMismatch();
 
         if (!registry.isQuoter(quoter)) revert ErrorsLib.NotRegistered();
         for (uint256 i = 0; i < routers.length; i++) {
@@ -83,7 +90,16 @@ contract NodeFactory is INodeFactory {
         node = INode(
             address(
                 new Node{salt: salt}(
-                    address(registry), name, symbol, asset, quoter, rebalancer, owner, routers
+                    address(registry),
+                    name,
+                    symbol,
+                    asset,
+                    quoter,
+                    owner,
+                    routers,
+                    components,
+                    componentAllocations,
+                    reserveAllocation
                 )
             )
         );
@@ -98,5 +114,4 @@ contract NodeFactory is INodeFactory {
             salt
         );
     }
-
 }

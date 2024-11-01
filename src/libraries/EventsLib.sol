@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
+import { ComponentAllocation } from "../interfaces/INode.sol";
+
 /// @title EventsLib
-/// @notice Library exposing events.
+/// @author ODND Studios
 library EventsLib {
     /// @notice Emitted when `escrow` is set to `newEscrow`.
     event SetEscrow(address indexed newEscrow);
@@ -67,4 +69,19 @@ library EventsLib {
 
     /// @notice Emitted when a node is initialized.
     event Initialize(address escrow, address manager);
+
+    /// @notice Emitted when a component is added to a node
+    event ComponentAdded(address indexed node, address indexed component, ComponentAllocation allocation);
+    
+    /// @notice Emitted when a component is removed from a node
+    event ComponentRemoved(address indexed node, address indexed component);
+    
+    /// @notice Emitted when a component's allocation is updated
+    event ComponentAllocationUpdated(address indexed node, address indexed component, ComponentAllocation allocation);
+    
+    /// @notice Emitted when the reserve allocation is updated
+    event ReserveAllocationUpdated(address indexed node, ComponentAllocation allocation);
+
+    /// @notice Emitted when a target is whitelisted
+    event TargetWhitelisted(address indexed target, bool status);
 }   

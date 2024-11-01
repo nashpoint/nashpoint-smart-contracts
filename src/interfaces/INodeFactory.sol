@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {IEscrow} from "./IEscrow.sol";
-import {INode} from "./INode.sol";
+import {INode, ComponentAllocation} from "./INode.sol";
 import {IQueueManager} from "./IQueueManager.sol";
 
 /**
@@ -15,9 +15,11 @@ interface INodeFactory {
     /// @param symbol The ERC20 symbol of the vault
     /// @param asset The underlying asset address
     /// @param owner The owner of the node
-    /// @param rebalancer The initial rebalancer address
     /// @param quoter The quoter address
     /// @param routers Array of initial router addresses
+    /// @param components Array of initial component addresses
+    /// @param componentAllocations Array of initial component allocations
+    /// @param reserveAllocation The initial reserve allocation
     /// @param salt The salt to use for CREATE2 deployment
     /// @return node The deployed Node contract
     /// @return escrow The deployed Escrow contract
@@ -27,9 +29,11 @@ interface INodeFactory {
         string memory symbol,
         address asset,
         address owner,
-        address rebalancer,
         address quoter,
         address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        ComponentAllocation memory reserveAllocation,
         bytes32 salt
     ) external returns (INode node, IEscrow escrow, IQueueManager manager);
 
@@ -38,9 +42,11 @@ interface INodeFactory {
     /// @param symbol The ERC20 symbol of the vault
     /// @param asset The underlying asset address
     /// @param owner The owner of the node
-    /// @param rebalancer The initial rebalancer address
     /// @param quoter The quoter address
     /// @param routers Array of initial router addresses
+    /// @param components Array of initial component addresses
+    /// @param componentAllocations Array of initial component allocations
+    /// @param reserveAllocation The initial reserve allocation
     /// @param salt The salt to use for CREATE2 deployment
     /// @return node The deployed Node contract
     function createNode(
@@ -48,9 +54,11 @@ interface INodeFactory {
         string memory symbol,
         address asset,
         address owner,
-        address rebalancer,
         address quoter,
         address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        ComponentAllocation memory reserveAllocation,
         bytes32 salt
     ) external returns (INode node);
 }

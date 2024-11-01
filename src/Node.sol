@@ -40,6 +40,7 @@ contract Node is INode, ERC20, Ownable {
     /* STORAGE */
     address[] public components;
     mapping(address => ComponentAllocation) public componentAllocations;
+    ComponentAllocation public reserveAllocation;
 
     /// @inheritdoc INode
     IQueueManager public manager;
@@ -64,31 +65,34 @@ contract Node is INode, ERC20, Ownable {
     /// @param symbol The symbol of the Node token
     /// @param asset_ The address of the underlying asset token
     /// @param quoter_ The address of the quoter contract
-    /// @param rebalancer_ The address of the initial rebalancer
     /// @param owner The address of the initial owner
     /// @param routers An array of initial router addresses
+    /// @param components_ An array of component addresses
+    /// @param componentAllocations_ An array of component allocations matching components array
+    /// @param reserveAllocation_ The allocation for reserves
     constructor(
         address registry_,
         string memory name,
         string memory symbol,
         address asset_,
         address quoter_,
-        address rebalancer_,
         address owner,
-        address[] memory routers
+        address[] memory routers,
+        address[] memory components_,
+        ComponentAllocation[] memory componentAllocations_,
+        ComponentAllocation memory reserveAllocation_
     ) ERC20(name, symbol) Ownable(owner) {
         if (registry_ == address(0) || asset_ == address(0)) revert ErrorsLib.ZeroAddress();
+        if (components_.length != componentAllocations_.length) revert ErrorsLib.LengthMismatch();
 
         registry = registry_;
         asset = asset_;
         share = address(this);
         quoter = IQuoter(quoter_);
-        rebalancer = rebalancer_;
-        unchecked {
-            for (uint256 i; i < routers.length; ++i) {
-                isRouter[routers[i]] = true;
-            }
-        }
+        rebalancer = owner;
+        _setReserveAllocation(reserveAllocation_);
+        _setRouters(routers);
+        _setInitialComponents(components_, componentAllocations_);
     }
 
     /* MODIFIERS */
@@ -103,9 +107,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* OWNER FUNCTIONS */
-    /// @notice Initializes the Node with escrow and manager contracts
-    /// @param escrow_ The address of the escrow contract
-    /// @param manager_ The address of the queue manager contract
+    /// @inheritdoc INode
     function initialize(address escrow_, address manager_) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
         if (escrow_ == address(0) || manager_ == address(0)) revert ErrorsLib.ZeroAddress();
@@ -115,6 +117,47 @@ contract Node is INode, ERC20, Ownable {
         isInitialized = true;
 
         emit EventsLib.Initialize(escrow_, manager_);
+    }
+
+    /// @inheritdoc INode
+    function addComponent(address component, ComponentAllocation memory allocation) external onlyOwner {
+        if (component == address(0)) revert ErrorsLib.ZeroAddress();
+        if (_isComponent(component)) revert ErrorsLib.AlreadySet();
+        
+        components.push(component);
+        componentAllocations[component] = allocation;
+        
+        emit EventsLib.ComponentAdded(address(this), component, allocation);
+    }
+
+    /// @inheritdoc INode
+    function removeComponent(address component) external onlyOwner {
+        if (!_isComponent(component)) revert ErrorsLib.NotSet();
+        if (IERC20(component).balanceOf(address(this)) > 0) revert ErrorsLib.NonZeroBalance();
+
+        for (uint256 i = 0; i < components.length; i++) {
+            if (components[i] == component) {
+                components[i] = components[components.length - 1];
+                components.pop();
+                break;
+            }
+        }
+        delete componentAllocations[component];
+        
+        emit EventsLib.ComponentRemoved(address(this), component);
+    }
+
+    /// @inheritdoc INode
+    function updateComponentAllocation(address component, ComponentAllocation memory allocation) external onlyOwner {
+        if (!_isComponent(component)) revert ErrorsLib.NotSet();
+        componentAllocations[component] = allocation;
+        emit EventsLib.ComponentAllocationUpdated(address(this), component, allocation);
+    }
+
+    /// @inheritdoc INode
+    function updateReserveAllocation(ComponentAllocation memory allocation) external onlyOwner {
+        reserveAllocation = allocation;
+        emit EventsLib.ReserveAllocationUpdated(address(this), allocation);
     }
 
     /// @inheritdoc INode
@@ -373,5 +416,43 @@ contract Node is INode, ERC20, Ownable {
     /// @notice Ensures msg.sender can operate on behalf of controller.
     function _validateController(address controller) internal view {
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
+    }
+
+    function _setReserveAllocation(ComponentAllocation memory allocation) internal {
+        reserveAllocation = allocation;
+        emit EventsLib.ReserveAllocationUpdated(address(this), allocation);
+    }
+
+    function _setRouters(address[] memory routers) internal {
+        unchecked {
+            for (uint256 i; i < routers.length; ++i) {
+                isRouter[routers[i]] = true;
+                emit EventsLib.AddRouter(routers[i]);
+            }
+        }
+    }
+
+    function _setInitialComponents(
+        address[] memory components_,
+        ComponentAllocation[] memory allocations
+    ) internal {
+        unchecked {
+            for (uint256 i; i < components_.length; ++i) {
+                if (components_[i] == address(0)) revert ErrorsLib.ZeroAddress();
+                components.push(components_[i]);
+                componentAllocations[components_[i]] = allocations[i];
+                emit EventsLib.ComponentAdded(address(this), components_[i], allocations[i]);
+            }
+        }
+    }
+
+    function _isComponent(address component) internal view returns (bool) {
+        uint256 length = components.length;
+        unchecked {
+            for (uint256 i; i < length; ++i) {
+                if (components[i] == component) return true;
+            }
+        }
+        return false;
     }
 }

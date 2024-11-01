@@ -93,4 +93,13 @@ library ErrorsLib {
 
     /// @notice Thrown when not the registry owner.
     error NotRegistryOwner();
+
+    /// @notice Thrown when there is a length mismatch.
+    error LengthMismatch();
+
+    /// @notice Thrown when trying to remove a component with a non-zero balance.
+    error NonZeroBalance();
+
+    /// @notice Thrown when the target is not whitelisted.
+    error NotWhitelisted();
 }

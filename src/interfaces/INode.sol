@@ -78,6 +78,30 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @notice Returns the price per share in asset decimals
     function pricePerShare() external view returns (uint256);
 
-    /// @notice Initializes the node with escrow and manager contracts
+    /// @notice Initializes the Node with escrow and manager contracts
+    /// @param escrow_ The address of the escrow contract
+    /// @param manager_ The address of the queue manager contract
     function initialize(address escrow_, address manager_) external;
+
+    /// @notice Adds a new component to the node
+    /// @param component The address of the component to add
+    /// @param allocation The allocation parameters for the component
+    /// @dev Only callable by owner
+    function addComponent(address component, ComponentAllocation memory allocation) external;
+
+    /// @notice Removes a component from the node. Must have zero balance.
+    /// @param component The address of the component to remove
+    /// @dev Only callable by owner. Component must be rebalanced to zero before removal.
+    function removeComponent(address component) external;
+
+    /// @notice Updates the allocation for an existing component. Set to zero to rebalance out of component before removing.
+    /// @param component The address of the component to update
+    /// @param allocation The new allocation parameters
+    /// @dev Only callable by owner
+    function updateComponentAllocation(address component, ComponentAllocation memory allocation) external;
+
+    /// @notice Updates the allocation for the reserve asset
+    /// @param allocation The new allocation parameters
+    /// @dev Only callable by owner
+    function updateReserveAllocation(ComponentAllocation memory allocation) external;
 }
