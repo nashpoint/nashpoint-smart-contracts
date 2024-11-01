@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {BaseTest} from "../BaseTest.sol";
 import {Node} from "src/Node.sol";
 import {INode} from "src/interfaces/INode.sol";
+import {IERC7540Deposit} from "src/interfaces/IERC7540.sol";
 import {NodeFactory} from "src/NodeFactory.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
@@ -154,4 +155,35 @@ contract NodeTest is BaseTest {
 
         assertEq(address(node.quoter()), quoter_);
     }
+
+    function test_execute() public {
+        // Create test data for execute call
+        address target = makeAddr("target");
+        uint256 value = 0;
+        bytes memory data = abi.encodeWithSignature("test()");
+        bytes memory expectedResult = abi.encode(true);
+
+        // Mock the target call
+        vm.mockCall(target, data, expectedResult);
+
+        // Should revert if not called by router
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.NotRouter.selector);
+        newNode.execute(target, value, data);
+
+        // Should revert if target is zero address
+        vm.prank(address(0));
+        vm.expectRevert(ErrorsLib.NotRouter.selector);
+        newNode.execute(address(0), value, data);
+
+        // Should succeed when called by router
+        vm.prank(address(deployer.erc4626Router()));
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.Execute(target, value, data, expectedResult);
+        bytes memory result = newNode.execute(target, value, data);
+
+        assertEq(result, expectedResult);
+    }
+
+    function test_requestDeposit() public {}
 }
