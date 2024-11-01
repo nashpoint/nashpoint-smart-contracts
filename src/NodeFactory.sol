@@ -39,20 +39,8 @@ contract NodeFactory is INodeFactory {
         address quoter,
         address[] memory routers,
         bytes32 salt
-    )
-        external
-        returns (INode node, IEscrow escrow, IQueueManager manager)
-    {
-        node = createNode(
-            name,
-            symbol,
-            asset,
-            address(this),
-            address(rebalancer),
-            address(quoter),
-            routers,
-            salt
-        );
+    ) external returns (INode node, IEscrow escrow, IQueueManager manager) {
+        node = createNode(name, symbol, asset, address(this), address(rebalancer), address(quoter), routers, salt);
         escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
         manager = IQueueManager(address(new QueueManager{salt: salt}(address(node))));
         node.initialize(address(escrow), address(manager));
@@ -70,8 +58,9 @@ contract NodeFactory is INodeFactory {
         address[] memory routers,
         bytes32 salt
     ) public returns (INode node) {
-        if (asset == address(0) || owner == address(0) || rebalancer == address(0) || quoter == address(0))
+        if (asset == address(0) || owner == address(0) || rebalancer == address(0) || quoter == address(0)) {
             revert ErrorsLib.ZeroAddress();
+        }
         if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
         if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
 
@@ -81,22 +70,10 @@ contract NodeFactory is INodeFactory {
         }
 
         node = INode(
-            address(
-                new Node{salt: salt}(
-                    address(registry), name, symbol, asset, quoter, rebalancer, owner, routers
-                )
-            )
+            address(new Node{salt: salt}(address(registry), name, symbol, asset, quoter, rebalancer, owner, routers))
         );
 
         registry.addNode(address(node));
-        emit EventsLib.CreateNode(
-            address(node),
-            asset,
-            name,
-            symbol,
-            owner,
-            salt
-        );
+        emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, salt);
     }
-
 }

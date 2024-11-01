@@ -39,11 +39,10 @@ contract NodeRegistry is INodeRegistry, Ownable {
 
     /* EXTERNAL */
     /// @inheritdoc INodeRegistry
-    function initialize(
-        address[] calldata factories_,
-        address[] calldata routers_,
-        address[] calldata quoters_
-    ) external onlyOwner {
+    function initialize(address[] calldata factories_, address[] calldata routers_, address[] calldata quoters_)
+        external
+        onlyOwner
+    {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
 
         for (uint256 i = 0; i < factories_.length; i++) {
@@ -129,11 +128,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
     /// @inheritdoc INodeRegistry
     function isSystemContract(address contract_) external view returns (bool) {
         return (
-            isNode[contract_] ||
-            isFactory[contract_] ||
-            isRouter[contract_] ||
-            isQuoter[contract_] ||
-            contract_ == address(this)
+            isNode[contract_] || isFactory[contract_] || isRouter[contract_] || isQuoter[contract_]
+                || contract_ == address(this)
         );
     }
 }

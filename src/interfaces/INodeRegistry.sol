@@ -13,11 +13,8 @@ interface INodeRegistry {
      * @param routers_ Array of router addresses to initialize
      * @param quoters_ Array of quoter addresses to initialize
      */
-    function initialize(
-        address[] calldata factories_,
-        address[] calldata routers_,
-        address[] calldata quoters_
-    ) external;
+    function initialize(address[] calldata factories_, address[] calldata routers_, address[] calldata quoters_)
+        external;
 
     /**
      * @notice Adds a new node to the registry (only callable by factory)

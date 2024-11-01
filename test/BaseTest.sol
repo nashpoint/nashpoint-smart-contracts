@@ -25,7 +25,7 @@ contract BaseTest is Test {
     INodeRegistry public registry;
     INodeFactory public nodeFactory;
     IQuoter public quoter;
-    
+
     INode public node;
     IEscrow public escrow;
     IQueueManager public queueManager;
@@ -44,12 +44,12 @@ contract BaseTest is Test {
 
     function setUp() public virtual {
         vm.chainId(1);
-        
+
         erc20 = new ERC20Mock("Test Token", "TEST");
 
         deployer = new Deployer();
         deployer.deploy(deployerAddress);
-        
+
         registry = INodeRegistry(address(deployer.nodeRegistry()));
         nodeFactory = INodeFactory(address(deployer.nodeFactory()));
         quoter = IQuoter(address(deployer.quoter()));
@@ -70,14 +70,7 @@ contract BaseTest is Test {
 
         vm.startPrank(owner);
         (node, escrow, queueManager) = nodeFactory.deployFullNode(
-            "Test Node",
-            "TNODE",
-            address(erc20),
-            owner,
-            rebalancer,
-            address(quoter),
-            routers,
-            SALT
+            "Test Node", "TNODE", address(erc20), owner, rebalancer, address(quoter), routers, SALT
         );
         vm.stopPrank();
 

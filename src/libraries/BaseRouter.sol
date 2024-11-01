@@ -36,12 +36,7 @@ contract BaseRouter is IBaseRouter {
     /* APPROVALS */
 
     /// @inheritdoc IBaseRouter
-    function approve(
-        address node,
-        address token,
-        address spender,
-        uint256 amount
-    ) external onlyNodeRebalancer(node) {
+    function approve(address node, address token, address spender, uint256 amount) external onlyNodeRebalancer(node) {
         INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
 }

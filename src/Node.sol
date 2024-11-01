@@ -165,11 +165,7 @@ contract Node is INode, ERC20, Ownable {
 
     /* REBALANCER FUNCTIONS */
     /// @inheritdoc INode
-    function execute(address target, uint256 value, bytes calldata data)
-        external
-        onlyRouter
-        returns (bytes memory)
-    {
+    function execute(address target, uint256 value, bytes calldata data) external onlyRouter returns (bytes memory) {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
 
         bytes memory result = target.functionCallWithValue(data, value);

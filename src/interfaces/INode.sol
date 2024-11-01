@@ -80,4 +80,7 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
 
     /// @notice Initializes the node with escrow and manager contracts
     function initialize(address escrow_, address manager_) external;
+
+    /// @notice Returns true if node is initialized
+    function isInitialized() external view returns (bool);
 }
