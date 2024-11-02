@@ -131,9 +131,7 @@ contract BaseRouterTest is BaseTest {
     }
 
     function test_approve() public {
-        // Setup valid node and rebalancer
-        vm.prank(owner);
-        node.setRebalancer(rebalancer);
+        // Setup valid node         
         vm.prank(owner);
         node.addRouter(address(testRouter));
 
@@ -158,9 +156,8 @@ contract BaseRouterTest is BaseTest {
     }
 
     function test_approve_revert_NotRebalancer() public {
-        // Setup valid node but call from wrong address
-        vm.prank(owner);
-        node.setRebalancer(rebalancer);
+        // Setup valid node but call from wrong address 
+        assertNotEq(node.rebalancer(), randomUser);       
 
         // Whitelist token
         vm.prank(owner);
@@ -186,9 +183,7 @@ contract BaseRouterTest is BaseTest {
     }
 
     function test_onlyNodeRebalancer() public {
-        // Setup rebalancer on valid node
-        vm.prank(owner);
-        node.setRebalancer(rebalancer);
+        assertEq(node.rebalancer(), rebalancer);
 
         // Test the modifier with valid node and rebalancer
         vm.prank(rebalancer);
@@ -206,8 +201,7 @@ contract BaseRouterTest is BaseTest {
 
     function test_onlyNodeRebalancer_revert_NotRebalancer() public {
         // Setup valid node but call from wrong address
-        vm.prank(owner);
-        node.setRebalancer(rebalancer);
+        assertNotEq(node.rebalancer(), randomUser); 
 
         vm.prank(randomUser);
         vm.expectRevert(ErrorsLib.NotRebalancer.selector);

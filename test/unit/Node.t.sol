@@ -70,7 +70,7 @@ contract NodeTest is BaseTest {
         assertEq(address(newNode.asset()), address(asset));
         assertEq(address(newNode.share()), address(newNode));
         assertEq(address(newNode.quoter()), address(quoter));
-        assertEq(newNode.rebalancer(), owner);
+        assertEq(newNode.rebalancer(), rebalancer);
         assertTrue(newNode.isRouter(address(router)));
         assertEq(newNode.name(), "Test Node");
         assertEq(newNode.symbol(), "TNODE");

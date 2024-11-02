@@ -46,8 +46,7 @@ contract QueueManagerTest is BaseTest {
         
         // Setup node with mocks
         vm.startPrank(owner);
-        node.setQuoter(address(mockQuoter));
-        node.setRebalancer(rebalancer);
+        node.setQuoter(address(mockQuoter));       
         vm.stopPrank();
         
         // Deploy manager and harness
