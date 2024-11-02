@@ -66,6 +66,7 @@ contract Node is INode, ERC20, Ownable {
     /// @param symbol The symbol of the Node token
     /// @param asset_ The address of the underlying asset token
     /// @param quoter_ The address of the quoter contract
+    /// @param rebalancer_ The address of the rebalancer contract
     /// @param owner The address of the initial owner
     /// @param routers An array of initial router addresses
     /// @param components_ An array of component addresses
@@ -78,6 +79,7 @@ contract Node is INode, ERC20, Ownable {
         address asset_,
         address quoter_,
         address owner,
+        address rebalancer_,
         address[] memory routers,
         address[] memory components_,
         ComponentAllocation[] memory componentAllocations_,
@@ -90,7 +92,7 @@ contract Node is INode, ERC20, Ownable {
         asset = asset_;
         share = address(this);
         quoter = IQuoter(quoter_);
-        rebalancer = owner;
+        rebalancer = rebalancer_;
         _setReserveAllocation(reserveAllocation_);
         _setRouters(routers);
         _setInitialComponents(components_, componentAllocations_);

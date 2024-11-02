@@ -18,6 +18,7 @@ contract NodeFactoryTest is BaseTest {
     address public testAsset;
     address public testQuoter;
     address public testRouter;
+    address public testRebalancer;
     address public testComponent;
 
     string constant TEST_NAME = "Test Node";
@@ -49,6 +50,7 @@ contract NodeFactoryTest is BaseTest {
         testAsset = makeAddr("testAsset");
         testQuoter = makeAddr("testQuoter");
         testRouter = makeAddr("testRouter");
+        testRebalancer = makeAddr("testRebalancer");
         testComponent = makeAddr("testComponent");
         
         testRegistry = new NodeRegistry(owner);
@@ -58,13 +60,15 @@ contract NodeFactoryTest is BaseTest {
         testRegistry.initialize(
             _toArray(address(testFactory)),
             _toArray(testRouter),
-            _toArray(testQuoter)
+            _toArray(testQuoter),
+            _toArray(testRebalancer)
         );
         vm.stopPrank();
 
         vm.label(testAsset, "TestAsset");
         vm.label(testQuoter, "TestQuoter");
         vm.label(testRouter, "TestRouter");
+        vm.label(testRebalancer, "TestRebalancer");
         vm.label(testComponent, "TestComponent");
         vm.label(address(testRegistry), "TestRegistry");
         vm.label(address(testFactory), "TestFactory");
@@ -78,6 +82,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_NAME,
             TEST_SYMBOL,
             owner,
+            testRebalancer,
             TEST_SALT
         );
 
@@ -86,6 +91,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
+            testRebalancer,
             testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -105,6 +111,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_NAME,
             TEST_SYMBOL,
             address(testFactory), // owner is factory during creation
+            testRebalancer,
             TEST_SALT
         );
 
@@ -113,6 +120,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
+            testRebalancer,
             testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -135,6 +143,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             address(0),
             owner,
+            testRebalancer,
             testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -150,6 +159,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             address(0),
+            testRebalancer,
             testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -166,6 +176,7 @@ contract NodeFactoryTest is BaseTest {
             testAsset,
             owner,
             address(0),
+            testRebalancer,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
@@ -181,6 +192,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
+            testRebalancer,
             testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -197,6 +209,7 @@ contract NodeFactoryTest is BaseTest {
             "", // empty symbol
             testAsset,
             owner,
+            testRebalancer,
             testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -217,6 +230,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
+            testRebalancer,
             testQuoter,
             _toArray(testRouter),
             components,
@@ -235,6 +249,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
+            testRebalancer,
             testQuoter,
             _toArray(unregisteredRouter),
             _toArray(testComponent),
@@ -251,6 +266,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
+            testRebalancer,
             unregisteredQuoter,
             _toArray(testRouter),
             _toArray(testComponent),

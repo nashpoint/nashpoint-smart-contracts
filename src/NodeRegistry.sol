@@ -32,6 +32,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
     /// @inheritdoc INodeRegistry
     mapping(address => bool) public isQuoter;
     /// @inheritdoc INodeRegistry
+    mapping(address => bool) public isRebalancer;
+    /// @inheritdoc INodeRegistry
     bool public isInitialized;
 
     /* CONSTRUCTOR */
@@ -42,7 +44,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
     function initialize(
         address[] calldata factories_,
         address[] calldata routers_,
-        address[] calldata quoters_
+        address[] calldata quoters_,
+        address[] calldata rebalancers_
     ) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
 
@@ -62,6 +65,12 @@ contract NodeRegistry is INodeRegistry, Ownable {
             if (quoters_[i] == address(0)) revert ErrorsLib.ZeroAddress();
             isQuoter[quoters_[i]] = true;
             emit EventsLib.QuoterAdded(quoters_[i]);
+        }
+
+        for (uint256 i = 0; i < rebalancers_.length; i++) {
+            if (rebalancers_[i] == address(0)) revert ErrorsLib.ZeroAddress();
+            isRebalancer[rebalancers_[i]] = true;
+            emit EventsLib.RebalancerAdded(rebalancers_[i]);
         }
 
         isInitialized = true;
@@ -125,6 +134,22 @@ contract NodeRegistry is INodeRegistry, Ownable {
         emit EventsLib.QuoterRemoved(quoter_);
     }
 
+    /// @inheritdoc INodeRegistry
+    function addRebalancer(address rebalancer_) external onlyInitialized onlyOwner {
+        if (isRebalancer[rebalancer_]) revert ErrorsLib.AlreadySet();
+
+        isRebalancer[rebalancer_] = true;
+        emit EventsLib.RebalancerAdded(rebalancer_);
+    }
+
+    /// @inheritdoc INodeRegistry
+    function removeRebalancer(address rebalancer_) external onlyInitialized onlyOwner {
+        if (!isRebalancer[rebalancer_]) revert ErrorsLib.NotSet();
+
+        isRebalancer[rebalancer_] = false;
+        emit EventsLib.RebalancerRemoved(rebalancer_);
+    }
+
     /* VIEW */
     /// @inheritdoc INodeRegistry
     function isSystemContract(address contract_) external view returns (bool) {
@@ -133,6 +158,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
             isFactory[contract_] ||
             isRouter[contract_] ||
             isQuoter[contract_] ||
+            isRebalancer[contract_] ||
             contract_ == address(this)
         );
     }

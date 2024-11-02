@@ -22,6 +22,7 @@ library EventsLib {
         string name,
         string symbol,
         address owner,
+        address rebalancer,
         bytes32 salt
     );
 
@@ -61,8 +62,14 @@ library EventsLib {
     /// @notice Emitted when `node` is removed.
     event NodeRemoved(address indexed node);
 
-    /// @notice Emitted when a rebalancer is set.
+    /// @notice Emitted when a rebalancer is set on a node
     event SetRebalancer(address indexed rebalancer);
+
+    /// @notice Emitted when a rebalancer is added to node registry
+    event RebalancerAdded(address indexed rebalancer);
+
+    /// @notice Emitted when a rebalancer is removed from node registry
+    event RebalancerRemoved(address indexed rebalancer);
 
     /// @notice Emitted when a quoter is set.
     event SetQuoter(address indexed quoter);

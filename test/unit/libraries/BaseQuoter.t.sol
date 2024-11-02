@@ -27,13 +27,13 @@ contract BaseQuoterTest is BaseTest {
         
         testNode = makeAddr("testNode");
         registryOwner = makeAddr("registryOwner");
-        randomUser = makeAddr("randomUser");
+        randomUser = makeAddr("randomUser");        
         
         testRegistry = new NodeRegistry(registryOwner);
         testQuoter = new TestQuoter(address(testRegistry));
 
         vm.startPrank(registryOwner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
         testRegistry.addFactory(address(this));
         vm.stopPrank();
 

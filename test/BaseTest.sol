@@ -62,7 +62,8 @@ contract BaseTest is Test {
         registry.initialize(
             _toArray(address(factory)),
             _toArray(address(router)),
-            _toArray(address(quoter))
+            _toArray(address(quoter)),
+            _toArray(address(rebalancer))
         );
         vm.stopPrank();
 
@@ -72,6 +73,7 @@ contract BaseTest is Test {
             "TNODE",
             address(asset),
             owner,
+            address(rebalancer),
             address(quoter),
             _toArray(address(router)),
             _toArray(address(router)),
