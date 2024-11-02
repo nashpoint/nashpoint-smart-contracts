@@ -245,6 +245,46 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
     }
 
+    // Update Component Allocation Tests
+    function test_updateComponentAllocation() public {
+        vm.prank(owner);
+        uninitializedNode.updateComponentAllocation(testComponent, testAllocation); 
+
+        (uint256 min, uint256 max, uint256 target) = uninitializedNode.componentAllocations(testComponent);
+        assertEq(min, testAllocation.minimumWeight);
+        assertEq(max, testAllocation.maximumWeight);
+        assertEq(target, testAllocation.targetWeight);  
+    }
+
+    function test_updateComponentAllocation_RevertIf_NotOwner() public {
+        vm.prank(randomUser);
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", randomUser));
+        uninitializedNode.updateComponentAllocation(testComponent, testAllocation);
+    }   
+
+    function test_updateComponentAllocation_RevertIf_NotComponent() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotSet.selector);
+        uninitializedNode.updateComponentAllocation(makeAddr("nonexistent"), testAllocation);
+    }
+
+    // Update Reserve Allocation Tests
+    function test_updateReserveAllocation() public {
+        vm.prank(owner);
+        uninitializedNode.updateReserveAllocation(testAllocation);
+
+        (uint256 min, uint256 max, uint256 target) = uninitializedNode.reserveAllocation();
+        assertEq(min, testAllocation.minimumWeight);
+        assertEq(max, testAllocation.maximumWeight);
+        assertEq(target, testAllocation.targetWeight);
+    }
+
+    function test_updateReserveAllocation_RevertIf_NotOwner() public {
+        vm.prank(randomUser);
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", randomUser));
+        uninitializedNode.updateReserveAllocation(testAllocation);
+    }   
+
     // Router Management Tests
     function test_addRouter() public {
         address newRouter = makeAddr("newRouter");
@@ -615,7 +655,7 @@ contract NodeTest is BaseTest {
         assertTrue(node.supportsInterface(type(IERC165).interfaceId));
     }
 
-    /* ERC-4626 FUNCTIONS */
+    // ERC-4626 FUNCTIONS 
     // todo
 
     // Preview Functions Revert
@@ -638,8 +678,4 @@ contract NodeTest is BaseTest {
         vm.expectRevert();
         node.previewRedeem(1 ether);
     }
-
-
-
-
 }
