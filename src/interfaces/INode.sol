@@ -75,6 +75,9 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @notice Returns the manager
     function manager() external view returns (IQueueManager);
 
+    /// @notice Returns whether the node has been initialized
+    function isInitialized() external view returns (bool);
+
     /// @notice Returns the price per share in asset decimals
     function pricePerShare() external view returns (uint256);
 
@@ -104,4 +107,9 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @param allocation The new allocation parameters
     /// @dev Only callable by owner
     function updateReserveAllocation(ComponentAllocation memory allocation) external;
+
+    /// @notice Returns whether the given address is a component
+    /// @param component The address to check
+    /// @return bool True if the address is a component, false otherwise
+    function isComponent(address component) external view returns (bool);
 }

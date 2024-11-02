@@ -84,4 +84,7 @@ library EventsLib {
 
     /// @notice Emitted when a target is whitelisted
     event TargetWhitelisted(address indexed target, bool status);
+
+    /// @notice Emitted when approval is granted on the escrow
+    event Approve(address token, address spender, uint256 amount);
 }   

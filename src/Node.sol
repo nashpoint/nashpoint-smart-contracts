@@ -55,7 +55,8 @@ contract Node is INode, ERC20, Ownable {
     address public rebalancer;
     /// @inheritdoc INode
     mapping(address => bool) public isRouter;
-
+    
+    /// @inheritdoc INode
     bool public isInitialized;
 
     /* CONSTRUCTOR */
@@ -390,6 +391,11 @@ contract Node is INode, ERC20, Ownable {
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory) {
         return components;
+    }
+
+    /// @inheritdoc INode
+    function isComponent(address component) external view returns (bool) {
+        return _isComponent(component);
     }
 
     /* ERC-20 MINT/BURN FUNCTIONS */
