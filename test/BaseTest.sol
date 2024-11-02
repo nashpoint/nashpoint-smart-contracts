@@ -7,6 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Deployer} from "script/Deployer.sol";
 
 import {Node} from "src/Node.sol";
+import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {Escrow} from "src/Escrow.sol";
 import {QueueManager} from "src/QueueManager.sol";
 
@@ -21,105 +22,107 @@ import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
 contract BaseTest is Test {
     Deployer public deployer;
-
     INodeRegistry public registry;
-    INodeFactory public nodeFactory;
+    INodeFactory public factory;
     IQuoter public quoter;
+    ERC4626Router public router;
     
     INode public node;
     IEscrow public escrow;
     IQueueManager public queueManager;
+    ERC20Mock public asset;
 
-    ERC20Mock public erc20;
+    address public owner;
+    address public user;
+    address public randomUser;
+    address public rebalancer;
 
-    address public deployerAddress = makeAddr("deployer");
-    address public owner = makeAddr("owner");
-    address public rebalancer = makeAddr("rebalancer");
-    address public user = makeAddr("user");
-    address public randomUser = makeAddr("randomUser");
-
-    uint128 public constant MAX_UINT128 = type(uint128).max;
-    uint256 public constant INITIAL_BALANCE = 1000000 ether;
+    uint256 public constant INITIAL_BALANCE = 1000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
     function setUp() public virtual {
         vm.chainId(1);
         
-        erc20 = new ERC20Mock("Test Token", "TEST");
-
-        deployer = new Deployer();
-        deployer.deploy(deployerAddress);
+        owner = makeAddr("owner");
+        user = makeAddr("user");
+        randomUser = makeAddr("randomUser");
+        rebalancer = makeAddr("rebalancer");
         
-        registry = INodeRegistry(address(deployer.nodeRegistry()));
-        nodeFactory = INodeFactory(address(deployer.nodeFactory()));
+        deployer = new Deployer();
+        deployer.deploy(owner);
+        
+        registry = INodeRegistry(address(deployer.registry()));
+        factory = INodeFactory(address(deployer.factory()));
         quoter = IQuoter(address(deployer.quoter()));
-
-        address[] memory factories = new address[](1);
-        factories[0] = address(nodeFactory);
-
-        address[] memory routers = new address[](1);
-        routers[0] = address(deployer.erc4626Router());
-
-        address[] memory quoters = new address[](1);
-        quoters[0] = address(quoter);
-
-        vm.startPrank(deployerAddress);
-        registry.initialize(factories, routers, quoters);
-        Ownable(address(registry)).transferOwnership(owner);
-        vm.stopPrank();
-
-        address[] memory components = new address[](1);
-        components[0] = address(deployer.erc4626Router());
-
-        ComponentAllocation[] memory componentAllocations = new ComponentAllocation[](1);
-        componentAllocations[0] = ComponentAllocation({
-            minimumWeight: 0.3 ether,
-            maximumWeight: 0.7 ether,
-            targetWeight: 0.5 ether
-        });
-
-        ComponentAllocation memory reserveAllocation = ComponentAllocation({
-            minimumWeight: 0.3 ether,
-            maximumWeight: 0.7 ether,
-            targetWeight: 0.5 ether
-        });
+        router = deployer.router();
+        
+        asset = new ERC20Mock("Test Token", "TEST");
 
         vm.startPrank(owner);
-        (node, escrow, queueManager) = nodeFactory.deployFullNode(
+        registry.initialize(
+            _toArray(address(factory)),
+            _toArray(address(router)),
+            _toArray(address(quoter))
+        );
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        (node, escrow, queueManager) = factory.deployFullNode(
             "Test Node",
             "TNODE",
-            address(erc20),
+            address(asset),
             owner,
             address(quoter),
-            routers,
-            components,
-            componentAllocations,
-            reserveAllocation,
+            _toArray(address(router)),
+            _toArray(address(router)),
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation(),
             SALT
         );
         vm.stopPrank();
 
-        deal(address(erc20), user, INITIAL_BALANCE);
-        deal(address(erc20), randomUser, INITIAL_BALANCE);
+        deal(address(asset), user, INITIAL_BALANCE);
+        deal(address(asset), randomUser, INITIAL_BALANCE);
 
-        vm.label(address(registry), "NodeRegistry");
-        vm.label(address(nodeFactory), "NodeFactory");
+        _labelAddresses();
+    }
+
+    function _toArray(address addr) internal pure returns (address[] memory arr) {
+        arr = new address[](1);
+        arr[0] = addr;
+    }
+
+    function _defaultComponentAllocations(uint256 count) internal pure returns (ComponentAllocation[] memory allocations) {
+        allocations = new ComponentAllocation[](count);
+        for (uint256 i = 0; i < count; i++) {
+            allocations[i] = ComponentAllocation({
+                minimumWeight: 0.3 ether,
+                maximumWeight: 0.7 ether,
+                targetWeight: 0.5 ether
+            });
+        }
+    }
+
+    function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
+        return ComponentAllocation({
+            minimumWeight: 0.3 ether,
+            maximumWeight: 0.7 ether,
+            targetWeight: 0.5 ether
+        });
+    }
+
+    function _labelAddresses() internal {
+        vm.label(address(registry), "Registry");
+        vm.label(address(factory), "Factory");
         vm.label(address(quoter), "Quoter");
-        vm.label(address(deployer.erc4626Router()), "Router");
+        vm.label(address(router), "Router");
         vm.label(address(node), "Node");
         vm.label(address(escrow), "Escrow");
         vm.label(address(queueManager), "QueueManager");
-        vm.label(address(erc20), "TestToken");
-        vm.label(deployerAddress, "Deployer");
+        vm.label(address(asset), "TestToken");
         vm.label(owner, "Owner");
         vm.label(user, "User");
         vm.label(randomUser, "RandomUser");
         vm.label(rebalancer, "Rebalancer");
-    }
-
-    function mintAndApprove(address to, uint256 amount, address spender) public {
-        erc20.mint(to, amount);
-        vm.prank(to);
-        erc20.approve(spender, amount);
     }
 }

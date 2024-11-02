@@ -8,26 +8,21 @@ import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import "forge-std/Script.sol";
 
 contract Deployer is Script {
-    address public deployer;
-
-    NodeRegistry public nodeRegistry;
-    NodeFactory public nodeFactory;
+    NodeRegistry public registry;
+    NodeFactory public factory;
     QuoterV1 public quoter;
-    ERC4626Router public erc4626Router;
+    ERC4626Router public router;
 
-    function deploy(address deployer_) public {
-        deployer = deployer_;
-
-        // If no salt is provided, a pseudo-random salt is generated,
-        // thus effectively making the deployment non-deterministic
+    function deploy(address owner) public {
         bytes32 salt = vm.envOr(
-            "DEPLOYMENT_SALT", keccak256(abi.encodePacked(string(abi.encodePacked(blockhash(block.number - 1)))))
+            "DEPLOYMENT_SALT",
+            keccak256(abi.encodePacked(blockhash(block.number - 1)))
         );
 
-        nodeRegistry = new NodeRegistry{salt: salt}(deployer);
-
-        nodeFactory = new NodeFactory{salt: salt}(address(nodeRegistry));
-        quoter = new QuoterV1{salt: salt}(address(nodeRegistry));
-        erc4626Router = new ERC4626Router{salt: salt}(address(nodeRegistry));
+        // Deploy core contracts
+        registry = new NodeRegistry{salt: salt}(owner);
+        factory = new NodeFactory{salt: salt}(address(registry));
+        quoter = new QuoterV1{salt: salt}(address(registry));
+        router = new ERC4626Router{salt: salt}(address(registry));
     }
 }
