@@ -135,6 +135,11 @@ contract NodeFactoryTest is BaseTest {
         assertEq(address(node.manager()), address(manager));
     }
 
+    function test_constructor_revert_ZeroAddress() public {
+    vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+    new NodeFactory(address(0));
+}
+
     function test_createNode_revert_ZeroAddress() public {
         // Test zero asset address
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
@@ -177,6 +182,22 @@ contract NodeFactoryTest is BaseTest {
             owner,
             address(0),
             testRebalancer,
+            _toArray(testRouter),
+            _toArray(testComponent),
+            getTestComponentAllocations(1),
+            getTestReserveAllocation(),
+            TEST_SALT
+        );
+
+        // Test zero rebalancer address     
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        testFactory.createNode(
+            TEST_NAME,
+            TEST_SYMBOL,
+            testAsset,
+            owner,
+            address(0),
+            testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
@@ -268,6 +289,23 @@ contract NodeFactoryTest is BaseTest {
             owner,
             testRebalancer,
             unregisteredQuoter,
+            _toArray(testRouter),
+            _toArray(testComponent),
+            getTestComponentAllocations(1),
+            getTestReserveAllocation(),
+            TEST_SALT
+        );
+
+        // Test unregistered rebalancer
+        address unregisteredRebalancer = makeAddr("unregisteredRebalancer");
+        vm.expectRevert(ErrorsLib.NotRegistered.selector);
+        testFactory.createNode(             
+            TEST_NAME,
+            TEST_SYMBOL,
+            testAsset,
+            owner,
+            unregisteredRebalancer,
+            testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),

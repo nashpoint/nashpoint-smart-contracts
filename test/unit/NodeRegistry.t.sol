@@ -29,7 +29,7 @@ contract NodeRegistryTest is BaseTest {
         testRegistry = new NodeRegistry(owner);
     }
 
-    function test_constructor() public {
+    function test_constructor() public view {
         assertEq(testRegistry.owner(), owner);
         assertFalse(testRegistry.isInitialized());
     }
@@ -148,6 +148,12 @@ contract NodeRegistryTest is BaseTest {
         quoters[0] = address(0);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         testRegistry.initialize(empty, empty, quoters, empty);
+
+        address[] memory rebalancers = new address[](1);
+        rebalancers[0] = address(0);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        testRegistry.initialize(empty, empty, empty, rebalancers);
+
         vm.stopPrank();
     }
 
@@ -324,4 +330,60 @@ contract NodeRegistryTest is BaseTest {
         testRegistry.removeQuoter(testQuoter);
         vm.stopPrank();
     }
+
+    // Rebalancer tests
+    function test_addRebalancer() public {
+        vm.startPrank(owner);
+        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        vm.expectEmit(true, false, false, false);
+        emit EventsLib.RebalancerAdded(testRebalancer);
+        testRegistry.addRebalancer(testRebalancer);
+        vm.stopPrank();
+
+        assertTrue(testRegistry.isRebalancer(testRebalancer));
+    }
+    function test_addRebalancer_revert_NotInitialized() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotInitialized.selector);
+        testRegistry.addRebalancer(testRebalancer);
+    }
+
+    function test_addRebalancer_revert_AlreadySet() public {
+        vm.startPrank(owner);
+        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.addRebalancer(testRebalancer);
+        
+        vm.expectRevert(ErrorsLib.AlreadySet.selector);
+        testRegistry.addRebalancer(testRebalancer);
+        vm.stopPrank();
+    }
+
+    function test_removeRebalancer() public {
+        vm.startPrank(owner);
+        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.addRebalancer(testRebalancer);
+
+        vm.expectEmit(true, false, false, false);
+        emit EventsLib.RebalancerRemoved(testRebalancer);
+        testRegistry.removeRebalancer(testRebalancer);
+        vm.stopPrank();
+
+        assertFalse(testRegistry.isRebalancer(testRebalancer));
+    }
+
+    function test_removeRebalancer_revert_NotInitialized() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotInitialized.selector);
+        testRegistry.removeRebalancer(testRebalancer);
+    }
+
+    function test_removeRebalancer_revert_NotSet() public {
+        vm.startPrank(owner);
+        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        vm.expectRevert(ErrorsLib.NotSet.selector);
+        testRegistry.removeRebalancer(testRebalancer);
+        vm.stopPrank();
+    }
+
+    
 }
