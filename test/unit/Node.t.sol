@@ -9,7 +9,10 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC7540Deposit} from "src/interfaces/IERC7540.sol";
+import {IERC7540Deposit, IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
+import {IERC7575} from "src/interfaces/IERC7575.sol";
+import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
+
 contract NodeTest is BaseTest {
     Node public uninitializedNode;
     address public testComponent;
@@ -588,6 +591,55 @@ contract NodeTest is BaseTest {
         uint256 claimable = node.claimableDepositRequest(0, address(queueManager));
         assertEq(claimable, 1 ether);
         vm.stopPrank();    
-    }   
+    }
+
+    // Set Operator tests
+    function test_setOperator() public {
+        vm.prank(owner);
+        node.setOperator(address(randomUser), true);
+        assertTrue(node.isOperator(owner, address(randomUser)));        
+    }
+
+    function test_setOperator_RevertIf_Self() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.CannotSetSelfAsOperator.selector);
+        node.setOperator(owner, true);
+    }
+
+    // Supports Interface tests
+    function test_supportsInterface() public view {
+        assertTrue(node.supportsInterface(type(IERC7540Deposit).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC7540Redeem).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC7540Operator).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC7575).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC165).interfaceId));
+    }
+
+    /* ERC-4626 FUNCTIONS */
+    // todo
+
+    // Preview Functions Revert
+    function test_previewDeposit_Reverts() public {
+        vm.expectRevert();
+        node.previewDeposit(1 ether);
+    }
+
+    function test_previewMint_Reverts() public {
+        vm.expectRevert();
+        node.previewMint(1 ether);
+    }
+
+    function test_previewWithdraw_Reverts() public {
+        vm.expectRevert();
+        node.previewWithdraw(1 ether);
+    }
+
+    function test_previewRedeem_Reverts() public {
+        vm.expectRevert();
+        node.previewRedeem(1 ether);
+    }
+
+
+
 
 }
