@@ -559,40 +559,42 @@ contract NodeTest is BaseTest {
 
     // Request Deposit tests
     function test_requestDeposit() public {
-        deal(address(asset), owner, INITIAL_BALANCE);
-        vm.startPrank(owner);
+        deal(address(asset), user, INITIAL_BALANCE);
+        vm.startPrank(user);
         asset.approve(address(node), 1 ether); 
-        node.requestDeposit(1 ether, address(queueManager), owner);
+        node.requestDeposit(1 ether, user, user);
+
+        assertEq(node.pendingDepositRequest(0, user), 1 ether);
     }
 
     function test_requestDeposit_EmitsEvent() public {
-        deal(address(asset), owner, INITIAL_BALANCE);
-        vm.startPrank(owner);
+        deal(address(asset), user, INITIAL_BALANCE);
+        vm.startPrank(user);
         asset.approve(address(node), 1 ether); 
         vm.expectEmit(true, true, true, true);
-        emit IERC7540Deposit.DepositRequest(address(queueManager), owner, 0, owner, 1 ether);
-        node.requestDeposit(1 ether, address(queueManager), owner);
+        emit IERC7540Deposit.DepositRequest(address(queueManager), user, 0, user, 1 ether);
+        node.requestDeposit(1 ether, address(queueManager), user);
     }
     
     function test_requestDeposit_RevertIf_InsufficientBalance() public {
-        uint256 balance = asset.balanceOf(owner);
+        uint256 balance = asset.balanceOf(user);
         
-        vm.startPrank(owner);
+        vm.startPrank(user);
         asset.approve(address(node), 1 ether);
         vm.expectRevert(ErrorsLib.InsufficientBalance.selector);        
-        node.requestDeposit(balance + 1, address(queueManager), owner);
+        node.requestDeposit(balance + 1, address(queueManager), user);
     }
 
     function test_requestDeposit_RevertIf_InvalidOwner() public {
-        vm.startPrank(owner);
+        vm.startPrank(user);
         vm.expectRevert(ErrorsLib.InvalidOwner.selector);
         node.requestDeposit(1 ether, address(queueManager), randomUser);
     }
 
     function test_requestDeposit_RevertIf_RequestDepositFailed() public {
         // Setup: Give owner some assets and approve spending
-        deal(address(asset), owner, INITIAL_BALANCE);
-        vm.startPrank(owner);
+        deal(address(asset), user, INITIAL_BALANCE);
+        vm.startPrank(user);
         asset.approve(address(node), 1 ether);
         
         // Mock the queue manager to return false or revert
@@ -604,16 +606,16 @@ contract NodeTest is BaseTest {
         
         // Test
         vm.expectRevert(ErrorsLib.RequestDepositFailed.selector);
-        node.requestDeposit(1 ether, address(queueManager), owner);
+        node.requestDeposit(1 ether, address(queueManager), user);
         vm.stopPrank();
     }
 
     // Pending Deposit Request tests
     function test_pendingDepositRequest() public {
-        deal(address(asset), owner, INITIAL_BALANCE);
-        vm.startPrank(owner);
+        deal(address(asset), user, INITIAL_BALANCE);
+        vm.startPrank(user);
         asset.approve(address(node), 1 ether);
-        node.requestDeposit(1 ether, address(queueManager), owner);
+        node.requestDeposit(1 ether, address(queueManager), user);
         uint256 pending = node.pendingDepositRequest(0, address(queueManager));
         assertEq(pending, 1 ether);
     }
@@ -633,20 +635,68 @@ contract NodeTest is BaseTest {
         vm.stopPrank();    
     }
 
-    // Request Redeem tests
-    // todo
+    function test_claimableDepositRequest_noOperator() public { 
+        // Mock the queue manager to return claimable amount
+        vm.mockCall(
+            address(queueManager),
+            abi.encodeWithSelector(IQueueManager.maxDeposit.selector, address(randomUser)),
+            abi.encode(1 ether)
+        );        
+        
+        uint256 claimable = node.claimableDepositRequest(0, address(randomUser));
+        assertEq(claimable, 1 ether);
+        vm.stopPrank();    
+    }
+
+    // Request Redeem tests   
+
+    function test_requestRedeem() public {
+        deal(address(asset), user, INITIAL_BALANCE);
+        vm.startPrank(user);
+        asset.approve(address(node), 1 ether); 
+        node.requestDeposit(1 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user, 1 ether, 1 ether);
+
+        vm.prank(owner);
+        escrow.approveMax(address(node), address(queueManager));
+
+        vm.startPrank(user);
+        node.deposit(1 ether, user, user);
+        node.approve(address(node), 1 ether); 
+        uint256 requestId = node.requestRedeem(1 ether, user, user);
+        assertEq(requestId, 0);
+        vm.stopPrank();
+    }
+
+    function test_requestRedeem_RevertIf_InsufficientBalance() public { 
+        deal(address(asset), user, INITIAL_BALANCE);
+        userDeposits(user, 1 ether);
+
+        vm.startPrank(user);
+        node.transfer(randomUser, 0.5 ether);
+        vm.expectRevert(ErrorsLib.InsufficientBalance.selector);
+        node.requestRedeem(1 ether, user, user);
+        vm.stopPrank();
+    }
+
+    
+
+    
 
     // Set Operator tests
     function test_setOperator() public {
-        vm.prank(owner);
-        node.setOperator(address(randomUser), true);
-        assertTrue(node.isOperator(owner, address(randomUser)));        
+        vm.prank(user);
+        node.setOperator(address(rebalancer), true);
+        assertTrue(node.isOperator(user, address(rebalancer)));        
     }
 
     function test_setOperator_RevertIf_Self() public {
-        vm.prank(owner);
+        vm.prank(user);
         vm.expectRevert(ErrorsLib.CannotSetSelfAsOperator.selector);
-        node.setOperator(owner, true);
+        node.setOperator(user, true);
     }
 
     // Supports Interface tests
@@ -680,5 +730,22 @@ contract NodeTest is BaseTest {
     function test_previewRedeem_Reverts() public {
         vm.expectRevert();
         node.previewRedeem(1 ether);
+    }
+
+    // Uility Functions
+    function userDeposits(address user_, uint256 amount_) public {        
+        vm.startPrank(user_);
+        asset.approve(address(node), amount_); 
+        node.requestDeposit(amount_, user_, user_);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user_, uint128(amount_), uint128(amount_));
+
+        vm.prank(owner);
+        escrow.approveMax(address(node), address(queueManager));
+        
+        vm.prank(user_);
+        node.deposit(amount_, user_, user_);               
     }
 }
