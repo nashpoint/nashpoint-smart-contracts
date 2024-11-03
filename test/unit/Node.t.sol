@@ -731,70 +731,11 @@ contract NodeTest is BaseTest {
 
     // ERC-4626 FUNCTIONS 
     function test_totalAssets() public {
-        // Setup initial state
-        // uint256 reserveAmount = 1 ether;
-        // uint256 erc4626Amount = 2 ether;
-        // uint256 erc7540Amount = 3 ether;
-        // uint256 pendingAmount = 0.5 ether;
-        // uint256 claimableAmount = 0.5 ether;
-        
-        // // Setup mock components
-        // address erc4626Component = makeAddr("erc4626Component");
-        // address erc7540Component = makeAddr("erc7540Component");
-        
-        // // Setup component registry in quoter
-        // vm.startPrank(owner);
-        // // quoter.setErc4626(erc4626Component, true);
-        // // quoter.setErc7540(erc7540Component, true);
-        // vm.stopPrank();
-
-        // // Add components to node
-        // vm.startPrank(owner);
-        // node.addComponent(erc4626Component, testAllocation);
-        // node.addComponent(erc7540Component, testAllocation);
-        // vm.stopPrank();
-
-        // // Mock reserve balance
-        // deal(address(asset), address(node), reserveAmount);
-
-        // // Mock ERC4626 component
-        // vm.mockCall(
-        //     erc4626Component,
-        //     abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)),
-        //     abi.encode(erc4626Amount)
-        // );
-        // vm.mockCall(
-        //     erc4626Component,
-        //     abi.encodeWithSelector(IERC4626.convertToAssets.selector, erc4626Amount),
-        //     abi.encode(erc4626Amount)
-        // );
-
-        // // Mock ERC7540 component
-        // vm.mockCall(
-        //     erc7540Component,
-        //     abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)),
-        //     abi.encode(erc7540Amount)
-        // );
-        // vm.mockCall(
-        //     erc7540Component,
-        //     abi.encodeWithSelector(IERC4626.convertToAssets.selector, erc7540Amount),
-        //     abi.encode(erc7540Amount)
-        // );
-        // vm.mockCall(
-        //     erc7540Component,
-        //     abi.encodeWithSelector(IERC7540Deposit.pendingDepositRequest.selector, 0, address(node)),
-        //     abi.encode(pendingAmount)
-        // );
-        // vm.mockCall(
-        //     erc7540Component,
-        //     abi.encodeWithSelector(IERC7540Deposit.claimableDepositRequest.selector, 0, address(node)),
-        //     abi.encode(claimableAmount)
-        // );
-
-        // // Expected total: reserve + erc4626 + erc7540 + pending + claimable
-        // uint256 expectedTotal = reserveAmount + erc4626Amount + erc7540Amount + pendingAmount + claimableAmount;
-    
-        // assertEq(node.totalAssets(), expectedTotal, "Total assets calculation incorrect");
+        // TODO: Add tests for totalAssets after checking quoter and queueManager
+        // deal(address(asset), user, INITIAL_BALANCE);
+        // userDeposits(user, 1 ether);
+        // uint256 totalAssets = node.totalAssets();
+        // assertEq(totalAssets, 1 ether);
     }
 
     // Preview Functions Revert
