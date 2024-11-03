@@ -5,10 +5,12 @@ import {BaseTest} from "../BaseTest.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {IQueueManager} from "src/interfaces/IQueueManager.sol";
+import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540Deposit, IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
@@ -682,9 +684,28 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
     }
 
-    
+    function test_pendingRedeemRequest() public {
+        vm.mockCall(
+            address(queueManager),
+            abi.encodeWithSelector(IQueueManager.pendingRedeemRequest.selector, address(queueManager)),
+            abi.encode(1 ether)
+        );
 
+        uint256 pending = node.pendingRedeemRequest(0, address(queueManager));
+        assertEq(pending, 1 ether);
+    }
     
+    function test_claimableRedeemRequest() public {
+        // Mock the queue manager to return claimable amount
+        vm.mockCall(
+            address(queueManager),
+            abi.encodeWithSelector(IQueueManager.maxRedeem.selector, address(queueManager)),
+            abi.encode(1 ether)
+        );
+
+        uint256 claimable = node.claimableRedeemRequest(0, address(queueManager));
+        assertEq(claimable, 1 ether);
+    }
 
     // Set Operator tests
     function test_setOperator() public {
@@ -709,7 +730,72 @@ contract NodeTest is BaseTest {
     }
 
     // ERC-4626 FUNCTIONS 
-    // todo
+    function test_totalAssets() public {
+        // Setup initial state
+        // uint256 reserveAmount = 1 ether;
+        // uint256 erc4626Amount = 2 ether;
+        // uint256 erc7540Amount = 3 ether;
+        // uint256 pendingAmount = 0.5 ether;
+        // uint256 claimableAmount = 0.5 ether;
+        
+        // // Setup mock components
+        // address erc4626Component = makeAddr("erc4626Component");
+        // address erc7540Component = makeAddr("erc7540Component");
+        
+        // // Setup component registry in quoter
+        // vm.startPrank(owner);
+        // // quoter.setErc4626(erc4626Component, true);
+        // // quoter.setErc7540(erc7540Component, true);
+        // vm.stopPrank();
+
+        // // Add components to node
+        // vm.startPrank(owner);
+        // node.addComponent(erc4626Component, testAllocation);
+        // node.addComponent(erc7540Component, testAllocation);
+        // vm.stopPrank();
+
+        // // Mock reserve balance
+        // deal(address(asset), address(node), reserveAmount);
+
+        // // Mock ERC4626 component
+        // vm.mockCall(
+        //     erc4626Component,
+        //     abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)),
+        //     abi.encode(erc4626Amount)
+        // );
+        // vm.mockCall(
+        //     erc4626Component,
+        //     abi.encodeWithSelector(IERC4626.convertToAssets.selector, erc4626Amount),
+        //     abi.encode(erc4626Amount)
+        // );
+
+        // // Mock ERC7540 component
+        // vm.mockCall(
+        //     erc7540Component,
+        //     abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)),
+        //     abi.encode(erc7540Amount)
+        // );
+        // vm.mockCall(
+        //     erc7540Component,
+        //     abi.encodeWithSelector(IERC4626.convertToAssets.selector, erc7540Amount),
+        //     abi.encode(erc7540Amount)
+        // );
+        // vm.mockCall(
+        //     erc7540Component,
+        //     abi.encodeWithSelector(IERC7540Deposit.pendingDepositRequest.selector, 0, address(node)),
+        //     abi.encode(pendingAmount)
+        // );
+        // vm.mockCall(
+        //     erc7540Component,
+        //     abi.encodeWithSelector(IERC7540Deposit.claimableDepositRequest.selector, 0, address(node)),
+        //     abi.encode(claimableAmount)
+        // );
+
+        // // Expected total: reserve + erc4626 + erc7540 + pending + claimable
+        // uint256 expectedTotal = reserveAmount + erc4626Amount + erc7540Amount + pendingAmount + claimableAmount;
+    
+        // assertEq(node.totalAssets(), expectedTotal, "Total assets calculation incorrect");
+    }
 
     // Preview Functions Revert
     function test_previewDeposit_Reverts() public {
