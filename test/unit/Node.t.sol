@@ -36,12 +36,16 @@ contract NodeTest is BaseTest {
     ComponentAllocation public testAllocation;
     MockQuoter public mockQuoter;
     address public testComponent;
+    address public testComponent2;
+    address public testComponent3;
     address public testOperator;
 
     function setUp() public override {
         super.setUp(); 
         testOperator = makeAddr("testOperator");
         testComponent = makeAddr("component1");
+        testComponent2 = makeAddr("component2");
+        testComponent3 = makeAddr("component3");
         testAllocation = ComponentAllocation({
             minimumWeight: 0.3 ether,
             maximumWeight: 0.7 ether,
@@ -996,7 +1000,48 @@ contract NodeTest is BaseTest {
         node.previewRedeem(1 ether);
     }
 
-    // Uility Functions
+    function test_pricePerShare() public {        
+        mockQuoter.setPrice(1 ether);
+        assertEq(node.pricePerShare(), 1 ether);
+        
+        mockQuoter.setPrice(2 ether);
+        assertEq(node.pricePerShare(), 2 ether);
+        
+        mockQuoter.setPrice(0.5 ether);
+        assertEq(node.pricePerShare(), 0.5 ether);
+        
+        mockQuoter.setPrice(0);
+        assertEq(node.pricePerShare(), 0);
+    }
+
+    function test_getComponents() public {
+        address[] memory components = uninitializedNode.getComponents();
+        assertEq(components.length, 1);
+        assertEq(components[0], address(testComponent));
+
+        vm.startPrank(owner);
+        uninitializedNode.addComponent(address(testComponent2), testAllocation);
+        uninitializedNode.addComponent(address(testComponent3), testAllocation);
+        vm.stopPrank();
+
+        components = uninitializedNode.getComponents();
+        assertEq(components.length, 3);
+        assertEq(components[0], address(testComponent));
+        assertEq(components[1], address(testComponent2));
+        assertEq(components[2], address(testComponent3));
+    }
+    
+
+    function test_isComponent() public view {
+        assertTrue(uninitializedNode.isComponent(address(testComponent)));        
+    }
+
+    function test_isComponent_false() public view {
+        assertFalse(uninitializedNode.isComponent(address(0)));
+    }  
+    
+
+    // Helper Functions
     function userDeposits(address user_, uint256 amount_) public {        
         vm.startPrank(user_);
         asset.approve(address(node), amount_); 
