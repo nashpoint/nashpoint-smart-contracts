@@ -15,6 +15,38 @@ import {IERC7540Deposit, IERC7540Redeem, IERC7540Operator} from "src/interfaces/
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
 
+contract NodeHarness is Node {
+    constructor(
+        address registry_,
+        string memory name_,
+        string memory symbol_,
+        address asset_,
+        address quoter_,
+        address owner_,
+        address rebalancer_,
+        address[] memory routers_,
+        address[] memory components_,
+        ComponentAllocation[] memory allocations_,
+        ComponentAllocation memory reserveAllocation_
+    ) Node(
+        registry_,
+        name_,
+        symbol_,
+        asset_,
+        quoter_,
+        owner_,
+        rebalancer_,
+        routers_,
+        components_,
+        allocations_,
+        reserveAllocation_
+    ) {}
+
+    function validateController(address controller) public view {
+        _validateController(controller);
+    }
+}
+
 contract MockQuoter {
     uint128 public price;
     
@@ -34,6 +66,7 @@ contract MockQuoter {
 contract NodeTest is BaseTest {
     Node public uninitializedNode;    
     ComponentAllocation public testAllocation;
+    NodeHarness public harness;
     MockQuoter public mockQuoter;
     address public testComponent;
     address public testComponent2;
@@ -77,6 +110,20 @@ contract NodeTest is BaseTest {
         mockQuoter = new MockQuoter(1 ether); // 1:1 initial price
         vm.prank(owner);
         node.setQuoter(address(mockQuoter));
+
+        harness = new NodeHarness(
+            address(registry),
+            "Test Node",
+            "TNODE",
+            address(asset),
+            address(quoter),
+            owner,
+            address(rebalancer),
+            _toArray(address(router)),
+            components,
+            allocations,
+            _defaultReserveAllocation()
+        );
     }
 
     function test_constructor() public {
@@ -165,6 +212,31 @@ contract NodeTest is BaseTest {
         allocations[0] = testAllocation;
 
         vm.expectRevert(ErrorsLib.LengthMismatch.selector);
+        new Node(
+            address(registry),
+            "Test Node",
+            "TNODE",
+            address(asset),
+            address(quoter),
+            owner,
+            address(rebalancer),
+            _toArray(address(router)),
+            components,
+            allocations,
+            _defaultReserveAllocation()
+        );
+    }
+
+    function test_constructor_RevertIf_ZeroComponent() public {
+        address[] memory components = new address[](2);
+        components[0] = testComponent;
+        components[1] = address(0); // Zero address component
+        
+        ComponentAllocation[] memory allocations = new ComponentAllocation[](2);
+        allocations[0] = testAllocation;
+        allocations[1] = testAllocation;
+
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         new Node(
             address(registry),
             "Test Node",
@@ -389,6 +461,24 @@ contract NodeTest is BaseTest {
         uninitializedNode.removeRouter(makeAddr("nonexistent"));
     }
 
+    function test_setRebalancer() public {
+        address newRebalancer = makeAddr("newRebalancer");
+
+        vm.prank(owner);        
+        uninitializedNode.setRebalancer(newRebalancer);
+
+        assertEq(uninitializedNode.rebalancer(), newRebalancer);
+    }
+
+    function test_setRebalancer_EmitsEvent() public {
+        address newRebalancer = makeAddr("newRebalancer");
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.SetRebalancer(newRebalancer);
+        uninitializedNode.setRebalancer(newRebalancer);
+    }
+
     // Rebalancer tests  
     function test_setRebalancer_RevertIf_AlreadySet() public {
         vm.prank(owner);
@@ -610,10 +700,13 @@ contract NodeTest is BaseTest {
     }
 
     function test_setQuoter_RevertIf_AlreadySet() public {
-        address newQuoter = makeAddr("newQuoter");
+        address newQuoter = makeAddr("newQuoter"); 
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         uninitializedNode.setQuoter(newQuoter);
+        vm.expectRevert(ErrorsLib.AlreadySet.selector);
+        uninitializedNode.setQuoter(newQuoter);
+        vm.stopPrank();
     }
 
     function test_setQuoter_RevertIf_NotOwner() public {
@@ -749,6 +842,27 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
     }
 
+    function test_requestRedeem_RevertIf_RequestRedeemFailed() public {
+    // Setup: User has sufficient balance to redeem
+    deal(address(asset), user, INITIAL_BALANCE);
+        userDeposits(user, 1 ether);
+
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+
+        // Mock the QueueManager to return false
+        vm.mockCall(
+            address(queueManager),
+            abi.encodeWithSelector(IQueueManager.requestRedeem.selector),
+            abi.encode(false)
+        );
+
+        // Attempt to request redeem and expect revert
+        vm.expectRevert(ErrorsLib.RequestRedeemFailed.selector);
+        node.requestRedeem(1 ether, address(queueManager), user);
+        vm.stopPrank();
+    }
+
     function test_pendingRedeemRequest() public {
         vm.mockCall(
             address(queueManager),
@@ -822,8 +936,6 @@ contract NodeTest is BaseTest {
         assertEq(node.maxDeposit(user), 1 ether);
     }
 
-    
-
     function test_deposit() public {
         vm.prank(user);
         node.setOperator(testOperator, true);
@@ -856,15 +968,14 @@ contract NodeTest is BaseTest {
         vm.startPrank(owner);
         asset.approve(address(node), 1 ether);
         escrow.approveMax(address(node), address(queueManager));
-        vm.stopPrank();
+        vm.stopPrank();        
         
-        // Now expect the event right before the deposit
         vm.expectEmit(true, true, true, true);
         emit IERC7575.Deposit(user, user, 1 ether, 1 ether);
         
         vm.prank(user);
         node.deposit(1 ether, user);
-    }
+    }    
 
     function test_maxMint() public {
         vm.mockCall(
@@ -914,6 +1025,8 @@ contract NodeTest is BaseTest {
         vm.prank(user);
         node.mint(1 ether, user);
     }
+
+    
     
      function test_maxWithdraw() public {
         vm.mockCall(
@@ -1076,11 +1189,70 @@ contract NodeTest is BaseTest {
 
     function test_isComponent_false() public view {
         assertFalse(uninitializedNode.isComponent(address(0)));
-    }  
+    }
 
-    
-    
+    function test_mint_onlyQueueManager() public {
+        vm.prank(address(queueManager));
+        node.mint(user, 1 ether);
+        assertEq(node.balanceOf(user), 1 ether);
+    } 
 
+    function test_mint_revertNotQueueManager() public {
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.mint(user, 1 ether);
+    }
+
+    function test_burn_onlyQueueManager() public {
+        vm.prank(address(queueManager));
+        node.mint(user, 1 ether);        
+        
+        vm.prank(address(queueManager));
+        node.burn(user, 0.5 ether);
+        
+        assertEq(node.balanceOf(user), 0.5 ether);
+    }
+
+    function test_burn_revertNotQueueManager() public {
+        vm.prank(address(queueManager));
+        node.mint(user, 1 ether);
+        
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.burn(user, 0.5 ether);
+    }
+
+    function test_onDepositClaimable() public {
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.DepositClaimable(user, 0, 1 ether, 1 ether);
+        node.onDepositClaimable(user, 1 ether, 1 ether);
+    }
+
+    function test_onRedeemClaimable() public {
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.RedeemClaimable(user, 0, 1 ether, 1 ether);
+        node.onRedeemClaimable(user, 1 ether, 1 ether);
+    }
+
+    function test_validateController() public {
+        vm.prank(user);
+        harness.setOperator(testOperator, true); 
+
+        vm.prank(testOperator);
+        harness.validateController(user);
+    }
+
+    function test_validateController_isUser() public {
+        vm.prank(user);
+        harness.validateController(user);        
+    }
+
+    function test_validateController_reverts_invalidController() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.InvalidController.selector);
+        harness.validateController(randomUser);
+    }
+        
     // Helper Functions
     function userDeposits(address user_, uint256 amount_) public {        
         vm.startPrank(user_);
@@ -1095,18 +1267,6 @@ contract NodeTest is BaseTest {
         escrow.approveMax(address(node), address(queueManager));
         
         vm.prank(user_);
-        node.deposit(amount_, user_);               
-    }
-
-    function test_onDepositClaimable() public {
-        vm.expectEmit(true, true, true, true);
-        emit EventsLib.DepositClaimable(user, 0, 1 ether, 1 ether);
-        node.onDepositClaimable(user, 1 ether, 1 ether);
-    }
-
-    function test_onRedeemClaimable() public {
-        vm.expectEmit(true, true, true, true);
-        emit EventsLib.RedeemClaimable(user, 0, 1 ether, 1 ether);
-        node.onRedeemClaimable(user, 1 ether, 1 ether);
-    }
+        node.deposit(amount_, user_);             
+    }   
 }
