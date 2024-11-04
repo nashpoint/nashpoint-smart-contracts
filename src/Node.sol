@@ -291,7 +291,7 @@ contract Node is INode, ERC20, Ownable {
     /// @inheritdoc IERC7575
     function totalAssets() external view returns (uint256) {
         return convertToAssets(totalSupply());
-    }
+    }       
 
     /// @inheritdoc IERC7575
     function convertToShares(uint256 assets) public view returns (uint256 shares) {

@@ -15,14 +15,32 @@ import {IERC7540Deposit, IERC7540Redeem, IERC7540Operator} from "src/interfaces/
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
 
-contract NodeTest is BaseTest {
-    Node public uninitializedNode;
-    address public testComponent;
-    ComponentAllocation public testAllocation;
+contract MockQuoter {
+    uint128 public price;
     
+    constructor(uint128 _price) {
+        price = _price;
+    }
+    
+    function getPrice(address) external view returns (uint128) {
+        return price;
+    }
+    
+    function setPrice(uint128 _price) external {
+        price = _price;
+    }
+}
+
+contract NodeTest is BaseTest {
+    Node public uninitializedNode;    
+    ComponentAllocation public testAllocation;
+    MockQuoter public mockQuoter;
+    address public testComponent;
+    address public testOperator;
+
     function setUp() public override {
-        super.setUp();        
-        
+        super.setUp(); 
+        testOperator = makeAddr("testOperator");
         testComponent = makeAddr("component1");
         testAllocation = ComponentAllocation({
             minimumWeight: 0.3 ether,
@@ -32,7 +50,7 @@ contract NodeTest is BaseTest {
 
         // Deploy a fresh uninitialized node for initialization tests
         address[] memory components = new address[](1);
-        components[0] = testComponent;
+        components[0] = testComponent;        
         
         ComponentAllocation[] memory allocations = new ComponentAllocation[](1);
         allocations[0] = testAllocation;
@@ -50,6 +68,11 @@ contract NodeTest is BaseTest {
             allocations,
             _defaultReserveAllocation()
         );
+
+        // Setup mock quoter
+        mockQuoter = new MockQuoter(1 ether); // 1:1 initial price
+        vm.prank(owner);
+        node.setQuoter(address(mockQuoter));
     }
 
     function test_constructor() public {
@@ -731,12 +754,226 @@ contract NodeTest is BaseTest {
 
     // ERC-4626 FUNCTIONS 
     function test_totalAssets() public {
-        // TODO: Add tests for totalAssets after checking quoter and queueManager
-        // deal(address(asset), user, INITIAL_BALANCE);
-        // userDeposits(user, 1 ether);
-        // uint256 totalAssets = node.totalAssets();
-        // assertEq(totalAssets, 1 ether);
+        userDeposits(user, 1 ether);        
+        uint256 totalAssets_ = 1 ether;
+        assertEq(node.totalAssets(), totalAssets_);        
     }
+
+    function test_convertToShares() public {
+        userDeposits(user, 1 ether);
+        uint256 shares = node.convertToShares(1 ether);
+        assertEq(shares, 1 ether);
+    }
+
+    function test_convertToAssets() public {
+        userDeposits(user, 1 ether);
+        uint256 assets = node.convertToAssets(1 ether);
+        assertEq(assets, 1 ether);
+    }
+
+    function test_maxDeposit() public {
+        vm.mockCall(
+            address(queueManager),
+            abi.encodeWithSelector(IQueueManager.maxDeposit.selector, user),
+            abi.encode(1 ether)
+        );
+        assertEq(node.maxDeposit(user), 1 ether);
+    }
+
+    
+
+    function test_deposit() public {
+        vm.prank(user);
+        node.setOperator(testOperator, true);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 1 ether); 
+        node.requestDeposit(1 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user, uint128(1 ether), uint128(1 ether));
+
+        vm.prank(owner);
+        escrow.approveMax(address(node), address(queueManager));
+
+        vm.prank(testOperator);
+        node.deposit(1 ether, user, user);    
+    }
+
+    function test_deposit_noOperator() public {        
+        // Setup deposit request and approval
+        vm.startPrank(user);
+        asset.approve(address(node), 1 ether); 
+        node.requestDeposit(1 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user, uint128(1 ether), uint128(1 ether));
+
+        vm.startPrank(owner);
+        asset.approve(address(node), 1 ether);
+        escrow.approveMax(address(node), address(queueManager));
+        vm.stopPrank();
+        
+        // Now expect the event right before the deposit
+        vm.expectEmit(true, true, true, true);
+        emit IERC7575.Deposit(user, user, 1 ether, 1 ether);
+        
+        vm.prank(user);
+        node.deposit(1 ether, user);
+    }
+
+    function test_maxMint() public {
+        vm.mockCall(
+            address(queueManager),
+            abi.encodeWithSelector(IQueueManager.maxMint.selector, user),
+            abi.encode(1 ether)
+        );
+        assertEq(node.maxMint(user), 1 ether);
+    }
+
+    function test_mint() public {
+        vm.prank(user);
+        node.setOperator(testOperator, true);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 1 ether); 
+        node.requestDeposit(1 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user, uint128(1 ether), uint128(1 ether));
+
+        vm.prank(owner);
+        escrow.approveMax(address(node), address(queueManager));
+
+        vm.prank(testOperator);
+        node.mint(1 ether, user, user);  
+    }
+
+    function test_mint_noOperator() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 1 ether); 
+        node.requestDeposit(1 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user, uint128(1 ether), uint128(1 ether));
+
+        vm.startPrank(owner);
+        asset.approve(address(node), 1 ether);
+        escrow.approveMax(address(node), address(queueManager));
+        vm.stopPrank();        
+        
+        vm.expectEmit(true, true, true, true);
+        emit IERC7575.Deposit(user, user, 1 ether, 1 ether);
+        
+        vm.prank(user);
+        node.mint(1 ether, user);
+    }
+    
+     function test_maxWithdraw() public {
+        vm.mockCall(
+            address(queueManager),
+            abi.encodeWithSelector(IQueueManager.maxWithdraw.selector, user),
+            abi.encode(1 ether)
+        );
+        assertEq(node.maxWithdraw(user), 1 ether);
+    }
+
+    function test_withdraw() public {
+        vm.prank(user);
+        node.setOperator(testOperator, true);
+
+        userDeposits(user, 1 ether);
+        uint256 assets = node.convertToAssets(node.balanceOf(user));
+
+        vm.startPrank(user);
+        node.approve(address(node), assets);
+        node.requestRedeem(assets, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillRedeemRequest(user, uint128(assets), uint128(assets));
+
+        vm.startPrank(owner);        
+        escrow.approveMax(address(asset), address(queueManager));
+        vm.stopPrank();
+        vm.prank(testOperator);
+        node.withdraw(assets, user, user);
+    }
+
+    function test_withdraw_noOperator() public {
+        userDeposits(user, 1 ether);
+        uint256 assets = node.convertToAssets(node.balanceOf(user));
+
+        vm.startPrank(user);
+        node.approve(address(node), assets);
+        node.requestRedeem(assets, user, user);
+        vm.stopPrank();     
+
+        vm.prank(rebalancer);
+        queueManager.fulfillRedeemRequest(user, uint128(assets), uint128(assets));
+
+        vm.startPrank(owner);        
+        escrow.approveMax(address(asset), address(queueManager));
+        vm.stopPrank();
+        vm.prank(user);
+        node.withdraw(assets, user, user);
+    }
+
+    function test_maxRedeem() public {
+        vm.mockCall(
+            address(queueManager),
+            abi.encodeWithSelector(IQueueManager.maxRedeem.selector, user),
+            abi.encode(1 ether)
+        );
+        assertEq(node.maxRedeem(user), 1 ether);
+    }
+
+    function test_redeem() public {
+        vm.prank(user);
+        node.setOperator(testOperator, true);
+
+        userDeposits(user, 1 ether);
+        uint256 shares = node.balanceOf(user);
+
+        vm.startPrank(user);
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillRedeemRequest(user, uint128(shares), uint128(shares));
+
+        vm.startPrank(owner);        
+        escrow.approveMax(address(asset), address(queueManager));
+        vm.stopPrank();
+        vm.prank(testOperator);
+        node.redeem(shares, user, user);
+
+    }
+    
+    function test_redeem_noOperator() public {
+        userDeposits(user, 1 ether);
+        uint256 shares = node.balanceOf(user);
+
+        vm.startPrank(user);
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        queueManager.fulfillRedeemRequest(user, uint128(shares), uint128(shares));
+
+        vm.startPrank(owner);        
+        escrow.approveMax(address(asset), address(queueManager));
+        vm.stopPrank();
+        vm.prank(user);
+        node.redeem(shares, user, user);
+    }
+
 
     // Preview Functions Revert
     function test_previewDeposit_Reverts() public {
@@ -773,6 +1010,6 @@ contract NodeTest is BaseTest {
         escrow.approveMax(address(node), address(queueManager));
         
         vm.prank(user_);
-        node.deposit(amount_, user_, user_);               
+        node.deposit(amount_, user_);               
     }
 }

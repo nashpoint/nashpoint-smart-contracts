@@ -83,7 +83,7 @@ contract QueueManager is IQueueManager {
         QueueState storage state = queueStates[user];
         if (state.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
         state.redeemPrice = _calculatePrice(state.maxWithdraw + assets, _maxRedeem(user) + shares);
-        state.maxWithdraw = state.maxWithdraw > assets ? state.maxWithdraw - assets : 0;
+        state.maxWithdraw = state.maxWithdraw + assets;
         state.pendingRedeemRequest = state.pendingRedeemRequest > shares ? state.pendingRedeemRequest - shares : 0;
 
         node.burn(node.escrow(), shares);
