@@ -250,6 +250,38 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
     }
 
+    function test_removeComponent() public {
+        // Setup mock component with zero balance
+        vm.mockCall(
+            address(testComponent),  // The component address
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(uninitializedNode)),
+            abi.encode(0)  // Return zero balance
+        );
+
+        vm.prank(owner);
+        uninitializedNode.removeComponent(testComponent);
+        assertFalse(uninitializedNode.isComponent(testComponent));
+    }
+
+    function test_removeComponent_emitsEvent() public {
+        vm.mockCall(
+            address(testComponent),  // The component address
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(uninitializedNode)),
+            abi.encode(0)  // Return zero balance
+        );
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.ComponentRemoved(address(uninitializedNode), testComponent);
+        uninitializedNode.removeComponent(testComponent);
+    }
+
+    function test_removeComponent_revertIf_notOwner() public {
+        vm.prank(randomUser);
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", randomUser));
+        uninitializedNode.removeComponent(testComponent);
+    }
+
     function test_removeComponent_RevertIf_NotSet() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotSet.selector);
