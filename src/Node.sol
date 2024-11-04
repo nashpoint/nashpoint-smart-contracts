@@ -181,6 +181,7 @@ contract Node is INode, ERC20, Ownable {
     /// @inheritdoc INode
     function setRebalancer(address newRebalancer) external onlyOwner {
         if (newRebalancer == rebalancer) revert ErrorsLib.AlreadySet();
+        if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
         rebalancer = newRebalancer;
         emit EventsLib.SetRebalancer(newRebalancer);
     }
@@ -413,11 +414,11 @@ contract Node is INode, ERC20, Ownable {
 
     /* EVENT EMITTERS */
     function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {
-        emit DepositClaimable(controller, REQUEST_ID, assets, shares);
+        emit EventsLib.DepositClaimable(controller, REQUEST_ID, assets, shares);
     }
 
     function onRedeemClaimable(address controller, uint256 assets, uint256 shares) public {
-        emit RedeemClaimable(controller, REQUEST_ID, assets, shares);
+        emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assets, shares);
     }
 
     /* INTERNAL */

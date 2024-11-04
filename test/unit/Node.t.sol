@@ -402,6 +402,12 @@ contract NodeTest is BaseTest {
         uninitializedNode.setRebalancer(makeAddr("newRebalancer"));
     }
 
+    function test_setRebalancer_RevertIf_ZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        uninitializedNode.setRebalancer(address(0));
+    }
+
     // execute tests
     function test_execute() public {
         // Setup a mock contract to call
@@ -1071,6 +1077,8 @@ contract NodeTest is BaseTest {
     function test_isComponent_false() public view {
         assertFalse(uninitializedNode.isComponent(address(0)));
     }  
+
+    
     
 
     // Helper Functions
@@ -1088,5 +1096,17 @@ contract NodeTest is BaseTest {
         
         vm.prank(user_);
         node.deposit(amount_, user_);               
+    }
+
+    function test_onDepositClaimable() public {
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.DepositClaimable(user, 0, 1 ether, 1 ether);
+        node.onDepositClaimable(user, 1 ether, 1 ether);
+    }
+
+    function test_onRedeemClaimable() public {
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.RedeemClaimable(user, 0, 1 ether, 1 ether);
+        node.onRedeemClaimable(user, 1 ether, 1 ether);
     }
 }

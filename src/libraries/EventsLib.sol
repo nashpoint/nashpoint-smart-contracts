@@ -94,4 +94,10 @@ library EventsLib {
 
     /// @notice Emitted when approval is granted on the escrow
     event Approve(address token, address spender, uint256 amount);
+
+    /// @notice Emitted when a deposit is claimable
+    event DepositClaimable(address indexed controller, uint256 requestId, uint256 assets, uint256 shares);
+
+    /// @notice Emitted when a redeem is claimable
+    event RedeemClaimable(address indexed controller, uint256 requestId, uint256 assets, uint256 shares);
 }   
