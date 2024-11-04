@@ -44,7 +44,7 @@ contract NodeHarness is Node {
 
     function validateController(address controller) public view {
         _validateController(controller);
-    }
+    }    
 }
 
 contract MockQuoter {
@@ -72,6 +72,7 @@ contract NodeTest is BaseTest {
     address public testComponent2;
     address public testComponent3;
     address public testOperator;
+    address[] public emptyRouters;
 
     function setUp() public override {
         super.setUp(); 
@@ -724,7 +725,9 @@ contract NodeTest is BaseTest {
         asset.approve(address(node), 1 ether); 
         node.requestDeposit(1 ether, user, user);
 
+        assertEq(asset.balanceOf(address(escrow)), 1 ether);
         assertEq(node.pendingDepositRequest(0, user), 1 ether);
+        assertEq(asset.balanceOf(user), INITIAL_BALANCE - 1 ether);        
     }
 
     function test_requestDeposit_EmitsEvent() public {
@@ -806,10 +809,9 @@ contract NodeTest is BaseTest {
         uint256 claimable = node.claimableDepositRequest(0, address(randomUser));
         assertEq(claimable, 1 ether);
         vm.stopPrank();    
-    }
+    }  
 
-    // Request Redeem tests   
-
+    // Request Redeem tests
     function test_requestRedeem() public {
         deal(address(asset), user, INITIAL_BALANCE);
         vm.startPrank(user);
@@ -829,6 +831,10 @@ contract NodeTest is BaseTest {
         uint256 requestId = node.requestRedeem(1 ether, user, user);
         assertEq(requestId, 0);
         vm.stopPrank();
+
+        assertEq(node.pendingRedeemRequest(0, user), 1 ether);
+        assertEq(node.balanceOf(user), 0);
+        assertEq(node.balanceOf(address(escrow)), 1 ether);
     }
 
     function test_requestRedeem_RevertIf_InsufficientBalance() public { 
@@ -908,6 +914,12 @@ contract NodeTest is BaseTest {
         assertTrue(node.supportsInterface(type(IERC165).interfaceId));
     }
 
+    function test_supportsInterface_ReturnsFalseForUnsupportedInterface() public view {
+        bytes4 unsupportedInterfaceId = 0xffffffff; // An example of an unsupported interface ID
+        assertFalse(node.supportsInterface(unsupportedInterfaceId));
+    }
+
+
     // ERC-4626 FUNCTIONS 
     function test_totalAssets() public {
         userDeposits(user, 1 ether);        
@@ -948,11 +960,17 @@ contract NodeTest is BaseTest {
         vm.prank(rebalancer);
         queueManager.fulfillDepositRequest(user, uint128(1 ether), uint128(1 ether));
 
+        assertEq(node.balanceOf(address(escrow)), 1 ether);
+
         vm.prank(owner);
         escrow.approveMax(address(node), address(queueManager));
 
         vm.prank(testOperator);
-        node.deposit(1 ether, user, user);    
+        node.deposit(1 ether, user, user);
+
+        assertEq(node.balanceOf(user), 1 ether);
+        assertEq(asset.balanceOf(user), INITIAL_BALANCE - 1 ether);
+        assertEq(node.balanceOf(address(escrow)), 0);
     }
 
     function test_deposit_noOperator() public {        
@@ -1003,6 +1021,10 @@ contract NodeTest is BaseTest {
 
         vm.prank(testOperator);
         node.mint(1 ether, user, user);  
+
+        assertEq(node.balanceOf(user), 1 ether);
+        assertEq(asset.balanceOf(user), INITIAL_BALANCE - 1 ether);
+        assertEq(node.balanceOf(address(escrow)), 0);
     }
 
     function test_mint_noOperator() public {
@@ -1057,6 +1079,10 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
         vm.prank(testOperator);
         node.withdraw(assets, user, user);
+
+        assertEq(node.balanceOf(user), 0);
+        assertEq(asset.balanceOf(user), INITIAL_BALANCE);   
+        assertEq(node.balanceOf(address(escrow)), 0);
     }
 
     function test_withdraw_noOperator() public {
@@ -1108,6 +1134,9 @@ contract NodeTest is BaseTest {
         vm.prank(testOperator);
         node.redeem(shares, user, user);
 
+        assertEq(node.balanceOf(user), 0);
+        assertEq(asset.balanceOf(user), INITIAL_BALANCE);   
+        assertEq(node.balanceOf(address(escrow)), 0);
     }
     
     function test_redeem_noOperator() public {
@@ -1251,8 +1280,8 @@ contract NodeTest is BaseTest {
         vm.prank(user);
         vm.expectRevert(ErrorsLib.InvalidController.selector);
         harness.validateController(randomUser);
-    }
-        
+    }   
+    
     // Helper Functions
     function userDeposits(address user_, uint256 amount_) public {        
         vm.startPrank(user_);
