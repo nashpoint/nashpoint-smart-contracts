@@ -37,6 +37,7 @@ contract NodeTest is BaseTest {
             address(asset),
             address(quoter),
             owner,
+            address(rebalancer),
             _toArray(address(router)),
             components,
             allocations,
@@ -58,6 +59,7 @@ contract NodeTest is BaseTest {
             address(asset),
             address(quoter),
             owner,
+            address(rebalancer),
             _toArray(address(router)),
             components,
             allocations,
@@ -68,7 +70,7 @@ contract NodeTest is BaseTest {
         assertEq(address(newNode.asset()), address(asset));
         assertEq(address(newNode.share()), address(newNode));
         assertEq(address(newNode.quoter()), address(quoter));
-        assertEq(newNode.rebalancer(), owner);
+        assertEq(newNode.rebalancer(), rebalancer);
         assertTrue(newNode.isRouter(address(router)));
         assertEq(newNode.name(), "Test Node");
         assertEq(newNode.symbol(), "TNODE");
@@ -89,6 +91,7 @@ contract NodeTest is BaseTest {
             address(asset),
             address(quoter),
             owner,
+            address(rebalancer),
             _toArray(address(router)),
             components,
             allocations,
@@ -111,6 +114,7 @@ contract NodeTest is BaseTest {
             address(0),
             address(quoter),
             owner,
+            address(rebalancer),
             _toArray(address(router)),
             components,
             allocations,
@@ -134,6 +138,7 @@ contract NodeTest is BaseTest {
             address(asset),
             address(quoter),
             owner,
+            address(rebalancer),
             _toArray(address(router)),
             components,
             allocations,

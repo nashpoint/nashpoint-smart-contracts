@@ -35,6 +35,7 @@ contract NodeFactory is INodeFactory {
         string memory symbol,
         address asset,
         address owner,
+        address rebalancer,
         address quoter,
         address[] memory routers,
         address[] memory components,
@@ -50,6 +51,7 @@ contract NodeFactory is INodeFactory {
             symbol,
             asset,
             address(this),
+            rebalancer,
             quoter,
             routers,
             components,
@@ -69,6 +71,7 @@ contract NodeFactory is INodeFactory {
         string memory symbol,
         address asset,
         address owner,
+        address rebalancer,
         address quoter,
         address[] memory routers,
         address[] memory components,
@@ -76,13 +79,15 @@ contract NodeFactory is INodeFactory {
         ComponentAllocation memory reserveAllocation,
         bytes32 salt
     ) public returns (INode node) {
-        if (asset == address(0) || owner == address(0) || quoter == address(0))
+        if (asset == address(0) || owner == address(0) || quoter == address(0) || rebalancer == address(0))
             revert ErrorsLib.ZeroAddress();
         if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
         if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
         if (components.length != componentAllocations.length) revert ErrorsLib.LengthMismatch();
 
+        
         if (!registry.isQuoter(quoter)) revert ErrorsLib.NotRegistered();
+        if (!registry.isRebalancer(rebalancer)) revert ErrorsLib.NotRegistered();
         for (uint256 i = 0; i < routers.length; i++) {
             if (!registry.isRouter(routers[i])) revert ErrorsLib.NotRegistered();
         }
@@ -96,6 +101,7 @@ contract NodeFactory is INodeFactory {
                     asset,
                     quoter,
                     owner,
+                    rebalancer,
                     routers,
                     components,
                     componentAllocations,
@@ -111,6 +117,7 @@ contract NodeFactory is INodeFactory {
             name,
             symbol,
             owner,
+            rebalancer,
             salt
         );
     }

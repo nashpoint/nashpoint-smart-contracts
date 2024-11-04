@@ -12,11 +12,13 @@ interface INodeRegistry {
      * @param factories_ Array of factory addresses to initialize
      * @param routers_ Array of router addresses to initialize
      * @param quoters_ Array of quoter addresses to initialize
+     * @param rebalancers_ Array of rebalancer addresses to initialize
      */
     function initialize(
         address[] calldata factories_,
         address[] calldata routers_,
-        address[] calldata quoters_
+        address[] calldata quoters_,
+        address[] calldata rebalancers_
     ) external;
 
     /**
@@ -61,6 +63,18 @@ interface INodeRegistry {
      */
     function removeQuoter(address quoter_) external;
 
+    /** 
+     * @notice Adds a new rebalancer to the registry
+     * @param rebalancer_ Address of rebalancer to add
+     */
+    function addRebalancer(address rebalancer_) external;
+
+    /**
+     * @notice Removes a rebalancer from the registry
+     * @param rebalancer_ Address of rebalancer to remove
+     */
+    function removeRebalancer(address rebalancer_) external;
+
     /**
      * @notice Returns whether an address is a registered node
      * @param node_ Address to check
@@ -88,6 +102,13 @@ interface INodeRegistry {
      * @return bool True if address is a registered quoter
      */
     function isQuoter(address quoter_) external view returns (bool);
+
+    /**
+     * @notice Returns whether an address is a registered rebalancer
+     * @param rebalancer_ Address to check
+     * @return bool True if address is a registered rebalancer
+     */
+    function isRebalancer(address rebalancer_) external view returns (bool);
 
     /**
      * @notice Returns whether the registry has been initialized
