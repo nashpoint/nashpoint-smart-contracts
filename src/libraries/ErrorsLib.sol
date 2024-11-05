@@ -61,6 +61,9 @@ library ErrorsLib {
     /// @notice Thrown when the max deposit is exceeded.
     error ExceedsMaxDeposit();
 
+    /// @notice Thrown when the max mint is exceeded.
+    error ExceedsMaxMint();
+
     /// @notice Thrown when the max redeem is exceeded.
     error ExceedsMaxRedeem();
 

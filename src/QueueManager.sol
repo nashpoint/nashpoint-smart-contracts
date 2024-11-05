@@ -161,6 +161,8 @@ contract QueueManager is IQueueManager {
 
     /// @inheritdoc IQueueManager
     function mint(uint256 shares, address receiver, address controller) public onlyNode returns (uint256 assets) {
+        if (shares > maxMint(controller)) revert ErrorsLib.ExceedsMaxMint();
+
         QueueState storage state = queueStates[controller];
         uint128 shares_ = shares.toUint128();
         _processDeposit(state, shares_, shares_, receiver);
