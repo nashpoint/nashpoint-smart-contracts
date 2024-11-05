@@ -461,7 +461,7 @@ contract QueueManagerTest is BaseTest {
         );
 
         vm.prank(address(node));
-        vm.expectRevert(ErrorsLib.ExceedsMaxMint.selector);
+        vm.expectRevert(ErrorsLib.ExceedsMaxDeposit.selector);
         manager.mint(100 ether, controller, controller);
         
     }
