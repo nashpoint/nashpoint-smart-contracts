@@ -179,6 +179,43 @@ contract QueueManagerTest is BaseTest {
         manager.fulfillDepositRequest(controller, 50, 50);
     }
 
+
+    function test_fulfillRedeemRequest() public {
+        // Setup initial request
+        vm.prank(address(node));
+        manager.requestRedeem(100, controller);
+
+        // Setup node mock expectations
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("burn(address,uint256)"))),
+            abi.encode()
+        );
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("onRedeemClaimable(address,uint128,uint128)"))),
+            abi.encode()
+        );
+
+        // Test fulfillment
+        vm.prank(rebalancer);
+        manager.fulfillRedeemRequest(controller, 50, 50);
+
+        // Verify state changes
+        (
+            uint128 maxMint,
+            uint128 maxWithdraw,
+            uint256 depositPrice,
+            uint256 redeemPrice,
+            uint128 pendingDepositRequest,
+            uint128 pendingRedeemRequest
+    ) = manager.queueStates(controller);
+
+        assertEq(pendingRedeemRequest, 50);
+        assertEq(maxWithdraw, 50);
+        assertEq(redeemPrice, 1 ether);
+    }
+
     function test_fulfillRedeemRequest_revert_NotRebalancer() public {
         vm.prank(randomUser);
         vm.expectRevert(ErrorsLib.InvalidSender.selector);
