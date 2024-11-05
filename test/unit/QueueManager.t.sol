@@ -538,9 +538,4 @@ contract QueueManagerTest is BaseTest {
         assertEq(harness.calculateAssets(0, 1 ether, MathLib.Rounding.Down), 0);
         assertEq(harness.calculateAssets(1 ether, 0, MathLib.Rounding.Down), 0);
     }
-
-    
-
-
-
 }
