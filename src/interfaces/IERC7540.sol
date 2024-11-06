@@ -1,51 +1,142 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: AGPL-3.0-only
+pragma solidity >=0.5.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IERC7575} from "src/interfaces/IERC7575.sol";
 
-interface IERC7540 {
-    // 7540 Functions
-    function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256 requestId);
-    function pendingDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets);
-    function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets);
-    function processPendingDeposits() external;
+interface IERC7540Operator {
+    /**
+     * @dev The event emitted when an operator is set.
+     *
+     * @param controller The address of the controller.
+     * @param operator The address of the operator.
+     * @param approved The approval status.
+     */
+    event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
-    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId);
-    function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares);
-    function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares);
-    function processPendingRedemptions() external;
-
-    function maxMint(address controller) external view returns (uint256 maxShares);
-    function maxWithdraw(address controller) external view returns (uint256 maxAssets);
-
-    function isOperator(address controller, address operator) external view returns (bool);
+    /**
+     * @dev Sets or removes an operator for the caller.
+     *
+     * @param operator The address of the operator.
+     * @param approved The approval status.
+     * @return Whether the call was executed successfully or not
+     */
     function setOperator(address operator, bool approved) external returns (bool);
 
-    function manager() external view returns (address);
-    function poolId() external view returns (uint64);
-    function trancheId() external view returns (bytes16);
-
-    // IERC7575
-    function asset() external view returns (address assetTokenAddress);
-    function share() external view returns (address vaultShareAddress);
-
-    // Extended Functions: these do not match 7540 spec
-    function claimableDepositRequests(address) external view returns (uint256);
-    function claimableRedeemRequests(address) external view returns (uint256);
-    function controllerToDepositIndex(address) external view returns (uint256);
-    function controllerToRedeemIndex(address) external view returns (uint256);
-
-    // IERC4626
-    function totalSupply() external view returns (uint256);
-    function totalAssets() external view returns (uint256);
-    function convertToAssets(uint256 shares) external view returns (uint256 assets);
-    function convertToShares(uint256 assets) external view returns (uint256 shares);
-    function mint(uint256 shares, address receiver) external returns (uint256 assets);
-    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
-
-    // IERC20
-    function balanceOf(address account) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
+    /**
+     * @dev Returns `true` if the `operator` is approved as an operator for an `controller`.
+     *
+     * @param controller The address of the controller.
+     * @param operator The address of the operator.
+     * @return status The approval status
+     */
+    function isOperator(address controller, address operator) external view returns (bool status);
 }
+
+interface IERC7540Deposit is IERC7540Operator {
+    event DepositRequest(
+        address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 assets
+    );
+    /**
+     * @dev Transfers assets from sender into the Vault and submits a Request for asynchronous deposit.
+     *
+     * - MUST support ERC-20 approve / transferFrom on asset as a deposit Request flow.
+     * - MUST revert if all of assets cannot be requested for deposit.
+     * - owner MUST be msg.sender unless some unspecified explicit approval is given by the caller,
+     *    approval of ERC-20 tokens from owner to sender is NOT enough.
+     *
+     * @param assets the amount of deposit assets to transfer from owner
+     * @param controller the controller of the request who will be able to operate the request
+     * @param owner the source of the deposit assets
+     *
+     * NOTE: most implementations will require pre-approval of the Vault with the Vault's underlying asset token.
+     */
+
+    function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256 requestId);
+
+    /**
+     * @dev Returns the amount of requested assets in Pending state.
+     *
+     * - MUST NOT include any assets in Claimable state for deposit or mint.
+     * - MUST NOT show any variations depending on the caller.
+     * - MUST NOT revert unless due to integer overflow caused by an unreasonably large input.
+     */
+    function pendingDepositRequest(uint256 requestId, address controller)
+        external
+        view
+        returns (uint256 pendingAssets);
+
+    /**
+     * @dev Returns the amount of requested assets in Claimable state for the controller to deposit or mint.
+     *
+     * - MUST NOT include any assets in Pending state.
+     * - MUST NOT show any variations depending on the caller.
+     * - MUST NOT revert unless due to integer overflow caused by an unreasonably large input.
+     */
+    function claimableDepositRequest(uint256 requestId, address controller)
+        external
+        view
+        returns (uint256 claimableAssets);
+
+    /**
+     * @dev Mints shares Vault shares to receiver by claiming the Request of the controller.
+     *
+     * - MUST emit the Deposit event.
+     * - controller MUST equal msg.sender unless the controller has approved the msg.sender as an operator.
+     */
+    function deposit(uint256 assets, address receiver, address controller) external returns (uint256 shares);
+
+    /**
+     * @dev Mints exactly shares Vault shares to receiver by claiming the Request of the controller.
+     *
+     * - MUST emit the Deposit event.
+     * - controller MUST equal msg.sender unless the controller has approved the msg.sender as an operator.
+     */
+    function mint(uint256 shares, address receiver, address controller) external returns (uint256 assets);
+}
+
+interface IERC7540Redeem is IERC7540Operator {
+    event RedeemRequest(
+        address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 assets
+    );
+
+    /**
+     * @dev Assumes control of shares from sender into the Vault and submits a Request for asynchronous redeem.
+     *
+     * - MUST support a redeem Request flow where the control of shares is taken from sender directly
+     *   where msg.sender has ERC-20 approval over the shares of owner.
+     * - MUST revert if all of shares cannot be requested for redeem.
+     *
+     * @param shares the amount of shares to be redeemed to transfer from owner
+     * @param controller the controller of the request who will be able to operate the request
+     * @param owner the source of the shares to be redeemed
+     *
+     * NOTE: most implementations will require pre-approval of the Vault with the Vault's share token.
+     */
+    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId);
+
+    /**
+     * @dev Returns the amount of requested shares in Pending state.
+     *
+     * - MUST NOT include any shares in Claimable state for redeem or withdraw.
+     * - MUST NOT show any variations depending on the caller.
+     * - MUST NOT revert unless due to integer overflow caused by an unreasonably large input.
+     */
+    function pendingRedeemRequest(uint256 requestId, address controller)
+        external
+        view
+        returns (uint256 pendingShares);
+
+    /**
+     * @dev Returns the amount of requested shares in Claimable state for the controller to redeem or withdraw.
+     *
+     * - MUST NOT include any shares in Pending state for redeem or withdraw.
+     * - MUST NOT show any variations depending on the caller.
+     * - MUST NOT revert unless due to integer overflow caused by an unreasonably large input.
+     */
+    function claimableRedeemRequest(uint256 requestId, address controller)
+        external
+        view
+        returns (uint256 claimableShares);
+}
+
+interface IERC7540 is IERC7540Deposit, IERC7540Redeem {}

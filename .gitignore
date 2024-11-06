@@ -16,3 +16,6 @@ docs/
 
 # macOS-specific files
 .DS_Store
+
+# Cursor
+.cursorrules

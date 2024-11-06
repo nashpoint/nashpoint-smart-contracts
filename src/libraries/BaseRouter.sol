@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.26;
+
+import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IBaseRouter} from "../interfaces/IBaseRouter.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {INode} from "../interfaces/INode.sol";
+import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
+import {ErrorsLib} from "./ErrorsLib.sol";
+
+/**
+ * @title BaseRouter
+ * @author ODND Studios
+ */
+contract BaseRouter is IBaseRouter {
+    /* IMMUTABLES */
+    /// @notice The address of the NodeRegistry
+    INodeRegistry public immutable registry;
+
+    /* STORAGE */
+    /// @notice Mapping of whitelisted target addresses
+    mapping(address => bool) public isWhitelisted;
+
+    /* EVENTS */
+    event TargetWhitelisted(address indexed target, bool status);
+
+    /* CONSTRUCTOR */
+    /// @dev Initializes the contract
+    /// @param registry_ The address of the NodeRegistry
+    constructor(address registry_) {
+        if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
+        registry = INodeRegistry(registry_);
+    }
+
+    /* MODIFIERS */
+    /// @dev Reverts if the caller is not a rebalancer for the node
+    modifier onlyNodeRebalancer(address node) {
+        if (!registry.isNode(node)) revert ErrorsLib.InvalidNode();
+        if (msg.sender != INode(node).rebalancer()) revert ErrorsLib.NotRebalancer();
+        _;
+    }
+
+    /// @dev Reverts if the caller is not the registry owner
+    modifier onlyRegistryOwner() {
+        if (msg.sender != Ownable(address(registry)).owner()) revert ErrorsLib.NotRegistryOwner();
+        _;
+    }
+
+    /// @dev Reverts if the target is not whitelisted
+    modifier onlyWhitelisted(address target) {
+        if (!isWhitelisted[target]) revert ErrorsLib.NotWhitelisted();
+        _;
+    }
+
+    /* REGISTRY OWNER FUNCTIONS */
+    /// @notice Updates the whitelist status of a target
+    /// @param target The address to update
+    /// @param status The new whitelist status
+    function setWhitelistStatus(address target, bool status) external onlyRegistryOwner {
+        if (target == address(0)) revert ErrorsLib.ZeroAddress();
+        isWhitelisted[target] = status;
+        emit TargetWhitelisted(target, status);
+    }
+
+    /// @notice Batch updates whitelist status of targets
+    /// @param targets Array of addresses to update
+    /// @param statuses Array of whitelist statuses
+    function batchSetWhitelistStatus(
+        address[] calldata targets,
+        bool[] calldata statuses
+    ) external onlyRegistryOwner {
+        if (targets.length != statuses.length) revert ErrorsLib.LengthMismatch();
+        
+        uint256 length = targets.length;
+        for (uint256 i = 0; i < length; ) {
+            if (targets[i] == address(0)) revert ErrorsLib.ZeroAddress();
+            isWhitelisted[targets[i]] = statuses[i];
+            emit TargetWhitelisted(targets[i], statuses[i]);
+            unchecked { ++i; }
+        }
+    }
+
+    /* APPROVALS */
+    /// @inheritdoc IBaseRouter
+    function approve(
+        address node,
+        address token,
+        address spender,
+        uint256 amount
+    )
+        external
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(token)
+    {
+        INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+    }
+}

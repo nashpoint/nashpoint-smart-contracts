@@ -1,39 +1,124 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
-import {Node} from "src/Node.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-// TODO's
-// DONE: Update Constructor and vault handling (Node)
-// DONE: Create() Function (Factory)
-// Create checks to ensure valid input data
-// Emit Event when created
-// Track create Node on Core contract
+import {Escrow} from "./Escrow.sol";
+import {Node} from "./Node.sol";
+import {QueueManager} from "./QueueManager.sol";
 
-contract NodeFactory {
-    function create(
-        address depositAsset,
+import {IEscrow} from "./interfaces/IEscrow.sol";
+import {INode, ComponentAllocation} from "./interfaces/INode.sol";
+import {INodeFactory} from "./interfaces/INodeFactory.sol";
+import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
+import {IQueueManager} from "./interfaces/IQueueManager.sol";
+
+import {ErrorsLib} from "./libraries/ErrorsLib.sol";
+import {EventsLib} from "./libraries/EventsLib.sol";
+
+/// @title NodeFactory
+/// @author ODND Studios
+contract NodeFactory is INodeFactory {
+    /* IMMUTABLES */
+    INodeRegistry public immutable registry;
+
+    /* CONSTRUCTOR */
+    constructor(address registry_) {
+        if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
+        registry = INodeRegistry(registry_);
+    }
+
+    /* EXTERNAL FUNCTIONS */
+    /// @inheritdoc INodeFactory
+    function deployFullNode(
         string memory name,
         string memory symbol,
+        address asset,
+        address owner,
         address rebalancer,
-        uint256 maxDiscount,
-        uint256 targetReserveRatio,
-        uint256 maxDelta,
-        uint256 asyncMaxDelta,
-        address owner
-    ) external returns (address) {
-        // TODO: build a bunch of require statements for the numbers to make sure they will work
-        Node node = new Node(
-            depositAsset,
+        address quoter,
+        address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        ComponentAllocation memory reserveAllocation,
+        bytes32 salt
+    )
+        external
+        returns (INode node, IEscrow escrow, IQueueManager manager)
+    {
+        node = createNode(
             name,
             symbol,
+            asset,
+            address(this),
             rebalancer,
-            maxDiscount,
-            targetReserveRatio,
-            maxDelta,
-            asyncMaxDelta,
-            owner
+            quoter,
+            routers,
+            components,
+            componentAllocations,
+            reserveAllocation,
+            salt
         );
-        return address(node);
+        escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
+        manager = IQueueManager(address(new QueueManager{salt: salt}(address(node))));
+        node.initialize(address(escrow), address(manager));
+        Ownable(address(node)).transferOwnership(owner);
+    }
+
+    /// @inheritdoc INodeFactory
+    function createNode(
+        string memory name,
+        string memory symbol,
+        address asset,
+        address owner,
+        address rebalancer,
+        address quoter,
+        address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        ComponentAllocation memory reserveAllocation,
+        bytes32 salt
+    ) public returns (INode node) {
+        if (asset == address(0) || owner == address(0) || quoter == address(0) || rebalancer == address(0))
+            revert ErrorsLib.ZeroAddress();
+        if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
+        if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
+        if (components.length != componentAllocations.length) revert ErrorsLib.LengthMismatch();
+
+        
+        if (!registry.isQuoter(quoter)) revert ErrorsLib.NotRegistered();
+        if (!registry.isRebalancer(rebalancer)) revert ErrorsLib.NotRegistered();
+        for (uint256 i = 0; i < routers.length; i++) {
+            if (!registry.isRouter(routers[i])) revert ErrorsLib.NotRegistered();
+        }
+
+        node = INode(
+            address(
+                new Node{salt: salt}(
+                    address(registry),
+                    name,
+                    symbol,
+                    asset,
+                    quoter,
+                    owner,
+                    rebalancer,
+                    routers,
+                    components,
+                    componentAllocations,
+                    reserveAllocation
+                )
+            )
+        );
+
+        registry.addNode(address(node));
+        emit EventsLib.CreateNode(
+            address(node),
+            asset,
+            name,
+            symbol,
+            owner,
+            rebalancer,
+            salt
+        );
     }
 }
