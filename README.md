@@ -33,7 +33,7 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE)
 - Built on Solidity 0.8.26
 - Custom implementation of ERC7540 for handling asynchronous assets
 
-### Getting Started
+### Development
 
 This project uses Foundry for development and testing. Follow these steps to get the project up and running on your local machine.
 
