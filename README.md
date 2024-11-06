@@ -8,7 +8,7 @@ NashPoint enables flexible deployment of investment nodes that can manage positi
 
 ### Smart Contracts:
 
-- **Node**: An ERC7540-compliant contract that enables investors to deposit and withdraw assets. The Node manages component allocations and delegates execution to Routers.
+- **Node**: An ERC7540-compliant vault that enables investors to deposit and withdraw assets. The Node manages component allocations and delegates execution to Routers.
 - **NodeRegistry**: Central registry that manages system-wide permissions for factories, routers, quoters, and rebalancers, ensuring secure access control across the protocol.
 - **NodeFactory**: Handles the deployment of new Node instances and their associated contracts.
 - **Escrow**: Securely holds assets during pending deposit and redemption operations.
