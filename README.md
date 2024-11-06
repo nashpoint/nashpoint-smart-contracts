@@ -17,7 +17,8 @@ NashPoint enables flexible deployment of investment nodes that can manage positi
 - **Routers**: Specialized contracts that execute operations on component vaults:
   - ERC4626Router: Manages interactions with standard ERC4626 vaults
   - ERC7540Router: Manages interactions with asynchronous ERC7540 vaults
-- **Quoter**: Provides price information for Node shares by aggregating component valuations.
+- **Quoters**:
+  - QuoterV1: Provides price information for Node shares by aggregating component valuations.
 
 ### Key Roles:
 **Owner:** Owns the node. Sets the strategy by selecting the underlying assets and what proportions to allocate into them. Also sets the parameters for features like swing pricing and rebalancing frequency.
