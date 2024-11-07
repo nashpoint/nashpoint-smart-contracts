@@ -49,14 +49,6 @@ contract QuoterV1Test is BaseTest {
     }
 
     function test_getPrice_WithErc4626() public {
-        // Use vault from BaseTest
-        vm.mockCall(
-            address(vault),
-            abi.encodeWithSelector(vault.convertToAssets.selector, 1 ether),
-            abi.encode(2 ether)  // Mock 2x appreciation
-        );
-        
-        // Initial deposit
         deal(address(asset), owner, 100 ether);
         
         vm.startPrank(owner);
@@ -72,25 +64,11 @@ contract QuoterV1Test is BaseTest {
         node.deposit(100 ether, owner);
         vm.stopPrank();
 
-        // Mock vault deposit success
-        vm.mockCall(
-            address(vault),
-            abi.encodeWithSelector(vault.deposit.selector),
-            abi.encode(50 ether)
-        );
-
         // Rebalance 50% into ERC4626
         vm.startPrank(rebalancer);
         router.approve(address(node), address(asset), address(vault), 50 ether);
         router.mint(address(node), address(vault), 50 ether);
         vm.stopPrank();
-
-        // Add necessary vault balance mock
-        vm.mockCall(
-            address(vault),
-            abi.encodeWithSelector(vault.balanceOf.selector, address(node)),
-            abi.encode(50 ether)
-        );
 
         // Test price (should be 1.5x since half the assets appreciated 2x)
         uint256 price = quoterV1.getPrice(address(node));
