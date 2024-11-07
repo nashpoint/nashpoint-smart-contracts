@@ -42,18 +42,22 @@ contract QueueManagerTest is BaseTest {
         super.setUp();
         
         // Setup mock quoter
-        mockQuoter = new MockQuoter(1 ether); // 1:1 initial price
+        mockQuoter = new MockQuoter(1 ether);
         
-        // Setup node with mocks
         vm.startPrank(owner);
-        node.setQuoter(address(mockQuoter));       
+        node.setQuoter(address(mockQuoter));
+        
+        // Add necessary approvals
+        escrow.approveMax(address(asset), address(node));
+        escrow.approveMax(address(asset), address(queueManager));
+        escrow.approveMax(address(node), address(queueManager));
+        asset.approve(address(node), type(uint256).max);
         vm.stopPrank();
         
         // Deploy manager and harness
         manager = new QueueManager(address(node));
         harness = new QueueManagerHarness(address(node));
         
-        // Setup test addresses
         controller = makeAddr("controller");
         
         // Label addresses
@@ -121,6 +125,10 @@ contract QueueManagerTest is BaseTest {
         // Setup initial request
         vm.prank(address(node));
         manager.requestDeposit(100, controller);
+
+        // Add asset approval
+        vm.prank(address(escrow));
+        asset.approve(address(manager), type(uint256).max);
 
         // Setup node mock expectations
         vm.mockCall(

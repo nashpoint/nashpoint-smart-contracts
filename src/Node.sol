@@ -15,7 +15,6 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
-import {UtilsLib} from "./libraries/UtilsLib.sol";
 
 /**
  * @title Node
@@ -24,7 +23,6 @@ import {UtilsLib} from "./libraries/UtilsLib.sol";
 contract Node is INode, ERC20, Ownable {
     using Address for address;
     using SafeERC20 for IERC20;
-    using UtilsLib for uint256;
 
     /* CONSTANTS */
     uint256 private constant REQUEST_ID = 0;
@@ -208,6 +206,11 @@ contract Node is INode, ERC20, Ownable {
         if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
         quoter = IQuoter(newQuoter);
         emit EventsLib.SetQuoter(newQuoter);
+    }
+
+    /// @inheritdoc INode
+    function approveQueueManager() external onlyOwner {
+        IERC20(asset).approve(address(manager), type(uint256).max);
     }
 
     /* REBALANCER FUNCTIONS */

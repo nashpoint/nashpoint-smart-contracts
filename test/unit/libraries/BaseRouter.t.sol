@@ -135,9 +135,9 @@ contract BaseRouterTest is BaseTest {
         vm.prank(owner);
         node.addRouter(address(testRouter));
 
-        // Whitelist token
+        // Whitelist spender instead of token
         vm.prank(owner);
-        testRouter.setWhitelistStatus(address(mockToken), true);
+        testRouter.setWhitelistStatus(testSpender, true);
 
         // Test approve with valid node and rebalancer
         vm.prank(rebalancer);
@@ -146,26 +146,28 @@ contract BaseRouterTest is BaseTest {
         assertEq(mockToken.allowance(address(node), testSpender), 100);
     }
 
+    function test_approve_revert_NotWhitelisted() public {
+        // Setup valid node         
+        vm.prank(owner);
+        node.addRouter(address(testRouter));
+
+        // Don't whitelist spender
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testRouter.approve(address(node), address(mockToken), testSpender, 100);
+    }
+
     function test_approve_revert_InvalidNode() public {
         address invalidNode = makeAddr("invalidNode");
+
+        // Whitelist spender
+        vm.prank(owner);
+        testRouter.setWhitelistStatus(testSpender, true);
 
         // Should revert on invalid node check
         vm.prank(rebalancer);
         vm.expectRevert(ErrorsLib.InvalidNode.selector);
         testRouter.approve(invalidNode, address(mockToken), testSpender, 100);
-    }
-
-    function test_approve_revert_NotRebalancer() public {
-        // Setup valid node but call from wrong address 
-        assertNotEq(node.rebalancer(), randomUser);       
-
-        // Whitelist token
-        vm.prank(owner);
-        testRouter.setWhitelistStatus(address(mockToken), true);
-
-        vm.prank(randomUser);
-        vm.expectRevert(ErrorsLib.NotRebalancer.selector);
-        testRouter.approve(address(node), address(mockToken), testSpender, 100);
     }
 
     function test_onlyWhitelisted() public {

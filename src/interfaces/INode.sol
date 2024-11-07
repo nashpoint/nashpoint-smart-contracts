@@ -112,4 +112,7 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @param component The address to check
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
+
+    /// @notice Approves the QueueManager to transfer assets from Node to Escrow
+    function approveQueueManager() external;
 }
