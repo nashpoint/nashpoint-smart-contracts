@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
+import {console2} from "forge-std/Test.sol";
 import {QueueManager} from "src/QueueManager.sol";
 import {IQueueManager, QueueState} from "src/interfaces/IQueueManager.sol";
 import {INode} from "src/interfaces/INode.sol";
@@ -43,28 +44,38 @@ contract QueueManagerTest is BaseTest {
         
         // Setup mock quoter
         mockQuoter = new MockQuoter(1 ether);
+        controller = makeAddr("controller");
+
+        // Deploy manager and harness
+        manager = new QueueManager(address(node));
+        harness = new QueueManagerHarness(address(node)); 
         
         vm.startPrank(owner);
         node.setQuoter(address(mockQuoter));
+        node.setManager(address(manager));
         
         // Add necessary approvals
         escrow.approveMax(address(asset), address(node));
         escrow.approveMax(address(asset), address(queueManager));
         escrow.approveMax(address(node), address(queueManager));
         asset.approve(address(node), type(uint256).max);
-        vm.stopPrank();
+        vm.stopPrank();      
         
-        // Deploy manager and harness
-        manager = new QueueManager(address(node));
-        harness = new QueueManagerHarness(address(node));
-        
-        controller = makeAddr("controller");
+        // Controller approves node to transfer asset
+        vm.prank(controller);
+        asset.approve(address(node), type(uint256).max);   
+
+        // Escrow approve manager to transfer asset
+        vm.prank(address(escrow));
+        asset.approve(address(manager), type(uint256).max);  
         
         // Label addresses
         vm.label(address(manager), "QueueManager");
         vm.label(address(harness), "QueueManagerHarness");
         vm.label(address(mockQuoter), "MockQuoter");
         vm.label(controller, "Controller");
+
+        deal(address(asset), controller, INITIAL_BALANCE);
     }
 
     function test_deployment() public {
@@ -121,26 +132,10 @@ contract QueueManagerTest is BaseTest {
         manager.requestRedeem(0, controller);
     }
 
-    function test_fulfillDepositRequest() public {
-        // Setup initial request
-        vm.prank(address(node));
-        manager.requestDeposit(100, controller);
-
-        // Add asset approval
-        vm.prank(address(escrow));
-        asset.approve(address(manager), type(uint256).max);
-
-        // Setup node mock expectations
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("mint(address,uint256)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("onDepositClaimable(address,uint128,uint128)"))),
-            abi.encode()
-        );
+    function test_fulfillDepositRequest() public {            
+        // Setup initial request        
+        vm.prank(controller);                
+        node.requestDeposit(100, controller, controller);   
 
         // Test fulfillment
         vm.prank(rebalancer);
@@ -203,25 +198,8 @@ contract QueueManagerTest is BaseTest {
 
     function test_maxDeposit() public {
         // Setup initial request
-        vm.prank(address(node));
-        manager.requestDeposit(100 ether, controller);
-
-        // Setup node mock expectations
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("mint(address,uint256)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("onDepositClaimable(address,uint128,uint128)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("escrow()"))),
-            abi.encode(address(escrow))
-        );
+        vm.prank(controller);
+        node.requestDeposit(100 ether, controller, controller);         
 
         // Setup state with deposit price
         vm.prank(rebalancer);
@@ -232,25 +210,8 @@ contract QueueManagerTest is BaseTest {
 
     function test_maxMint() public {
         // Setup initial request
-        vm.prank(address(node));
-        manager.requestDeposit(100 ether, controller);
-
-        // Setup node mock expectations
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("mint(address,uint256)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("onDepositClaimable(address,uint128,uint128)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("escrow()"))),
-            abi.encode(address(escrow))
-        );
+        vm.prank(controller);
+        node.requestDeposit(100 ether, controller, controller);        
 
         // Setup state
         vm.prank(rebalancer);
