@@ -61,21 +61,13 @@ contract QueueManagerTest is BaseTest {
         asset.approve(address(node), type(uint256).max);
         vm.stopPrank();      
         
-        // Controller approves node to transfer assets & shares
-        vm.startPrank(controller);
-        asset.approve(address(node), type(uint256).max); 
-        node.approve(address(node), type(uint256).max); 
-        vm.stopPrank();
+        // Controller approves node to transfer assets 
+        vm.prank(controller);
+        asset.approve(address(node), type(uint256).max);         
 
-        // Escrow approve manager to transfer assets & shares
-        vm.startPrank(address(escrow));
-        asset.approve(address(manager), type(uint256).max);         
-        node.approve(address(manager), type(uint256).max); 
-        vm.stopPrank();
-
-        // Node approves manager to transfer assets
-        vm.prank(address(node));
-        asset.approve(address(manager), type(uint256).max);
+        // Escrow approve manager to transfer assets 
+        vm.prank(address(escrow));
+        asset.approve(address(manager), type(uint256).max);       
         
         // Label addresses
         vm.label(address(manager), "QueueManager");
