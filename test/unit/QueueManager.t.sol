@@ -61,13 +61,21 @@ contract QueueManagerTest is BaseTest {
         asset.approve(address(node), type(uint256).max);
         vm.stopPrank();      
         
-        // Controller approves node to transfer asset
-        vm.prank(controller);
-        asset.approve(address(node), type(uint256).max);   
+        // Controller approves node to transfer assets & shares
+        vm.startPrank(controller);
+        asset.approve(address(node), type(uint256).max); 
+        node.approve(address(node), type(uint256).max); 
+        vm.stopPrank();
 
-        // Escrow approve manager to transfer asset
-        vm.prank(address(escrow));
-        asset.approve(address(manager), type(uint256).max);  
+        // Escrow approve manager to transfer assets & shares
+        vm.startPrank(address(escrow));
+        asset.approve(address(manager), type(uint256).max);         
+        node.approve(address(manager), type(uint256).max); 
+        vm.stopPrank();
+
+        // Node approves manager to transfer assets
+        vm.prank(address(node));
+        asset.approve(address(manager), type(uint256).max);
         
         // Label addresses
         vm.label(address(manager), "QueueManager");
@@ -154,7 +162,7 @@ contract QueueManagerTest is BaseTest {
         assertEq(pendingDepositRequest, 50);
         assertEq(maxMint, 50);
         assertEq(depositPrice, 1 ether);
-    }
+    }    
 
     function test_fulfillDepositRequest_revert_NotRebalancer() public {
         vm.prank(randomUser);
@@ -167,6 +175,8 @@ contract QueueManagerTest is BaseTest {
         vm.expectRevert(ErrorsLib.NoPendingDepositRequest.selector);
         manager.fulfillDepositRequest(controller, 50, 50);
     }
+
+    
 
     function test_fulfillRedeemRequest_revert_NotRebalancer() public {
         vm.prank(randomUser);
