@@ -1324,5 +1324,6 @@ contract NodeTest is BaseTest {
 
         assertEq(asset.balanceOf(address(escrow)), 0, "Escrow should have transferred all assets");
         assertEq(asset.balanceOf(address(node)), amount, "Node should have received the assets");
+        assertEq(node.balanceOf(address(escrow)), amount, "Node should have received the assets");
     }
 }
