@@ -1327,7 +1327,7 @@ contract NodeTest is BaseTest {
         assertEq(node.balanceOf(address(escrow)), amount, "Node should have received the assets");
     }
 
-    function test_fulfillRedeemRequest() public {
+    function test_fulfillRedeemRequest_transfersAssets() public {
         // Controller approves node to transfer assets & shares
         vm.startPrank(user);
         asset.approve(address(node), type(uint256).max); 

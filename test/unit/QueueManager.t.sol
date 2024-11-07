@@ -2,7 +2,6 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
-import {console2} from "forge-std/Test.sol";
 import {QueueManager} from "src/QueueManager.sol";
 import {IQueueManager, QueueState} from "src/interfaces/IQueueManager.sol";
 import {INode} from "src/interfaces/INode.sol";
