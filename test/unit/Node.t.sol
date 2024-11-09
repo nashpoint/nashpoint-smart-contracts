@@ -1324,5 +1324,58 @@ contract NodeTest is BaseTest {
 
         assertEq(asset.balanceOf(address(escrow)), 0, "Escrow should have transferred all assets");
         assertEq(asset.balanceOf(address(node)), amount, "Node should have received the assets");
+        assertEq(node.balanceOf(address(escrow)), amount, "Node should have received the assets");
+    }
+
+    function test_fulfillRedeemRequest_transfersAssets() public {
+        // Controller approves node to transfer assets & shares
+        vm.startPrank(user);
+        asset.approve(address(node), type(uint256).max); 
+        node.approve(address(node), type(uint256).max); 
+        vm.stopPrank();
+
+        // Escrow approve manager to transfer assets & shares
+        vm.startPrank(address(escrow));
+        asset.approve(address(queueManager), type(uint256).max);         
+        node.approve(address(queueManager), type(uint256).max); 
+        vm.stopPrank();
+
+        // Node approves manager to transfer assets
+        vm.prank(address(node));
+        asset.approve(address(queueManager), type(uint256).max);
+
+        // User deposits
+        uint256 startingBalance = asset.balanceOf(address(user));
+        vm.prank(user);                
+        node.requestDeposit(100, user, user);
+
+        // Queue Manager fulfills deposit request   
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user, 100, 100);
+        uint256 maxDeposit = node.maxDeposit(user);
+        assertEq(maxDeposit, 100);        
+
+        vm.prank(user);         
+        node.deposit(maxDeposit, user, user); 
+
+        // User requests redeem
+        vm.prank(user);
+        node.requestRedeem(100, user, user);
+
+        assertEq(node.balanceOf(address(user)), 0, "User should have no shares");
+        assertEq(node.balanceOf(address(escrow)), 100, "Escrow should have shares");                
+
+        // Queue Manager fulfills redeem request
+        vm.prank(rebalancer);
+        queueManager.fulfillRedeemRequest(user, 100, 100);
+
+        assertEq(node.maxWithdraw(user), 100, "User should have max withdraw");
+        assertEq(node.balanceOf(address(escrow)), 0, "Escrow should have no shares");
+
+        // User withdraws
+        vm.prank(user);
+        node.withdraw(100, user, user);
+
+        assertEq(asset.balanceOf(address(user)), startingBalance, "User should have starting balance");        
     }
 }
