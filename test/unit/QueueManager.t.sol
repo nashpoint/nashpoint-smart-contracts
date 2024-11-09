@@ -7,12 +7,26 @@ import {IQueueManager, QueueState} from "src/interfaces/IQueueManager.sol";
 import {INode} from "src/interfaces/INode.sol";
 import {Node} from "src/Node.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
+import {MathLib} from "src/libraries/MathLib.sol";
 
 contract QueueManagerHarness is QueueManager {
     constructor(address node_) QueueManager(node_) {}
 
     function calculatePrice(uint128 assets, uint128 shares) external view returns (uint256 price) {
         return _calculatePrice(assets, shares);
+    }
+
+    function calculateShares(uint128 assets, uint256 price, MathLib.Rounding rounding) external view returns (uint128 shares) {
+        return _calculateShares(assets, price, rounding);
+    }
+
+    function calculateAssets(uint128 shares, uint256 price, MathLib.Rounding rounding) external view returns (uint128 assets) {
+        return _calculateAssets(shares, price, rounding);
+    }
+
+    function processDeposit(address user, uint128 sharesUp, uint128 sharesDown, address receiver) external {
+        QueueState storage state = queueStates[user];
+        _processDeposit(state, sharesUp, sharesDown, receiver);
     }
 }
 
@@ -167,7 +181,6 @@ contract QueueManagerTest is BaseTest {
         manager.fulfillDepositRequest(controller, 50, 50);
     }
 
-    
 
     function test_fulfillRedeemRequest_revert_NotRebalancer() public {
         vm.prank(randomUser);
@@ -219,5 +232,279 @@ contract QueueManagerTest is BaseTest {
         manager.fulfillDepositRequest(controller, 100 ether, 100 ether);
 
         assertEq(manager.maxMint(controller), 100 ether);
+    }
+
+    function test_maxWithdraw() public {
+        // Setup initial redeem request
+        vm.prank(address(node));
+        manager.requestRedeem(100 ether, controller);
+
+        // Setup node mock expectations
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("burn(address,uint256)"))),
+            abi.encode()
+        );
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("onRedeemClaimable(address,uint128,uint128)"))),
+            abi.encode()
+        );
+
+        // Setup state with redeem price by fulfilling request
+        vm.prank(rebalancer);
+        manager.fulfillRedeemRequest(controller, 100 ether, 100 ether);
+
+        // Test maxWithdraw
+        assertEq(manager.maxWithdraw(controller), 100 ether);
+    }
+
+    function test_maxRedeem() public {
+        // Setup initial redeem request
+        vm.prank(address(node));
+        manager.requestRedeem(100 ether, controller);
+
+        // Setup node mock expectations
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("burn(address,uint256)"))),
+            abi.encode()
+        );
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("onRedeemClaimable(address,uint128,uint128)"))),
+            abi.encode()
+        );  
+
+        // Setup state with redeem price by fulfilling request
+        vm.prank(rebalancer);
+        manager.fulfillRedeemRequest(controller, 100 ether, 100 ether);
+
+        assertEq(manager.maxRedeem(controller), 100 ether);
+    }   
+
+    function test_pendingDepositRequest() public {        
+        vm.prank(address(node));
+        manager.requestDeposit(100 ether, controller);
+
+        assertEq(manager.pendingDepositRequest(controller), 100 ether);
+    }
+
+    function test_pendingRedeemRequest() public {
+        vm.prank(address(node));
+        manager.requestRedeem(100 ether, controller);
+
+        assertEq(manager.pendingRedeemRequest(controller), 100 ether);
+    }
+
+    function test_deposit() public {
+        // Setup initial request
+        vm.prank(address(node));
+        manager.requestDeposit(100 ether, controller);
+
+        // Setup node mock expectations
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("mint(address,uint256)"))),
+            abi.encode()
+        );
+
+        // Give Escrow the tokens it needs
+        deal(address(node), address(escrow), 100 ether);
+
+        // Setup escrow approval
+        vm.prank(address(escrow));
+        node.approve(address(manager), 100 ether);
+
+        // Test deposit
+        vm.prank(rebalancer);
+        manager.fulfillDepositRequest(controller, 100 ether, 100 ether);
+
+        vm.prank(address(node));
+        manager.deposit(100 ether, controller, controller);
+
+        assertEq(node.balanceOf(controller), 100 ether);
+    }
+
+    function test_deposit_revert_notNode() public {
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        manager.deposit(100 ether, controller, controller);
+    }
+
+    function test_deposit_revert_exceedsMaxDeposit() public {
+        vm.prank(address(node));
+        manager.requestDeposit(100 ether, controller);
+
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("maxDeposit(address)"))),
+            abi.encode(90 ether)
+        );
+
+        vm.prank(address(node));
+        vm.expectRevert(ErrorsLib.ExceedsMaxDeposit.selector);
+        manager.deposit(100 ether, controller, controller);
+    }
+
+    function test_mint() public {
+        // Setup initial request
+        vm.prank(address(node));
+        manager.requestDeposit(100 ether, controller);
+
+        // Setup node mock expectations
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("mint(address,uint256)"))),
+            abi.encode()
+        );
+
+        // Give Escrow the tokens it needs
+        deal(address(node), address(escrow), 100 ether);
+
+        // Setup escrow approval
+        vm.prank(address(escrow));
+        node.approve(address(manager), 100 ether);
+
+        // Test deposit
+        vm.prank(rebalancer);
+        manager.fulfillDepositRequest(controller, 100 ether, 100 ether);
+
+        vm.prank(address(node));
+        manager.mint(100 ether, controller, controller);
+
+        assertEq(node.balanceOf(controller), 100 ether);
+    }
+
+    function test_mint_revert_notNode() public {
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        manager.mint(100 ether, controller, controller);
+    }
+
+    function test_mint_revert_exceedsMaxMint() public {
+        vm.prank(address(node));
+        manager.requestDeposit(100 ether, controller);
+
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("maxMint(address)"))),
+            abi.encode(90 ether)
+        );
+
+        vm.prank(address(node));
+        vm.expectRevert(ErrorsLib.ExceedsMaxDeposit.selector);
+        manager.mint(100 ether, controller, controller);
+        
+    }
+
+    function test_redeem() public {
+        // Setup initial request
+        vm.prank(address(node));
+        manager.requestRedeem(100 ether, controller);   
+
+        // Setup node mock expectations
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("burn(address,uint256)"))),
+            abi.encode()
+        );
+
+        // Setup escrow approval
+        vm.prank(address(escrow));
+        asset.approve(address(manager), 100 ether);  
+
+        // Give Escrow the tokens it needs
+        deal(address(asset), address(escrow), 100 ether);
+
+        // Test redeem
+        vm.prank(rebalancer);
+        manager.fulfillRedeemRequest(controller, 100 ether, 100 ether);
+
+        vm.prank(address(node));
+        manager.redeem(100 ether, controller, controller);
+
+        assertEq(asset.balanceOf(controller), 100 ether);
+    }
+
+    function test_redeem_revert_notNode() public {
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        manager.redeem(100 ether, controller, controller);
+    }
+
+    function test_redeem_revert_exceedsMaxRedeem() public {
+        vm.prank(address(node));
+        manager.requestRedeem(100 ether, controller);
+
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("maxRedeem(address)"))),
+            abi.encode(90 ether)
+        );
+
+        vm.prank(address(node));
+        vm.expectRevert(ErrorsLib.ExceedsMaxRedeem.selector);
+        manager.redeem(100 ether, controller, controller);
+    }
+
+    function test_withdraw() public {
+        // Setup initial request
+        vm.prank(address(node));
+        manager.requestRedeem(100 ether, controller);   
+
+        // Setup node mock expectations
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("burn(address,uint256)"))),
+            abi.encode()
+        );
+
+        // Setup escrow approval
+        vm.prank(address(escrow));
+        asset.approve(address(manager), 100 ether);  
+
+        // Give Escrow the tokens it needs
+        deal(address(asset), address(escrow), 100 ether);
+
+        // Test redeem
+        vm.prank(rebalancer);
+        manager.fulfillRedeemRequest(controller, 100 ether, 100 ether);
+
+        vm.prank(address(node));
+        manager.withdraw(100 ether, controller, controller);
+
+        assertEq(asset.balanceOf(controller), 100 ether);
+    }
+
+    function test_withdraw_revert_notNode() public {
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        manager.withdraw(100 ether, controller, controller);
+    }  
+
+    function test_withdraw_revert_exceedsMaxWithdraw() public {
+        vm.prank(address(node));
+        manager.requestRedeem(100 ether, controller);
+
+        vm.mockCall(
+            address(node),
+            abi.encodeWithSelector(bytes4(keccak256("maxWithdraw(address)"))),
+            abi.encode(90 ether)
+        );
+
+        vm.prank(address(node));
+        vm.expectRevert(ErrorsLib.ExceedsMaxWithdraw.selector);
+        manager.withdraw(100 ether, controller, controller);    
+    }
+
+    function test_calculateShare_returnZeroIf_ZeroPrice() public view {
+        assertEq(harness.calculateShares(0, 1 ether, MathLib.Rounding.Down), 0);
+        assertEq(harness.calculateShares(1 ether, 0, MathLib.Rounding.Down), 0);        
+    }
+
+    function test_calculateAsset_returnZeroIf_ZeroPrice() public view {
+        assertEq(harness.calculateAssets(0, 1 ether, MathLib.Rounding.Down), 0);
+        assertEq(harness.calculateAssets(1 ether, 0, MathLib.Rounding.Down), 0);
     }
 }
