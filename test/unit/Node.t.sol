@@ -75,7 +75,15 @@ contract NodeTest is BaseTest {
     address[] public emptyRouters;
 
     function setUp() public override {
-        super.setUp(); 
+        super.setUp();
+        
+        // Add necessary approvals
+        vm.startPrank(owner);
+        escrow.approveMax(address(asset), address(queueManager));
+        escrow.approveMax(address(node), address(queueManager));
+        node.approveQueueManager();
+        vm.stopPrank();
+
         testOperator = makeAddr("testOperator");
         testComponent = makeAddr("component1");
         testComponent2 = makeAddr("component2");
@@ -1072,7 +1080,7 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(rebalancer);
-        queueManager.fulfillRedeemRequest(user, uint128(assets), uint128(assets));
+        queueManager.fulfillRedeemRequest(user, uint128(assets), uint128(1 ether));
 
         vm.startPrank(owner);        
         escrow.approveMax(address(asset), address(queueManager));
@@ -1081,7 +1089,7 @@ contract NodeTest is BaseTest {
         node.withdraw(assets, user, user);
 
         assertEq(node.balanceOf(user), 0);
-        assertEq(asset.balanceOf(user), INITIAL_BALANCE);   
+        assertEq(asset.balanceOf(user), 1 ether);
         assertEq(node.balanceOf(address(escrow)), 0);
     }
 
@@ -1095,7 +1103,7 @@ contract NodeTest is BaseTest {
         vm.stopPrank();     
 
         vm.prank(rebalancer);
-        queueManager.fulfillRedeemRequest(user, uint128(assets), uint128(assets));
+        queueManager.fulfillRedeemRequest(user, uint128(assets), uint128(1 ether));
 
         vm.startPrank(owner);        
         escrow.approveMax(address(asset), address(queueManager));
@@ -1126,7 +1134,7 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(rebalancer);
-        queueManager.fulfillRedeemRequest(user, uint128(shares), uint128(shares));
+        queueManager.fulfillRedeemRequest(user, uint128(shares), uint128(1 ether));
 
         vm.startPrank(owner);        
         escrow.approveMax(address(asset), address(queueManager));
@@ -1135,7 +1143,7 @@ contract NodeTest is BaseTest {
         node.redeem(shares, user, user);
 
         assertEq(node.balanceOf(user), 0);
-        assertEq(asset.balanceOf(user), INITIAL_BALANCE);   
+        assertEq(asset.balanceOf(user), 1 ether);
         assertEq(node.balanceOf(address(escrow)), 0);
     }
     
@@ -1149,7 +1157,7 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(rebalancer);
-        queueManager.fulfillRedeemRequest(user, uint128(shares), uint128(shares));
+        queueManager.fulfillRedeemRequest(user, uint128(shares), uint128(1 ether));
 
         vm.startPrank(owner);        
         escrow.approveMax(address(asset), address(queueManager));
@@ -1283,19 +1291,91 @@ contract NodeTest is BaseTest {
     }   
     
     // Helper Functions
-    function userDeposits(address user_, uint256 amount_) public {        
+    function userDeposits(address user_, uint256 amount_) public {
+        deal(address(asset), user_, amount_);
+        
         vm.startPrank(user_);
-        asset.approve(address(node), amount_); 
+        asset.approve(address(node), amount_);
         node.requestDeposit(amount_, user_, user_);
         vm.stopPrank();
 
         vm.prank(rebalancer);
         queueManager.fulfillDepositRequest(user_, uint128(amount_), uint128(amount_));
 
-        vm.prank(owner);
-        escrow.approveMax(address(node), address(queueManager));
-        
         vm.prank(user_);
-        node.deposit(amount_, user_);             
+        node.deposit(amount_, user_);
     }   
+
+    function test_fulfillDepositRequest_transfersAssets() public {
+        uint256 amount = 100 ether;
+        deal(address(asset), user, amount);
+        
+        // Setup approvals
+        vm.startPrank(user);
+        asset.approve(address(node), amount);
+        node.requestDeposit(amount, user, user);
+        vm.stopPrank();
+
+        assertEq(asset.balanceOf(address(escrow)), amount, "Assets should be in escrow initially");
+        assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets initially");
+
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user, uint128(amount), uint128(amount));
+
+        assertEq(asset.balanceOf(address(escrow)), 0, "Escrow should have transferred all assets");
+        assertEq(asset.balanceOf(address(node)), amount, "Node should have received the assets");
+        assertEq(node.balanceOf(address(escrow)), amount, "Node should have received the assets");
+    }
+
+    function test_fulfillRedeemRequest_transfersAssets() public {
+        // Controller approves node to transfer assets & shares
+        vm.startPrank(user);
+        asset.approve(address(node), type(uint256).max); 
+        node.approve(address(node), type(uint256).max); 
+        vm.stopPrank();
+
+        // Escrow approve manager to transfer assets & shares
+        vm.startPrank(address(escrow));
+        asset.approve(address(queueManager), type(uint256).max);         
+        node.approve(address(queueManager), type(uint256).max); 
+        vm.stopPrank();
+
+        // Node approves manager to transfer assets
+        vm.prank(address(node));
+        asset.approve(address(queueManager), type(uint256).max);
+
+        // User deposits
+        uint256 startingBalance = asset.balanceOf(address(user));
+        vm.prank(user);                
+        node.requestDeposit(100, user, user);
+
+        // Queue Manager fulfills deposit request   
+        vm.prank(rebalancer);
+        queueManager.fulfillDepositRequest(user, 100, 100);
+        uint256 maxDeposit = node.maxDeposit(user);
+        assertEq(maxDeposit, 100);        
+
+        vm.prank(user);         
+        node.deposit(maxDeposit, user, user); 
+
+        // User requests redeem
+        vm.prank(user);
+        node.requestRedeem(100, user, user);
+
+        assertEq(node.balanceOf(address(user)), 0, "User should have no shares");
+        assertEq(node.balanceOf(address(escrow)), 100, "Escrow should have shares");                
+
+        // Queue Manager fulfills redeem request
+        vm.prank(rebalancer);
+        queueManager.fulfillRedeemRequest(user, 100, 100);
+
+        assertEq(node.maxWithdraw(user), 100, "User should have max withdraw");
+        assertEq(node.balanceOf(address(escrow)), 0, "Escrow should have no shares");
+
+        // User withdraws
+        vm.prank(user);
+        node.withdraw(100, user, user);
+
+        assertEq(asset.balanceOf(address(user)), startingBalance, "User should have starting balance");        
+    }
 }

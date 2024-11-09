@@ -90,7 +90,7 @@ contract BaseRouter is IBaseRouter {
     )
         external
         onlyNodeRebalancer(node)
-        onlyWhitelisted(token)
+        onlyWhitelisted(spender)
     {
         INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }

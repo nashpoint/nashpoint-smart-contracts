@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 
 import {Deployer} from "script/Deployer.sol";
 
@@ -16,7 +17,7 @@ import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQueueManager} from "src/interfaces/IQueueManager.sol";
-import {IQuoter} from "src/interfaces/IQuoter.sol";
+import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
@@ -24,13 +25,14 @@ contract BaseTest is Test {
     Deployer public deployer;
     INodeRegistry public registry;
     INodeFactory public factory;
-    IQuoter public quoter;
+    IQuoterV1 public quoter;
     ERC4626Router public router;
     
     INode public node;
     IEscrow public escrow;
     IQueueManager public queueManager;
     ERC20Mock public asset;
+    ERC4626Mock public vault;
 
     address public owner;
     address public user;
@@ -53,10 +55,11 @@ contract BaseTest is Test {
         
         registry = INodeRegistry(address(deployer.registry()));
         factory = INodeFactory(address(deployer.factory()));
-        quoter = IQuoter(address(deployer.quoter()));
+        quoter = IQuoterV1(address(deployer.quoter()));
         router = deployer.router();
         
         asset = new ERC20Mock("Test Token", "TEST");
+        vault = new ERC4626Mock(address(asset));
 
         vm.startPrank(owner);
         registry.initialize(
@@ -65,7 +68,8 @@ contract BaseTest is Test {
             _toArray(address(quoter)),
             _toArray(address(rebalancer))
         );
-        vm.stopPrank();
+        quoter.setErc4626(address(vault), true);
+        router.setWhitelistStatus(address(vault), true);
 
         vm.startPrank(owner);
         (node, escrow, queueManager) = factory.deployFullNode(
@@ -76,7 +80,7 @@ contract BaseTest is Test {
             address(rebalancer),
             address(quoter),
             _toArray(address(router)),
-            _toArray(address(router)),
+            _toArray(address(vault)),
             _defaultComponentAllocations(1),
             _defaultReserveAllocation(),
             SALT
@@ -87,6 +91,7 @@ contract BaseTest is Test {
         deal(address(asset), randomUser, INITIAL_BALANCE);
 
         _labelAddresses();
+        vm.label(address(vault), "Vault");
     }
 
     function _toArray(address addr) internal pure returns (address[] memory arr) {

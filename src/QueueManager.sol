@@ -67,27 +67,43 @@ contract QueueManager is IQueueManager {
     }
 
     /// @inheritdoc IQueueManager
-    function fulfillDepositRequest(address user, uint128 assets, uint128 shares) public onlyNodeRebalancer {
-        QueueState storage state = queueStates[user];
+    function fulfillDepositRequest(address controller, uint128 assetsToFulfill, uint128 sharesToMint) 
+        external 
+        onlyNodeRebalancer 
+    {
+        QueueState storage state = queueStates[controller];
         if (state.pendingDepositRequest == 0) revert ErrorsLib.NoPendingDepositRequest();
-        state.depositPrice = _calculatePrice(_maxDeposit(user) + assets, state.maxMint + shares);
-        state.maxMint = state.maxMint + shares;
-        state.pendingDepositRequest = state.pendingDepositRequest > assets ? state.pendingDepositRequest - assets : 0;
-
-        node.mint(node.escrow(), shares);
-        node.onDepositClaimable(user, assets, shares);
+        
+        IERC20(node.asset()).safeTransferFrom(node.escrow(), address(node), assetsToFulfill);
+        node.mint(node.escrow(), sharesToMint);
+        
+        state.pendingDepositRequest = state.pendingDepositRequest > assetsToFulfill ? 
+            state.pendingDepositRequest - assetsToFulfill : 
+            0;
+        state.maxMint += sharesToMint;
+        state.depositPrice = _calculatePrice(assetsToFulfill, sharesToMint);
+        
+        node.onDepositClaimable(controller, assetsToFulfill, sharesToMint);
     }
 
     /// @inheritdoc IQueueManager
-    function fulfillRedeemRequest(address user, uint128 assets, uint128 shares) public onlyNodeRebalancer {
-        QueueState storage state = queueStates[user];
+    function fulfillRedeemRequest(address controller, uint128 sharesToFulfill, uint128 assetsToReturn)
+        external
+        onlyNodeRebalancer
+    {
+        QueueState storage state = queueStates[controller];
         if (state.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
-        state.redeemPrice = _calculatePrice(state.maxWithdraw + assets, _maxRedeem(user) + shares);
-        state.maxWithdraw = state.maxWithdraw + assets;
-        state.pendingRedeemRequest = state.pendingRedeemRequest > shares ? state.pendingRedeemRequest - shares : 0;
-
-        node.burn(node.escrow(), shares);
-        node.onRedeemClaimable(user, assets, shares);
+        
+        IERC20(node.asset()).safeTransferFrom(address(node), node.escrow(), assetsToReturn);
+        node.burn(node.escrow(), sharesToFulfill);
+        
+        state.pendingRedeemRequest = state.pendingRedeemRequest > sharesToFulfill ? 
+            state.pendingRedeemRequest - sharesToFulfill : 
+            0;
+        state.maxWithdraw += assetsToReturn;
+        state.redeemPrice = _calculatePrice(assetsToReturn, sharesToFulfill);
+        
+        node.onRedeemClaimable(controller, assetsToReturn, sharesToFulfill);
     }
 
     /* VIEW */

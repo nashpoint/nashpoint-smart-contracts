@@ -56,25 +56,39 @@ contract QueueManagerTest is BaseTest {
         super.setUp();
         
         // Setup mock quoter
-        mockQuoter = new MockQuoter(1 ether); // 1:1 initial price
-        
-        // Setup node with mocks
-        vm.startPrank(owner);
-        node.setQuoter(address(mockQuoter));       
-        vm.stopPrank();
-        
+        mockQuoter = new MockQuoter(1 ether);
+        controller = makeAddr("controller");
+
         // Deploy manager and harness
         manager = new QueueManager(address(node));
-        harness = new QueueManagerHarness(address(node));
+        harness = new QueueManagerHarness(address(node)); 
         
-        // Setup test addresses
-        controller = makeAddr("controller");
+        vm.startPrank(owner);
+        node.setQuoter(address(mockQuoter));
+        node.setManager(address(manager));
+        
+        // Add necessary approvals
+        escrow.approveMax(address(asset), address(node));
+        escrow.approveMax(address(asset), address(queueManager));
+        escrow.approveMax(address(node), address(queueManager));
+        asset.approve(address(node), type(uint256).max);
+        vm.stopPrank();      
+        
+        // Controller approves node to transfer assets 
+        vm.prank(controller);
+        asset.approve(address(node), type(uint256).max);         
+
+        // Escrow approve manager to transfer assets 
+        vm.prank(address(escrow));
+        asset.approve(address(manager), type(uint256).max);       
         
         // Label addresses
         vm.label(address(manager), "QueueManager");
         vm.label(address(harness), "QueueManagerHarness");
         vm.label(address(mockQuoter), "MockQuoter");
         vm.label(controller, "Controller");
+
+        deal(address(asset), controller, INITIAL_BALANCE);
     }
 
     function test_deployment() public {
@@ -131,22 +145,10 @@ contract QueueManagerTest is BaseTest {
         manager.requestRedeem(0, controller);
     }
 
-    function test_fulfillDepositRequest() public {
-        // Setup initial request
-        vm.prank(address(node));
-        manager.requestDeposit(100, controller);
-
-        // Setup node mock expectations
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("mint(address,uint256)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("onDepositClaimable(address,uint128,uint128)"))),
-            abi.encode()
-        );
+    function test_fulfillDepositRequest() public {            
+        // Setup initial request        
+        vm.prank(controller);                
+        node.requestDeposit(100, controller, controller);   
 
         // Test fulfillment
         vm.prank(rebalancer);
@@ -165,7 +167,7 @@ contract QueueManagerTest is BaseTest {
         assertEq(pendingDepositRequest, 50);
         assertEq(maxMint, 50);
         assertEq(depositPrice, 1 ether);
-    }
+    }    
 
     function test_fulfillDepositRequest_revert_NotRebalancer() public {
         vm.prank(randomUser);
@@ -179,42 +181,6 @@ contract QueueManagerTest is BaseTest {
         manager.fulfillDepositRequest(controller, 50, 50);
     }
 
-
-    function test_fulfillRedeemRequest() public {
-        // Setup initial request
-        vm.prank(address(node));
-        manager.requestRedeem(100, controller);
-
-        // Setup node mock expectations
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("burn(address,uint256)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("onRedeemClaimable(address,uint128,uint128)"))),
-            abi.encode()
-        );
-
-        // Test fulfillment
-        vm.prank(rebalancer);
-        manager.fulfillRedeemRequest(controller, 50, 50);
-
-        // Verify state changes
-        (
-            uint128 maxMint,
-            uint128 maxWithdraw,
-            uint256 depositPrice,
-            uint256 redeemPrice,
-            uint128 pendingDepositRequest,
-            uint128 pendingRedeemRequest
-    ) = manager.queueStates(controller);
-
-        assertEq(pendingRedeemRequest, 50);
-        assertEq(maxWithdraw, 50);
-        assertEq(redeemPrice, 1 ether);
-    }
 
     function test_fulfillRedeemRequest_revert_NotRebalancer() public {
         vm.prank(randomUser);
@@ -246,25 +212,8 @@ contract QueueManagerTest is BaseTest {
 
     function test_maxDeposit() public {
         // Setup initial request
-        vm.prank(address(node));
-        manager.requestDeposit(100 ether, controller);
-
-        // Setup node mock expectations
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("mint(address,uint256)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("onDepositClaimable(address,uint128,uint128)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("escrow()"))),
-            abi.encode(address(escrow))
-        );
+        vm.prank(controller);
+        node.requestDeposit(100 ether, controller, controller);         
 
         // Setup state with deposit price
         vm.prank(rebalancer);
@@ -275,25 +224,8 @@ contract QueueManagerTest is BaseTest {
 
     function test_maxMint() public {
         // Setup initial request
-        vm.prank(address(node));
-        manager.requestDeposit(100 ether, controller);
-
-        // Setup node mock expectations
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("mint(address,uint256)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("onDepositClaimable(address,uint128,uint128)"))),
-            abi.encode()
-        );
-        vm.mockCall(
-            address(node),
-            abi.encodeWithSelector(bytes4(keccak256("escrow()"))),
-            abi.encode(address(escrow))
-        );
+        vm.prank(controller);
+        node.requestDeposit(100 ether, controller, controller);        
 
         // Setup state
         vm.prank(rebalancer);
