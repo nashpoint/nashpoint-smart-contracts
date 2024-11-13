@@ -15,7 +15,6 @@ contract DepositFlow is BaseTest {
         assertEq(node.totalAssets(), 0);
 
         vm.prank(rebalancer);
-        queueManager.fulfillDepositRequest(user, 1 ether, 1 ether);
 
 
 

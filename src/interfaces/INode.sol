@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575} from "./IERC7575.sol";
 import {IERC7540} from "./IERC7540.sol";
-import {IQueueManager} from "./IQueueManager.sol";
 import {IQuoter} from "./IQuoter.sol";
 
 struct ComponentAllocation {
@@ -39,9 +38,6 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @notice Sets the escrow
     function setEscrow(address newEscrow) external;
 
-    /// @notice Sets the manager
-    function setManager(address newManager) external;
-
     /// @notice Sets the quoter
     function setQuoter(address newQuoter) external;
 
@@ -72,9 +68,6 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
 
-    /// @notice Returns the manager
-    function manager() external view returns (IQueueManager);
-
     /// @notice Returns whether the node has been initialized
     function isInitialized() external view returns (bool);
 
@@ -83,8 +76,7 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
 
     /// @notice Initializes the Node with escrow and manager contracts
     /// @param escrow_ The address of the escrow contract
-    /// @param manager_ The address of the queue manager contract
-    function initialize(address escrow_, address manager_) external;
+    function initialize(address escrow_) external;
 
     /// @notice Adds a new component to the node
     /// @param component The address of the component to add
@@ -113,6 +105,4 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
 
-    /// @notice Approves the QueueManager to transfer assets from Node to Escrow
-    function approveQueueManager() external;
 }

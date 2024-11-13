@@ -4,35 +4,31 @@ pragma solidity 0.8.26;
 import {Address} from "../lib/openzeppelin-contracts/contracts/utils/Address.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
-import {IQueueManager} from "./interfaces/IQueueManager.sol";
 import {IQuoter} from "./interfaces/IQuoter.sol";
 import {IERC7540Deposit, IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
+import {MathLib} from "./libraries/MathLib.sol";
 
-/**
- * @title Node
- * @author ODND Studios
- */
 contract Node is INode, ERC20, Ownable {
     using Address for address;
     using SafeERC20 for IERC20;
+    using MathLib for uint256;
 
     /* CONSTANTS */
     uint256 private constant REQUEST_ID = 0;
+    uint8 internal constant PRICE_DECIMALS = 18;
 
     /* IMMUTABLES */
-    /// @inheritdoc INode
     address public immutable registry;
-    /// @inheritdoc IERC7575
     address public immutable asset;
-    /// @inheritdoc IERC7575
     address public immutable share;
 
     /* STORAGE */
@@ -40,36 +36,28 @@ contract Node is INode, ERC20, Ownable {
     mapping(address => ComponentAllocation) public componentAllocations;
     ComponentAllocation public reserveAllocation;
 
-    /// @inheritdoc INode
-    IQueueManager public manager;
-    /// @inheritdoc INode
+    // QueueManager variables
+    mapping(address => QueueState) public queueStates;
+
     IQuoter public quoter;
-    /// @inheritdoc INode
     address public escrow;
-    /// @inheritdoc IERC7540Operator
     mapping(address => mapping(address => bool)) public isOperator;
 
-    /// @inheritdoc INode
     address public rebalancer;
-    /// @inheritdoc INode
     mapping(address => bool) public isRouter;
-    
-    /// @inheritdoc INode
+
     bool public isInitialized;
 
+    struct QueueState {
+        uint128 pendingDepositRequest;
+        uint128 pendingRedeemRequest;
+        uint128 maxMint;
+        uint128 maxWithdraw;
+        uint256 depositPrice;
+        uint256 redeemPrice;
+    }
+
     /* CONSTRUCTOR */
-    /// @notice Initializes the Node contract
-    /// @param registry_ The address of the node registry
-    /// @param name The name of the Node token
-    /// @param symbol The symbol of the Node token
-    /// @param asset_ The address of the underlying asset token
-    /// @param quoter_ The address of the quoter contract
-    /// @param rebalancer_ The address of the rebalancer contract
-    /// @param owner The address of the initial owner
-    /// @param routers An array of initial router addresses
-    /// @param components_ An array of component addresses
-    /// @param componentAllocations_ An array of component allocations matching components array
-    /// @param reserveAllocation_ The allocation for reserves
     constructor(
         address registry_,
         string memory name,
@@ -102,25 +90,22 @@ contract Node is INode, ERC20, Ownable {
         _;
     }
 
-    modifier onlyQueueManager() {
-        if (msg.sender != address(manager)) revert ErrorsLib.InvalidSender();
+    modifier onlyRebalancer() {
+        if (msg.sender != rebalancer) revert ErrorsLib.InvalidSender();
         _;
     }
 
     /* OWNER FUNCTIONS */
-    /// @inheritdoc INode
-    function initialize(address escrow_, address manager_) external onlyOwner {
+    function initialize(address escrow_) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
-        if (escrow_ == address(0) || manager_ == address(0)) revert ErrorsLib.ZeroAddress();
+        if (escrow_ == address(0)) revert ErrorsLib.ZeroAddress();
 
         escrow = escrow_;
-        manager = IQueueManager(manager_);
         isInitialized = true;
 
-        emit EventsLib.Initialize(escrow_, manager_);
+        emit EventsLib.Initialize(escrow_, address(this));
     }
 
-    /// @inheritdoc INode
     function addComponent(address component, ComponentAllocation memory allocation) external onlyOwner {
         if (component == address(0)) revert ErrorsLib.ZeroAddress();
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
@@ -131,7 +116,6 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.ComponentAdded(address(this), component, allocation);
     }
 
-    /// @inheritdoc INode
     function removeComponent(address component) external onlyOwner {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
         if (IERC20(component).balanceOf(address(this)) > 0) revert ErrorsLib.NonZeroBalance();
@@ -148,20 +132,17 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.ComponentRemoved(address(this), component);
     }
 
-    /// @inheritdoc INode
     function updateComponentAllocation(address component, ComponentAllocation memory allocation) external onlyOwner {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
         componentAllocations[component] = allocation;
         emit EventsLib.ComponentAllocationUpdated(address(this), component, allocation);
     }
 
-    /// @inheritdoc INode
     function updateReserveAllocation(ComponentAllocation memory allocation) external onlyOwner {
         reserveAllocation = allocation;
         emit EventsLib.ReserveAllocationUpdated(address(this), allocation);
     }
 
-    /// @inheritdoc INode
     function addRouter(address newRouter) external onlyOwner {
         if (isRouter[newRouter]) revert ErrorsLib.AlreadySet();
         if (newRouter == address(0)) revert ErrorsLib.ZeroAddress();
@@ -169,14 +150,12 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.AddRouter(newRouter);
     }
 
-    /// @inheritdoc INode
     function removeRouter(address oldRouter) external onlyOwner {
         if (!isRouter[oldRouter]) revert ErrorsLib.NotSet();
         isRouter[oldRouter] = false;
         emit EventsLib.RemoveRouter(oldRouter);
     }
 
-    /// @inheritdoc INode
     function setRebalancer(address newRebalancer) external onlyOwner {
         if (newRebalancer == rebalancer) revert ErrorsLib.AlreadySet();
         if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
@@ -184,7 +163,6 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetRebalancer(newRebalancer);
     }
 
-    /// @inheritdoc INode
     function setEscrow(address newEscrow) external onlyOwner {
         if (newEscrow == escrow) revert ErrorsLib.AlreadySet();
         if (newEscrow == address(0)) revert ErrorsLib.ZeroAddress();
@@ -192,15 +170,6 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetEscrow(newEscrow);
     }
 
-    /// @inheritdoc INode
-    function setManager(address newManager) external onlyOwner {
-        if (newManager == address(manager)) revert ErrorsLib.AlreadySet();
-        if (newManager == address(0)) revert ErrorsLib.ZeroAddress();
-        manager = IQueueManager(newManager);
-        emit EventsLib.SetManager(newManager);
-    }
-
-    /// @inheritdoc INode
     function setQuoter(address newQuoter) external onlyOwner {
         if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
         if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
@@ -208,13 +177,7 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetQuoter(newQuoter);
     }
 
-    /// @inheritdoc INode
-    function approveQueueManager() external onlyOwner {
-        IERC20(asset).approve(address(manager), type(uint256).max);
-    }
-
     /* REBALANCER FUNCTIONS */
-    /// @inheritdoc INode
     function execute(address target, uint256 value, bytes calldata data)
         external
         onlyRouter
@@ -228,54 +191,53 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* ERC-7540 FUNCTIONS */
-    /// @inheritdoc IERC7540Deposit
     function requestDeposit(uint256 assets, address controller, address owner) public returns (uint256) {
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert ErrorsLib.InvalidOwner();
         if (IERC20(asset).balanceOf(owner) < assets) revert ErrorsLib.InsufficientBalance();
 
-        if (!manager.requestDeposit(assets, controller)) {
-            revert ErrorsLib.RequestDepositFailed();
-        }
+        uint128 _assets = assets.toUint128();
+        if (_assets == 0) revert ErrorsLib.ZeroAmount();
+        QueueState storage state = queueStates[controller];
+        state.pendingDepositRequest = state.pendingDepositRequest + _assets;
+
         IERC20(asset).safeTransferFrom(owner, address(escrow), assets);
 
         emit IERC7540Deposit.DepositRequest(controller, owner, REQUEST_ID, msg.sender, assets);
         return REQUEST_ID;
     }
 
-    /// @inheritdoc IERC7540Deposit
     function pendingDepositRequest(uint256, address controller) public view returns (uint256 pendingAssets) {
-        pendingAssets = manager.pendingDepositRequest(controller);
+        QueueState storage state = queueStates[controller];
+        pendingAssets = state.pendingDepositRequest;
     }
 
-    /// @inheritdoc IERC7540Deposit
     function claimableDepositRequest(uint256, address controller) external view returns (uint256 claimableAssets) {
         claimableAssets = maxDeposit(controller);
     }
 
-    /// @inheritdoc IERC7540Redeem
     function requestRedeem(uint256 shares, address controller, address owner) public returns (uint256) {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
 
-        if (!manager.requestRedeem(shares, controller)) {
-            revert ErrorsLib.RequestRedeemFailed();
-        }
+        uint128 _shares = shares.toUint128();
+        if (_shares == 0) revert ErrorsLib.ZeroAmount();
+        QueueState storage state = queueStates[controller];
+        state.pendingRedeemRequest = state.pendingRedeemRequest + _shares;
+
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
 
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
 
-    /// @inheritdoc IERC7540Redeem
     function pendingRedeemRequest(uint256, address controller) public view returns (uint256 pendingShares) {
-        pendingShares = manager.pendingRedeemRequest(controller);
+        QueueState storage state = queueStates[controller];
+        pendingShares = state.pendingRedeemRequest;
     }
 
-    /// @inheritdoc IERC7540Redeem
     function claimableRedeemRequest(uint256, address controller) external view returns (uint256 claimableShares) {
         claimableShares = maxRedeem(controller);
     }
 
-    /// @inheritdoc IERC7540Operator
     function setOperator(address operator, bool approved) public virtual returns (bool success) {
         if (msg.sender == operator) revert ErrorsLib.CannotSetSelfAsOperator();
         isOperator[msg.sender][operator] = approved;
@@ -284,7 +246,6 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* ERC-165 FUNCTIONS */
-    /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IERC7540Deposit).interfaceId || interfaceId == type(IERC7540Redeem).interfaceId
             || interfaceId == type(IERC7540Operator).interfaceId || interfaceId == type(IERC7575).interfaceId
@@ -292,140 +253,223 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* ERC-4626 FUNCTIONS */
-    /// @inheritdoc IERC7575
     function totalAssets() external view returns (uint256) {
         return convertToAssets(totalSupply());
     }       
 
-    /// @inheritdoc IERC7575
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        shares = manager.convertToShares(assets);
+        uint128 latestPrice = IQuoter(quoter).getPrice(address(this));
+        shares = uint256(_calculateShares(assets.toUint128(), latestPrice, MathLib.Rounding.Down));
     }
 
-    /// @inheritdoc IERC7575
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        assets = manager.convertToAssets(shares);
+        uint128 latestPrice = IQuoter(quoter).getPrice(address(this));
+        assets = uint256(_calculateAssets(shares.toUint128(), latestPrice, MathLib.Rounding.Down));
     }
 
-    /// @inheritdoc IERC7575
     function maxDeposit(address controller) public view returns (uint256 maxAssets) {
-        maxAssets = manager.maxDeposit(controller);
+        maxAssets = uint256(_maxDeposit(controller));
     }
 
-    /// @inheritdoc IERC7540Deposit
+    function _maxDeposit(address controller) internal view returns (uint128 assets) {
+        QueueState storage state = queueStates[controller];
+        assets = _calculateAssets(state.maxMint, state.depositPrice, MathLib.Rounding.Down);
+    }
+
     function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
         _validateController(controller);
-        shares = manager.deposit(assets, receiver, controller);
+
+        if (assets > maxDeposit(controller)) revert ErrorsLib.ExceedsMaxDeposit();
+
+        QueueState storage state = queueStates[controller];
+        uint128 sharesUp = _calculateShares(assets.toUint128(), state.depositPrice, MathLib.Rounding.Up);
+        uint128 sharesDown = _calculateShares(assets.toUint128(), state.depositPrice, MathLib.Rounding.Down);
+        _processDeposit(state, sharesUp, sharesDown, receiver);
+        shares = uint256(sharesDown);
+
         emit IERC7575.Deposit(receiver, controller, assets, shares);
     }
 
-    /// @inheritdoc IERC7575
     function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
         shares = deposit(assets, receiver, msg.sender);
     }
 
-    /// @inheritdoc IERC7575
     function maxMint(address controller) public view returns (uint256 maxShares) {
-        maxShares = manager.maxMint(controller);
+        QueueState storage state = queueStates[controller];
+        maxShares = state.maxMint;
     }
 
-    /// @inheritdoc IERC7540Deposit
     function mint(uint256 shares, address receiver, address controller) public returns (uint256 assets) {
         _validateController(controller);
-        assets = manager.mint(shares, receiver, controller);
+
+        QueueState storage state = queueStates[controller];
+        uint128 shares_ = shares.toUint128();
+        _processDeposit(state, shares_, shares_, receiver);
+        assets = uint256(_calculateAssets(shares_, state.depositPrice, MathLib.Rounding.Down));
+
         emit IERC7575.Deposit(receiver, controller, assets, shares);
     }
 
-    /// @inheritdoc IERC7575
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {
         assets = mint(shares, receiver, msg.sender);
     }
 
-    /// @inheritdoc IERC7575
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
-        maxAssets = manager.maxWithdraw(controller);
+        QueueState storage state = queueStates[controller];
+        maxAssets = state.maxWithdraw;
     }
 
-    /// @inheritdoc IERC7575
-    /// @notice     DOES NOT support controller != msg.sender since shares are already transferred on requestRedeem
     function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
         _validateController(controller);
-        shares = manager.withdraw(assets, receiver, controller);
+
+        QueueState storage state = queueStates[controller];
+        uint128 assets_ = assets.toUint128();
+        _processRedeem(state, assets_, assets_, receiver);
+        shares = uint256(_calculateShares(assets_, state.redeemPrice, MathLib.Rounding.Down));
+
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
-    /// @inheritdoc IERC7575
     function maxRedeem(address controller) public view returns (uint256 maxShares) {
-        maxShares = manager.maxRedeem(controller);
+        maxShares = uint256(_maxRedeem(controller));
     }
 
-    /// @inheritdoc IERC7575
-    /// @notice     DOES NOT support controller != msg.sender since shares are already transferred on requestRedeem.
-    ///             When claiming redemption requests using redeem(), there can be some precision loss leading to dust.
-    ///             It is recommended to use withdraw() to claim redemption requests instead.
+    function _maxRedeem(address controller) internal view returns (uint128 shares) {
+        QueueState storage state = queueStates[controller];
+        shares = _calculateShares(state.maxWithdraw, state.redeemPrice, MathLib.Rounding.Down);
+    }
+
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
         _validateController(controller);
-        assets = manager.redeem(shares, receiver, controller);
+
+        if (shares > maxRedeem(controller)) revert ErrorsLib.ExceedsMaxRedeem();
+
+        QueueState storage state = queueStates[controller];
+        uint128 assetsUp = _calculateAssets(shares.toUint128(), state.redeemPrice, MathLib.Rounding.Up);
+        uint128 assetsDown = _calculateAssets(shares.toUint128(), state.redeemPrice, MathLib.Rounding.Down);
+        _processRedeem(state, assetsUp, assetsDown, receiver);
+        assets = uint256(assetsDown);
+
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
-    /// @dev Preview functions for ERC-7540 vaults revert
-    function previewDeposit(uint256) external pure returns (uint256) {
-        revert();
+    function fulfillDepositRequest(address controller, uint128 assetsToFulfill, uint128 sharesToMint) 
+        external 
+        onlyRebalancer 
+    {
+        QueueState storage state = queueStates[controller];
+        if (state.pendingDepositRequest == 0) revert ErrorsLib.NoPendingDepositRequest();
+        
+        IERC20(asset).safeTransferFrom(escrow, address(this), assetsToFulfill);
+        _mint(escrow, sharesToMint);
+        
+        state.pendingDepositRequest = state.pendingDepositRequest > assetsToFulfill ? 
+            state.pendingDepositRequest - assetsToFulfill : 
+            0;
+        state.maxMint += sharesToMint;
+        state.depositPrice = _calculatePrice(assetsToFulfill, sharesToMint);
+        
+        onDepositClaimable(controller, assetsToFulfill, sharesToMint);
     }
 
-    /// @dev Preview functions for ERC-7540 vaults revert
-    function previewMint(uint256) external pure returns (uint256) {
-        revert();
-    }
-
-    /// @dev Preview functions for ERC-7540 vaults revert
-    function previewWithdraw(uint256) external pure returns (uint256) {
-        revert();
-    }
-
-    /// @dev Preview functions for ERC-7540 vaults revert
-    function previewRedeem(uint256) external pure returns (uint256) {
-        revert();
-    }
-
-    /// @notice Price of 1 unit of share, quoted in the decimals of the asset.
-    function pricePerShare() external view returns (uint256) {
-        return convertToAssets(10 ** decimals());
-    }
-
-    /// @notice Returns the components of the node
-    function getComponents() external view returns (address[] memory) {
-        return components;
-    }
-
-    /// @inheritdoc INode
-    function isComponent(address component) external view returns (bool) {
-        return _isComponent(component);
-    }
-
-    /* ERC-20 MINT/BURN FUNCTIONS */
-    /// @inheritdoc INode
-    function mint(address user, uint256 value) external onlyQueueManager {
-        _mint(user, value);
-    }
-
-    /// @inheritdoc INode
-    function burn(address user, uint256 value) external onlyQueueManager {
-        _burn(user, value);
-    }
-
-    /* EVENT EMITTERS */
-    function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {
-        emit EventsLib.DepositClaimable(controller, REQUEST_ID, assets, shares);
-    }
-
-    function onRedeemClaimable(address controller, uint256 assets, uint256 shares) public {
-        emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assets, shares);
+    function fulfillRedeemRequest(address controller, uint128 sharesToFulfill, uint128 assetsToReturn)
+        external
+        onlyRebalancer
+    {
+        QueueState storage state = queueStates[controller];
+        if (state.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
+        
+        IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
+        _burn(escrow, sharesToFulfill);
+        
+        state.pendingRedeemRequest = state.pendingRedeemRequest > sharesToFulfill ? 
+            state.pendingRedeemRequest - sharesToFulfill : 
+            0;
+        state.maxWithdraw += assetsToReturn;
+        state.redeemPrice = _calculatePrice(assetsToReturn, sharesToFulfill);
+        
+        onRedeemClaimable(controller, assetsToReturn, sharesToFulfill);
     }
 
     /* INTERNAL */
-    /// @notice Ensures msg.sender can operate on behalf of controller.
+    function _processDeposit(QueueState storage state, uint128 sharesUp, uint128 sharesDown, address receiver)
+        internal
+    {
+        if (sharesUp > state.maxMint) revert ErrorsLib.ExceedsMaxDeposit();
+        state.maxMint = state.maxMint > sharesUp ? state.maxMint - sharesUp : 0;
+        if (sharesDown > 0) {
+            IERC20(address(this)).safeTransferFrom(escrow, receiver, sharesDown);
+        }
+    }
+
+    function _processRedeem(QueueState storage state, uint128 assetsUp, uint128 assetsDown, address receiver)
+        internal
+    {
+        if (assetsUp > state.maxWithdraw) revert ErrorsLib.ExceedsMaxWithdraw();
+        state.maxWithdraw = state.maxWithdraw > assetsUp ? state.maxWithdraw - assetsUp : 0;
+        if (assetsDown > 0) IERC20(asset).safeTransferFrom(escrow, receiver, assetsDown);
+    }
+
+    function _calculateShares(uint128 assets, uint256 price, MathLib.Rounding rounding)
+        internal
+        view
+        returns (uint128 shares)
+    {
+        if (price == 0 || assets == 0) {
+            shares = 0;
+        } else {
+            (uint8 assetDecimals, uint8 nodeDecimals) = _getNodeDecimals();
+
+            uint256 sharesInPriceDecimals =
+                _toPriceDecimals(assets, assetDecimals).mulDiv(10 ** PRICE_DECIMALS, price, rounding);
+
+            shares = _fromPriceDecimals(sharesInPriceDecimals, nodeDecimals);
+        }
+    }
+
+    function _calculateAssets(uint128 shares, uint256 price, MathLib.Rounding rounding)
+        internal
+        view
+        returns (uint128 assets)
+    {
+        if (price == 0 || shares == 0) {
+            assets = 0;
+        } else {
+            (uint8 assetDecimals, uint8 nodeDecimals) = _getNodeDecimals();
+
+            uint256 assetsInPriceDecimals =
+                _toPriceDecimals(shares, nodeDecimals).mulDiv(price, 10 ** PRICE_DECIMALS, rounding);
+
+            assets = _fromPriceDecimals(assetsInPriceDecimals, assetDecimals);
+        }
+    }
+
+    function _calculatePrice(uint128 assets, uint128 shares) internal view returns (uint256) {
+        if (assets == 0 || shares == 0) {
+            return 0;
+        }
+
+        (uint8 assetDecimals, uint8 nodeDecimals) = _getNodeDecimals();
+        return _toPriceDecimals(assets, assetDecimals).mulDiv(
+            10 ** PRICE_DECIMALS, _toPriceDecimals(shares, nodeDecimals), MathLib.Rounding.Down
+        );
+    }
+
+    function _toPriceDecimals(uint128 _value, uint8 decimals) internal pure returns (uint256) {
+        if (PRICE_DECIMALS == decimals) return uint256(_value);
+        return uint256(_value) * 10 ** (PRICE_DECIMALS - decimals);
+    }
+
+    function _fromPriceDecimals(uint256 _value, uint8 decimals) internal pure returns (uint128) {
+        if (PRICE_DECIMALS == decimals) return _value.toUint128();
+        return (_value / 10 ** (PRICE_DECIMALS - decimals)).toUint128();
+    }
+
+    function _getNodeDecimals() internal view returns (uint8 assetDecimals, uint8 nodeDecimals) {
+        assetDecimals = IERC20Metadata(asset).decimals();
+        nodeDecimals = decimals();
+    }
+
     function _validateController(address controller) internal view {
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
     }
@@ -467,4 +511,59 @@ contract Node is INode, ERC20, Ownable {
         }
         return false;
     }
+
+    /* EVENT EMITTERS */
+    function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {
+        emit EventsLib.DepositClaimable(controller, REQUEST_ID, assets, shares);
+    }
+
+    function onRedeemClaimable(address controller, uint256 assets, uint256 shares) public {
+        emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assets, shares);
+    }
+
+    /* ERC-20 MINT/BURN FUNCTIONS */
+    function mint(address user, uint256 value) external {
+        require(msg.sender == address(this), "Only contract can mint");
+        _mint(user, value);
+    }
+
+    function burn(address user, uint256 value) external {
+        require(msg.sender == address(this), "Only contract can burn");
+        _burn(user, value);
+    }
+
+    /* VIEW FUNCTIONS */
+    function pricePerShare() external view returns (uint256) {
+        return convertToAssets(10 ** decimals());
+    }
+
+    function getComponents() external view returns (address[] memory) {
+        return components;
+    }
+
+    function isComponent(address component) external view returns (bool) {
+        return _isComponent(component);
+    }
+    
+    function previewDeposit(uint256 assets) external view returns (uint256 shares) {
+        // TODO: Implement preview deposit logic
+        return 0;
+    }
+
+    function previewMint(uint256 shares) external view returns (uint256 assets) {
+        // TODO: Implement preview mint logic
+        return 0;
+    }
+
+    function previewWithdraw(uint256 assets) external view returns (uint256 shares) {
+        // TODO: Implement preview withdraw logic
+        return 0;
+    }
+
+    function previewRedeem(uint256 shares) external view returns (uint256 assets) {
+        // TODO: Implement preview redeem logic
+        return 0;
+    }
+
+    // ... rest of existing code ...
 }

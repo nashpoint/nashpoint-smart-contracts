@@ -5,13 +5,13 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Escrow} from "./Escrow.sol";
 import {Node} from "./Node.sol";
-import {QueueManager} from "./QueueManager.sol";
+
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {INodeFactory} from "./interfaces/INodeFactory.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
-import {IQueueManager} from "./interfaces/IQueueManager.sol";
+
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
@@ -44,7 +44,7 @@ contract NodeFactory is INodeFactory {
         bytes32 salt
     )
         external
-        returns (INode node, IEscrow escrow, IQueueManager manager)
+        returns (INode node, IEscrow escrow)
     {
         node = createNode(
             name,
@@ -60,8 +60,7 @@ contract NodeFactory is INodeFactory {
             salt
         );
         escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
-        manager = IQueueManager(address(new QueueManager{salt: salt}(address(node))));
-        node.initialize(address(escrow), address(manager));
+        node.initialize(address(escrow));
         Ownable(address(node)).transferOwnership(owner);
     }
 

@@ -10,13 +10,11 @@ import {Deployer} from "script/Deployer.sol";
 import {Node} from "src/Node.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {Escrow} from "src/Escrow.sol";
-import {QueueManager} from "src/QueueManager.sol";
 
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
-import {IQueueManager} from "src/interfaces/IQueueManager.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
@@ -30,7 +28,6 @@ contract BaseTest is Test {
     
     INode public node;
     IEscrow public escrow;
-    IQueueManager public queueManager;
     ERC20Mock public asset;
     ERC4626Mock public vault;
 
@@ -72,7 +69,7 @@ contract BaseTest is Test {
         router.setWhitelistStatus(address(vault), true);
 
         vm.startPrank(owner);
-        (node, escrow, queueManager) = factory.deployFullNode(
+        (node, escrow) = factory.deployFullNode(
             "Test Node",
             "TNODE",
             address(asset),
@@ -125,7 +122,6 @@ contract BaseTest is Test {
         vm.label(address(router), "Router");
         vm.label(address(node), "Node");
         vm.label(address(escrow), "Escrow");
-        vm.label(address(queueManager), "QueueManager");
         vm.label(address(asset), "TestToken");
         vm.label(owner, "Owner");
         vm.label(user, "User");
