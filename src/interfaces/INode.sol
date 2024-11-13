@@ -7,8 +7,6 @@ import {IERC7540} from "./IERC7540.sol";
 import {IQuoter} from "./IQuoter.sol";
 
 struct ComponentAllocation {
-    uint256 minimumWeight;
-    uint256 maximumWeight;
     uint256 targetWeight;
 }
 

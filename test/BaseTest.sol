@@ -100,8 +100,6 @@ contract BaseTest is Test {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = ComponentAllocation({
-                minimumWeight: 0.3 ether,
-                maximumWeight: 0.7 ether,
                 targetWeight: 0.5 ether
             });
         }
@@ -109,8 +107,6 @@ contract BaseTest is Test {
 
     function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
         return ComponentAllocation({
-            minimumWeight: 0.3 ether,
-            maximumWeight: 0.7 ether,
             targetWeight: 0.5 ether
         });
     }
