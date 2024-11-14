@@ -224,9 +224,13 @@ contract Node is INode, ERC20, Ownable {
             || interfaceId == type(IERC7575).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
-    function convertToShares(uint256 assets) public view returns (uint256 shares) {}
+    function convertToShares(uint256 assets) public view returns (uint256 shares) {
+        return _convertToShares(assets, MathLib.Rounding.Down);
+    }
 
-    function convertToAssets(uint256 shares) public view returns (uint256 assets) {}
+    function convertToAssets(uint256 shares) public view returns (uint256 assets) {
+        return _convertToAssets(shares, MathLib.Rounding.Down);
+    }
 
     function maxDeposit(address controller) public pure returns (uint256 maxAssets) {
         return type(uint256).max;

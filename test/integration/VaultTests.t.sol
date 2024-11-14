@@ -15,8 +15,7 @@ contract VaultTests is BaseTest {
         
     }
 
-    function test_VaultTests_depositAndRedeem() public {       
-
+    function test_VaultTests_depositAndRedeem() public {      
         uint256 startingBalance = asset.balanceOf(address(user));
         uint256 expectedShares = node.previewDeposit(100 ether);
 
@@ -25,12 +24,18 @@ contract VaultTests is BaseTest {
         node.deposit(100 ether, user);
         vm.stopPrank();
 
+        // check user got the right shares
+        uint256 userShares = node.balanceOf(address(user));
+        assertEq(userShares, expectedShares); 
+
+        // check accounts ended up with the correct balances
         assertEq(node.totalAssets(), 100 ether);
         assertEq(asset.balanceOf(address(escrow)), 0);
-        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether); 
+        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);      
         
-        uint256 userShares = node.balanceOf(address(user));
-        assertEq(userShares, expectedShares);        
+        // check convertToAssets & convertToShares work properly
+        assertEq(asset.balanceOf(address(node)), node.convertToAssets(userShares));
+        assertEq(userShares, node.convertToShares(asset.balanceOf(address(node))));
 
         // // start redemption flow
         // vm.startPrank(user);
