@@ -105,4 +105,7 @@ library ErrorsLib {
 
     /// @notice Thrown when the target node is invalid
     error InvalidNode();
+
+    /// @notice Thrown when the ERC4626 deposit exceeds max deposit.
+    error ERC4626ExceededMaxDeposit(address receiver, uint256 assets, uint256 maxAssets);
 }

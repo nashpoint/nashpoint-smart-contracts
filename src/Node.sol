@@ -224,18 +224,24 @@ contract Node is INode, ERC20, Ownable {
             || interfaceId == type(IERC7575).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
-    /* ERC-4626 FUNCTIONS */
-    function totalAssets() external view returns (uint256) {
-        return convertToAssets(totalSupply());
-    }
-
     function convertToShares(uint256 assets) public view returns (uint256 shares) {}
 
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {}
 
     function maxDeposit(address controller) public view returns (uint256 maxAssets) {}
 
-    function deposit(uint256 assets, address receiver) external returns (uint256 shares) {}
+    /// note: openzeppelin ERC4626 function
+    function deposit(uint256 assets, address receiver) public virtual returns (uint256) {
+        uint256 maxAssets = maxDeposit(receiver);
+        if (assets > maxAssets) {
+            revert ErrorsLib.ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+        }
+
+        uint256 shares = this.previewDeposit(assets);
+        _deposit(_msgSender(), receiver, assets, shares);
+
+        return shares;
+    }
 
     function maxMint(address controller) public view returns (uint256 maxShares) {
         Request storage request = requests[controller];
@@ -282,66 +288,6 @@ contract Node is INode, ERC20, Ownable {
 
     function _processRedeem(Request storage request, uint256 assetsUp, uint256 assetsDown, address receiver) internal {
         // todo: feed both redeem and withdraw here
-    }
-
-    function _calculateShares(uint256 assets, uint256 price, MathLib.Rounding rounding)
-        internal
-        view
-        returns (uint256 shares)
-    {
-        if (price == 0 || assets == 0) {
-            shares = 0;
-        } else {
-            (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
-
-            uint256 sharesInPriceDecimals =
-                _toPriceDecimals(assets, assetDecimals).mulDiv(10 ** PRICE_DECIMALS, price, rounding);
-
-            shares = _fromPriceDecimals(sharesInPriceDecimals, nodeDecimals);
-        }
-    }
-
-    function _calculateAssets(uint256 shares, uint256 price, MathLib.Rounding rounding)
-        internal
-        view
-        returns (uint256 assets)
-    {
-        if (price == 0 || shares == 0) {
-            assets = 0;
-        } else {
-            (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
-
-            uint256 assetsInPriceDecimals =
-                _toPriceDecimals(shares, nodeDecimals).mulDiv(price, 10 ** PRICE_DECIMALS, rounding);
-
-            assets = _fromPriceDecimals(assetsInPriceDecimals, assetDecimals);
-        }
-    }
-
-    function _calculatePrice(uint256 assets, uint256 shares) internal view returns (uint256) {
-        if (assets == 0 || shares == 0) {
-            return 0;
-        }
-
-        (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
-        return _toPriceDecimals(assets, assetDecimals).mulDiv(
-            10 ** PRICE_DECIMALS, _toPriceDecimals(shares, nodeDecimals), MathLib.Rounding.Down
-        );
-    }
-
-    function _toPriceDecimals(uint256 _value, uint256 decimals) internal pure returns (uint256) {
-        if (PRICE_DECIMALS == decimals) return _value;
-        return _value * 10 ** (PRICE_DECIMALS - decimals);
-    }
-
-    function _fromPriceDecimals(uint256 _value, uint256 decimals) internal pure returns (uint256) {
-        if (PRICE_DECIMALS == decimals) return _value;
-        return _value / 10 ** (PRICE_DECIMALS - decimals);
-    }
-
-    function _getNodeDecimals() internal view returns (uint256 assetDecimals, uint256 nodeDecimals) {
-        assetDecimals = IERC20Metadata(asset).decimals();
-        nodeDecimals = decimals();
     }
 
     function _validateController(address controller) internal view {
@@ -406,7 +352,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function previewDeposit(uint256 assets) external view returns (uint256 shares) {
-        // TODO: Implement preview deposit logic
+        return _convertToShares(assets, MathLib.Rounding.Down);
     }
 
     function previewMint(uint256 shares) external view returns (uint256 assets) {
@@ -419,5 +365,106 @@ contract Node is INode, ERC20, Ownable {
 
     function previewRedeem(uint256 shares) external view returns (uint256 assets) {
         // TODO: Implement preview redeem logic
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        ERC4626 INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev See {IERC4626-totalAssets}.
+     */
+    function totalAssets() public view virtual returns (uint256) {
+        return IERC20(asset).balanceOf(address(this));
+    }
+
+    /**
+     * @dev Internal conversion function (from assets to shares) with support for rounding direction.
+     */
+    function _convertToShares(uint256 assets, MathLib.Rounding rounding) internal view virtual returns (uint256) {
+        return assets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), totalAssets() + 1, rounding);
+    }
+
+    /**
+     * @dev Internal conversion function (from shares to assets) with support for rounding direction.
+     */
+    function _convertToAssets(uint256 shares, MathLib.Rounding rounding) internal view virtual returns (uint256) {
+        return shares.mulDiv(totalAssets() + 1, totalSupply() + 10 ** _decimalsOffset(), rounding);
+    }
+
+    function _decimalsOffset() internal view virtual returns (uint8) {
+        return 0;
+    }
+
+    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual {
+        // slither-disable-next-line reentrancy-no-eth
+        SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
+        _mint(receiver, shares);
+
+        emit Deposit(caller, receiver, assets, shares);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        DECIMAL CONVERSION FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function _calculateShares(uint256 assets, uint256 price, MathLib.Rounding rounding)
+        internal
+        view
+        returns (uint256 shares)
+    {
+        if (price == 0 || assets == 0) {
+            shares = 0;
+        } else {
+            (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
+
+            uint256 sharesInPriceDecimals =
+                _toPriceDecimals(assets, assetDecimals).mulDiv(10 ** PRICE_DECIMALS, price, rounding);
+
+            shares = _fromPriceDecimals(sharesInPriceDecimals, nodeDecimals);
+        }
+    }
+
+    function _calculateAssets(uint256 shares, uint256 price, MathLib.Rounding rounding)
+        internal
+        view
+        returns (uint256 assets)
+    {
+        if (price == 0 || shares == 0) {
+            assets = 0;
+        } else {
+            (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
+
+            uint256 assetsInPriceDecimals =
+                _toPriceDecimals(shares, nodeDecimals).mulDiv(price, 10 ** PRICE_DECIMALS, rounding);
+
+            assets = _fromPriceDecimals(assetsInPriceDecimals, assetDecimals);
+        }
+    }
+
+    function _calculatePrice(uint256 assets, uint256 shares) internal view returns (uint256) {
+        if (assets == 0 || shares == 0) {
+            return 0;
+        }
+
+        (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
+        return _toPriceDecimals(assets, assetDecimals).mulDiv(
+            10 ** PRICE_DECIMALS, _toPriceDecimals(shares, nodeDecimals), MathLib.Rounding.Down
+        );
+    }
+
+    function _toPriceDecimals(uint256 _value, uint256 decimals) internal pure returns (uint256) {
+        if (PRICE_DECIMALS == decimals) return _value;
+        return _value * 10 ** (PRICE_DECIMALS - decimals);
+    }
+
+    function _fromPriceDecimals(uint256 _value, uint256 decimals) internal pure returns (uint256) {
+        if (PRICE_DECIMALS == decimals) return _value;
+        return _value / 10 ** (PRICE_DECIMALS - decimals);
+    }
+
+    function _getNodeDecimals() internal view returns (uint256 assetDecimals, uint256 nodeDecimals) {
+        assetDecimals = IERC20Metadata(asset).decimals();
+        nodeDecimals = decimals();
     }
 }
