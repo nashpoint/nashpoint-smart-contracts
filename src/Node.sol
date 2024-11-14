@@ -228,7 +228,9 @@ contract Node is INode, ERC20, Ownable {
 
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {}
 
-    function maxDeposit(address controller) public view returns (uint256 maxAssets) {}
+    function maxDeposit(address controller) public pure returns (uint256 maxAssets) {
+        return type(uint256).max;
+    }
 
     /// note: openzeppelin ERC4626 function
     function deposit(uint256 assets, address receiver) public virtual returns (uint256) {

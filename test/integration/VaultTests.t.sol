@@ -1,0 +1,203 @@
+
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.26;
+
+import "forge-std/Test.sol";
+import {BaseTest} from "../BaseTest.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
+import {MathLib} from "src/libraries/MathLib.sol";
+
+
+contract VaultTests is BaseTest {    
+
+    function setUp() public override {
+        super.setUp();
+        
+    }
+
+    function test_VaultTests_depositAndRedeem() public {        
+
+        uint256 startingBalance = asset.balanceOf(address(user));
+        uint256 expectedShares = node.previewDeposit(100 ether);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether); // @note this approval ok
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        assertEq(node.totalAssets(), 100 ether);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether); 
+        
+        uint256 userShares = node.balanceOf(address(user));
+        assertEq(userShares, expectedShares);        
+
+        // // start redemption flow
+        // vm.startPrank(user);
+        // node.approve(address(node), userShares);
+        // node.requestRedeem(userShares, user, user); // @note this approval ok
+        // vm.stopPrank();
+
+        // assertEq(node.balanceOf(address(escrow)), userShares);
+        // assertEq(node.balanceOf(address(user)), 0);
+        // assertEq(node.totalAssets(), 100 ether + 1000 ether);
+        // assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);
+
+        // vm.prank(address(node));
+        // asset.approve(address(queueManager), 100 ether); // @bug approval required by node
+
+        // vm.prank(rebalancer);
+        // queueManager.fulfillRedeemRequest(user);
+
+        // assertEq(node.balanceOf(address(escrow)), 0);
+        // assertEq(node.totalSupply(), 1000 ether);
+        // assertEq(asset.balanceOf(address(escrow)), 100 ether);
+
+        // vm.prank(address(escrow));
+        // asset.approve(address(queueManager), 100 ether); // @bug approval required by escrow
+
+        // vm.prank(user);
+        // node.withdraw(100 ether, user, user);
+
+        // assertEq(asset.balanceOf(address(user)), startingBalance);
+        // assertEq(asset.balanceOf(address(escrow)), 0);
+        // assertEq(node.totalAssets(), 1000 ether);
+        // assertEq(node.totalSupply(), 1000 ether);
+    }
+
+    // function test_VaultTests_investsToVault() public {
+    //     _seedNode(100 ether);
+
+    //     vm.prank(address(node));
+    //     asset.approve(address(vault), 100 ether); // @bug approval required by node
+
+    //     vm.startPrank(rebalancer);
+    //     router4626.deposit(address(node), address(vault), 90 ether);
+    //     vm.stopPrank();
+
+    //     assertEq(node.totalAssets(), 10 ether + 90 ether);
+    //     assertEq(vault.balanceOf(address(node)), 90 ether);
+    //     assertEq(asset.balanceOf(address(vault)), 90 ether);
+    //     assertEq(asset.balanceOf(address(node)), 10 ether);
+    //     assertEq(node.balanceOf(address(vault)), 0);
+    // }
+
+    // function test_VaultTests_getSwingFactor() public {
+    //     // assert swing pricing returns zero when not enabled
+    //     vm.assertFalse(harness.swingPricingEnabled());
+    //     vm.assertEq(harness.getSwingFactor(1e16), 0);
+
+    //     // assert enable swing pricing returns a value
+    //     harness.enableSwingPricing(true);
+    //     vm.assertTrue(harness.swingPricingEnabled());
+    //     vm.assertGt(harness.getSwingFactor(1e16), 0);
+
+    //     // todo add selector
+    //     vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidNumber.selector, -1e16));
+    //     harness.getSwingFactor(-1e16);
+
+    //     // assert swing factor is zero if reserve target is met
+    //     uint256 swingFactor = harness.getSwingFactor(int256(harness.targetReserveRatio()));
+    //     assertEq(swingFactor, 0);
+
+    //     // assert swing factor is zero if reserve target is exceeded
+    //     swingFactor = harness.getSwingFactor(int256(harness.targetReserveRatio()) + 1e16);
+    //     assertEq(swingFactor, 0);
+
+    //     // assert that swing factor approaches maxDiscount when reserve approaches zero
+    //     int256 minReservePossible = 1;
+    //     swingFactor = harness.getSwingFactor(minReservePossible);
+    //     assertEq(swingFactor, harness.maxDiscount() - 1);
+
+    //     // assert that swing factor is very small when reserve approaches target
+    //     int256 maxReservePossible = int256(harness.targetReserveRatio()) - 1;
+    //     swingFactor = harness.getSwingFactor(maxReservePossible);
+    //     assertGt(swingFactor, 0);
+    //     assertLt(swingFactor, 1e15); // 0.1%
+    // }
+
+    // function test_VaultTests_swingPriceDeposit() public {
+    //     _userDeposits(user, 100 ether);
+    //     queueManager.enableSwingPricing(true);
+
+    //     vm.prank(address(node));
+    //     asset.approve(address(vault), 90 ether); // @bug approval required by node
+
+    //     vm.startPrank(rebalancer);
+    //     router4626.deposit(address(node), address(vault), 90 ether);
+    //     vm.stopPrank();
+
+    //     // assert reserveRatio is correct before other tests
+    //     uint256 reserveRatio = _getCurrentReserveRatio();
+    //     assertEq(reserveRatio, queueManager.targetReserveRatio());
+
+    //     // mint cash so invested assets = 100
+    //     asset.mint(address(vault), 10 ether);
+    //     assertEq(asset.balanceOf(address(vault)), 100 ether);
+
+    //     // get the shares to be minted from a tx with no swing factor
+    //     // this will break later when you complete 4626 conversion
+    //     uint256 nonAdjustedShares = node.convertToShares(10 ether);
+
+    //     // user deposits 10 ether to node
+    //     vm.startPrank(user2);
+    //     asset.approve(address(node), 10 ether); // @note this approval ok
+    //     node.requestDeposit(10 ether, user2, user2);
+    //     vm.stopPrank();
+
+    //     vm.prank(address(escrow));
+    //     asset.approve(address(queueManager), 10 ether); // @bug approval required by escrow
+
+    //     vm.prank(rebalancer);
+    //     queueManager.fulfillDepositRequest(user2);
+
+    //     vm.prank(address(escrow));
+    //     node.approve(address(queueManager), 10 ether);
+
+    //     vm.prank(user2);
+    //     node.deposit(10 ether, address(user2));
+
+    //     assertEq(asset.balanceOf(address(escrow)), 0);
+
+    //     assertEq(queueManager.maxDeposit(user2), 0);
+
+    //     // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
+
+    //     // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
+    //     uint256 reserveRatioAfterTX = _getCurrentReserveRatio();
+    //     assertGt(reserveRatioAfterTX, queueManager.targetReserveRatio());
+
+    //     // get the actual shares received and assert they are the same i.e. no swing factor applied
+    //     uint256 sharesReceived = node.balanceOf(address(user2));
+    //     assertApproxEqAbs(sharesReceived, nonAdjustedShares, 1e12);
+     
+    // }
+
+    // function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
+    //     uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
+
+    //     return (currentReserveRatio);
+    // }
+
+    // function _userDeposits(address user, uint256 amount) internal {
+    //     vm.startPrank(user);
+    //     asset.approve(address(node), amount); 
+    //     node.requestDeposit(amount, user, user);
+    //     vm.stopPrank();
+
+    //     vm.prank(address(escrow));  
+    //     asset.approve(address(queueManager), amount); 
+
+    //     vm.prank(address(node));
+    //     node.approve(address(queueManager), amount);
+
+    //     vm.prank(rebalancer);
+    //     queueManager.fulfillDepositRequest(user);
+
+    //     vm.prank(address(escrow));
+    //     node.approve(address(queueManager), amount);
+
+    //     vm.prank(user);
+    //     node.deposit(amount, address(user));
+    // }
+}
