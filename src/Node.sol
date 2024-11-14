@@ -407,7 +407,7 @@ contract Node is INode, ERC20, Ownable {
      * @dev See {IERC4626-totalAssets}.
      */
     function totalAssets() public view virtual returns (uint256) {
-        return IERC20(asset).balanceOf(address(this));
+        return quoter.getTotalAssets(address(this));
     }
 
     /**
