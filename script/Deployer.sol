@@ -11,18 +11,15 @@ contract Deployer is Script {
     NodeRegistry public registry;
     NodeFactory public factory;
     QuoterV1 public quoter;
-    ERC4626Router public router;
+    ERC4626Router public erc4626router;
 
     function deploy(address owner) public {
-        bytes32 salt = vm.envOr(
-            "DEPLOYMENT_SALT",
-            keccak256(abi.encodePacked(blockhash(block.number - 1)))
-        );
+        bytes32 salt = vm.envOr("DEPLOYMENT_SALT", keccak256(abi.encodePacked(blockhash(block.number - 1))));
 
         // Deploy core contracts
         registry = new NodeRegistry{salt: salt}(owner);
         factory = new NodeFactory{salt: salt}(address(registry));
         quoter = new QuoterV1{salt: salt}(address(registry));
-        router = new ERC4626Router{salt: salt}(address(registry));
+        erc4626router = new ERC4626Router{salt: salt}(address(registry));
     }
 }

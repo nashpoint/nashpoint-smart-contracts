@@ -30,12 +30,12 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
     /* EXTERNAL FUNCTIONS */
     /// @inheritdoc IQuoterV1
-    function initialize(
-        address[] memory erc4626Components_,
-        address[] memory erc7540Components_
-    ) external onlyRegistryOwner {
+    function initialize(address[] memory erc4626Components_, address[] memory erc7540Components_)
+        external
+        onlyRegistryOwner
+    {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
-        
+
         uint256 erc4626ComponentsLength = erc4626Components_.length;
         for (uint256 i = 0; i < erc4626ComponentsLength; i++) {
             isErc4626[erc4626Components_[i]] = true;
@@ -82,7 +82,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     function _getErc7540Assets(address node, address component) internal view returns (uint256) {
         uint256 assets;
         uint256 shareBalance = IERC20(component).balanceOf(node);
-        
+
         if (shareBalance > 0) {
             assets = IERC4626(component).convertToAssets(shareBalance);
         }
@@ -101,7 +101,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 componentAssets;
         address[] memory components = INode(node).getComponents();
         uint256 componentsLength = components.length;
-        
+
         for (uint256 i = 0; i < componentsLength; i++) {
             if (isErc4626[components[i]]) {
                 componentAssets += _getErc4626Assets(node, components[i]);

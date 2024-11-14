@@ -65,29 +65,23 @@ contract BaseRouter is IBaseRouter {
     /// @notice Batch updates whitelist status of targets
     /// @param targets Array of addresses to update
     /// @param statuses Array of whitelist statuses
-    function batchSetWhitelistStatus(
-        address[] calldata targets,
-        bool[] calldata statuses
-    ) external onlyRegistryOwner {
+    function batchSetWhitelistStatus(address[] calldata targets, bool[] calldata statuses) external onlyRegistryOwner {
         if (targets.length != statuses.length) revert ErrorsLib.LengthMismatch();
-        
+
         uint256 length = targets.length;
-        for (uint256 i = 0; i < length; ) {
+        for (uint256 i = 0; i < length;) {
             if (targets[i] == address(0)) revert ErrorsLib.ZeroAddress();
             isWhitelisted[targets[i]] = statuses[i];
             emit TargetWhitelisted(targets[i], statuses[i]);
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
     /* APPROVALS */
     /// @inheritdoc IBaseRouter
-    function approve(
-        address node,
-        address token,
-        address spender,
-        uint256 amount
-    )
+    function approve(address node, address token, address spender, uint256 amount)
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(spender)

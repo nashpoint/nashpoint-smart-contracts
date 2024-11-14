@@ -63,7 +63,7 @@ interface INodeRegistry {
      */
     function removeQuoter(address quoter_) external;
 
-    /** 
+    /**
      * @notice Adds a new rebalancer to the registry
      * @param rebalancer_ Address of rebalancer to add
      */

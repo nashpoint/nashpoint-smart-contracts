@@ -17,15 +17,19 @@ import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
+import {MathLib} from "src/libraries/MathLib.sol";
+
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
 contract BaseTest is Test {
+    using MathLib for uint256;
+
     Deployer public deployer;
     INodeRegistry public registry;
     INodeFactory public factory;
     IQuoterV1 public quoter;
-    ERC4626Router public router;
-    
+    ERC4626Router public router4626;
+
     INode public node;
     IEscrow public escrow;
     ERC20Mock public asset;
@@ -33,40 +37,46 @@ contract BaseTest is Test {
 
     address public owner;
     address public user;
+    address public user2;
+    address public user3;
     address public randomUser;
     address public rebalancer;
+    address public vaultSeeder;
 
     uint256 public constant INITIAL_BALANCE = 1000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
     function setUp() public virtual {
         vm.chainId(1);
-        
+
         owner = makeAddr("owner");
         user = makeAddr("user");
+        user2 = makeAddr("user2");
+        user3 = makeAddr("user3");
         randomUser = makeAddr("randomUser");
         rebalancer = makeAddr("rebalancer");
-        
+        vaultSeeder = makeAddr("vaultSeeder");
+
         deployer = new Deployer();
         deployer.deploy(owner);
-        
+
         registry = INodeRegistry(address(deployer.registry()));
         factory = INodeFactory(address(deployer.factory()));
         quoter = IQuoterV1(address(deployer.quoter()));
-        router = deployer.router();
-        
+        router4626 = deployer.erc4626router();
+
         asset = new ERC20Mock("Test Token", "TEST");
         vault = new ERC4626Mock(address(asset));
 
         vm.startPrank(owner);
         registry.initialize(
             _toArray(address(factory)),
-            _toArray(address(router)),
+            _toArray(address(router4626)),
             _toArray(address(quoter)),
             _toArray(address(rebalancer))
         );
         quoter.setErc4626(address(vault), true);
-        router.setWhitelistStatus(address(vault), true);
+        router4626.setWhitelistStatus(address(vault), true);
 
         vm.startPrank(owner);
         (node, escrow) = factory.deployFullNode(
@@ -76,7 +86,7 @@ contract BaseTest is Test {
             owner,
             address(rebalancer),
             address(quoter),
-            _toArray(address(router)),
+            _toArray(address(router4626)),
             _toArray(address(vault)),
             _defaultComponentAllocations(1),
             _defaultReserveAllocation(),
@@ -85,7 +95,10 @@ contract BaseTest is Test {
         vm.stopPrank();
 
         deal(address(asset), user, INITIAL_BALANCE);
+        deal(address(asset), user2, INITIAL_BALANCE);
+        deal(address(asset), user3, INITIAL_BALANCE);
         deal(address(asset), randomUser, INITIAL_BALANCE);
+        deal(address(asset), vaultSeeder, INITIAL_BALANCE);
 
         _labelAddresses();
         vm.label(address(vault), "Vault");
@@ -96,32 +109,56 @@ contract BaseTest is Test {
         arr[0] = addr;
     }
 
-    function _defaultComponentAllocations(uint256 count) internal pure returns (ComponentAllocation[] memory allocations) {
+    function _defaultComponentAllocations(uint256 count)
+        internal
+        pure
+        returns (ComponentAllocation[] memory allocations)
+    {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({
-                targetWeight: 0.5 ether
-            });
+            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether});
         }
     }
 
     function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({
-            targetWeight: 0.5 ether
-        });
+        return ComponentAllocation({targetWeight: 0.1 ether});
     }
 
     function _labelAddresses() internal {
         vm.label(address(registry), "Registry");
         vm.label(address(factory), "Factory");
         vm.label(address(quoter), "Quoter");
-        vm.label(address(router), "Router");
+        vm.label(address(router4626), "ERC4626Router");
         vm.label(address(node), "Node");
         vm.label(address(escrow), "Escrow");
-        vm.label(address(asset), "TestToken");
+        vm.label(address(asset), "Asset");
         vm.label(owner, "Owner");
         vm.label(user, "User");
+        vm.label(user2, "User2");
+        vm.label(user3, "User3");
         vm.label(randomUser, "RandomUser");
         vm.label(rebalancer, "Rebalancer");
+        vm.label(vaultSeeder, "vaultSeeder");
+    }
+
+    function _seedNode(uint256 amount) public {
+        // todo: component allocations
+
+        // vm.startPrank(vaultSeeder);
+        // asset.approve(address(node), amount);
+        // node.requestDeposit(amount, vaultSeeder, vaultSeeder);
+        // vm.stopPrank();
+
+        // vm.prank(address(escrow));
+        // asset.approve(address(node), amount);
+
+        // vm.prank(rebalancer);
+        // // node.fulfillDepositRequest(vaultSeeder);
+
+        // vm.prank(address(escrow));
+        // node.approve(address(node), 1000 ether);
+
+        // vm.prank(vaultSeeder);
+        // node.deposit(amount, vaultSeeder);
     }
 }

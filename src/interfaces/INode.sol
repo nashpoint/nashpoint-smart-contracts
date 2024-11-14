@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575} from "./IERC7575.sol";
-import {IERC7540} from "./IERC7540.sol";
+import {IERC7540Redeem} from "./IERC7540.sol";
 import {IQuoter} from "./IQuoter.sol";
 
 struct ComponentAllocation {
@@ -14,7 +14,7 @@ struct ComponentAllocation {
  * @title INode
  * @author ODND Studios
  */
-interface INode is IERC20Metadata, IERC7540, IERC7575 {
+interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     event DepositClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
     event RedeemClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
 
@@ -57,12 +57,6 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @notice Callback when a redeem request becomes claimable
     function onRedeemClaimable(address controller, uint256 assets, uint256 shares) external;
 
-    /// @notice Function for the QueueManager to mint tokens
-    function mint(address user, uint256 value) external;
-
-    /// @notice Function for the QueueManager to burn tokens
-    function burn(address user, uint256 value) external;
-
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
 
@@ -102,5 +96,4 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @param component The address to check
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
-
 }
