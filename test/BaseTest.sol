@@ -142,23 +142,9 @@ contract BaseTest is Test {
     }
 
     function _seedNode(uint256 amount) public {
-        // todo: component allocations
-
-        // vm.startPrank(vaultSeeder);
-        // asset.approve(address(node), amount);
-        // node.requestDeposit(amount, vaultSeeder, vaultSeeder);
-        // vm.stopPrank();
-
-        // vm.prank(address(escrow));
-        // asset.approve(address(node), amount);
-
-        // vm.prank(rebalancer);
-        // // node.fulfillDepositRequest(vaultSeeder);
-
-        // vm.prank(address(escrow));
-        // node.approve(address(node), 1000 ether);
-
-        // vm.prank(vaultSeeder);
-        // node.deposit(amount, vaultSeeder);
+        vm.startPrank(vaultSeeder);
+        asset.approve(address(node), amount);
+        node.deposit(amount, vaultSeeder);
+        vm.stopPrank();
     }
 }

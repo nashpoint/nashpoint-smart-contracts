@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
@@ -7,15 +6,13 @@ import {BaseTest} from "../BaseTest.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
 
-
-contract VaultTests is BaseTest {    
-
+contract VaultTests is BaseTest {
     function setUp() public override {
         super.setUp();
-        
     }
 
-    function test_VaultTests_depositAndRedeem() public {      
+    function test_VaultTests_depositAndRedeem() public {
+        _seedNode(1000 ether);
         uint256 startingBalance = asset.balanceOf(address(user));
         uint256 expectedShares = node.previewDeposit(100 ether);
 
@@ -26,66 +23,72 @@ contract VaultTests is BaseTest {
 
         // check user got the right shares
         uint256 userShares = node.balanceOf(address(user));
-        assertEq(userShares, expectedShares); 
+        assertEq(userShares, expectedShares);
 
         // check accounts ended up with the correct balances
-        assertEq(node.totalAssets(), 100 ether);
+        assertEq(node.totalAssets(), 100 ether + 1000 ether);
         assertEq(asset.balanceOf(address(escrow)), 0);
-        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);      
-        
+        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);
+
         // check convertToAssets & convertToShares work properly
-        assertEq(asset.balanceOf(address(node)), node.convertToAssets(userShares));
-        assertEq(userShares, node.convertToShares(asset.balanceOf(address(node))));
+        assertEq(asset.balanceOf(address(node)) - 1000 ether, node.convertToAssets(userShares));
+        assertEq(userShares, node.convertToShares(asset.balanceOf(address(node)) - 1000 ether));
 
-        // // start redemption flow
-        // vm.startPrank(user);
-        // node.approve(address(node), userShares);
-        // node.requestRedeem(userShares, user, user); // @note this approval ok
-        // vm.stopPrank();
+        // start redemption flow
+        vm.startPrank(user);
+        node.approve(address(node), userShares);
+        node.requestRedeem(userShares, user, user); // @note this approval ok
+        vm.stopPrank();
 
-        // assertEq(node.balanceOf(address(escrow)), userShares);
-        // assertEq(node.balanceOf(address(user)), 0);
-        // assertEq(node.totalAssets(), 100 ether + 1000 ether);
-        // assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);
+        assertEq(node.balanceOf(address(escrow)), userShares);
+        assertEq(node.balanceOf(address(user)), 0);
+        assertEq(node.totalAssets(), 1000 ether + 100 ether);
+        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);
 
-        // vm.prank(address(node));
-        // asset.approve(address(queueManager), 100 ether); // @bug approval required by node
+        uint256 pendingRedeemRequest = node.pendingRedeemRequest(0, user);
+        assertEq(pendingRedeemRequest, node.convertToShares(100 ether));
 
-        // vm.prank(rebalancer);
-        // queueManager.fulfillRedeemRequest(user);
+        vm.prank(address(node));
+        asset.approve(address(node), 100 ether); // @bug approval required by node
 
-        // assertEq(node.balanceOf(address(escrow)), 0);
-        // assertEq(node.totalSupply(), 1000 ether);
-        // assertEq(asset.balanceOf(address(escrow)), 100 ether);
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
 
-        // vm.prank(address(escrow));
-        // asset.approve(address(queueManager), 100 ether); // @bug approval required by escrow
+        uint256 claimableRedeemRequest = node.claimableRedeemRequest(0, user);
+        assertEq(claimableRedeemRequest, node.convertToShares(100 ether));
 
-        // vm.prank(user);
-        // node.withdraw(100 ether, user, user);
+        assertEq(node.balanceOf(address(escrow)), 0);
+        assertEq(node.totalSupply(), node.convertToShares(1000 ether));
+        assertEq(asset.balanceOf(address(escrow)), 100 ether);
 
-        // assertEq(asset.balanceOf(address(user)), startingBalance);
-        // assertEq(asset.balanceOf(address(escrow)), 0);
-        // assertEq(node.totalAssets(), 1000 ether);
-        // assertEq(node.totalSupply(), 1000 ether);
+        vm.prank(address(escrow));
+        asset.approve(address(node), 100 ether); // @bug approval required by escrow
+
+        vm.prank(user);
+        node.withdraw(100 ether, user, user);
+
+        assertEq(asset.balanceOf(address(user)), startingBalance);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(node.totalAssets(), 1000 ether);
+        assertEq(node.totalSupply(), node.convertToShares(1000 ether));
     }
 
-    // function test_VaultTests_investsToVault() public {
-    //     _seedNode(100 ether);
+    function test_VaultTests_investsToVault() public {
+        // _seedNode(100 ether);
 
-    //     vm.prank(address(node));
-    //     asset.approve(address(vault), 100 ether); // @bug approval required by node
+        // vm.prank(address(node));
+        // asset.approve(address(vault), 100 ether); // @bug approval required by node
 
-    //     vm.startPrank(rebalancer);
-    //     router4626.deposit(address(node), address(vault), 90 ether);
-    //     vm.stopPrank();
+        // vm.startPrank(rebalancer);
+        // router4626.deposit(address(node), address(vault), 90 ether);
+        // vm.stopPrank();
 
-    //     assertEq(node.totalAssets(), 10 ether + 90 ether);
-    //     assertEq(vault.balanceOf(address(node)), 90 ether);
-    //     assertEq(asset.balanceOf(address(vault)), 90 ether);
-    //     assertEq(asset.balanceOf(address(node)), 10 ether);
-    //     assertEq(node.balanceOf(address(vault)), 0);
-    // }
+        // assertEq(node.totalAssets(), 10 ether + 90 ether);
+        // assertEq(vault.balanceOf(address(node)), 90 ether);
+        // assertEq(asset.balanceOf(address(vault)), 90 ether);
+        // assertEq(asset.balanceOf(address(node)), 10 ether);
+        // assertEq(node.balanceOf(address(vault)), 0);
+    }
 
     // function test_VaultTests_getSwingFactor() public {
     //     // assert swing pricing returns zero when not enabled
@@ -175,7 +178,7 @@ contract VaultTests is BaseTest {
     //     // get the actual shares received and assert they are the same i.e. no swing factor applied
     //     uint256 sharesReceived = node.balanceOf(address(user2));
     //     assertApproxEqAbs(sharesReceived, nonAdjustedShares, 1e12);
-     
+
     // }
 
     // function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
@@ -186,12 +189,12 @@ contract VaultTests is BaseTest {
 
     // function _userDeposits(address user, uint256 amount) internal {
     //     vm.startPrank(user);
-    //     asset.approve(address(node), amount); 
+    //     asset.approve(address(node), amount);
     //     node.requestDeposit(amount, user, user);
     //     vm.stopPrank();
 
-    //     vm.prank(address(escrow));  
-    //     asset.approve(address(queueManager), amount); 
+    //     vm.prank(address(escrow));
+    //     asset.approve(address(queueManager), amount);
 
     //     vm.prank(address(node));
     //     node.approve(address(queueManager), amount);

@@ -96,4 +96,13 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param component The address to check
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
+
+    /// @notice Fulfill a redeem request from the reserve
+    /// @param user The address of the user to redeem for
+    function fulfillRedeemFromReserve(address user) external;
+
+    /// @notice Returns the pending redeem request for a user
+    /// @param user The address of the user to check
+    /// @return uint256 The pending redeem request
+    function pendingRedeemRequest(uint256, address user) external view returns (uint256);
 }

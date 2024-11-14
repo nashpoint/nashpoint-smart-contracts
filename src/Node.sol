@@ -54,8 +54,8 @@ contract Node is INode, ERC20, Ownable {
         uint256 claimableRedeemRequest;
         /// assets
         uint256 claimableAssets;
-        /// down-weighted assets for swing pricing
-        uint256 adjustedAssets;
+        /// down-weighted shares for swing pricing
+        uint256 sharesAdjusted;
     }
 
     /* CONSTRUCTOR */
@@ -196,6 +196,10 @@ contract Node is INode, ERC20, Ownable {
         Request storage request = requests[controller];
         request.pendingRedeemRequest = request.pendingRedeemRequest + shares;
 
+        // temp implementation
+        // todo do properly with swing pricing
+        request.sharesAdjusted = request.sharesAdjusted + shares;
+
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
 
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
@@ -261,7 +265,24 @@ contract Node is INode, ERC20, Ownable {
         maxAssets = request.claimableAssets;
     }
 
-    function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {}
+    function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
+        _validateController(controller);
+        Request storage request = requests[controller];
+
+        uint256 maxAssets = maxWithdraw(controller);
+        uint256 maxShares = maxRedeem(controller);
+
+        // check if assets > claimableAssets
+        if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
+        shares = MathLib.mulDiv(assets, maxShares, maxAssets);
+
+        request.claimableRedeemRequest -= shares;
+        request.claimableAssets -= assets;
+
+        IERC20(asset).safeTransferFrom(escrow, receiver, assets);
+
+        return shares;
+    }
 
     function maxRedeem(address controller) public view returns (uint256 maxShares) {
         Request storage request = requests[controller];
@@ -270,19 +291,25 @@ contract Node is INode, ERC20, Ownable {
 
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {}
 
-    function fulfillRedeemRequest(address controller, uint256 sharesToFulfill, uint256 assetsToReturn)
-        external
-        onlyRebalancer
-    {
+    function fulfillRedeemFromReserve(address controller) external onlyRebalancer {
         Request storage request = requests[controller];
         if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
 
+        uint256 sharesPending = request.pendingRedeemRequest;
+        uint256 sharesAdjusted = request.sharesAdjusted;
+        uint256 assetsToReturn = convertToAssets(sharesAdjusted);
+
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
-        _burn(escrow, sharesToFulfill);
+        _burn(escrow, sharesPending);
 
         /// todo: add in the actual logic here without swing pricing
 
-        onRedeemClaimable(controller, assetsToReturn, sharesToFulfill);
+        request.pendingRedeemRequest -= sharesPending;
+        request.claimableRedeemRequest += sharesPending;
+        request.claimableAssets += assetsToReturn;
+        request.sharesAdjusted -= sharesAdjusted;
+
+        onRedeemClaimable(controller, assetsToReturn, sharesPending);
     }
 
     /* INTERNAL */
