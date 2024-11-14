@@ -271,8 +271,7 @@ contract Node is INode, ERC20, Ownable {
 
         uint256 maxAssets = maxWithdraw(controller);
         uint256 maxShares = maxRedeem(controller);
-
-        // check if assets > claimableAssets
+        
         if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
         shares = MathLib.mulDiv(assets, maxShares, maxAssets);
 

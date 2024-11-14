@@ -74,20 +74,20 @@ contract VaultTests is BaseTest {
     }
 
     function test_VaultTests_investsToVault() public {
-        // _seedNode(100 ether);
+        _seedNode(100 ether);
 
-        // vm.prank(address(node));
-        // asset.approve(address(vault), 100 ether); // @bug approval required by node
+        vm.prank(address(node));
+        asset.approve(address(vault), 100 ether); // @bug approval required by node
 
-        // vm.startPrank(rebalancer);
-        // router4626.deposit(address(node), address(vault), 90 ether);
-        // vm.stopPrank();
-
-        // assertEq(node.totalAssets(), 10 ether + 90 ether);
-        // assertEq(vault.balanceOf(address(node)), 90 ether);
-        // assertEq(asset.balanceOf(address(vault)), 90 ether);
-        // assertEq(asset.balanceOf(address(node)), 10 ether);
-        // assertEq(node.balanceOf(address(vault)), 0);
+        vm.startPrank(rebalancer);
+        router4626.deposit(address(node), address(vault), 90 ether);
+        vm.stopPrank();
+        
+        assertEq(vault.balanceOf(address(node)), 90 ether);
+        assertEq(asset.balanceOf(address(vault)), 90 ether);
+        assertEq(asset.balanceOf(address(node)), 10 ether);
+        assertEq(node.balanceOf(address(vault)), 0);
+        assertEq(node.totalAssets(), 10 ether + 90 ether);
     }
 
     // function test_VaultTests_getSwingFactor() public {
