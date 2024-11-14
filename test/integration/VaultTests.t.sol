@@ -15,7 +15,7 @@ contract VaultTests is BaseTest {
         
     }
 
-    function test_VaultTests_depositAndRedeem() public {        
+    function test_VaultTests_depositAndRedeem() public {       
 
         uint256 startingBalance = asset.balanceOf(address(user));
         uint256 expectedShares = node.previewDeposit(100 ether);
