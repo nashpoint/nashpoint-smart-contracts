@@ -236,7 +236,7 @@ contract Node is INode, ERC20, Ownable {
         return _convertToAssets(shares, MathLib.Rounding.Down);
     }
 
-    function maxDeposit(address controller) public pure returns (uint256 maxAssets) {
+    function maxDeposit(address /* controller */) public pure returns (uint256 maxAssets) {
         return type(uint256).max;
     }
 
@@ -300,8 +300,6 @@ contract Node is INode, ERC20, Ownable {
 
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
         _burn(escrow, sharesPending);
-
-        /// todo: add in the actual logic here without swing pricing
 
         request.pendingRedeemRequest -= sharesPending;
         request.claimableRedeemRequest += sharesPending;
@@ -388,15 +386,15 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function previewMint(uint256 shares) external view returns (uint256 assets) {
-        // TODO: Implement preview mint logic
+        return _convertToAssets(shares, MathLib.Rounding.Down);
     }
 
-    function previewWithdraw(uint256 assets) external view returns (uint256 shares) {
-        // TODO: Implement preview withdraw logic
+    function previewWithdraw(uint256 /* assets */) external pure returns (uint256 /* shares */) {
+        revert();
     }
 
-    function previewRedeem(uint256 shares) external view returns (uint256 assets) {
-        // TODO: Implement preview redeem logic
+    function previewRedeem(uint256 /* shares */) external pure returns (uint256 /* assets */) {
+        revert();
     }
 
     /*//////////////////////////////////////////////////////////////
