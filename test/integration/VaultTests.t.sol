@@ -162,7 +162,7 @@ contract VaultTests is BaseTest {
         node.enableSwingPricing(true);
 
         vm.prank(address(node));
-        asset.approve(address(vault), 90 ether); // @bug approval required by node
+        asset.approve(address(vault), type(uint256).max); // @bug approval required by node
 
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
@@ -209,9 +209,46 @@ contract VaultTests is BaseTest {
         console2.log("nonAdjustedShares: ", nonAdjustedShares);
         console2.log("diff: ", sharesReceived - nonAdjustedShares);
 
-        // accuracy is 0.1%
+        // accuracy is 0.1% note this is too big a delta
         // todo test this later to get it to 100% accuracy
         assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15);
+
+        uint256 vaultCurrentAssets = asset.balanceOf(address(vault));
+        uint256 vaultTargetAssets = MathLib.mulDiv(node.totalAssets(), 1e18 - node.targetReserveRatio(), 1e18);
+        uint256 delta = vaultTargetAssets - vaultCurrentAssets;
+
+        vm.prank(rebalancer);
+        router4626.deposit(address(node), address(vault), delta);
+
+        assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
+
+        vm.startPrank(user2);
+        node.approve(address(node), type(uint256).max);
+        node.requestRedeem(node.convertToShares(5 ether), user2, user2);
+        vm.stopPrank();
+
+        vm.prank(address(node));
+        asset.approve(address(node), 100 ether); // @bug approval required by node
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(address(user2));
+
+        assertLt(_getCurrentReserveRatio(), node.targetReserveRatio());
+
+        nonAdjustedShares = node.convertToAssets(2 ether);
+
+        vm.startPrank(user3);
+        asset.approve(address(node), 2 ether);
+        node.deposit(2 ether, address(user3));
+        vm.stopPrank();
+
+        assertLt(_getCurrentReserveRatio(), node.targetReserveRatio());
+
+        sharesReceived = node.balanceOf(address(user3));
+        assertGt(sharesReceived, nonAdjustedShares);
+
+
+
     }
 
     function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {

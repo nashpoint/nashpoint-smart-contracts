@@ -111,4 +111,9 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Returns the target reserve ratio
     function targetReserveRatio() external view returns (uint256);
+
+    /// @notice Converts assets to shares
+    /// @param assets The amount of assets to convert
+    /// @return shares The amount of shares received
+    function convertToShares(uint256 assets) external view returns (uint256);
 }
