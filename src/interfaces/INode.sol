@@ -105,4 +105,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param user The address of the user to check
     /// @return uint256 The pending redeem request
     function pendingRedeemRequest(uint256, address user) external view returns (uint256);
+
+    /// @notice Enables swing pricing
+    function enableSwingPricing(bool enabled) external;
 }

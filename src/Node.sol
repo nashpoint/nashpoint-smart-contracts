@@ -263,16 +263,71 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /// note: openzeppelin ERC4626 function
-    function deposit(uint256 assets, address receiver) public virtual returns (uint256) {
-        uint256 maxAssets = maxDeposit(receiver);
-        if (assets > maxAssets) {
-            revert ErrorsLib.ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+    function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
+        
+        if (assets > maxDeposit(receiver)) {
+            revert ErrorsLib.ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
         }
 
-        uint256 shares = this.previewDeposit(assets);
-        _deposit(_msgSender(), receiver, assets, shares);
+        // Handle initial deposit separately to avoid divide by zero
+        uint256 sharesToMint;
+        if (totalAssets() == 0 && totalSupply() == 0) {
+            // This is the first deposit
+            sharesToMint = convertToShares(assets);
+            _deposit(_msgSender(), receiver, assets, sharesToMint);
+            return sharesToMint;
+        }
 
-        return shares;
+        // todo: handle deposit with swing pricing
+        uint256 reserveCash = IERC20(asset).balanceOf(address(this));
+        uint256 investedAssets = totalAssets() - reserveCash;
+        uint256 targetReserve; // nominal value of cash to match target reserve
+
+        
+        // check if any cash is invested in underlying yet
+        // if not then target reserve = reserveCash x targetReserveRatio
+        // if yes then target reserve = invested assets / (% target invested assets - nominal invested assets)
+        if (investedAssets == 0) {
+            targetReserve = MathLib.mulDiv(reserveCash, targetReserveRatio, WAD);
+        } else {
+            targetReserve = MathLib.mulDiv(investedAssets, WAD, (WAD - targetReserveRatio)) - investedAssets;
+
+            // bug: mixing units
+            // FIX: targetReserve = MathLib.mulDiv(investedAssets, targetReserveRatio, (WAD - targetReserveRatio));
+        }
+
+        // get the absolute value of delta between actual and target reserve
+        uint256 reserveDeltaAbs = 0;
+        if (reserveCash < targetReserve) {
+            reserveDeltaAbs = targetReserve - reserveCash;
+        }
+
+        // subtract the value of the new deposit to get the reserve delta after
+        // if new deposit exceeds the reserve delta, the reserve delta after will be zero
+        uint256 deltaAfter = 0;
+        if (reserveDeltaAbs > assets) {
+            deltaAfter = reserveDeltaAbs - assets;
+        } else {
+            deltaAfter = 0;
+        }
+
+        // get the absolute value of the delta closed and divide by target reserve to get the percentage of the reserve delta that was closed by the deposit
+        uint256 deltaClosedAbs = reserveDeltaAbs - deltaAfter;
+        uint256 deltaClosedPercent = MathLib.mulDiv(deltaClosedAbs, WAD, targetReserve);
+        int256 inverseValue = int256(MathLib.mulDiv((WAD - deltaClosedPercent), targetReserveRatio, WAD));
+
+        // Adjust the deposited assets based on the swing pricing factor.
+        uint256 adjustedAssets = MathLib.mulDiv(assets, (WAD + _getSwingFactor(inverseValue)), WAD);
+
+        // Calculate the number of shares to mint based on the adjusted assets.
+        sharesToMint = convertToShares(adjustedAssets);
+
+        // Mint shares for the receiver.
+        _deposit(_msgSender(), receiver, assets, sharesToMint);
+
+        // todo: emit an event to match 4626
+
+        return (sharesToMint);
     }
 
     function maxMint(address controller) public view returns (uint256 maxShares) {

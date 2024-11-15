@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import "forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {BaseTest} from "../BaseTest.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
@@ -42,6 +42,7 @@ contract VaultTests is BaseTest {
 
     function test_VaultTests_depositAndRedeem() public {
         _seedNode(1000 ether);
+        console2.log(node.totalAssets());
         uint256 startingBalance = asset.balanceOf(address(user));
         uint256 expectedShares = node.previewDeposit(100 ether);
 
@@ -154,88 +155,75 @@ contract VaultTests is BaseTest {
         assertLt(swingFactor, 1e15); // 0.1%
     }
 
-    // function test_VaultTests_swingPriceDeposit() public {
-    //     _userDeposits(user, 100 ether);
-    //     queueManager.enableSwingPricing(true);
+    function test_VaultTests_swingPriceDeposit() public {
+        _userDeposits(user, 100 ether);
 
-    //     vm.prank(address(node));
-    //     asset.approve(address(vault), 90 ether); // @bug approval required by node
+        vm.prank(owner);
+        node.enableSwingPricing(true);
 
-    //     vm.startPrank(rebalancer);
-    //     router4626.deposit(address(node), address(vault), 90 ether);
-    //     vm.stopPrank();
+        //     vm.prank(address(node));
+        //     asset.approve(address(vault), 90 ether); // @bug approval required by node
 
-    //     // assert reserveRatio is correct before other tests
-    //     uint256 reserveRatio = _getCurrentReserveRatio();
-    //     assertEq(reserveRatio, queueManager.targetReserveRatio());
+        //     vm.startPrank(rebalancer);
+        //     router4626.deposit(address(node), address(vault), 90 ether);
+        //     vm.stopPrank();
 
-    //     // mint cash so invested assets = 100
-    //     asset.mint(address(vault), 10 ether);
-    //     assertEq(asset.balanceOf(address(vault)), 100 ether);
+        //     // assert reserveRatio is correct before other tests
+        //     uint256 reserveRatio = _getCurrentReserveRatio();
+        //     assertEq(reserveRatio, queueManager.targetReserveRatio());
 
-    //     // get the shares to be minted from a tx with no swing factor
-    //     // this will break later when you complete 4626 conversion
-    //     uint256 nonAdjustedShares = node.convertToShares(10 ether);
+        //     // mint cash so invested assets = 100
+        //     asset.mint(address(vault), 10 ether);
+        //     assertEq(asset.balanceOf(address(vault)), 100 ether);
 
-    //     // user deposits 10 ether to node
-    //     vm.startPrank(user2);
-    //     asset.approve(address(node), 10 ether); // @note this approval ok
-    //     node.requestDeposit(10 ether, user2, user2);
-    //     vm.stopPrank();
+        //     // get the shares to be minted from a tx with no swing factor
+        //     // this will break later when you complete 4626 conversion
+        //     uint256 nonAdjustedShares = node.convertToShares(10 ether);
 
-    //     vm.prank(address(escrow));
-    //     asset.approve(address(queueManager), 10 ether); // @bug approval required by escrow
+        //     // user deposits 10 ether to node
+        //     vm.startPrank(user2);
+        //     asset.approve(address(node), 10 ether); // @note this approval ok
+        //     node.requestDeposit(10 ether, user2, user2);
+        //     vm.stopPrank();
 
-    //     vm.prank(rebalancer);
-    //     queueManager.fulfillDepositRequest(user2);
+        //     vm.prank(address(escrow));
+        //     asset.approve(address(queueManager), 10 ether); // @bug approval required by escrow
 
-    //     vm.prank(address(escrow));
-    //     node.approve(address(queueManager), 10 ether);
+        //     vm.prank(rebalancer);
+        //     queueManager.fulfillDepositRequest(user2);
 
-    //     vm.prank(user2);
-    //     node.deposit(10 ether, address(user2));
+        //     vm.prank(address(escrow));
+        //     node.approve(address(queueManager), 10 ether);
 
-    //     assertEq(asset.balanceOf(address(escrow)), 0);
+        //     vm.prank(user2);
+        //     node.deposit(10 ether, address(user2));
 
-    //     assertEq(queueManager.maxDeposit(user2), 0);
+        //     assertEq(asset.balanceOf(address(escrow)), 0);
 
-    //     // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
+        //     assertEq(queueManager.maxDeposit(user2), 0);
 
-    //     // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
-    //     uint256 reserveRatioAfterTX = _getCurrentReserveRatio();
-    //     assertGt(reserveRatioAfterTX, queueManager.targetReserveRatio());
+        //     // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
 
-    //     // get the actual shares received and assert they are the same i.e. no swing factor applied
-    //     uint256 sharesReceived = node.balanceOf(address(user2));
-    //     assertApproxEqAbs(sharesReceived, nonAdjustedShares, 1e12);
+        //     // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
+        //     uint256 reserveRatioAfterTX = _getCurrentReserveRatio();
+        //     assertGt(reserveRatioAfterTX, queueManager.targetReserveRatio());
 
-    // }
+        //     // get the actual shares received and assert they are the same i.e. no swing factor applied
+        //     uint256 sharesReceived = node.balanceOf(address(user2));
+        //     assertApproxEqAbs(sharesReceived, nonAdjustedShares, 1e12);
 
-    // function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-    //     uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
+        // }
 
-    //     return (currentReserveRatio);
-    // }
+        // function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
+        //     uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
 
-    // function _userDeposits(address user, uint256 amount) internal {
-    //     vm.startPrank(user);
-    //     asset.approve(address(node), amount);
-    //     node.requestDeposit(amount, user, user);
-    //     vm.stopPrank();
+        //     return (currentReserveRatio);
+    }
 
-    //     vm.prank(address(escrow));
-    //     asset.approve(address(queueManager), amount);
-
-    //     vm.prank(address(node));
-    //     node.approve(address(queueManager), amount);
-
-    //     vm.prank(rebalancer);
-    //     queueManager.fulfillDepositRequest(user);
-
-    //     vm.prank(address(escrow));
-    //     node.approve(address(queueManager), amount);
-
-    //     vm.prank(user);
-    //     node.deposit(amount, address(user));
-    // }
+    function _userDeposits(address user, uint256 amount) internal {
+        vm.startPrank(user);
+        asset.approve(address(node), amount);
+        node.deposit(amount, user);
+        vm.stopPrank();
+    }
 }

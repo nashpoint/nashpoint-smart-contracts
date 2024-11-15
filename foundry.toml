@@ -9,6 +9,8 @@ remappings = [
     '@prb/math/=lib/prb-math/'
 ]
 
+# via-ir = true
+
 # gas_reports = ["Node"]
 
 solc = '0.8.26'
