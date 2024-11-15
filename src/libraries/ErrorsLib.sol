@@ -108,4 +108,7 @@ library ErrorsLib {
 
     /// @notice Thrown when the ERC4626 deposit exceeds max deposit.
     error ERC4626ExceededMaxDeposit(address receiver, uint256 assets, uint256 maxAssets);
+
+    /// @notice Thrown when the input to getSwingFactoris invalid.
+    error InvalidInput(int256 reserveImpact);
 }

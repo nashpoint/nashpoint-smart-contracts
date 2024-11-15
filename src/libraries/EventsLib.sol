@@ -94,4 +94,7 @@ library EventsLib {
 
     /// @notice Emitted when a redeem is claimable
     event RedeemClaimable(address indexed controller, uint256 requestId, uint256 assets, uint256 shares);
+
+    /// @notice Emitted when swing pricing is enabled or disabled
+    event SwingPricingStatusUpdated(bool status);
 }

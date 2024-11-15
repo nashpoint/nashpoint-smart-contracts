@@ -6,9 +6,38 @@ import {BaseTest} from "../BaseTest.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
 
+import {Node, ComponentAllocation} from "src/Node.sol";
+
+contract Harness is Node {
+    constructor(address _asset, address _rebalancer, address owner)
+        Node(
+            address(1),
+            "Test Node",
+            "TNODE",
+            _asset,
+            address(0),
+            owner,
+            _rebalancer,
+            new address[](0),
+            new address[](0),
+            new ComponentAllocation[](0),
+            ComponentAllocation(0)
+        )
+    {}
+
+    function getSwingFactor(int256 reserveImpact) public view returns (uint256 swingFactor) {
+        return _getSwingFactor(reserveImpact);
+    }
+}
+
 contract VaultTests is BaseTest {
+    Harness harness;
+
     function setUp() public override {
         super.setUp();
+        harness = new Harness(address(asset), address(rebalancer), address(owner));
+        vm.prank(owner);
+        harness.transferOwnership(address(owner));
     }
 
     function test_VaultTests_depositAndRedeem() public {
@@ -82,7 +111,7 @@ contract VaultTests is BaseTest {
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
         vm.stopPrank();
-        
+
         assertEq(vault.balanceOf(address(node)), 90 ether);
         assertEq(asset.balanceOf(address(vault)), 90 ether);
         assertEq(asset.balanceOf(address(node)), 10 ether);
@@ -90,39 +119,40 @@ contract VaultTests is BaseTest {
         assertEq(node.totalAssets(), 10 ether + 90 ether);
     }
 
-    // function test_VaultTests_getSwingFactor() public {
-    //     // assert swing pricing returns zero when not enabled
-    //     vm.assertFalse(harness.swingPricingEnabled());
-    //     vm.assertEq(harness.getSwingFactor(1e16), 0);
+    function test_VaultTests_getSwingFactor() public {
+        // assert swing pricing returns zero when not enabled
+        vm.assertFalse(harness.swingPricingEnabled());
+        vm.assertEq(harness.getSwingFactor(1e16), 0);
 
-    //     // assert enable swing pricing returns a value
-    //     harness.enableSwingPricing(true);
-    //     vm.assertTrue(harness.swingPricingEnabled());
-    //     vm.assertGt(harness.getSwingFactor(1e16), 0);
+        // assert enable swing pricing returns a value
+        vm.prank(owner);
+        harness.enableSwingPricing(true);
+        vm.assertTrue(harness.swingPricingEnabled());
+        vm.assertGt(harness.getSwingFactor(1e16), 0);
 
-    //     // todo add selector
-    //     vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidNumber.selector, -1e16));
-    //     harness.getSwingFactor(-1e16);
+        // todo add selector
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidInput.selector, -1e16));
+        harness.getSwingFactor(-1e16);
 
-    //     // assert swing factor is zero if reserve target is met
-    //     uint256 swingFactor = harness.getSwingFactor(int256(harness.targetReserveRatio()));
-    //     assertEq(swingFactor, 0);
+        // assert swing factor is zero if reserve target is met
+        uint256 swingFactor = harness.getSwingFactor(int256(harness.targetReserveRatio()));
+        assertEq(swingFactor, 0);
 
-    //     // assert swing factor is zero if reserve target is exceeded
-    //     swingFactor = harness.getSwingFactor(int256(harness.targetReserveRatio()) + 1e16);
-    //     assertEq(swingFactor, 0);
+        // assert swing factor is zero if reserve target is exceeded
+        swingFactor = harness.getSwingFactor(int256(harness.targetReserveRatio()) + 1e16);
+        assertEq(swingFactor, 0);
 
-    //     // assert that swing factor approaches maxDiscount when reserve approaches zero
-    //     int256 minReservePossible = 1;
-    //     swingFactor = harness.getSwingFactor(minReservePossible);
-    //     assertEq(swingFactor, harness.maxDiscount() - 1);
+        // assert that swing factor approaches maxDiscount when reserve approaches zero
+        int256 minReservePossible = 1;
+        swingFactor = harness.getSwingFactor(minReservePossible);
+        assertEq(swingFactor, harness.maxDiscount() - 1);
 
-    //     // assert that swing factor is very small when reserve approaches target
-    //     int256 maxReservePossible = int256(harness.targetReserveRatio()) - 1;
-    //     swingFactor = harness.getSwingFactor(maxReservePossible);
-    //     assertGt(swingFactor, 0);
-    //     assertLt(swingFactor, 1e15); // 0.1%
-    // }
+        // assert that swing factor is very small when reserve approaches target
+        int256 maxReservePossible = int256(harness.targetReserveRatio()) - 1;
+        swingFactor = harness.getSwingFactor(maxReservePossible);
+        assertGt(swingFactor, 0);
+        assertLt(swingFactor, 1e15); // 0.1%
+    }
 
     // function test_VaultTests_swingPriceDeposit() public {
     //     _userDeposits(user, 100 ether);

@@ -17,6 +17,10 @@ import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
 
+// temp import prb math
+import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
+import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
+
 contract Node is INode, ERC20, Ownable {
     using Address for address;
     using SafeERC20 for IERC20;
@@ -25,6 +29,23 @@ contract Node is INode, ERC20, Ownable {
     /* CONSTANTS */
     uint256 private constant REQUEST_ID = 0;
     uint256 internal constant PRICE_DECIMALS = 18;
+
+    // TEMP swing pricing contstants
+    //  percentages: 1e18 == 100%
+    uint256 public maxDiscount = 2e16;
+    uint256 public targetReserveRatio = 10e16;
+    uint256 public maxDelta = 1e16;
+    uint256 public asyncMaxDelta = 3e16;
+    bool public instantLiquidationsEnabled = true;
+    bool public swingPricingEnabled = false;
+    bool public liquidateReserveBelowTarget = true;
+    int256 public immutable SCALING_FACTOR = -5e18;
+    uint256 public immutable WAD = 1e18;
+
+    /// @dev PRBMath types and conversions: used for swing price calculations
+    SD59x18 maxDiscountSD = sd(int256(maxDiscount));
+    SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
+    SD59x18 scalingFactorSD = sd(SCALING_FACTOR);
 
     /* IMMUTABLES */
     address public immutable registry;
@@ -236,7 +257,7 @@ contract Node is INode, ERC20, Ownable {
         return _convertToAssets(shares, MathLib.Rounding.Down);
     }
 
-    function maxDeposit(address controller ) public pure returns (uint256 maxAssets) {
+    function maxDeposit(address /* controller */ ) public pure returns (uint256 maxAssets) {
         // todo find an actual use for this
         return type(uint256).max;
     }
@@ -272,7 +293,7 @@ contract Node is INode, ERC20, Ownable {
 
         uint256 maxAssets = maxWithdraw(controller);
         uint256 maxShares = maxRedeem(controller);
-        
+
         if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
         shares = MathLib.mulDiv(assets, maxShares, maxAssets);
 
@@ -390,11 +411,11 @@ contract Node is INode, ERC20, Ownable {
         return _convertToAssets(shares, MathLib.Rounding.Down);
     }
 
-    function previewWithdraw(uint256 /* assets */) external pure returns (uint256 /* shares */) {
+    function previewWithdraw(uint256 /* assets */ ) external pure returns (uint256 /* shares */ ) {
         revert();
     }
 
-    function previewRedeem(uint256 /* shares */) external pure returns (uint256 /* assets */) {
+    function previewRedeem(uint256 /* shares */ ) external pure returns (uint256 /* assets */ ) {
         revert();
     }
 
@@ -497,5 +518,33 @@ contract Node is INode, ERC20, Ownable {
     function _getNodeDecimals() internal view returns (uint256 assetDecimals, uint256 nodeDecimals) {
         assetDecimals = IERC20Metadata(asset).decimals();
         nodeDecimals = decimals();
+    }
+
+    function _getSwingFactor(int256 reserveImpact) internal view returns (uint256 swingFactor) {
+        if (!swingPricingEnabled) {
+            return 0;
+        }
+        // checks if a negative number
+        if (reserveImpact < 0) {
+            revert ErrorsLib.InvalidInput(reserveImpact);
+
+            // else if reserve exceeds target after deposit no swing factor is applied
+        } else if (uint256(reserveImpact) >= targetReserveRatio) {
+            return 0;
+
+            // else swing factor is applied
+        } else {
+            SD59x18 reserveImpactSd = sd(int256(reserveImpact));
+
+            SD59x18 result = maxDiscountSD * exp(scalingFactorSD.mul(reserveImpactSd).div(targetReserveRatioSD));
+
+            return uint256(result.unwrap());
+        }
+    }
+
+    function enableSwingPricing(bool status) public onlyOwner {
+        swingPricingEnabled = status;
+
+        emit EventsLib.SwingPricingStatusUpdated(status);
     }
 }
