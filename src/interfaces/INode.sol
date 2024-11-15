@@ -108,4 +108,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Enables swing pricing
     function enableSwingPricing(bool enabled) external;
+
+    /// @notice Returns the target reserve ratio
+    function targetReserveRatio() external view returns (uint256);
 }

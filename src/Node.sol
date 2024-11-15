@@ -264,7 +264,6 @@ contract Node is INode, ERC20, Ownable {
 
     /// note: openzeppelin ERC4626 function
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
-        
         if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
         }
@@ -283,17 +282,16 @@ contract Node is INode, ERC20, Ownable {
         uint256 investedAssets = totalAssets() - reserveCash;
         uint256 targetReserve; // nominal value of cash to match target reserve
 
-        
+        //: todo: need another edge case handled where current reserve > target reserve
+        // do this after you test all the other cases
+
         // check if any cash is invested in underlying yet
         // if not then target reserve = reserveCash x targetReserveRatio
-        // if yes then target reserve = invested assets / (% target invested assets - nominal invested assets)
+        // if yes then target reserve = invested assets / (% target invested assets - nominal invested assets) bug: mixing units: pct vs nominal
         if (investedAssets == 0) {
             targetReserve = MathLib.mulDiv(reserveCash, targetReserveRatio, WAD);
         } else {
             targetReserve = MathLib.mulDiv(investedAssets, WAD, (WAD - targetReserveRatio)) - investedAssets;
-
-            // bug: mixing units
-            // FIX: targetReserve = MathLib.mulDiv(investedAssets, targetReserveRatio, (WAD - targetReserveRatio));
         }
 
         // get the absolute value of delta between actual and target reserve

@@ -43,7 +43,7 @@ contract BaseTest is Test {
     address public rebalancer;
     address public vaultSeeder;
 
-    uint256 public constant INITIAL_BALANCE = 1000 ether;
+    uint256 public constant INITIAL_BALANCE = 1000000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
     function setUp() public virtual {

@@ -161,63 +161,63 @@ contract VaultTests is BaseTest {
         vm.prank(owner);
         node.enableSwingPricing(true);
 
-        //     vm.prank(address(node));
-        //     asset.approve(address(vault), 90 ether); // @bug approval required by node
+        vm.prank(address(node));
+        asset.approve(address(vault), 90 ether); // @bug approval required by node
 
-        //     vm.startPrank(rebalancer);
-        //     router4626.deposit(address(node), address(vault), 90 ether);
-        //     vm.stopPrank();
+        vm.startPrank(rebalancer);
+        router4626.deposit(address(node), address(vault), 90 ether);
+        vm.stopPrank();
+        console2.log("node.totalAssets(): ", node.totalAssets() / 1e18);
+        console2.log("node.totalSupply(): ", node.totalSupply() / 1e18);
+        console2.log("asset.balanceOf(address(node)): ", asset.balanceOf(address(node)) / 1e18);
+        console2.log("asset.balanceOf(address(vault)): ", asset.balanceOf(address(vault)) / 1e18);
 
-        //     // assert reserveRatio is correct before other tests
-        //     uint256 reserveRatio = _getCurrentReserveRatio();
-        //     assertEq(reserveRatio, queueManager.targetReserveRatio());
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = _getCurrentReserveRatio();
+        assertEq(reserveRatio, node.targetReserveRatio());
 
-        //     // mint cash so invested assets = 100
-        //     asset.mint(address(vault), 10 ether);
-        //     assertEq(asset.balanceOf(address(vault)), 100 ether);
+        // mint cash so invested assets = 100
+        asset.mint(address(vault), 10 ether + 1);
+        assertEq(asset.balanceOf(address(vault)), 100 ether + 1);
 
-        //     // get the shares to be minted from a tx with no swing factor
-        //     // this will break later when you complete 4626 conversion
-        //     uint256 nonAdjustedShares = node.convertToShares(10 ether);
+        console2.log("asset.balanceOf(address(vault)): ", asset.balanceOf(address(vault)) / 1e18);
+        console2.log("node.totalAssets(): ", node.totalAssets() / 1e18);
 
-        //     // user deposits 10 ether to node
-        //     vm.startPrank(user2);
-        //     asset.approve(address(node), 10 ether); // @note this approval ok
-        //     node.requestDeposit(10 ether, user2, user2);
-        //     vm.stopPrank();
+        // get the shares to be minted from a tx with no swing factor
+        // this will break later when you complete 4626 conversion
+        uint256 nonAdjustedShares = node.convertToShares(10 ether);
 
-        //     vm.prank(address(escrow));
-        //     asset.approve(address(queueManager), 10 ether); // @bug approval required by escrow
+        assertEq(node.balanceOf(address(user2)), 0);
 
-        //     vm.prank(rebalancer);
-        //     queueManager.fulfillDepositRequest(user2);
+        // user deposits 10 ether to node
+        vm.startPrank(user2);
+        asset.approve(address(node), 10 ether);
+        node.deposit(10 ether, address(user2));
+        vm.stopPrank();
 
-        //     vm.prank(address(escrow));
-        //     node.approve(address(queueManager), 10 ether);
+        assertEq(asset.balanceOf(address(escrow)), 0);
 
-        //     vm.prank(user2);
-        //     node.deposit(10 ether, address(user2));
+        // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
 
-        //     assertEq(asset.balanceOf(address(escrow)), 0);
+        // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
+        uint256 reserveRatioAfterTX = _getCurrentReserveRatio();
+        assertGt(reserveRatioAfterTX, node.targetReserveRatio());
 
-        //     assertEq(queueManager.maxDeposit(user2), 0);
+        // get the actual shares received and assert they are the same i.e. no swing factor applied
+        uint256 sharesReceived = node.balanceOf(address(user2));
+        console2.log("sharesReceived: ", sharesReceived);
+        console2.log("nonAdjustedShares: ", nonAdjustedShares);
+        console2.log("diff: ", sharesReceived - nonAdjustedShares);
 
-        //     // TEST 1: assert that no swing factor is applied when reserve ratio exceeds target
+        // accuracy is 0.1%
+        // todo test this later to get it to 100% accuracy
+        assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15);
+    }
 
-        //     // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
-        //     uint256 reserveRatioAfterTX = _getCurrentReserveRatio();
-        //     assertGt(reserveRatioAfterTX, queueManager.targetReserveRatio());
+    function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
+        uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
 
-        //     // get the actual shares received and assert they are the same i.e. no swing factor applied
-        //     uint256 sharesReceived = node.balanceOf(address(user2));
-        //     assertApproxEqAbs(sharesReceived, nonAdjustedShares, 1e12);
-
-        // }
-
-        // function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        //     uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
-
-        //     return (currentReserveRatio);
+        return (currentReserveRatio);
     }
 
     function _userDeposits(address user, uint256 amount) internal {
