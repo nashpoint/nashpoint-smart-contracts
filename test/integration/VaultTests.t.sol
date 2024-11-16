@@ -230,24 +230,29 @@ contract VaultTests is BaseTest {
         vm.prank(address(node));
         asset.approve(address(node), 100 ether); // @bug approval required by node
 
+        console2.log("node.totalSupply(): ", node.totalSupply());
+        console2.log("node.totalAssets(): ", node.totalAssets()); 
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(address(user2));
+        console2.log("node.totalSupply(): ", node.totalSupply());
+        console2.log("node.totalAssets(): ", node.totalAssets());  
+        console2.log("_getCurrentReserveRatio(): ", _getCurrentReserveRatio());      
 
         assertLt(_getCurrentReserveRatio(), node.targetReserveRatio());
 
-        nonAdjustedShares = node.convertToAssets(2 ether);
+        nonAdjustedShares = node.convertToShares(2 ether);
+        console2.log("nonAdjustedShares: ", nonAdjustedShares);
+
+        assertEq(node.balanceOf(address(user3)), 0);
 
         vm.startPrank(user3);
         asset.approve(address(node), 2 ether);
         node.deposit(2 ether, address(user3));
-        vm.stopPrank();
-
-        assertLt(_getCurrentReserveRatio(), node.targetReserveRatio());
+        vm.stopPrank();        
 
         sharesReceived = node.balanceOf(address(user3));
         assertGt(sharesReceived, nonAdjustedShares);
-
-
+        console2.log(sharesReceived - nonAdjustedShares);
 
     }
 

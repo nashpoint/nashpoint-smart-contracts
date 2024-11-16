@@ -16,6 +16,7 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
+import {SwingPricing} from "./libraries/SwingPricing.sol";
 
 // temp import prb math
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
@@ -277,45 +278,13 @@ contract Node is INode, ERC20, Ownable {
             return sharesToMint;
         }
 
-        // todo: handle deposit with swing pricing
         uint256 reserveCash = IERC20(asset).balanceOf(address(this));
-        uint256 investedAssets = totalAssets() - reserveCash;
-        uint256 targetReserve; // nominal value of cash to match target reserve
 
-        //: todo: need another edge case handled where current reserve > target reserve
-        // do this after you test all the other cases
-
-        // check if any cash is invested in underlying yet
-        // if not then target reserve = reserveCash x targetReserveRatio
-        // if yes then target reserve = invested assets / (% target invested assets - nominal invested assets) bug: mixing units: pct vs nominal
-        if (investedAssets == 0) {
-            targetReserve = MathLib.mulDiv(reserveCash, targetReserveRatio, WAD);
-        } else {
-            targetReserve = MathLib.mulDiv(investedAssets, WAD, (WAD - targetReserveRatio)) - investedAssets;
-        }
-
-        // get the absolute value of delta between actual and target reserve
-        uint256 reserveDeltaAbs = 0;
-        if (reserveCash < targetReserve) {
-            reserveDeltaAbs = targetReserve - reserveCash;
-        }
-
-        // subtract the value of the new deposit to get the reserve delta after
-        // if new deposit exceeds the reserve delta, the reserve delta after will be zero
-        uint256 deltaAfter = 0;
-        if (reserveDeltaAbs > assets) {
-            deltaAfter = reserveDeltaAbs - assets;
-        } else {
-            deltaAfter = 0;
-        }
-
-        // get the absolute value of the delta closed and divide by target reserve to get the percentage of the reserve delta that was closed by the deposit
-        uint256 deltaClosedAbs = reserveDeltaAbs - deltaAfter;
-        uint256 deltaClosedPercent = MathLib.mulDiv(deltaClosedAbs, WAD, targetReserve);
-        int256 inverseValue = int256(MathLib.mulDiv((WAD - deltaClosedPercent), targetReserveRatio, WAD));
+        int256 reserveImpact =
+            int256(SwingPricing.calculateReserveImpact(targetReserveRatio, reserveCash ,totalAssets(), assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets = MathLib.mulDiv(assets, (WAD + _getSwingFactor(inverseValue)), WAD);
+        uint256 adjustedAssets = MathLib.mulDiv(assets, (WAD + _getSwingFactor(reserveImpact)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
         sharesToMint = convertToShares(adjustedAssets);
@@ -513,65 +482,65 @@ contract Node is INode, ERC20, Ownable {
                         DECIMAL CONVERSION FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _calculateShares(uint256 assets, uint256 price, MathLib.Rounding rounding)
-        internal
-        view
-        returns (uint256 shares)
-    {
-        if (price == 0 || assets == 0) {
-            shares = 0;
-        } else {
-            (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
+    // function _calculateShares(uint256 assets, uint256 price, MathLib.Rounding rounding)
+    //     internal
+    //     view
+    //     returns (uint256 shares)
+    // {
+    //     if (price == 0 || assets == 0) {
+    //         shares = 0;
+    //     } else {
+    //         (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
 
-            uint256 sharesInPriceDecimals =
-                _toPriceDecimals(assets, assetDecimals).mulDiv(10 ** PRICE_DECIMALS, price, rounding);
+    //         uint256 sharesInPriceDecimals =
+    //             _toPriceDecimals(assets, assetDecimals).mulDiv(10 ** PRICE_DECIMALS, price, rounding);
 
-            shares = _fromPriceDecimals(sharesInPriceDecimals, nodeDecimals);
-        }
-    }
+    //         shares = _fromPriceDecimals(sharesInPriceDecimals, nodeDecimals);
+    //     }
+    // }
 
-    function _calculateAssets(uint256 shares, uint256 price, MathLib.Rounding rounding)
-        internal
-        view
-        returns (uint256 assets)
-    {
-        if (price == 0 || shares == 0) {
-            assets = 0;
-        } else {
-            (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
+    // function _calculateAssets(uint256 shares, uint256 price, MathLib.Rounding rounding)
+    //     internal
+    //     view
+    //     returns (uint256 assets)
+    // {
+    //     if (price == 0 || shares == 0) {
+    //         assets = 0;
+    //     } else {
+    //         (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
 
-            uint256 assetsInPriceDecimals =
-                _toPriceDecimals(shares, nodeDecimals).mulDiv(price, 10 ** PRICE_DECIMALS, rounding);
+    //         uint256 assetsInPriceDecimals =
+    //             _toPriceDecimals(shares, nodeDecimals).mulDiv(price, 10 ** PRICE_DECIMALS, rounding);
 
-            assets = _fromPriceDecimals(assetsInPriceDecimals, assetDecimals);
-        }
-    }
+    //         assets = _fromPriceDecimals(assetsInPriceDecimals, assetDecimals);
+    //     }
+    // }
 
-    function _calculatePrice(uint256 assets, uint256 shares) internal view returns (uint256) {
-        if (assets == 0 || shares == 0) {
-            return 0;
-        }
+    // function _calculatePrice(uint256 assets, uint256 shares) internal view returns (uint256) {
+    //     if (assets == 0 || shares == 0) {
+    //         return 0;
+    //     }
 
-        (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
-        return _toPriceDecimals(assets, assetDecimals).mulDiv(
-            10 ** PRICE_DECIMALS, _toPriceDecimals(shares, nodeDecimals), MathLib.Rounding.Down
-        );
-    }
+    //     (uint256 assetDecimals, uint256 nodeDecimals) = _getNodeDecimals();
+    //     return _toPriceDecimals(assets, assetDecimals).mulDiv(
+    //         10 ** PRICE_DECIMALS, _toPriceDecimals(shares, nodeDecimals), MathLib.Rounding.Down
+    //     );
+    // }
 
-    function _toPriceDecimals(uint256 _value, uint256 decimals) internal pure returns (uint256) {
-        if (PRICE_DECIMALS == decimals) return _value;
-        return _value * 10 ** (PRICE_DECIMALS - decimals);
-    }
+    // function _toPriceDecimals(uint256 _value, uint256 decimals) internal pure returns (uint256) {
+    //     if (PRICE_DECIMALS == decimals) return _value;
+    //     return _value * 10 ** (PRICE_DECIMALS - decimals);
+    // }
 
-    function _fromPriceDecimals(uint256 _value, uint256 decimals) internal pure returns (uint256) {
-        if (PRICE_DECIMALS == decimals) return _value;
-        return _value / 10 ** (PRICE_DECIMALS - decimals);
-    }
+    // function _fromPriceDecimals(uint256 _value, uint256 decimals) internal pure returns (uint256) {
+    //     if (PRICE_DECIMALS == decimals) return _value;
+    //     return _value / 10 ** (PRICE_DECIMALS - decimals);
+    // }
 
-    function _getNodeDecimals() internal view returns (uint256 assetDecimals, uint256 nodeDecimals) {
-        assetDecimals = IERC20Metadata(asset).decimals();
-        nodeDecimals = decimals();
-    }
+    // function _getNodeDecimals() internal view returns (uint256 assetDecimals, uint256 nodeDecimals) {
+    //     assetDecimals = IERC20Metadata(asset).decimals();
+    //     nodeDecimals = decimals();
+    // }
 
     function _getSwingFactor(int256 reserveImpact) internal view returns (uint256 swingFactor) {
         if (!swingPricingEnabled) {
