@@ -111,4 +111,7 @@ library ErrorsLib {
 
     /// @notice Thrown when the input to getSwingFactoris invalid.
     error InvalidInput(int256 reserveImpact);
+
+    /// @notice Thrown when the fullfillment of the redeem request exceeds the available reserve.
+    error ExceedsAvailableReserve();
 }

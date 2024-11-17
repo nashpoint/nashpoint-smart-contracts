@@ -59,6 +59,7 @@ contract Node is INode, ERC20, Ownable {
     ComponentAllocation public reserveAllocation;
 
     mapping(address => Request) public requests;
+    uint256 public sharesExiting;
 
     IQuoter public quoter;
     address public escrow;
@@ -214,19 +215,53 @@ contract Node is INode, ERC20, Ownable {
     function requestRedeem(uint256 shares, address controller, address owner) public returns (uint256) {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
 
+        // get the cash balance of the node and pending redemptions
+        uint256 balance = IERC20(asset).balanceOf(address(this));
+        uint256 pendingRedemptions = convertToAssets(sharesExiting);
+
+        // check if pending redemptions exceed current cash balance
+        // if not subtract pending redemptions from balance
+        if (pendingRedemptions > balance) {
+            balance = 0;
+        } else {
+            balance = balance - pendingRedemptions;
+        }
+
+        // get the asset value of the redeem request
+        uint256 assets = convertToAssets(shares);
+
+        // gets the expected reserve ratio after tx
+        // check redemption (assets) exceed current cash balance
+        // if not get reserve ratio
+        int256 reserveRatioAfterTX;
+        if (assets > balance) {
+            reserveRatioAfterTX = 0;
+        } else {
+            reserveRatioAfterTX = int256(MathLib.mulDiv(balance - assets, WAD, totalAssets() - assets));
+        }
+
+        // gets the assets to be returned to the user after applying swingfactor to tx
+        uint256 adjustedAssets = MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveRatioAfterTX)), WAD);
+        uint256 sharesToBurn = convertToShares(adjustedAssets);
+
         if (shares == 0) revert ErrorsLib.ZeroAmount();
         Request storage request = requests[controller];
-        request.pendingRedeemRequest = request.pendingRedeemRequest + shares;
+        request.pendingRedeemRequest = request.pendingRedeemRequest + shares;        
+        request.sharesAdjusted = request.sharesAdjusted + sharesToBurn;
 
-        // temp implementation
-        // todo do properly with swing pricing
-        request.sharesAdjusted = request.sharesAdjusted + shares;
+        // Should this be shares or sharesToBurn ???
+        // I think it should be shares because it is the actual shares being transferred to the escrow
+        // On the fulfilRedeemRequest be careful to make sure you are tracking the changes properly
+        // So you are burning sharesToBurn but you are subtracting shares from sharesExiting
+        sharesExiting += shares;
 
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
 
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
+
+    
 
     function pendingRedeemRequest(uint256, address controller) public view returns (uint256 pendingShares) {
         Request storage request = requests[controller];
@@ -338,9 +373,29 @@ contract Node is INode, ERC20, Ownable {
         Request storage request = requests[controller];
         if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
 
+        uint256 balance = IERC20(asset).balanceOf(address(this));
+
         uint256 sharesPending = request.pendingRedeemRequest;
         uint256 sharesAdjusted = request.sharesAdjusted;
         uint256 assetsToReturn = convertToAssets(sharesAdjusted);
+
+        // get reserve ratio after tx
+        // does not care bout sharesExiting because just use to check sufficienct reserve for withdrawal
+        uint256 reserveRatioAfterTx = MathLib.mulDiv(balance - assetsToReturn, WAD, totalAssets() - assetsToReturn);
+
+        // first checks if manager has enabled liquidate below target
+        // -- will revert if withdawal will reduce reserve below target ratio
+        // -- if passes, it demonstrate that withdrawal amount < total reserve balance
+        if (!liquidateReserveBelowTarget) {
+            if (reserveRatioAfterTx < targetReserveRatio) {
+                revert ErrorsLib.ExceedsAvailableReserve();
+            }
+        }
+
+        // check that current reserve is enough for redeem
+        if (assetsToReturn > balance) {
+            revert ErrorsLib.ExceedsAvailableReserve();
+        }        
 
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
         _burn(escrow, sharesPending);
@@ -349,6 +404,9 @@ contract Node is INode, ERC20, Ownable {
         request.claimableRedeemRequest += sharesPending;
         request.claimableAssets += assetsToReturn;
         request.sharesAdjusted -= sharesAdjusted;
+
+        // 
+        sharesExiting -= sharesPending;
 
         onRedeemClaimable(controller, assetsToReturn, sharesPending);
     }
@@ -568,5 +626,5 @@ contract Node is INode, ERC20, Ownable {
         swingPricingEnabled = status;
 
         emit EventsLib.SwingPricingStatusUpdated(status);
-    }
+    }    
 }

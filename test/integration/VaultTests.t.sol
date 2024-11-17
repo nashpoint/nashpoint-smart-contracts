@@ -256,6 +256,10 @@ contract VaultTests is BaseTest {
 
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            HELPER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
         uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
 
