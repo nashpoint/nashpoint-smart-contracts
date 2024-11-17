@@ -246,7 +246,7 @@ contract Node is INode, ERC20, Ownable {
 
         if (shares == 0) revert ErrorsLib.ZeroAmount();
         Request storage request = requests[controller];
-        request.pendingRedeemRequest = request.pendingRedeemRequest + shares;        
+        request.pendingRedeemRequest = request.pendingRedeemRequest + shares;
         request.sharesAdjusted = request.sharesAdjusted + sharesToBurn;
 
         // Should this be shares or sharesToBurn ???
@@ -260,8 +260,6 @@ contract Node is INode, ERC20, Ownable {
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
-
-    
 
     function pendingRedeemRequest(uint256, address controller) public view returns (uint256 pendingShares) {
         Request storage request = requests[controller];
@@ -316,7 +314,7 @@ contract Node is INode, ERC20, Ownable {
         uint256 reserveCash = IERC20(asset).balanceOf(address(this));
 
         int256 reserveImpact =
-            int256(SwingPricing.calculateReserveImpact(targetReserveRatio, reserveCash ,totalAssets(), assets));
+            int256(SwingPricing.calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets(), assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets = MathLib.mulDiv(assets, (WAD + _getSwingFactor(reserveImpact)), WAD);
@@ -395,7 +393,7 @@ contract Node is INode, ERC20, Ownable {
         // check that current reserve is enough for redeem
         if (assetsToReturn > balance) {
             revert ErrorsLib.ExceedsAvailableReserve();
-        }        
+        }
 
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
         _burn(escrow, sharesPending);
@@ -405,7 +403,7 @@ contract Node is INode, ERC20, Ownable {
         request.claimableAssets += assetsToReturn;
         request.sharesAdjusted -= sharesAdjusted;
 
-        // 
+        //
         sharesExiting -= sharesPending;
 
         onRedeemClaimable(controller, assetsToReturn, sharesPending);
@@ -626,5 +624,5 @@ contract Node is INode, ERC20, Ownable {
         swingPricingEnabled = status;
 
         emit EventsLib.SwingPricingStatusUpdated(status);
-    }    
+    }
 }

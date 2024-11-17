@@ -231,12 +231,12 @@ contract VaultTests is BaseTest {
         asset.approve(address(node), 100 ether); // @bug approval required by node
 
         console2.log("node.totalSupply(): ", node.totalSupply());
-        console2.log("node.totalAssets(): ", node.totalAssets()); 
+        console2.log("node.totalAssets(): ", node.totalAssets());
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(address(user2));
         console2.log("node.totalSupply(): ", node.totalSupply());
-        console2.log("node.totalAssets(): ", node.totalAssets());  
-        console2.log("_getCurrentReserveRatio(): ", _getCurrentReserveRatio());      
+        console2.log("node.totalAssets(): ", node.totalAssets());
+        console2.log("_getCurrentReserveRatio(): ", _getCurrentReserveRatio());
 
         assertLt(_getCurrentReserveRatio(), node.targetReserveRatio());
 
@@ -248,12 +248,85 @@ contract VaultTests is BaseTest {
         vm.startPrank(user3);
         asset.approve(address(node), 2 ether);
         node.deposit(2 ether, address(user3));
-        vm.stopPrank();        
+        vm.stopPrank();
 
         sharesReceived = node.balanceOf(address(user3));
         assertGt(sharesReceived, nonAdjustedShares);
         console2.log(sharesReceived - nonAdjustedShares);
+    }
 
+    function testAdjustedWithdraw() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.prank(address(node));
+        asset.approve(address(vault), type(uint256).max); // @bug approval required by node
+
+        vm.startPrank(rebalancer);
+        router4626.deposit(address(node), address(vault), 90 ether);
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = _getCurrentReserveRatio();
+        assertEq(reserveRatio, node.targetReserveRatio());
+
+        // mint cash so invested assets = 100
+        asset.mint(address(vault), 10 ether + 1);
+
+        // user 2 deposits 10e6 to node and burns the rest of their usdc
+        vm.startPrank(user2);
+        asset.approve(address(node), 10 ether);
+        node.deposit(10 ether, user2);
+        asset.transfer(0x000000000000000000000000000000000000dEaD, asset.balanceOf(user2));
+        vm.stopPrank();
+
+        // enable swing pricing
+        vm.prank(owner);
+        node.enableSwingPricing(true);
+
+        // assert user2 has zero usdc balance
+        assertEq(asset.balanceOf(user2), 0);
+
+        uint256 vaultCurrentAssets = asset.balanceOf(address(vault));
+        uint256 vaultTargetAssets = MathLib.mulDiv(node.totalAssets(), 1e18 - node.targetReserveRatio(), 1e18);
+        uint256 delta = vaultTargetAssets - vaultCurrentAssets;
+
+        vm.prank(rebalancer);
+        router4626.deposit(address(node), address(vault), delta);
+
+        assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
+
+        // grab share value of deposit
+        uint256 sharesToRedeem = node.convertToShares(10 ether);
+
+        // user 2 withdraws the same amount they deposited
+        vm.startPrank(user2);
+        node.approve(address(node), type(uint256).max);
+        node.requestRedeem(sharesToRedeem, user2, user2);
+        vm.stopPrank();
+
+        vm.prank(address(node));
+        asset.approve(address(node), 100 ether); // @bug approval required by node
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user2);
+
+        uint256 maxWithdraw = node.maxWithdraw(user2);
+        console2.log(maxWithdraw);
+
+        // assert that user2 has burned all shares to withdraw max usdc
+        uint256 user2NodeClosingBalance = node.balanceOf(address(user2));
+        assertEq(user2NodeClosingBalance, 0);
+
+        // assert that user2 received less USDC back than they deposited
+        // uint256 usdcReturned = asset.balanceOf(address(user2));
+        assertLt(maxWithdraw, 10 ether);
+
+        // note: this test does not check if the correct amount was returned
+        // only that is was less than originally deposited
+        // check for correct swing factor is in that test
     }
 
     /*//////////////////////////////////////////////////////////////

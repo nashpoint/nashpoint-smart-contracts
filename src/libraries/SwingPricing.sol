@@ -22,7 +22,7 @@ library SwingPricing {
         uint256 deposit
     ) internal pure returns (int256) {
         // note: do happy path first then edge cases at each step
-        
+
         console2.log("targetReserveRatio: ", targetReserveRatio / 1e16);
         console2.log("reserveCash: ", reserveCash / 1e18);
         console2.log("totalAssets: ", totalAssets / 1e18);
@@ -75,7 +75,7 @@ library SwingPricing {
 
         // get this is percentage terms by dividing delta closed (units) by the target reserve (units)
         uint256 deltaClosedPct = Math.mulDiv(deltaClosed, WAD, targetReserve);
-        console2.log("deltaClosdPct :", deltaClosedPct / 1e16,"%");        
+        console2.log("deltaClosdPct :", deltaClosedPct / 1e16, "%");
 
         // Reserve Impact
         // reserveImpact is the inverse of the percentage of the reserve delta closed by the deposit
@@ -84,7 +84,7 @@ library SwingPricing {
         // todo: find a way to create the same number in less steps and simpler
 
         uint256 reserveImpact = Math.mulDiv(WAD - deltaClosedPct, targetReserveRatio, WAD);
-        console2.log("reserveImpact : ",reserveImpact / 1e16);
+        console2.log("reserveImpact : ", reserveImpact / 1e16);
 
         return int256(reserveImpact);
     }
