@@ -167,10 +167,6 @@ contract VaultTests is BaseTest {
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
         vm.stopPrank();
-        console2.log("node.totalAssets(): ", node.totalAssets() / 1e18);
-        console2.log("node.totalSupply(): ", node.totalSupply() / 1e18);
-        console2.log("asset.balanceOf(address(node)): ", asset.balanceOf(address(node)) / 1e18);
-        console2.log("asset.balanceOf(address(vault)): ", asset.balanceOf(address(vault)) / 1e18);
 
         // assert reserveRatio is correct before other tests
         uint256 reserveRatio = _getCurrentReserveRatio();
@@ -179,9 +175,6 @@ contract VaultTests is BaseTest {
         // mint cash so invested assets = 100
         asset.mint(address(vault), 10 ether + 1);
         assertEq(asset.balanceOf(address(vault)), 100 ether + 1);
-
-        console2.log("asset.balanceOf(address(vault)): ", asset.balanceOf(address(vault)) / 1e18);
-        console2.log("node.totalAssets(): ", node.totalAssets() / 1e18);
 
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
@@ -205,21 +198,13 @@ contract VaultTests is BaseTest {
 
         // get the actual shares received and assert they are the same i.e. no swing factor applied
         uint256 sharesReceived = node.balanceOf(address(user2));
-        console2.log("sharesReceived: ", sharesReceived);
-        console2.log("nonAdjustedShares: ", nonAdjustedShares);
-        console2.log("diff: ", sharesReceived - nonAdjustedShares);
 
         // accuracy is 0.1% note this is too big a delta
         // todo test this later to get it to 100% accuracy
         assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15);
 
-        uint256 vaultCurrentAssets = asset.balanceOf(address(vault));
-        uint256 vaultTargetAssets = MathLib.mulDiv(node.totalAssets(), 1e18 - node.targetReserveRatio(), 1e18);
-        uint256 delta = vaultTargetAssets - vaultCurrentAssets;
-
-        vm.prank(rebalancer);
-        router4626.deposit(address(node), address(vault), delta);
-
+        // rebalances excess reserve to vault so reserve ratio = 100%
+        _rebalanceVaultToTarget(address(vault));
         assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
 
         vm.startPrank(user2);
@@ -230,29 +215,23 @@ contract VaultTests is BaseTest {
         vm.prank(address(node));
         asset.approve(address(node), 100 ether); // @bug approval required by node
 
-        console2.log("node.totalSupply(): ", node.totalSupply());
-        console2.log("node.totalAssets(): ", node.totalAssets());
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(address(user2));
-        console2.log("node.totalSupply(): ", node.totalSupply());
-        console2.log("node.totalAssets(): ", node.totalAssets());
-        console2.log("_getCurrentReserveRatio(): ", _getCurrentReserveRatio());
 
+        // assert reserve ratio is on target and user 3 has zero shares
         assertLt(_getCurrentReserveRatio(), node.targetReserveRatio());
+        assertEq(node.balanceOf(address(user3)), 0);
 
         nonAdjustedShares = node.convertToShares(2 ether);
-        console2.log("nonAdjustedShares: ", nonAdjustedShares);
-
-        assertEq(node.balanceOf(address(user3)), 0);
 
         vm.startPrank(user3);
         asset.approve(address(node), 2 ether);
         node.deposit(2 ether, address(user3));
         vm.stopPrank();
 
+        // assert shares received are greater than expected due to swing bonus
         sharesReceived = node.balanceOf(address(user3));
         assertGt(sharesReceived, nonAdjustedShares);
-        console2.log(sharesReceived - nonAdjustedShares);
     }
 
     function testAdjustedWithdraw() public {
@@ -275,7 +254,7 @@ contract VaultTests is BaseTest {
         // mint cash so invested assets = 100
         asset.mint(address(vault), 10 ether + 1);
 
-        // user 2 deposits 10e6 to node and burns the rest of their usdc
+        // user 2 deposits 10e6 to node and burns the rest of their assets
         vm.startPrank(user2);
         asset.approve(address(node), 10 ether);
         node.deposit(10 ether, user2);
@@ -289,13 +268,8 @@ contract VaultTests is BaseTest {
         // assert user2 has zero usdc balance
         assertEq(asset.balanceOf(user2), 0);
 
-        uint256 vaultCurrentAssets = asset.balanceOf(address(vault));
-        uint256 vaultTargetAssets = MathLib.mulDiv(node.totalAssets(), 1e18 - node.targetReserveRatio(), 1e18);
-        uint256 delta = vaultTargetAssets - vaultCurrentAssets;
-
-        vm.prank(rebalancer);
-        router4626.deposit(address(node), address(vault), delta);
-
+        // rebalances excess reserve to vault so reserve ratio = 100%
+        _rebalanceVaultToTarget(address(vault));
         assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
 
         // grab share value of deposit
@@ -313,16 +287,21 @@ contract VaultTests is BaseTest {
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user2);
 
-        uint256 maxWithdraw = node.maxWithdraw(user2);
-        console2.log(maxWithdraw);
+        uint256 maxWithdraw = node.maxWithdraw(address(user2));
 
-        // assert that user2 has burned all shares to withdraw max usdc
-        uint256 user2NodeClosingBalance = node.balanceOf(address(user2));
-        assertEq(user2NodeClosingBalance, 0);
+        vm.prank(address(escrow));
+        asset.approve(address(node), maxWithdraw); // @bug should not need approval
+
+        // user 2 withdraws max assets
+        vm.prank(user2);
+        node.withdraw(maxWithdraw, address(user2), address(user2));
+
+        // assert that user2 has burned all shares to & withdrawn all assets
+        assertEq(node.balanceOf(user2), 0);
+        assertEq(node.maxWithdraw(user2), 0);
 
         // assert that user2 received less USDC back than they deposited
-        // uint256 usdcReturned = asset.balanceOf(address(user2));
-        assertLt(maxWithdraw, 10 ether);
+        assertLt(asset.balanceOf(user2), 10 ether);
 
         // note: this test does not check if the correct amount was returned
         // only that is was less than originally deposited
@@ -344,5 +323,13 @@ contract VaultTests is BaseTest {
         asset.approve(address(node), amount);
         node.deposit(amount, user);
         vm.stopPrank();
+    }
+
+    function _rebalanceVaultToTarget(address vault) internal {
+        uint256 delta = (MathLib.mulDiv(node.totalAssets(), 1e18 - node.targetReserveRatio(), 1e18))
+            - asset.balanceOf(address(vault));
+
+        vm.prank(rebalancer);
+        router4626.deposit(address(node), address(vault), delta);
     }
 }
