@@ -18,10 +18,6 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
 import {ISwingPricingV1} from "./pricers/SwingPricingV1.sol";
 
-// temp import prb math
-import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
-import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
-
 contract Node is INode, ERC20, Ownable {
     using Address for address;
     using SafeERC20 for IERC20;
@@ -33,20 +29,14 @@ contract Node is INode, ERC20, Ownable {
 
     // TEMP swing pricing contstants
     //  percentages: 1e18 == 100%
-    uint256 public maxDiscount = 2e16;
+    uint256 public maxDiscount;
     uint256 public targetReserveRatio = 10e16;
     uint256 public maxDelta = 1e16;
     uint256 public asyncMaxDelta = 3e16;
-    bool public instantLiquidationsEnabled = true;
+    bool public instantLiquidationsEnabled = true; // i think this is dumb too
     bool public swingPricingEnabled = false;
-    bool public liquidateReserveBelowTarget = true;
-    int256 public immutable SCALING_FACTOR = -5e18;
+    bool public liquidateReserveBelowTarget = true; // i think this is dumb
     uint256 public immutable WAD = 1e18;
-
-    /// @dev PRBMath types and conversions: used for swing price calculations
-    SD59x18 maxDiscountSD = sd(int256(maxDiscount));
-    SD59x18 targetReserveRatioSD = sd(int256(targetReserveRatio));
-    SD59x18 scalingFactorSD = sd(SCALING_FACTOR);
 
     /* IMMUTABLES */
     address public immutable registry;
@@ -241,8 +231,15 @@ contract Node is INode, ERC20, Ownable {
             reserveRatioAfterTX = int256(MathLib.mulDiv(balance - assets, WAD, totalAssets() - assets));
         }
 
-        // gets the assets to be returned to the user after applying swingfactor to tx
-        uint256 adjustedAssets = MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveRatioAfterTX)), WAD);
+        uint256 adjustedAssets;
+        if (swingPricingEnabled) {
+            adjustedAssets = MathLib.mulDiv(
+                assets, (WAD - pricer.getSwingFactor(reserveRatioAfterTX, maxDiscount, targetReserveRatio)), WAD
+            );
+        } else {
+            adjustedAssets = assets;
+        }
+
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
         if (shares == 0) revert ErrorsLib.ZeroAmount();
@@ -307,7 +304,6 @@ contract Node is INode, ERC20, Ownable {
         // This is the first deposit OR !swingPricingEnabled
         uint256 sharesToMint;
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
-            
             sharesToMint = convertToShares(assets);
             _deposit(_msgSender(), receiver, assets, sharesToMint);
             return sharesToMint;
@@ -319,7 +315,8 @@ contract Node is INode, ERC20, Ownable {
             int256(pricer.calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets(), assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets = MathLib.mulDiv(assets, (WAD + _getSwingFactor(reserveImpact)), WAD);
+        uint256 adjustedAssets =
+            MathLib.mulDiv(assets, (WAD + pricer.getSwingFactor(reserveImpact, maxDiscount, targetReserveRatio)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
         sharesToMint = convertToShares(adjustedAssets);
@@ -600,31 +597,10 @@ contract Node is INode, ERC20, Ownable {
     //     nodeDecimals = decimals();
     // }
 
-    function _getSwingFactor(int256 reserveImpact) internal view returns (uint256 swingFactor) {
-        if (!swingPricingEnabled) {
-            return 0;
-        }
-        // checks if a negative number
-        if (reserveImpact < 0) {
-            revert ErrorsLib.InvalidInput(reserveImpact);
-
-            // else if reserve exceeds target after deposit no swing factor is applied
-        } else if (uint256(reserveImpact) >= targetReserveRatio) {
-            return 0;
-
-            // else swing factor is applied
-        } else {
-            SD59x18 reserveImpactSd = sd(int256(reserveImpact));
-
-            SD59x18 result = maxDiscountSD * exp(scalingFactorSD.mul(reserveImpactSd).div(targetReserveRatioSD));
-
-            return uint256(result.unwrap());
-        }
-    }
-
-    function enableSwingPricing(bool status_, address pricer_) public /*onlyOwner*/ {
+    function enableSwingPricing(bool status_, address pricer_, uint256 maxDiscount_) public /*onlyOwner*/ {
         swingPricingEnabled = status_;
         pricer = ISwingPricingV1(pricer_);
+        maxDiscount = maxDiscount_;
 
         emit EventsLib.SwingPricingStatusUpdated(status_);
     }

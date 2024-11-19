@@ -5,39 +5,16 @@ import {Test, console2} from "forge-std/Test.sol";
 import {BaseTest} from "../BaseTest.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
+import {SwingPricingV1} from "src/pricers/SwingPricingV1.sol";
 
 import {Node, ComponentAllocation} from "src/Node.sol";
 
-contract Harness is Node {
-    constructor(address _asset, address _rebalancer, address owner)
-        Node(
-            address(1),
-            "Test Node",
-            "TNODE",
-            _asset,
-            address(0),
-            owner,
-            _rebalancer,
-            new address[](0),
-            new address[](0),
-            new ComponentAllocation[](0),
-            ComponentAllocation(0)
-        )
-    {}
-
-    function getSwingFactor(int256 reserveImpact) public view returns (uint256 swingFactor) {
-        return _getSwingFactor(reserveImpact);
-    }
-}
-
 contract VaultTests is BaseTest {
-    Harness harness;
+    SwingPricingV1 mockPricer;
 
     function setUp() public override {
         super.setUp();
-        harness = new Harness(address(asset), address(rebalancer), address(owner));
-        vm.prank(owner);
-        harness.transferOwnership(address(owner));
+        mockPricer = new SwingPricingV1(address(1));
     }
 
     function test_VaultTests_depositAndRedeem() public {
@@ -121,45 +98,42 @@ contract VaultTests is BaseTest {
     }
 
     function test_VaultTests_getSwingFactor() public {
-        // assert swing pricing returns zero when not enabled
-        vm.assertFalse(harness.swingPricingEnabled());
-        vm.assertEq(harness.getSwingFactor(1e16), 0);
+        uint256 maxDiscount = 2e16;
+        uint256 targetReserveRatio = 10e16;
 
-        // assert enable swing pricing returns a value
-        vm.prank(owner);
-        harness.enableSwingPricing(true, address(deployer.pricer()));
-        vm.assertTrue(harness.swingPricingEnabled());
-        vm.assertGt(harness.getSwingFactor(1e16), 0);
+        vm.assertGt(mockPricer.getSwingFactor(1e16, maxDiscount, targetReserveRatio), 0);
 
-        // todo add selector
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidInput.selector, -1e16));
-        harness.getSwingFactor(-1e16);
+        mockPricer.getSwingFactor(-1e16, maxDiscount, targetReserveRatio);
 
         // assert swing factor is zero if reserve target is met
-        uint256 swingFactor = harness.getSwingFactor(int256(harness.targetReserveRatio()));
+        uint256 swingFactor = mockPricer.getSwingFactor(int256(targetReserveRatio), maxDiscount, targetReserveRatio);
         assertEq(swingFactor, 0);
 
         // assert swing factor is zero if reserve target is exceeded
-        swingFactor = harness.getSwingFactor(int256(harness.targetReserveRatio()) + 1e16);
+        swingFactor = mockPricer.getSwingFactor(int256(targetReserveRatio) + 1e16, maxDiscount, targetReserveRatio);
         assertEq(swingFactor, 0);
 
         // assert that swing factor approaches maxDiscount when reserve approaches zero
         int256 minReservePossible = 1;
-        swingFactor = harness.getSwingFactor(minReservePossible);
-        assertEq(swingFactor, harness.maxDiscount() - 1);
+        swingFactor = mockPricer.getSwingFactor(minReservePossible, maxDiscount, targetReserveRatio);
+        assertEq(swingFactor, maxDiscount - 1);
 
         // assert that swing factor is very small when reserve approaches target
-        int256 maxReservePossible = int256(harness.targetReserveRatio()) - 1;
-        swingFactor = harness.getSwingFactor(maxReservePossible);
+        int256 maxReservePossible = int256(targetReserveRatio) - 1;
+        swingFactor = mockPricer.getSwingFactor(maxReservePossible, maxDiscount, targetReserveRatio);
         assertGt(swingFactor, 0);
         assertLt(swingFactor, 1e15); // 0.1%
     }
 
-    function test_VaultTests_swingPriceDeposit() public {
+    function test_VaultTests_swingPriceDeposit() public {        
         _userDeposits(user, 100 ether);
 
+        // set max discount for swing pricing
+        uint256 maxDiscount = 2e16;
+
         vm.prank(owner);
-        node.enableSwingPricing(true, address(deployer.pricer()));
+        node.enableSwingPricing(true, address(deployer.pricer()), maxDiscount);
 
         vm.prank(address(node));
         asset.approve(address(vault), type(uint256).max); // @bug approval required by node
@@ -261,9 +235,12 @@ contract VaultTests is BaseTest {
         asset.transfer(0x000000000000000000000000000000000000dEaD, asset.balanceOf(user2));
         vm.stopPrank();
 
+        // set max discount for swing pricing
+        uint256 maxDiscount = 2e16;
+        
         // enable swing pricing
-        vm.prank(owner);
-        node.enableSwingPricing(true, address(deployer.pricer()));
+        vm.prank(owner);        
+        node.enableSwingPricing(true, address(deployer.pricer()), maxDiscount);
 
         // assert user2 has zero usdc balance
         assertEq(asset.balanceOf(user2), 0);

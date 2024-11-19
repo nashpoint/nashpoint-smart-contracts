@@ -5,6 +5,7 @@ import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {BasePricer} from "src/libraries/BasePricer.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
 // temp
 import {console2} from "forge-std/Test.sol";
@@ -16,6 +17,11 @@ interface ISwingPricingV1 {
         uint256 totalAssets,
         uint256 deposit
     ) external pure returns (int256);
+
+    function getSwingFactor(int256 reserveImpact, uint256 maxDiscount, uint256 targetReserveRatio)
+        external
+        pure
+        returns (uint256);
 }
 
 /// @title SwingPricing
@@ -100,5 +106,29 @@ contract SwingPricingV1 is BasePricer, ISwingPricingV1 {
         console2.log("reserveImpact : ", reserveImpact / 1e16);
 
         return int256(reserveImpact);
+    }
+
+    function getSwingFactor(int256 reserveImpact, uint256 maxDiscount, uint256 targetReserveRatio)
+        external
+        pure
+        returns (uint256 swingFactor)
+    {
+        // checks if a negative number
+        if (reserveImpact < 0) {
+            revert ErrorsLib.InvalidInput(reserveImpact);
+
+            // else if reserve exceeds target after deposit no swing factor is applied
+        } else if (uint256(reserveImpact) >= targetReserveRatio) {
+            return 0;
+
+            // else swing factor is applied
+        } else {
+            SD59x18 reserveImpactSd = sd(int256(reserveImpact));
+
+            SD59x18 result = sd(int256(maxDiscount))
+                * exp(sd(SCALING_FACTOR).mul(reserveImpactSd).div(sd(int256(targetReserveRatio))));
+
+            return uint256(result.unwrap());
+        }
     }
 }
