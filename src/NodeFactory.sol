@@ -5,13 +5,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Escrow} from "./Escrow.sol";
 import {Node} from "./Node.sol";
-import {QueueManager} from "./QueueManager.sol";
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {INodeFactory} from "./interfaces/INodeFactory.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
-import {IQueueManager} from "./interfaces/IQueueManager.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
@@ -42,10 +40,7 @@ contract NodeFactory is INodeFactory {
         ComponentAllocation[] memory componentAllocations,
         ComponentAllocation memory reserveAllocation,
         bytes32 salt
-    )
-        external
-        returns (INode node, IEscrow escrow, IQueueManager manager)
-    {
+    ) external returns (INode node, IEscrow escrow) {
         node = createNode(
             name,
             symbol,
@@ -60,8 +55,7 @@ contract NodeFactory is INodeFactory {
             salt
         );
         escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
-        manager = IQueueManager(address(new QueueManager{salt: salt}(address(node))));
-        node.initialize(address(escrow), address(manager));
+        node.initialize(address(escrow));
         Ownable(address(node)).transferOwnership(owner);
     }
 
@@ -79,13 +73,13 @@ contract NodeFactory is INodeFactory {
         ComponentAllocation memory reserveAllocation,
         bytes32 salt
     ) public returns (INode node) {
-        if (asset == address(0) || owner == address(0) || quoter == address(0) || rebalancer == address(0))
+        if (asset == address(0) || owner == address(0) || quoter == address(0) || rebalancer == address(0)) {
             revert ErrorsLib.ZeroAddress();
+        }
         if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
         if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
         if (components.length != componentAllocations.length) revert ErrorsLib.LengthMismatch();
 
-        
         if (!registry.isQuoter(quoter)) revert ErrorsLib.NotRegistered();
         if (!registry.isRebalancer(rebalancer)) revert ErrorsLib.NotRegistered();
         for (uint256 i = 0; i < routers.length; i++) {
@@ -111,14 +105,6 @@ contract NodeFactory is INodeFactory {
         );
 
         registry.addNode(address(node));
-        emit EventsLib.CreateNode(
-            address(node),
-            asset,
-            name,
-            symbol,
-            owner,
-            rebalancer,
-            salt
-        );
+        emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, rebalancer, salt);
     }
 }

@@ -3,13 +3,10 @@ pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575} from "./IERC7575.sol";
-import {IERC7540} from "./IERC7540.sol";
-import {IQueueManager} from "./IQueueManager.sol";
+import {IERC7540Redeem} from "./IERC7540.sol";
 import {IQuoter} from "./IQuoter.sol";
 
 struct ComponentAllocation {
-    uint256 minimumWeight;
-    uint256 maximumWeight;
     uint256 targetWeight;
 }
 
@@ -17,7 +14,7 @@ struct ComponentAllocation {
  * @title INode
  * @author ODND Studios
  */
-interface INode is IERC20Metadata, IERC7540, IERC7575 {
+interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     event DepositClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
     event RedeemClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
 
@@ -38,9 +35,6 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
 
     /// @notice Sets the escrow
     function setEscrow(address newEscrow) external;
-
-    /// @notice Sets the manager
-    function setManager(address newManager) external;
 
     /// @notice Sets the quoter
     function setQuoter(address newQuoter) external;
@@ -63,17 +57,8 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @notice Callback when a redeem request becomes claimable
     function onRedeemClaimable(address controller, uint256 assets, uint256 shares) external;
 
-    /// @notice Function for the QueueManager to mint tokens
-    function mint(address user, uint256 value) external;
-
-    /// @notice Function for the QueueManager to burn tokens
-    function burn(address user, uint256 value) external;
-
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
-
-    /// @notice Returns the manager
-    function manager() external view returns (IQueueManager);
 
     /// @notice Returns whether the node has been initialized
     function isInitialized() external view returns (bool);
@@ -83,8 +68,7 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
 
     /// @notice Initializes the Node with escrow and manager contracts
     /// @param escrow_ The address of the escrow contract
-    /// @param manager_ The address of the queue manager contract
-    function initialize(address escrow_, address manager_) external;
+    function initialize(address escrow_) external;
 
     /// @notice Adds a new component to the node
     /// @param component The address of the component to add
@@ -113,6 +97,23 @@ interface INode is IERC20Metadata, IERC7540, IERC7575 {
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
 
-    /// @notice Approves the QueueManager to transfer assets from Node to Escrow
-    function approveQueueManager() external;
+    /// @notice Fulfill a redeem request from the reserve
+    /// @param user The address of the user to redeem for
+    function fulfillRedeemFromReserve(address user) external;
+
+    /// @notice Returns the pending redeem request for a user
+    /// @param user The address of the user to check
+    /// @return uint256 The pending redeem request
+    function pendingRedeemRequest(uint256, address user) external view returns (uint256);
+
+    /// @notice Enables swing pricing
+    function enableSwingPricing(bool enabled, address pricer, uint256 maxDiscount) external;
+
+    /// @notice Returns the target reserve ratio
+    function targetReserveRatio() external view returns (uint256);
+
+    /// @notice Converts assets to shares
+    /// @param assets The amount of assets to convert
+    /// @return shares The amount of shares received
+    function convertToShares(uint256 assets) external view returns (uint256);
 }

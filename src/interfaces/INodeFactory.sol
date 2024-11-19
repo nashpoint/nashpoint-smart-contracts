@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import {IEscrow} from "./IEscrow.sol";
 import {INode, ComponentAllocation} from "./INode.sol";
-import {IQueueManager} from "./IQueueManager.sol";
 
 /**
  * @title INodeFactory
@@ -24,7 +23,6 @@ interface INodeFactory {
     /// @param salt The salt to use for CREATE2 deployment
     /// @return node The deployed Node contract
     /// @return escrow The deployed Escrow contract
-    /// @return manager The deployed QueueManager contract
     function deployFullNode(
         string memory name,
         string memory symbol,
@@ -37,7 +35,7 @@ interface INodeFactory {
         ComponentAllocation[] memory componentAllocations,
         ComponentAllocation memory reserveAllocation,
         bytes32 salt
-    ) external returns (INode node, IEscrow escrow, IQueueManager manager);
+    ) external returns (INode node, IEscrow escrow);
 
     /// @notice Creates a new node contract
     /// @param name The ERC20 name of the vault

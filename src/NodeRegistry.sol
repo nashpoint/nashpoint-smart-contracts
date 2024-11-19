@@ -154,12 +154,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
     /// @inheritdoc INodeRegistry
     function isSystemContract(address contract_) external view returns (bool) {
         return (
-            isNode[contract_] ||
-            isFactory[contract_] ||
-            isRouter[contract_] ||
-            isQuoter[contract_] ||
-            isRebalancer[contract_] ||
-            contract_ == address(this)
+            isNode[contract_] || isFactory[contract_] || isRouter[contract_] || isQuoter[contract_]
+                || isRebalancer[contract_] || contract_ == address(this)
         );
     }
 }

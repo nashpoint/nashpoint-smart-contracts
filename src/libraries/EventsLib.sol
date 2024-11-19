@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import { ComponentAllocation } from "../interfaces/INode.sol";
+import {ComponentAllocation} from "../interfaces/INode.sol";
 
 /// @title EventsLib
 /// @author ODND Studios
@@ -17,13 +17,7 @@ library EventsLib {
 
     /// @notice Emitted when a node is created
     event CreateNode(
-        address indexed node,
-        address asset,
-        string name,
-        string symbol,
-        address owner,
-        address rebalancer,
-        bytes32 salt
+        address indexed node, address asset, string name, string symbol, address owner, address rebalancer, bytes32 salt
     );
 
     /// @notice Emitted when a Rebalancer executes an external call.
@@ -79,13 +73,13 @@ library EventsLib {
 
     /// @notice Emitted when a component is added to a node
     event ComponentAdded(address indexed node, address indexed component, ComponentAllocation allocation);
-    
+
     /// @notice Emitted when a component is removed from a node
     event ComponentRemoved(address indexed node, address indexed component);
-    
+
     /// @notice Emitted when a component's allocation is updated
     event ComponentAllocationUpdated(address indexed node, address indexed component, ComponentAllocation allocation);
-    
+
     /// @notice Emitted when the reserve allocation is updated
     event ReserveAllocationUpdated(address indexed node, ComponentAllocation allocation);
 
@@ -100,4 +94,7 @@ library EventsLib {
 
     /// @notice Emitted when a redeem is claimable
     event RedeemClaimable(address indexed controller, uint256 requestId, uint256 assets, uint256 shares);
-}   
+
+    /// @notice Emitted when swing pricing is enabled or disabled
+    event SwingPricingStatusUpdated(bool status);
+}

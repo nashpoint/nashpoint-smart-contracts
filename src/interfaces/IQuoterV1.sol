@@ -9,10 +9,7 @@ interface IQuoterV1 is IQuoter {
     /// @notice Initializes the quoter with component classifications
     /// @param erc4626Components_ Array of ERC4626 component addresses
     /// @param erc7540Components_ Array of ERC7540 component addresses
-    function initialize(
-        address[] memory erc4626Components_,
-        address[] memory erc7540Components_
-    ) external;
+    function initialize(address[] memory erc4626Components_, address[] memory erc7540Components_) external;
 
     /// @notice Sets whether a component is an ERC4626 vault
     /// @param component The component address

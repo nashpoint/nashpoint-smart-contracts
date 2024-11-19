@@ -72,3 +72,37 @@ Run the test suite locally with anvil:
 ```
 forge test
 ```
+
+#### Deploy Locally for Front End Testing
+Set up .env values for $RPC_URL & $PRIVATE_KEY: 
+
+```
+# FOUNDRY CONFIG
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+RPC_URL="http://127.0.0.1:8545"
+```
+Note: this is a standard foundry private key and not secure in any way
+
+On the CLI run:
+```
+source .env
+```
+
+Activate Anvil (local blockchain)
+```
+anvil
+```
+
+Run Deploy Script:
+```
+forge script script/DeployTestEnv.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast 
+```
+
+Generate ABI:
+```
+forge inspect Node abi
+```
+
+
+
+
