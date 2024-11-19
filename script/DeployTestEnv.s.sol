@@ -12,11 +12,11 @@ import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 
 contract DeployTestEnv is Script {
     bytes32 public constant SALT = bytes32(uint256(1));
-    
+
     function run() external {
         // Get deployer address
         address deployer = vm.addr(vm.envUint("TESTNET_PRIVATE_KEY"));
-        
+
         vm.startBroadcast();
 
         // Deploy core contracts
