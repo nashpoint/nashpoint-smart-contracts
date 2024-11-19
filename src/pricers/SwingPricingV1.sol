@@ -4,23 +4,36 @@ pragma solidity 0.8.26;
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import {BasePricer} from "src/libraries/BasePricer.sol";
 
 // temp
 import {console2} from "forge-std/Test.sol";
 
+interface ISwingPricingV1 {
+    function calculateReserveImpact(
+        uint256 targetReserveRatio,
+        uint256 reserveCash,
+        uint256 totalAssets,
+        uint256 deposit
+    ) external pure returns (int256);
+}
+
 /// @title SwingPricing
 /// @notice Library for calculating swing pricing.
-library SwingPricing {
+contract SwingPricingV1 is BasePricer, ISwingPricingV1 {
     // Constants
     int256 public constant SCALING_FACTOR = -5e18;
     uint256 public constant WAD = 1e18;
+
+    /* CONSTRUCTOR */
+    constructor(address registry_) BasePricer(registry_) {}
 
     function calculateReserveImpact(
         uint256 targetReserveRatio,
         uint256 reserveCash,
         uint256 totalAssets,
         uint256 deposit
-    ) internal pure returns (int256) {
+    ) external pure returns (int256) {
         // note: do happy path first then edge cases at each step
 
         console2.log("targetReserveRatio: ", targetReserveRatio / 1e16);

@@ -127,7 +127,7 @@ contract VaultTests is BaseTest {
 
         // assert enable swing pricing returns a value
         vm.prank(owner);
-        harness.enableSwingPricing(true);
+        harness.enableSwingPricing(true, address(deployer.pricer()));
         vm.assertTrue(harness.swingPricingEnabled());
         vm.assertGt(harness.getSwingFactor(1e16), 0);
 
@@ -159,7 +159,7 @@ contract VaultTests is BaseTest {
         _userDeposits(user, 100 ether);
 
         vm.prank(owner);
-        node.enableSwingPricing(true);
+        node.enableSwingPricing(true, address(deployer.pricer()));
 
         vm.prank(address(node));
         asset.approve(address(vault), type(uint256).max); // @bug approval required by node
@@ -263,7 +263,7 @@ contract VaultTests is BaseTest {
 
         // enable swing pricing
         vm.prank(owner);
-        node.enableSwingPricing(true);
+        node.enableSwingPricing(true, address(deployer.pricer()));
 
         // assert user2 has zero usdc balance
         assertEq(asset.balanceOf(user2), 0);

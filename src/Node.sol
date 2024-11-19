@@ -16,7 +16,7 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
-import {SwingPricing} from "./libraries/SwingPricing.sol";
+import {ISwingPricingV1} from "./pricers/SwingPricingV1.sol";
 
 // temp import prb math
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
@@ -62,6 +62,7 @@ contract Node is INode, ERC20, Ownable {
     uint256 public sharesExiting;
 
     IQuoter public quoter;
+    ISwingPricingV1 public pricer;
     address public escrow;
     mapping(address => mapping(address => bool)) public isOperator;
 
@@ -303,9 +304,10 @@ contract Node is INode, ERC20, Ownable {
         }
 
         // Handle initial deposit separately to avoid divide by zero
+        // This is the first deposit OR !swingPricingEnabled
         uint256 sharesToMint;
-        if (totalAssets() == 0 && totalSupply() == 0) {
-            // This is the first deposit
+        if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
+            
             sharesToMint = convertToShares(assets);
             _deposit(_msgSender(), receiver, assets, sharesToMint);
             return sharesToMint;
@@ -314,7 +316,7 @@ contract Node is INode, ERC20, Ownable {
         uint256 reserveCash = IERC20(asset).balanceOf(address(this));
 
         int256 reserveImpact =
-            int256(SwingPricing.calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets(), assets));
+            int256(pricer.calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets(), assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets = MathLib.mulDiv(assets, (WAD + _getSwingFactor(reserveImpact)), WAD);
@@ -620,9 +622,10 @@ contract Node is INode, ERC20, Ownable {
         }
     }
 
-    function enableSwingPricing(bool status) public onlyOwner {
-        swingPricingEnabled = status;
+    function enableSwingPricing(bool status_, address pricer_) public /*onlyOwner*/ {
+        swingPricingEnabled = status_;
+        pricer = ISwingPricingV1(pricer_);
 
-        emit EventsLib.SwingPricingStatusUpdated(status);
+        emit EventsLib.SwingPricingStatusUpdated(status_);
     }
 }

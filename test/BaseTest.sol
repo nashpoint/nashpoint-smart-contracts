@@ -16,6 +16,7 @@ import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
+import {ISwingPricingV1} from "src/pricers/SwingPricingV1.sol";
 
 import {MathLib} from "src/libraries/MathLib.sol";
 
@@ -28,6 +29,7 @@ contract BaseTest is Test {
     INodeRegistry public registry;
     INodeFactory public factory;
     IQuoterV1 public quoter;
+    ISwingPricingV1 public pricer;
     ERC4626Router public router4626;
 
     INode public node;
@@ -43,7 +45,7 @@ contract BaseTest is Test {
     address public rebalancer;
     address public vaultSeeder;
 
-    uint256 public constant INITIAL_BALANCE = 1000000 ether;
+    uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
     function setUp() public virtual {
@@ -63,6 +65,7 @@ contract BaseTest is Test {
         registry = INodeRegistry(address(deployer.registry()));
         factory = INodeFactory(address(deployer.factory()));
         quoter = IQuoterV1(address(deployer.quoter()));
+        pricer = ISwingPricingV1(address(deployer.pricer()));
         router4626 = deployer.erc4626router();
 
         asset = new ERC20Mock("Test Token", "TEST");
