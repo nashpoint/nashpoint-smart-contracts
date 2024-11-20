@@ -188,6 +188,14 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetQuoter(newQuoter);
     }
 
+    function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
+        swingPricingEnabled = status_;
+        pricer = ISwingPricingV1(pricer_);
+        maxSwingFactor = maxSwingFactor_;
+
+        emit EventsLib.SwingPricingStatusUpdated(status_);
+    }
+
     /* REBALANCER FUNCTIONS */
     function execute(address target, uint256 value, bytes calldata data) external onlyRouter returns (bytes memory) {
         /// todo: change this so that execute calls the router
@@ -390,18 +398,6 @@ contract Node is INode, ERC20, Ownable {
         onRedeemClaimable(controller, assetsToReturn, sharesPending);
     }
 
-    function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
-        swingPricingEnabled = status_;
-        pricer = ISwingPricingV1(pricer_);
-        maxSwingFactor = maxSwingFactor_;
-
-        emit EventsLib.SwingPricingStatusUpdated(status_);
-    }
-
-    function targetReserveRatio() public view returns (uint256) {
-        return reserveAllocation.targetWeight;
-    }
-
     /* INTERNAL */
     function _processDeposit(Request storage request, uint256 sharesUp, uint256 sharesDown, address receiver)
         internal
@@ -462,6 +458,10 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* VIEW FUNCTIONS */
+    function targetReserveRatio() public view returns (uint256) {
+        return reserveAllocation.targetWeight;
+    }
+
     function pricePerShare() external view returns (uint256) {
         return convertToAssets(10 ** decimals());
     }
