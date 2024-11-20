@@ -29,8 +29,7 @@ contract Node is INode, ERC20, Ownable {
 
     // TEMP swing pricing contstants
     //  percentages: 1e18 == 100%
-    uint256 public maxDiscount;
-    uint256 public targetReserveRatio = 10e16;
+    uint256 public maxDiscount;    
     uint256 public maxDelta = 1e16;
     uint256 public asyncMaxDelta = 3e16;
     bool public instantLiquidationsEnabled = true; // i think this is dumb too
@@ -234,7 +233,7 @@ contract Node is INode, ERC20, Ownable {
         uint256 adjustedAssets;
         if (swingPricingEnabled) {
             adjustedAssets = MathLib.mulDiv(
-                assets, (WAD - pricer.getSwingFactor(reserveRatioAfterTX, maxDiscount, targetReserveRatio)), WAD
+                assets, (WAD - pricer.getSwingFactor(reserveRatioAfterTX, maxDiscount, reserveAllocation.targetWeight)), WAD
             );
         } else {
             adjustedAssets = assets;
@@ -312,11 +311,11 @@ contract Node is INode, ERC20, Ownable {
         uint256 reserveCash = IERC20(asset).balanceOf(address(this));
 
         int256 reserveImpact =
-            int256(pricer.calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets(), assets));
+            int256(pricer.calculateReserveImpact(reserveAllocation.targetWeight, reserveCash, totalAssets(), assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets =
-            MathLib.mulDiv(assets, (WAD + pricer.getSwingFactor(reserveImpact, maxDiscount, targetReserveRatio)), WAD);
+            MathLib.mulDiv(assets, (WAD + pricer.getSwingFactor(reserveImpact, maxDiscount, reserveAllocation.targetWeight)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
         sharesToMint = convertToShares(adjustedAssets);
@@ -384,7 +383,7 @@ contract Node is INode, ERC20, Ownable {
         // -- will revert if withdawal will reduce reserve below target ratio
         // -- if passes, it demonstrate that withdrawal amount < total reserve balance
         if (!liquidateReserveBelowTarget) {
-            if (reserveRatioAfterTx < targetReserveRatio) {
+            if (reserveRatioAfterTx < reserveAllocation.targetWeight) {
                 revert ErrorsLib.ExceedsAvailableReserve();
             }
         }
@@ -533,6 +532,18 @@ contract Node is INode, ERC20, Ownable {
         emit Deposit(caller, receiver, assets, shares);
     }
 
+    function enableSwingPricing(bool status_, address pricer_, uint256 maxDiscount_) public /*onlyOwner*/ {
+        swingPricingEnabled = status_;
+        pricer = ISwingPricingV1(pricer_);
+        maxDiscount = maxDiscount_;
+
+        emit EventsLib.SwingPricingStatusUpdated(status_);
+    }
+
+    function targetReserveRatio() public view returns(uint256) {
+        return reserveAllocation.targetWeight;
+    }
+
     /*//////////////////////////////////////////////////////////////
                         DECIMAL CONVERSION FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -597,11 +608,5 @@ contract Node is INode, ERC20, Ownable {
     //     nodeDecimals = decimals();
     // }
 
-    function enableSwingPricing(bool status_, address pricer_, uint256 maxDiscount_) public /*onlyOwner*/ {
-        swingPricingEnabled = status_;
-        pricer = ISwingPricingV1(pricer_);
-        maxDiscount = maxDiscount_;
-
-        emit EventsLib.SwingPricingStatusUpdated(status_);
-    }
+    
 }
