@@ -6,23 +6,35 @@ import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {NodeFactory} from "src/NodeFactory.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 import {QuoterV1} from "src/quoters/QuoterV1.sol";
+import {SwingPricingV1} from "src/pricers/SwingPricingV1.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
+import {IEscrow} from "src/interfaces/IEscrow.sol";
 
 contract DeployTestEnv is Script {
     bytes32 public constant SALT = bytes32(uint256(1));
-
+    address owner;
+    address user;
+    address user2;
+    address user3;
+    
     function run() external {
         // Get deployer address
-        address deployer = vm.addr(vm.envUint("TESTNET_PRIVATE_KEY"));
-
+        address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
+        address rebalancer = makeAddr("rebalancer");  
+        owner = makeAddr("owner");
+        user = makeAddr("user");    
+        user2 = makeAddr("user2");
+        user3 = makeAddr("user3");
+        
         vm.startBroadcast();
 
         // Deploy core contracts
         NodeRegistry registry = new NodeRegistry(deployer);
         NodeFactory factory = new NodeFactory(address(registry));
         QuoterV1 quoter = new QuoterV1(address(registry));
+        SwingPricingV1 pricer = new SwingPricingV1(address(registry));
         ERC4626Router router = new ERC4626Router(address(registry));
 
         // Deploy test tokens
@@ -34,7 +46,7 @@ contract DeployTestEnv is Script {
             _toArray(address(factory)),
             _toArray(address(router)),
             _toArray(address(quoter)),
-            _toArray(address(deployer)) // deployer as rebalancer
+            _toArray(address(rebalancer)) 
         );
 
         // Configure components
@@ -42,12 +54,12 @@ contract DeployTestEnv is Script {
         router.setWhitelistStatus(address(vault), true);
 
         // Deploy node
-        (INode node,) = factory.deployFullNode(
+        (INode node, ) = factory.deployFullNode(
             "Test Node",
             "TNODE",
             address(asset),
             deployer,
-            deployer, // deployer as rebalancer
+            rebalancer, 
             address(quoter),
             _toArray(address(router)),
             _toArray(address(vault)),
@@ -56,7 +68,16 @@ contract DeployTestEnv is Script {
             SALT
         );
 
-        vm.stopBroadcast();
+        node.enableSwingPricing(true, address(pricer), 2e16);
+
+        // Fund test addresses
+        asset.mint(owner, 1000000 ether);
+        asset.mint(user, 1000000 ether);
+        asset.mint(user2, 1000000 ether);
+        asset.mint(user3, 1000000 ether);  
+        asset.mint(deployer, 1000000 ether);        
+            
+        vm.stopBroadcast();         
     }
 
     function _toArray(address addr) internal pure returns (address[] memory arr) {
