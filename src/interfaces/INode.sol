@@ -25,13 +25,13 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function escrow() external view returns (address);
 
     /// @notice The address of the quoter
-    function quoter() external view returns (IQuoter);
-
-    /// @notice The address of the rebalancer
-    function rebalancer() external view returns (address);
+    function quoter() external view returns (IQuoter);    
 
     /// @notice Returns if an address is a router
     function isRouter(address) external view returns (bool);
+
+    /// @notice Returns if an address is a rebalancer
+    function isRebalancer(address) external view returns (bool);
 
     /// @notice Sets the escrow
     function setEscrow(address newEscrow) external;
@@ -39,8 +39,11 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Sets the quoter
     function setQuoter(address newQuoter) external;
 
-    /// @notice Sets the rebalancer
-    function setRebalancer(address newRebalancer) external;
+    /// @notice Adds a rebalancer
+    function addRebalancer(address newRebalancer) external;
+
+    /// @notice Removes a rebalancer
+    function removeRebalancer(address oldRebalancer) external;
 
     /// @notice Adds a router
     function addRouter(address newRouter) external;

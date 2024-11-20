@@ -54,10 +54,7 @@ library EventsLib {
     event NodeAdded(address indexed node);
 
     /// @notice Emitted when `node` is removed.
-    event NodeRemoved(address indexed node);
-
-    /// @notice Emitted when a rebalancer is set on a node
-    event SetRebalancer(address indexed rebalancer);
+    event NodeRemoved(address indexed node);    
 
     /// @notice Emitted when a rebalancer is added to node registry
     event RebalancerAdded(address indexed rebalancer);
