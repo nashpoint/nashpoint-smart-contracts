@@ -25,38 +25,35 @@ contract NodeFactoryTest is BaseTest {
     bytes32 constant TEST_SALT = bytes32(uint256(1));
 
     function getTestReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({            
-            targetWeight: 0.5 ether
-        });
+        return ComponentAllocation({targetWeight: 0.5 ether});
     }
 
-    function getTestComponentAllocations(uint256 count) internal pure returns (ComponentAllocation[] memory allocations) {
+    function getTestComponentAllocations(uint256 count)
+        internal
+        pure
+        returns (ComponentAllocation[] memory allocations)
+    {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({                
-                targetWeight: 0.5 ether
-            });
+            allocations[i] = ComponentAllocation({targetWeight: 0.5 ether});
         }
     }
 
     function setUp() public override {
         super.setUp();
-        
+
         testAsset = makeAddr("testAsset");
         testQuoter = makeAddr("testQuoter");
         testRouter = makeAddr("testRouter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = makeAddr("testComponent");
-        
+
         testRegistry = new NodeRegistry(owner);
         testFactory = new NodeFactory(address(testRegistry));
 
         vm.startPrank(owner);
         testRegistry.initialize(
-            _toArray(address(testFactory)),
-            _toArray(testRouter),
-            _toArray(testQuoter),
-            _toArray(testRebalancer)
+            _toArray(address(testFactory)), _toArray(testRouter), _toArray(testQuoter), _toArray(testRebalancer)
         );
         vm.stopPrank();
 
@@ -71,15 +68,7 @@ contract NodeFactoryTest is BaseTest {
 
     function test_createNode() public {
         vm.expectEmit(false, true, true, true);
-        emit EventsLib.CreateNode(
-            address(0),
-            testAsset,
-            TEST_NAME,
-            TEST_SYMBOL,
-            owner,
-            testRebalancer,
-            TEST_SALT
-        );
+        emit EventsLib.CreateNode(address(0), testAsset, TEST_NAME, TEST_SYMBOL, owner, testRebalancer, TEST_SALT);
 
         INode node = testFactory.createNode(
             TEST_NAME,
@@ -126,13 +115,13 @@ contract NodeFactoryTest is BaseTest {
 
         assertTrue(testRegistry.isNode(address(node)));
         assertEq(Ownable(address(node)).owner(), owner);
-        assertEq(address(node.escrow()), address(escrow));        
+        assertEq(address(node.escrow()), address(escrow));
     }
 
     function test_constructor_revert_ZeroAddress() public {
-    vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-    new NodeFactory(address(0));
-}
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        new NodeFactory(address(0));
+    }
 
     function test_createNode_revert_ZeroAddress() public {
         // Test zero asset address
@@ -183,7 +172,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SALT
         );
 
-        // Test zero rebalancer address     
+        // Test zero rebalancer address
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         testFactory.createNode(
             TEST_NAME,
@@ -293,7 +282,7 @@ contract NodeFactoryTest is BaseTest {
         // Test unregistered rebalancer
         address unregisteredRebalancer = makeAddr("unregisteredRebalancer");
         vm.expectRevert(ErrorsLib.NotRegistered.selector);
-        testFactory.createNode(             
+        testFactory.createNode(
             TEST_NAME,
             TEST_SYMBOL,
             testAsset,
