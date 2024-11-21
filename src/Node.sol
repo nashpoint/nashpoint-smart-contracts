@@ -46,7 +46,7 @@ contract Node is INode, ERC20, Ownable {
     address public escrow;
     mapping(address => mapping(address => bool)) public isOperator;
 
-    address public rebalancer; // todo: make this a mapping
+    mapping(address => bool) public isRebalancer;
     mapping(address => bool) public isRouter;
 
     uint256 public maxSwingFactor;
@@ -86,7 +86,7 @@ contract Node is INode, ERC20, Ownable {
         asset = asset_;
         share = address(this);
         quoter = IQuoter(quoter_);
-        rebalancer = rebalancer_;
+        isRebalancer[rebalancer_] = true;
         _setReserveAllocation(reserveAllocation_);
         _setRouters(routers);
         _setInitialComponents(components_, componentAllocations_);
@@ -99,7 +99,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     modifier onlyRebalancer() {
-        if (msg.sender != rebalancer) revert ErrorsLib.InvalidSender();
+        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
@@ -167,11 +167,17 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.RemoveRouter(oldRouter);
     }
 
-    function setRebalancer(address newRebalancer) external onlyOwner {
-        if (newRebalancer == rebalancer) revert ErrorsLib.AlreadySet();
+    function addRebalancer(address newRebalancer) external onlyOwner {
+        if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
         if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
-        rebalancer = newRebalancer;
-        emit EventsLib.SetRebalancer(newRebalancer);
+        isRebalancer[newRebalancer] = true;
+        emit EventsLib.RebalancerAdded(newRebalancer);
+    }
+
+    function removeRebalancer(address oldRebalancer) external onlyOwner {
+        if (!isRebalancer[oldRebalancer]) revert ErrorsLib.NotSet();
+        isRebalancer[oldRebalancer] = false;
+        emit EventsLib.RebalancerRemoved(oldRebalancer);
     }
 
     function setEscrow(address newEscrow) external onlyOwner {

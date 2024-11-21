@@ -36,7 +36,7 @@ contract BaseRouter is IBaseRouter {
     /// @dev Reverts if the caller is not a rebalancer for the node
     modifier onlyNodeRebalancer(address node) {
         if (!registry.isNode(node)) revert ErrorsLib.InvalidNode();
-        if (msg.sender != INode(node).rebalancer()) revert ErrorsLib.NotRebalancer();
+        if (!INode(node).isRebalancer(msg.sender)) revert ErrorsLib.NotRebalancer();
         _;
     }
 
