@@ -12,7 +12,6 @@ NashPoint enables flexible deployment of investment nodes that can manage positi
 - **NodeRegistry**: Central registry that manages system-wide permissions for factories, routers, quoters, and rebalancers, ensuring secure access control across the protocol.
 - **NodeFactory**: Handles the deployment of new Node instances and their associated contracts.
 - **Escrow**: Securely holds assets during pending deposit and redemption operations.
-- **QueueManager**: Handles the deposit and redemption queue logic, tracking pending requests and managing claim windows.
 
 - **Routers**: Specialized contracts that execute operations on component vaults:
   - ERC4626Router: Manages interactions with standard ERC4626 vaults
