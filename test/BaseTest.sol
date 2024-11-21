@@ -95,6 +95,8 @@ contract BaseTest is Test {
             _defaultReserveAllocation(),
             SALT
         );
+
+        escrow.approveMax(address(asset), address(node));
         vm.stopPrank();
 
         deal(address(asset), user, INITIAL_BALANCE);

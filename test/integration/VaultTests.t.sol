@@ -65,9 +65,6 @@ contract VaultTests is BaseTest {
         assertEq(node.totalSupply(), node.convertToShares(1000 ether));
         assertEq(asset.balanceOf(address(escrow)), 100 ether);
 
-        vm.prank(address(escrow));
-        asset.approve(address(node), 100 ether); // @bug approval required by escrow
-
         vm.prank(user);
         node.withdraw(100 ether, user, user);
 
@@ -247,9 +244,6 @@ contract VaultTests is BaseTest {
         node.fulfillRedeemFromReserve(user2);
 
         uint256 maxWithdraw = node.maxWithdraw(address(user2));
-
-        vm.prank(address(escrow));
-        asset.approve(address(node), maxWithdraw); // @bug should not need approval
 
         // user 2 withdraws max assets
         vm.prank(user2);
