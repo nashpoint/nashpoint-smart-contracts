@@ -67,12 +67,9 @@ contract DeployTestEnv is Script {
         // Fund test addresses
         asset.mint(user, 1000000 ether);
         asset.mint(deployer, 1000000 ether);
-
         asset.approve(address(node), type(uint256).max);
         node.deposit(1000 ether, deployer);
-
         node.enableSwingPricing(true, address(pricer), 2e16);
-
         vm.stopBroadcast();
 
         vm.startBroadcast(rebalancerKey);
