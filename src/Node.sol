@@ -27,21 +27,11 @@ contract Node is INode, ERC20, Ownable {
     uint256 private constant REQUEST_ID = 0;
     uint256 internal constant PRICE_DECIMALS = 18;
 
-    // TEMP swing pricing contstants
-    //  percentages: 1e18 == 100%
-    uint256 public maxDiscount;
-    uint256 public targetReserveRatio = 10e16;
-    uint256 public maxDelta = 1e16;
-    uint256 public asyncMaxDelta = 3e16;
-    bool public instantLiquidationsEnabled = true; // i think this is dumb too
-    bool public swingPricingEnabled = false;
-    bool public liquidateReserveBelowTarget = true; // i think this is dumb
-    uint256 public immutable WAD = 1e18;
-
     /* IMMUTABLES */
     address public immutable registry;
     address public immutable asset;
     address public immutable share;
+    uint256 internal immutable WAD = 1e18;
 
     /* STORAGE */
     address[] public components;
@@ -59,6 +49,9 @@ contract Node is INode, ERC20, Ownable {
     address public rebalancer; // todo: make this a mapping
     mapping(address => bool) public isRouter;
 
+    uint256 public maxSwingFactor;
+    uint256 public maxAssetDelta;
+    bool public swingPricingEnabled;
     bool public isInitialized;
 
     struct Request {
@@ -111,11 +104,14 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* OWNER FUNCTIONS */
-    function initialize(address escrow_) external onlyOwner {
+    function initialize(address escrow_, uint256 maxAssetDelta_) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
         if (escrow_ == address(0)) revert ErrorsLib.ZeroAddress();
+        // todo: add maxAssetDelta_ check
 
         escrow = escrow_;
+        maxAssetDelta = maxAssetDelta_;
+        swingPricingEnabled = false;
         isInitialized = true;
 
         emit EventsLib.Initialize(escrow_, address(this));
@@ -192,6 +188,14 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetQuoter(newQuoter);
     }
 
+    function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
+        swingPricingEnabled = status_;
+        pricer = ISwingPricingV1(pricer_);
+        maxSwingFactor = maxSwingFactor_;
+
+        emit EventsLib.SwingPricingStatusUpdated(status_);
+    }
+
     /* REBALANCER FUNCTIONS */
     function execute(address target, uint256 value, bytes calldata data) external onlyRouter returns (bytes memory) {
         /// todo: change this so that execute calls the router
@@ -205,6 +209,7 @@ contract Node is INode, ERC20, Ownable {
     /* ERC-7540 FUNCTIONS */
     function requestRedeem(uint256 shares, address controller, address owner) public returns (uint256) {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
+        if (shares == 0) revert ErrorsLib.ZeroAmount();
 
         // get the cash balance of the node and pending redemptions
         uint256 balance = IERC20(asset).balanceOf(address(this));
@@ -234,7 +239,9 @@ contract Node is INode, ERC20, Ownable {
         uint256 adjustedAssets;
         if (swingPricingEnabled) {
             adjustedAssets = MathLib.mulDiv(
-                assets, (WAD - pricer.getSwingFactor(reserveRatioAfterTX, maxDiscount, targetReserveRatio)), WAD
+                assets,
+                (WAD - pricer.getSwingFactor(reserveRatioAfterTX, maxSwingFactor, reserveAllocation.targetWeight)),
+                WAD
             );
         } else {
             adjustedAssets = assets;
@@ -242,15 +249,9 @@ contract Node is INode, ERC20, Ownable {
 
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
-        if (shares == 0) revert ErrorsLib.ZeroAmount();
         Request storage request = requests[controller];
         request.pendingRedeemRequest = request.pendingRedeemRequest + shares;
         request.sharesAdjusted = request.sharesAdjusted + sharesToBurn;
-
-        // Should this be shares or sharesToBurn ???
-        // I think it should be shares because it is the actual shares being transferred to the escrow
-        // On the fulfilRedeemRequest be careful to make sure you are tracking the changes properly
-        // So you are burning sharesToBurn but you are subtracting shares from sharesExiting
         sharesExiting += shares;
 
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
@@ -306,17 +307,19 @@ contract Node is INode, ERC20, Ownable {
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
             sharesToMint = convertToShares(assets);
             _deposit(_msgSender(), receiver, assets, sharesToMint);
+            emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
             return sharesToMint;
         }
 
         uint256 reserveCash = IERC20(asset).balanceOf(address(this));
 
         int256 reserveImpact =
-            int256(pricer.calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets(), assets));
+            int256(pricer.calculateReserveImpact(reserveAllocation.targetWeight, reserveCash, totalAssets(), assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets =
-            MathLib.mulDiv(assets, (WAD + pricer.getSwingFactor(reserveImpact, maxDiscount, targetReserveRatio)), WAD);
+        uint256 adjustedAssets = MathLib.mulDiv(
+            assets, (WAD + pricer.getSwingFactor(reserveImpact, maxSwingFactor, reserveAllocation.targetWeight)), WAD
+        );
 
         // Calculate the number of shares to mint based on the adjusted assets.
         sharesToMint = convertToShares(adjustedAssets);
@@ -324,7 +327,7 @@ contract Node is INode, ERC20, Ownable {
         // Mint shares for the receiver.
         _deposit(_msgSender(), receiver, assets, sharesToMint);
 
-        // todo: emit an event to match 4626
+        emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
 
         return (sharesToMint);
     }
@@ -375,19 +378,6 @@ contract Node is INode, ERC20, Ownable {
         uint256 sharesPending = request.pendingRedeemRequest;
         uint256 sharesAdjusted = request.sharesAdjusted;
         uint256 assetsToReturn = convertToAssets(sharesAdjusted);
-
-        // get reserve ratio after tx
-        // does not care bout sharesExiting because just use to check sufficienct reserve for withdrawal
-        uint256 reserveRatioAfterTx = MathLib.mulDiv(balance - assetsToReturn, WAD, totalAssets() - assetsToReturn);
-
-        // first checks if manager has enabled liquidate below target
-        // -- will revert if withdawal will reduce reserve below target ratio
-        // -- if passes, it demonstrate that withdrawal amount < total reserve balance
-        if (!liquidateReserveBelowTarget) {
-            if (reserveRatioAfterTx < targetReserveRatio) {
-                revert ErrorsLib.ExceedsAvailableReserve();
-            }
-        }
 
         // check that current reserve is enough for redeem
         if (assetsToReturn > balance) {
@@ -468,6 +458,10 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* VIEW FUNCTIONS */
+    function targetReserveRatio() public view returns (uint256) {
+        return reserveAllocation.targetWeight;
+    }
+
     function pricePerShare() external view returns (uint256) {
         return convertToAssets(10 ** decimals());
     }
@@ -596,12 +590,4 @@ contract Node is INode, ERC20, Ownable {
     //     assetDecimals = IERC20Metadata(asset).decimals();
     //     nodeDecimals = decimals();
     // }
-
-    function enableSwingPricing(bool status_, address pricer_, uint256 maxDiscount_) public /*onlyOwner*/ {
-        swingPricingEnabled = status_;
-        pricer = ISwingPricingV1(pricer_);
-        maxDiscount = maxDiscount_;
-
-        emit EventsLib.SwingPricingStatusUpdated(status_);
-    }
 }

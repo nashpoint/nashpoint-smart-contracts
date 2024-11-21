@@ -20,6 +20,8 @@ contract NodeFactory is INodeFactory {
     /* IMMUTABLES */
     INodeRegistry public immutable registry;
 
+    uint256 public immutable maxDelta = 0.01 ether;
+
     /* CONSTRUCTOR */
     constructor(address registry_) {
         if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
@@ -55,7 +57,7 @@ contract NodeFactory is INodeFactory {
             salt
         );
         escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
-        node.initialize(address(escrow));
+        node.initialize(address(escrow), maxDelta);
         Ownable(address(node)).transferOwnership(owner);
     }
 

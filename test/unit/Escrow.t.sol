@@ -33,7 +33,7 @@ contract EscrowTest is BaseTest {
         vm.label(testSpender, "TestSpender");
     }
 
-    function test_constructor() public {
+    function test_constructor() public view {
         assertEq(address(testEscrow.node()), address(node));
     }
 
