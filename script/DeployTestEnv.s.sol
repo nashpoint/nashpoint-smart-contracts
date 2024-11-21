@@ -18,16 +18,16 @@ contract DeployTestEnv is Script {
     address user;
     address user2;
     address user3;
-    
+
     function run() external {
         // Get deployer address
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
-        address rebalancer = makeAddr("rebalancer");  
+        address rebalancer = makeAddr("rebalancer");
         owner = makeAddr("owner");
-        user = makeAddr("user");    
+        user = makeAddr("user");
         user2 = makeAddr("user2");
         user3 = makeAddr("user3");
-        
+
         vm.startBroadcast();
 
         // Deploy core contracts
@@ -46,7 +46,7 @@ contract DeployTestEnv is Script {
             _toArray(address(factory)),
             _toArray(address(router)),
             _toArray(address(quoter)),
-            _toArray(address(rebalancer)) 
+            _toArray(address(rebalancer))
         );
 
         // Configure components
@@ -54,12 +54,12 @@ contract DeployTestEnv is Script {
         router.setWhitelistStatus(address(vault), true);
 
         // Deploy node
-        (INode node, ) = factory.deployFullNode(
+        (INode node,) = factory.deployFullNode(
             "Test Node",
             "TNODE",
             address(asset),
             deployer,
-            rebalancer, 
+            rebalancer,
             address(quoter),
             _toArray(address(router)),
             _toArray(address(vault)),
@@ -74,10 +74,10 @@ contract DeployTestEnv is Script {
         asset.mint(owner, 1000000 ether);
         asset.mint(user, 1000000 ether);
         asset.mint(user2, 1000000 ether);
-        asset.mint(user3, 1000000 ether);  
-        asset.mint(deployer, 1000000 ether);        
-            
-        vm.stopBroadcast();         
+        asset.mint(user3, 1000000 ether);
+        asset.mint(deployer, 1000000 ether);
+
+        vm.stopBroadcast();
     }
 
     function _toArray(address addr) internal pure returns (address[] memory arr) {

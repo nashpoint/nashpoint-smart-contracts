@@ -126,7 +126,7 @@ contract VaultTests is BaseTest {
         assertLt(swingFactor, 1e15); // 0.1%
     }
 
-    function test_VaultTests_swingPriceDeposit() public {        
+    function test_VaultTests_swingPriceDeposit() public {
         _userDeposits(user, 100 ether);
 
         // set max discount for swing pricing
@@ -237,9 +237,9 @@ contract VaultTests is BaseTest {
 
         // set max discount for swing pricing
         uint256 maxDiscount = 2e16;
-        
+
         // enable swing pricing
-        vm.prank(owner);        
+        vm.prank(owner);
         node.enableSwingPricing(true, address(deployer.pricer()), maxDiscount);
 
         // assert user2 has zero usdc balance
