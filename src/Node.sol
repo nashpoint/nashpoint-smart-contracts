@@ -390,6 +390,7 @@ contract Node is INode, ERC20, Ownable {
             revert ErrorsLib.ExceedsAvailableReserve();
         }
 
+        IERC20(asset).approve(address(this), assetsToReturn); // note: directly calling approve
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
         _burn(escrow, sharesPending);
 
@@ -398,7 +399,6 @@ contract Node is INode, ERC20, Ownable {
         request.claimableAssets += assetsToReturn;
         request.sharesAdjusted -= sharesAdjusted;
 
-        //
         sharesExiting -= sharesPending;
 
         onRedeemClaimable(controller, assetsToReturn, sharesPending);

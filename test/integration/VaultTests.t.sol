@@ -55,9 +55,6 @@ contract VaultTests is BaseTest {
         uint256 pendingRedeemRequest = node.pendingRedeemRequest(0, user);
         assertEq(pendingRedeemRequest, node.convertToShares(100 ether));
 
-        vm.prank(address(node));
-        asset.approve(address(node), 100 ether); // @bug approval required by node
-
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user);
 
@@ -82,9 +79,6 @@ contract VaultTests is BaseTest {
 
     function test_VaultTests_investsToVault() public {
         _seedNode(100 ether);
-
-        // vm.prank(address(node));
-        // asset.approve(address(vault), 100 ether); // @bug approval required by node
 
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
@@ -135,9 +129,6 @@ contract VaultTests is BaseTest {
         vm.prank(owner);
         node.enableSwingPricing(true, address(deployer.pricer()), maxDiscount);
 
-        // vm.prank(address(node));
-        // asset.approve(address(vault), type(uint256).max); // @bug approval required by node
-
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
         vm.stopPrank();
@@ -186,9 +177,6 @@ contract VaultTests is BaseTest {
         node.requestRedeem(node.convertToShares(5 ether), user2, user2);
         vm.stopPrank();
 
-        vm.prank(address(node));
-        asset.approve(address(node), 100 ether); // @bug approval required by node
-
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(address(user2));
 
@@ -213,9 +201,6 @@ contract VaultTests is BaseTest {
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
         vm.stopPrank();
-
-        // vm.prank(address(node));
-        // asset.approve(address(vault), type(uint256).max); // @bug approval required by node
 
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
@@ -257,9 +242,6 @@ contract VaultTests is BaseTest {
         node.approve(address(node), type(uint256).max);
         node.requestRedeem(sharesToRedeem, user2, user2);
         vm.stopPrank();
-
-        vm.prank(address(node));
-        asset.approve(address(node), 100 ether); // @bug approval required by node
 
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user2);
