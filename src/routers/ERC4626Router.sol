@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626Router} from "../interfaces/IERC4626Router.sol";
 import {INode} from "../interfaces/INode.sol";
 
@@ -24,7 +25,11 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         onlyNodeRebalancer(node)
         onlyWhitelisted(vault)
     {
+        // todo: make this more efficient later
+        address underlying = IERC4626(vault).asset();
+        INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, vault, assets));
         INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
+        INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, vault, 0));
     }
 
     /// @notice Mints shares from an ERC4626 vault on behalf of the Node.
