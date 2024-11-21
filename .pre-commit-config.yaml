@@ -3,4 +3,7 @@ repos:
       rev: v1.0.0
       hooks:
           - id: format
-          - id: snapshot
+            files: \.(sol|s?css|js|ts|jsx|tsx|json|ya?ml|html|md)$
+            types_or: [file]
+            pass_filenames: true
+          
