@@ -79,7 +79,7 @@ contract Node is INode, ERC20, Ownable {
         ComponentAllocation[] memory componentAllocations_,
         ComponentAllocation memory reserveAllocation_
     ) ERC20(name, symbol) Ownable(owner) {
-        if (registry_ == address(0) || asset_ == address(0)) revert ErrorsLib.ZeroAddress();
+        if (registry_ == address(0) || asset_ == address(0) || quoter_ == address(0)) revert ErrorsLib.ZeroAddress();
         if (components_.length != componentAllocations_.length) revert ErrorsLib.LengthMismatch();
 
         registry = registry_;
@@ -131,16 +131,19 @@ contract Node is INode, ERC20, Ownable {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
         if (IERC20(component).balanceOf(address(this)) > 0) revert ErrorsLib.NonZeroBalance();
 
-        for (uint256 i = 0; i < components.length; i++) {
+        uint256 length = components.length;
+        for (uint256 i = 0; i < length; i++) {
             if (components[i] == component) {
-                components[i] = components[components.length - 1];
+                // Move the last element to the position being deleted
+                if (i != length - 1) {
+                    components[i] = components[length - 1];
+                }
                 components.pop();
-                break;
+                delete componentAllocations[component];
+                emit EventsLib.ComponentRemoved(address(this), component);
+                return;
             }
         }
-        delete componentAllocations[component];
-
-        emit EventsLib.ComponentRemoved(address(this), component);
     }
 
     function updateComponentAllocation(address component, ComponentAllocation memory allocation) external onlyOwner {
