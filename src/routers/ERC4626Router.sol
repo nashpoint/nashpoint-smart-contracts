@@ -29,7 +29,6 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         address underlying = IERC4626(vault).asset();
         INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, vault, assets));
         INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
-        INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, vault, 0));
     }
 
     /// @notice Mints shares from an ERC4626 vault on behalf of the Node.

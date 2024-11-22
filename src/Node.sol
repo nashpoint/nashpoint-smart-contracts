@@ -392,7 +392,6 @@ contract Node is INode, ERC20, Ownable {
 
         IERC20(asset).approve(address(this), assetsToReturn); // note: directly calling approve
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
-        IERC20(asset).approve(address(escrow), 0);
         _burn(escrow, sharesPending);
 
         request.pendingRedeemRequest -= sharesPending;
