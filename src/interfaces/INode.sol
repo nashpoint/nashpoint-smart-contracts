@@ -25,7 +25,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function escrow() external view returns (address);
 
     /// @notice The address of the quoter
-    function quoter() external view returns (IQuoter);    
+    function quoter() external view returns (IQuoter);
 
     /// @notice Returns if an address is a router
     function isRouter(address) external view returns (bool);
