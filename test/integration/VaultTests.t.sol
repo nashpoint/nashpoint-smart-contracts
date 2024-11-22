@@ -55,9 +55,6 @@ contract VaultTests is BaseTest {
         uint256 pendingRedeemRequest = node.pendingRedeemRequest(0, user);
         assertEq(pendingRedeemRequest, node.convertToShares(100 ether));
 
-        vm.prank(address(node));
-        asset.approve(address(node), 100 ether); // @bug approval required by node
-
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user);
 
@@ -67,9 +64,6 @@ contract VaultTests is BaseTest {
         assertEq(node.balanceOf(address(escrow)), 0);
         assertEq(node.totalSupply(), node.convertToShares(1000 ether));
         assertEq(asset.balanceOf(address(escrow)), 100 ether);
-
-        vm.prank(address(escrow));
-        asset.approve(address(node), 100 ether); // @bug approval required by escrow
 
         vm.prank(user);
         node.withdraw(100 ether, user, user);
@@ -82,9 +76,6 @@ contract VaultTests is BaseTest {
 
     function test_VaultTests_investsToVault() public {
         _seedNode(100 ether);
-
-        vm.prank(address(node));
-        asset.approve(address(vault), 100 ether); // @bug approval required by node
 
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
@@ -135,9 +126,6 @@ contract VaultTests is BaseTest {
         vm.prank(owner);
         node.enableSwingPricing(true, address(deployer.pricer()), maxDiscount);
 
-        vm.prank(address(node));
-        asset.approve(address(vault), type(uint256).max); // @bug approval required by node
-
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
         vm.stopPrank();
@@ -186,9 +174,6 @@ contract VaultTests is BaseTest {
         node.requestRedeem(node.convertToShares(5 ether), user2, user2);
         vm.stopPrank();
 
-        vm.prank(address(node));
-        asset.approve(address(node), 100 ether); // @bug approval required by node
-
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(address(user2));
 
@@ -213,9 +198,6 @@ contract VaultTests is BaseTest {
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
         vm.stopPrank();
-
-        vm.prank(address(node));
-        asset.approve(address(vault), type(uint256).max); // @bug approval required by node
 
         vm.startPrank(rebalancer);
         router4626.deposit(address(node), address(vault), 90 ether);
@@ -258,16 +240,10 @@ contract VaultTests is BaseTest {
         node.requestRedeem(sharesToRedeem, user2, user2);
         vm.stopPrank();
 
-        vm.prank(address(node));
-        asset.approve(address(node), 100 ether); // @bug approval required by node
-
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user2);
 
         uint256 maxWithdraw = node.maxWithdraw(address(user2));
-
-        vm.prank(address(escrow));
-        asset.approve(address(node), maxWithdraw); // @bug should not need approval
 
         // user 2 withdraws max assets
         vm.prank(user2);

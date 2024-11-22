@@ -14,19 +14,15 @@ import {IEscrow} from "src/interfaces/IEscrow.sol";
 
 contract DeployTestEnv is Script {
     bytes32 public constant SALT = bytes32(uint256(1));
-    address owner;
-    address user;
-    address user2;
-    address user3;
 
     function run() external {
         // Get deployer address
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
-        address rebalancer = makeAddr("rebalancer");
-        owner = makeAddr("owner");
-        user = makeAddr("user");
-        user2 = makeAddr("user2");
-        user3 = makeAddr("user3");
+        address rebalancer = vm.addr(vm.envUint("REBALANCER"));
+        address user = vm.addr(vm.envUint("USER"));
+
+        // Store the actual private key:
+        uint256 rebalancerKey = vm.envUint("REBALANCER");
 
         vm.startBroadcast();
 
@@ -68,15 +64,16 @@ contract DeployTestEnv is Script {
             SALT
         );
 
-        node.enableSwingPricing(true, address(pricer), 2e16);
-
         // Fund test addresses
-        asset.mint(owner, 1000000 ether);
         asset.mint(user, 1000000 ether);
-        asset.mint(user2, 1000000 ether);
-        asset.mint(user3, 1000000 ether);
         asset.mint(deployer, 1000000 ether);
+        asset.approve(address(node), type(uint256).max);
+        node.deposit(1000 ether, deployer);
+        node.enableSwingPricing(true, address(pricer), 2e16);
+        vm.stopBroadcast();
 
+        vm.startBroadcast(rebalancerKey);
+        router.deposit(address(node), address(vault), 900 ether);
         vm.stopBroadcast();
     }
 
