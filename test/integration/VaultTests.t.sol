@@ -9,11 +9,15 @@ import {SwingPricingV1} from "src/pricers/SwingPricingV1.sol";
 
 import {Node, ComponentAllocation} from "src/Node.sol";
 
+import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
+
 contract VaultTests is BaseTest {
     SwingPricingV1 mockPricer;
+    ERC20Mock internal mockAsset;
 
     function setUp() public override {
         super.setUp();
+        mockAsset = ERC20Mock(address(asset));
         mockPricer = new SwingPricingV1(address(1));
     }
 
@@ -135,7 +139,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, node.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        asset.mint(address(vault), 10 ether + 1);
+        mockAsset.mint(address(vault), 10 ether + 1);
         assertEq(asset.balanceOf(address(vault)), 100 ether + 1);
 
         // get the shares to be minted from a tx with no swing factor
@@ -208,7 +212,7 @@ contract VaultTests is BaseTest {
         assertEq(reserveRatio, node.targetReserveRatio());
 
         // mint cash so invested assets = 100
-        asset.mint(address(vault), 10 ether + 1);
+        mockAsset.mint(address(vault), 10 ether + 1);
 
         // user 2 deposits 10e6 to node and burns the rest of their assets
         vm.startPrank(user2);

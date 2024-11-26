@@ -78,7 +78,7 @@ contract NodeTest is BaseTest {
         vm.label(address(testNode), "TestNode");
     }
 
-    function test_constructor() public {
+    function test_constructor() public view {
         // Check immutables
         assertEq(address(testNode.registry()), address(testRegistry));
         assertEq(testNode.asset(), testAsset);

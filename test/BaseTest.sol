@@ -4,6 +4,8 @@ pragma solidity 0.8.26;
 import "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
+import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {Deployer} from "script/Deployer.sol";
 
@@ -20,8 +22,6 @@ import {ISwingPricingV1} from "src/pricers/SwingPricingV1.sol";
 
 import {MathLib} from "src/libraries/MathLib.sol";
 
-import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
-
 contract BaseTest is Test {
     using MathLib for uint256;
 
@@ -34,7 +34,7 @@ contract BaseTest is Test {
 
     INode public node;
     IEscrow public escrow;
-    ERC20Mock public asset;
+    IERC20 public asset;
     ERC4626Mock public vault;
 
     address public owner;
@@ -48,9 +48,9 @@ contract BaseTest is Test {
     uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
-    function setUp() public virtual {
-        vm.chainId(1);
+    address constant usdcAddress = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // arbitrum usdc
 
+    function setUp() public virtual {
         owner = makeAddr("owner");
         user = makeAddr("user");
         user2 = makeAddr("user2");
@@ -68,8 +68,13 @@ contract BaseTest is Test {
         pricer = ISwingPricingV1(address(deployer.pricer()));
         router4626 = deployer.erc4626router();
 
-        asset = new ERC20Mock("Test Token", "TEST");
-        vault = new ERC4626Mock(address(asset));
+        if (block.chainid == 42161) {
+            asset = IERC20(usdcAddress);
+            vault = new ERC4626Mock(address(asset));
+        } else {
+            asset = new ERC20Mock("Test Token", "TEST");
+            vault = new ERC4626Mock(address(asset));
+        }
 
         vm.startPrank(owner);
         registry.initialize(
@@ -81,7 +86,6 @@ contract BaseTest is Test {
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);
 
-        vm.startPrank(owner);
         (node, escrow) = factory.deployFullNode(
             "Test Node",
             "TNODE",
