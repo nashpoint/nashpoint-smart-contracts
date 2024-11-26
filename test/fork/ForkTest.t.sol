@@ -96,5 +96,12 @@ contract ForkTest is BaseTest {
         assertApproxEqAbs(yUsdcA.convertToAssets(nodeShares), 90e6, 1);
         assertEq(usdc.balanceOf(address(node)), 10e6);
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
+
+        vm.startPrank(rebalancer);
+        router4626.redeem(address(node), address(yUsdcA), yUsdcA.balanceOf(address(node)));
+        vm.stopPrank();
+
+        assertEq(yUsdcA.balanceOf(address(node)), 0);
+        assertApproxEqAbs(usdc.balanceOf(address(node)), 100e6, 1);
     }
 }
