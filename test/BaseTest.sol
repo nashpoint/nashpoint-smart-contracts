@@ -34,7 +34,7 @@ contract BaseTest is Test {
 
     INode public node;
     IEscrow public escrow;
-    IERC20 public asset; // used to be ERC20Mock
+    IERC20 public asset;
     ERC4626Mock public vault;
 
     address public owner;
@@ -51,8 +51,6 @@ contract BaseTest is Test {
     address constant usdcAddress = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // arbitrum usdc
 
     function setUp() public virtual {
-        // vm.chainId(1);
-
         owner = makeAddr("owner");
         user = makeAddr("user");
         user2 = makeAddr("user2");
@@ -71,12 +69,9 @@ contract BaseTest is Test {
         router4626 = deployer.erc4626router();
 
         if (block.chainid == 42161) {
-            // On Arbitrum, use USDC as the asset
             asset = IERC20(usdcAddress);
-            // Deploy an ERC4626Mock vault using USDC as the asset
             vault = new ERC4626Mock(address(asset));
         } else {
-            // Use mock tokens for other chains
             asset = new ERC20Mock("Test Token", "TEST");
             vault = new ERC4626Mock(address(asset));
         }
@@ -91,7 +86,6 @@ contract BaseTest is Test {
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);
 
-        // vm.startPrank(owner);
         (node, escrow) = factory.deployFullNode(
             "Test Node",
             "TNODE",

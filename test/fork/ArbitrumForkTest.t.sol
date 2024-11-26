@@ -3,14 +3,9 @@ pragma solidity 0.8.26;
 
 import {BaseTest} from "test/BaseTest.sol";
 import {Node} from "src/Node.sol";
-import {QuoterV1} from "src/quoters/QuoterV1.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
-import {NodeRegistry} from "src/NodeRegistry.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {ERC20Mock} from "test/mocks/ERC20Mock.sol"; // delete after
-import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol"; // delete after
 import {IERC4626} from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {console2} from "forge-std/console2.sol";
 
@@ -26,7 +21,6 @@ contract ArbitrumForkTest is BaseTest {
     IERC4626 public yUsdcA = IERC4626(yUsdcaAddress);
     IERC4626 public fUsdc = IERC4626(fUsdcAddress);
     IERC4626 public sdUsdcV3 = IERC4626(sdUSDCV3Address);
-    address public usdcWhale = 0x4Af51BEb7475a686137bb1B7a9F941fb490961A1;
 
     function setUp() public override {
         string memory ARBITRUM_RPC_URL = vm.envString("ARBITRUM_RPC_URL");
@@ -70,9 +64,6 @@ contract ArbitrumForkTest is BaseTest {
     }
 
     function test_yUsdcA_userDeposit() public {
-        vm.startPrank(usdcWhale);
-        usdc.transfer(user, 100e6);
-
         uint256 expectedShares = yUsdcA.previewDeposit(100e6);
 
         vm.startPrank(user);
@@ -84,9 +75,6 @@ contract ArbitrumForkTest is BaseTest {
     }
 
     function test_yUsdcA_nodeDepositRedeem() public {
-        vm.startPrank(usdcWhale);
-        usdc.transfer(user, 100e6);
-
         vm.startPrank(user);
         usdc.approve(address(node), 100e6);
         node.deposit(100e6, user);
@@ -117,9 +105,6 @@ contract ArbitrumForkTest is BaseTest {
     }
 
     function test_fUsdc_nodeDepositRedeem() public {
-        vm.startPrank(usdcWhale);
-        usdc.transfer(user, 100e6);
-
         vm.startPrank(user);
         usdc.approve(address(node), 100e6);
         node.deposit(100e6, user);
@@ -144,9 +129,6 @@ contract ArbitrumForkTest is BaseTest {
     }
 
     function test_sdUsdcV3_nodeDepositRedeem() public {
-        vm.startPrank(usdcWhale);
-        usdc.transfer(user, 100e6);
-
         vm.startPrank(user);
         usdc.approve(address(node), 100e6);
         node.deposit(100e6, user);
