@@ -2,13 +2,19 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
+import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
+import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
+import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
+import {IQuoter} from "src/interfaces/IQuoter.sol";
 
 contract NodeTest is BaseTest {
     NodeRegistry public testRegistry;
@@ -19,6 +25,7 @@ contract NodeTest is BaseTest {
     address public testRouter;
     address public testRebalancer;
     address public testComponent;
+    address public testEscrow;
     ERC20Mock public testToken;
     ERC4626Mock public testVault;
 
@@ -541,4 +548,140 @@ contract NodeTest is BaseTest {
         assertEq(address(testNode.pricer()), newPricer);
         assertEq(testNode.maxSwingFactor(), newMaxSwingFactor);
     }
+
+    function test_execute() public {
+        // Setup a realistic scenario - calling transfer() on the asset token
+        bytes memory transferData = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
+
+        // Mock the asset token to return success
+        vm.mockCall(
+            testAsset,
+            0, // no value transfer
+            transferData,
+            abi.encode(true)
+        );
+
+        // Expect the exact call to be made to the token
+        vm.expectCall(testAsset, 0, transferData);
+
+        // Execute as router
+        vm.prank(testRouter);
+        bytes memory result = testNode.execute(testAsset, 0, transferData);
+
+        // Verify the call succeeded
+        assertEq(abi.decode(result, (bool)), true);
+    }
+
+    function test_execute_revert_NotRouter() public {
+        vm.expectRevert(ErrorsLib.NotRouter.selector);
+        testNode.execute(testAsset, 0, "");
+    }
+
+    function test_execute_revert_ZeroAddress() public {
+        vm.prank(testRouter);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        testNode.execute(address(0), 0, "");
+    }
+
+    /// @dev I did not write tests for requestRedeem()
+
+    function test_pendingRedeemRequest() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 shares = node.balanceOf(address(user)) / 10;
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        assertEq(node.pendingRedeemRequest(0, user), shares);
+    }
+
+    function test_pendingRedeemRequest_isZero() public view {
+        assertEq(node.pendingRedeemRequest(0, user), 0);
+    }
+
+    function test_claimableRedeemRequest() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 shares = node.balanceOf(address(user)) / 10;
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        assertEq(node.claimableRedeemRequest(0, user), shares);
+    }
+
+    function test_claimableRedeemRequest_isZero() public view {
+        assertEq(node.claimableRedeemRequest(0, user), 0);
+    }
+
+    // Set Operator tests
+    function test_setOperator() public {
+        vm.prank(user);
+        node.setOperator(address(rebalancer), true);
+        assertTrue(node.isOperator(user, address(rebalancer)));
+    }
+
+    function test_setOperator_RevertIf_Self() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.CannotSetSelfAsOperator.selector);
+        node.setOperator(user, true);
+    }
+
+    function test_setOperator_EmitEvent() public {
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit IERC7540Operator.OperatorSet(user, address(randomUser), true);
+        node.setOperator(address(randomUser), true);
+    }
+
+    // Supports Interface tests
+    function test_supportsInterface() public view {
+        assertTrue(node.supportsInterface(type(IERC7540Redeem).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC7540Operator).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC7575).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC165).interfaceId));
+    }
+
+    function test_supportsInterface_ReturnsFalseForUnsupportedInterface() public view {
+        bytes4 unsupportedInterfaceId = 0xffffffff; // An example of an unsupported interface ID
+        assertFalse(node.supportsInterface(unsupportedInterfaceId));
+    }
+
+    function test_convertToShares() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        assertEq(node.convertToShares(1 ether), 1 ether);
+
+        deal(address(asset), address(node), 200 ether);
+        assertEq(node.convertToShares(2 ether), 1 ether);
+    }
+
+    function test_convertToAssets() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        assertEq(node.convertToAssets(1 ether), 1 ether);
+
+        deal(address(asset), address(node), 200 ether);
+        assertEq(node.convertToAssets(1 ether), 2 ether - 1); // minus 1 to account for rounding
+    }
+
+    function test_maxDeposit() public view {
+        assertEq(node.maxDeposit(user), type(uint256).max);
+    }
+
+    /// @dev I did not write tests for deposit()
+
+    function test_maxMint() public view {}
 }
