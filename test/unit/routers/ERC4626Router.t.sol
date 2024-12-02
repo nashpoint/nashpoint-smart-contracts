@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../../BaseTest.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ComponentAllocation} from "src/interfaces/INode.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
@@ -58,4 +59,44 @@ contract ERC4626RouterTest is BaseTest {
 
         assertEq(testComponent.balanceOf(address(node)), investmentSize);
     }
+
+    function test_invest_fail_not_whitelisted() public {
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        _seedNode(100 ether);
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        router4626.invest(address(node), address(testComponent));
+    }
+
+    function test_invest_fail_not_rebalancer() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.NotRebalancer.selector);
+        router4626.invest(address(node), address(testComponent));
+    }
+
+    function test_invest_fail_not_node() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.InvalidNode.selector);
+        router4626.invest(address(0), address(testComponent));
+    }
+
+    function test_invest_fail_invalid_component() public {
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.InvalidComponent.selector);
+        router4626.invest(address(node), address(testComponent));
+    }
+
+    /// create more tests that catch all the edge cases for invest()
+    function test_invest_fail_component_within_target_range() public {}
 }

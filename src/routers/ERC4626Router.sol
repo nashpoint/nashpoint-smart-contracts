@@ -7,6 +7,7 @@ import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/e
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626Router} from "../interfaces/IERC4626Router.sol";
 import {INode} from "../interfaces/INode.sol";
+import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 
 /**
  * @title ERC4626Router
@@ -48,7 +49,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         returns (uint256 depositAmount)
     {
         if (!INode(node).isComponent(component)) {
-            revert NotAComponent(node, component);
+            revert ErrorsLib.InvalidComponent();
         }
 
         uint256 totalAssets_ = INode(node).totalAssets();
