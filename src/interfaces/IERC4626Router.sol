@@ -8,11 +8,10 @@ import {IBaseRouter} from "./IBaseRouter.sol";
  * @dev Rebalancer for ERC4626 vaults
  */
 interface IERC4626Router is IBaseRouter {
-    /// @notice Deposits assets into an ERC4626 vault on behalf of the Node.
+    /// @notice Invests in a component on behalf of the Node.
     /// @param node The address of the node.
-    /// @param vault The address of the ERC4626 vault.
-    /// @param assets The amount of assets to deposit.
-    function deposit(address node, address vault, uint256 assets) external;
+    /// @param component The address of the component.
+    function invest(address node, address component) external returns (uint256);
 
     /// @notice Withdraws assets from an ERC4626 vault on behalf of the Node.
     /// @param node The address of the node.

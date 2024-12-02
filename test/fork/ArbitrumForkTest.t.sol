@@ -87,7 +87,7 @@ contract ArbitrumForkTest is BaseTest {
         assertEq(yUsdcA.balanceOf(address(node)), 0);
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(yUsdcA), 90e6);
+        router4626.invest(address(node), address(yUsdcA));
         vm.stopPrank();
 
         uint256 nodeShares = yUsdcA.balanceOf(address(node));
@@ -111,7 +111,7 @@ contract ArbitrumForkTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(fUsdc), 90e6);
+        router4626.invest(address(node), address(fUsdc));
         vm.stopPrank();
 
         uint256 nodeShares = fUsdc.balanceOf(address(node));
@@ -135,7 +135,7 @@ contract ArbitrumForkTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(sdUsdcV3), 90e6);
+        router4626.invest(address(node), address(sdUsdcV3));
         vm.stopPrank();
 
         uint256 nodeShares = sdUsdcV3.balanceOf(address(node));

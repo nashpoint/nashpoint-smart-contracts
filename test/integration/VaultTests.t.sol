@@ -82,7 +82,7 @@ contract VaultTests is BaseTest {
         _seedNode(100 ether);
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(vault), 90 ether);
+        router4626.invest(address(node), address(vault));
         vm.stopPrank();
 
         assertEq(vault.balanceOf(address(node)), 90 ether);
@@ -131,7 +131,7 @@ contract VaultTests is BaseTest {
         node.enableSwingPricing(true, address(deployer.pricer()), maxDiscount);
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(vault), 90 ether);
+        router4626.invest(address(node), address(vault));
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -170,7 +170,8 @@ contract VaultTests is BaseTest {
         assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15);
 
         // rebalances excess reserve to vault so reserve ratio = 100%
-        _rebalanceVaultToTarget(address(vault));
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
         assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
 
         vm.startPrank(user2);
@@ -204,7 +205,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(vault), 90 ether);
+        router4626.invest(address(node), address(vault));
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -232,7 +233,8 @@ contract VaultTests is BaseTest {
         assertEq(asset.balanceOf(user2), 0);
 
         // rebalances excess reserve to vault so reserve ratio = 100%
-        _rebalanceVaultToTarget(address(vault));
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
         assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
 
         // grab share value of deposit
@@ -280,13 +282,5 @@ contract VaultTests is BaseTest {
         asset.approve(address(node), amount);
         node.deposit(amount, user);
         vm.stopPrank();
-    }
-
-    function _rebalanceVaultToTarget(address vault) internal {
-        uint256 delta = (MathLib.mulDiv(node.totalAssets(), 1e18 - node.targetReserveRatio(), 1e18))
-            - asset.balanceOf(address(vault));
-
-        vm.prank(rebalancer);
-        router4626.deposit(address(node), address(vault), delta);
     }
 }
