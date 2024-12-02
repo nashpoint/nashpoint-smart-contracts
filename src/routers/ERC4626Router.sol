@@ -34,6 +34,54 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
     }
 
+    function _deposit(address node, address vault, uint256 assets) internal {
+        address underlying = IERC4626(vault).asset();
+        INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, vault, assets));
+        INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
+    }
+
+    function invest(address node, address component)
+        external
+        override
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(component)
+        returns (uint256 depositAmount)
+    {
+        if (!INode(node).isComponent(component)) {
+            revert NotAComponent(node, component);
+        }
+
+        uint256 totalAssets_ = INode(node).totalAssets();
+        uint256 pendingWithdrawals = INode(node).convertToAssets(INode(node).sharesExiting());
+        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node)) - pendingWithdrawals;
+
+        // gets amount of assets to deposit
+        depositAmount = getInvestmentSize(node, component);
+
+        // checks if asset is within acceptable range of target
+        if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
+            revert ComponentWithinTargetRange(node, component);
+        }
+
+        // get max transaction size that will maintain reserve ratio
+        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
+        uint256 availableReserve = currentCash - idealCashReserve;
+
+        // limits the depositAmount to this transaction size
+        if (depositAmount > availableReserve) {
+            depositAmount = availableReserve;
+
+            // Get the maximum deposit allowed by the component vault
+            uint256 maxDepositAmount = IERC4626(component).maxDeposit(address(this));
+            if (depositAmount > maxDepositAmount) {
+                revert ExceedsMaxVaultDeposit(component, depositAmount, maxDepositAmount);
+            }
+        }
+
+        _deposit(node, component, depositAmount);
+        return depositAmount;
+    }
+
     /// @notice Withdraws assets from an ERC4626 vault on behalf of the Node.
     /// @param vault The address of the ERC4626 vault.
     /// @param assets The amount of assets to withdraw.

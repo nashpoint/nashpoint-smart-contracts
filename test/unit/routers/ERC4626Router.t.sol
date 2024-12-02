@@ -39,4 +39,23 @@ contract ERC4626RouterTest is BaseTest {
         assertEq(testComponent.balanceOf(address(node)), 0);
         assertEq(investmentSize, 50 ether);
     }
+
+    function test_invest() public {
+        _seedNode(100 ether);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        uint256 investmentSize = testRouter._getInvestmentSize(address(node), address(testComponent));
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent));
+
+        assertEq(testComponent.balanceOf(address(node)), investmentSize);
+    }
 }

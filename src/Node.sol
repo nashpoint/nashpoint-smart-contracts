@@ -484,6 +484,10 @@ contract Node is INode, ERC20, Ownable {
         return _isComponent(component);
     }
 
+    function getMaxDelta(address component) external view returns (uint256) {
+        return componentAllocations[component].maxDelta;
+    }
+
     function previewDeposit(uint256 assets) external view returns (uint256 shares) {
         return _convertToShares(assets, MathLib.Rounding.Down);
     }

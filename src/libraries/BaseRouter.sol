@@ -24,6 +24,11 @@ contract BaseRouter is IBaseRouter {
     /* EVENTS */
     event TargetWhitelisted(address indexed target, bool status);
 
+    /* ERRORS */
+    error NotAComponent(address node, address component);
+    error ComponentWithinTargetRange(address node, address component);
+    error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
+
     /* CONSTRUCTOR */
     /// @dev Initializes the contract
     /// @param registry_ The address of the NodeRegistry
@@ -90,4 +95,11 @@ contract BaseRouter is IBaseRouter {
     }
 
     function getInvestmentSize(address node, address component) internal view virtual returns (uint256 depositAssets) {}
+
+    function invest(address node, address component)
+        external
+        virtual
+        onlyNodeRebalancer(node)
+        returns (uint256 depositAmount)
+    {}
 }
