@@ -84,11 +84,11 @@ contract DeployTestEnv is Script {
 
     function _defaultComponentAllocations(uint256 count) internal pure returns (ComponentAllocation[] memory) {
         ComponentAllocation[] memory allocations = new ComponentAllocation[](count);
-        allocations[0] = ComponentAllocation({targetWeight: 0.9 ether});
+        allocations[0] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
         return allocations;
     }
 
     function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether});
+        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether});
     }
 }

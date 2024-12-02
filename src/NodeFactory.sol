@@ -57,7 +57,7 @@ contract NodeFactory is INodeFactory {
             salt
         );
         escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
-        node.initialize(address(escrow), maxDelta);
+        node.initialize(address(escrow));
         Ownable(address(node)).transferOwnership(owner);
     }
 

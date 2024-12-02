@@ -8,6 +8,7 @@ import {IQuoter} from "./IQuoter.sol";
 
 struct ComponentAllocation {
     uint256 targetWeight;
+    uint256 maxDelta;
 }
 
 /**
@@ -71,8 +72,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Initializes the Node with escrow and manager contracts
     /// @param escrow_ The address of the escrow contract
-    /// @param maxAssetDelta_ The maximum asset delta
-    function initialize(address escrow_, uint256 maxAssetDelta_) external;
+    function initialize(address escrow_) external;
 
     /// @notice Adds a new component to the node
     /// @param component The address of the component to add

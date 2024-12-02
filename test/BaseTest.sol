@@ -125,12 +125,12 @@ contract BaseTest is Test {
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether});
+            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
         }
     }
 
     function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether});
+        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether});
     }
 
     function _labelAddresses() internal {

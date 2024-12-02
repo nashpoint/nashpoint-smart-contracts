@@ -50,7 +50,6 @@ contract Node is INode, ERC20, Ownable {
     mapping(address => bool) public isRouter;
 
     uint256 public maxSwingFactor;
-    uint256 public maxAssetDelta;
     bool public swingPricingEnabled;
     bool public isInitialized;
 
@@ -104,13 +103,11 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* OWNER FUNCTIONS */
-    function initialize(address escrow_, uint256 maxAssetDelta_) external onlyOwner {
+    function initialize(address escrow_) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
         if (escrow_ == address(0)) revert ErrorsLib.ZeroAddress();
-        // todo: add maxAssetDelta_ check
 
         escrow = escrow_;
-        maxAssetDelta = maxAssetDelta_;
         swingPricingEnabled = false;
         isInitialized = true;
 
