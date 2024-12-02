@@ -34,18 +34,6 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
     }
 
-    /// @notice Mints shares from an ERC4626 vault on behalf of the Node.
-    /// @param node The address of the node.
-    /// @param vault The address of the ERC4626 vault.
-    /// @param shares The amount of shares to mint.
-    function mint(address node, address vault, uint256 shares)
-        external
-        onlyNodeRebalancer(node)
-        onlyWhitelisted(vault)
-    {
-        INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.mint.selector, shares, node));
-    }
-
     /// @notice Withdraws assets from an ERC4626 vault on behalf of the Node.
     /// @param vault The address of the ERC4626 vault.
     /// @param assets The amount of assets to withdraw.
