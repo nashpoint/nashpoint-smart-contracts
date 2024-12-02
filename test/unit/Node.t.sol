@@ -37,6 +37,7 @@ contract NodeTest is BaseTest {
 
         testToken = new ERC20Mock("Test Token", "TEST");
         testVault = new ERC4626Mock(address(testToken));
+        testEscrow = makeAddr("testEscrow");
 
         testAsset = address(testToken);
         testQuoter = makeAddr("testQuoter");
@@ -97,12 +98,14 @@ contract NodeTest is BaseTest {
         assertEq(nodeComponents[0], testComponent);
 
         // Check component allocation
-        uint256 componentWeight = testNode.componentAllocations(testComponent);
+        (uint256 componentWeight, uint256 maxDelta) = testNode.componentAllocations(testComponent);
         assertEq(componentWeight, 0.9 ether);
+        assertEq(maxDelta, 0.01 ether);
 
         // Check reserve allocation
-        uint256 reserveWeight = testNode.reserveAllocation();
+        (uint256 reserveWeight, uint256 reserveMaxDelta) = testNode.reserveAllocation();
         assertEq(reserveWeight, 0.1 ether);
+        assertEq(reserveMaxDelta, 0.01 ether);
 
         // Check ownership
         assertEq(testNode.owner(), owner);
@@ -196,44 +199,40 @@ contract NodeTest is BaseTest {
     }
 
     function test_initialize() public {
-        address testEscrow = makeAddr("testEscrow");
-        uint256 testMaxAssetDelta = 1000;
-
         vm.prank(owner);
-        testNode.initialize(testEscrow, testMaxAssetDelta);
+        testNode.initialize(testEscrow);
 
         assertEq(address(testNode.escrow()), testEscrow);
-        assertEq(testNode.maxAssetDelta(), testMaxAssetDelta);
         assertFalse(testNode.swingPricingEnabled());
         assertTrue(testNode.isInitialized());
     }
 
     function test_initialize_revert_AlreadyInitialized() public {
-        address testEscrow = makeAddr("testEscrow");
-
         vm.startPrank(owner);
-        testNode.initialize(testEscrow, 1000);
+        testNode.initialize(testEscrow);
 
         vm.expectRevert(ErrorsLib.AlreadyInitialized.selector);
-        testNode.initialize(testEscrow, 1000);
+        testNode.initialize(testEscrow);
         vm.stopPrank();
     }
 
     function test_initialize_revert_ZeroAddress() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.initialize(address(0), 1000);
+        testNode.initialize(address(0));
     }
 
     function test_addComponent() public {
         address newComponent = makeAddr("newComponent");
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
 
         vm.prank(owner);
         testNode.addComponent(newComponent, allocation);
 
         assertTrue(testNode.isComponent(newComponent));
-        assertEq(testNode.componentAllocations(newComponent), allocation.targetWeight);
+        (uint256 componentWeight, uint256 maxDelta) = testNode.componentAllocations(newComponent);
+        assertEq(componentWeight, allocation.targetWeight);
+        assertEq(maxDelta, allocation.maxDelta);
 
         // Verify components array
         address[] memory components = testNode.getComponents();
@@ -242,7 +241,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_addComponent_revert_ZeroAddress() public {
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
 
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
@@ -250,7 +249,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_addComponent_revert_AlreadySet() public {
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
 
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
@@ -260,7 +259,7 @@ contract NodeTest is BaseTest {
     function test_removeComponent() public {
         // Add a second component first
         address secondComponent = makeAddr("secondComponent");
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         testNode.addComponent(secondComponent, allocation);
@@ -270,7 +269,9 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         assertFalse(testNode.isComponent(testComponent));
-        assertEq(testNode.componentAllocations(testComponent), 0);
+        (uint256 componentWeight, uint256 maxDelta) = testNode.componentAllocations(testComponent);
+        assertEq(componentWeight, 0);
+        assertEq(maxDelta, 0);
 
         // Verify components array
         address[] memory components = testNode.getComponents();
@@ -312,8 +313,8 @@ contract NodeTest is BaseTest {
         address component3 = makeAddr("component3");
 
         vm.startPrank(owner);
-        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether}));
-        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether}));
+        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
 
         // Remove first component
         testNode.removeComponent(testComponent);
@@ -338,8 +339,8 @@ contract NodeTest is BaseTest {
         vm.mockCall(component3, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
 
         vm.startPrank(owner);
-        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether}));
-        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether}));
+        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
 
         // Remove middle component
         testNode.removeComponent(component2);
@@ -363,8 +364,8 @@ contract NodeTest is BaseTest {
         vm.mockCall(component3, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
 
         vm.startPrank(owner);
-        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether}));
-        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether}));
+        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
 
         // Remove last component
         testNode.removeComponent(component3);
@@ -379,27 +380,33 @@ contract NodeTest is BaseTest {
     }
 
     function test_updateComponentAllocation() public {
-        ComponentAllocation memory newAllocation = ComponentAllocation({targetWeight: 0.8 ether});
+        ComponentAllocation memory newAllocation = ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0.01 ether});
 
         vm.prank(owner);
         testNode.updateComponentAllocation(testComponent, newAllocation);
 
-        assertEq(testNode.componentAllocations(testComponent), newAllocation.targetWeight);
+        (uint256 componentWeight, uint256 maxDelta) = testNode.componentAllocations(testComponent);
+        assertEq(componentWeight, newAllocation.targetWeight);
+        assertEq(maxDelta, newAllocation.maxDelta);
     }
 
     function test_updateComponentAllocation_revert_NotSet() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotSet.selector);
-        testNode.updateComponentAllocation(makeAddr("nonexistent"), ComponentAllocation({targetWeight: 0.8 ether}));
+        testNode.updateComponentAllocation(
+            makeAddr("nonexistent"), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0.01 ether})
+        );
     }
 
     function test_updateReserveAllocation() public {
-        ComponentAllocation memory newAllocation = ComponentAllocation({targetWeight: 0.3 ether});
+        ComponentAllocation memory newAllocation = ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether});
 
         vm.prank(owner);
         testNode.updateReserveAllocation(newAllocation);
 
-        assertEq(testNode.reserveAllocation(), newAllocation.targetWeight);
+        (uint256 reserveWeight, uint256 reserveMaxDelta) = testNode.reserveAllocation();
+        assertEq(reserveWeight, newAllocation.targetWeight);
+        assertEq(reserveMaxDelta, newAllocation.maxDelta);
     }
 
     function test_addRouter() public {
@@ -474,7 +481,7 @@ contract NodeTest is BaseTest {
         address newEscrow = makeAddr("newEscrow");
 
         vm.startPrank(owner);
-        testNode.initialize(makeAddr("initialEscrow"), 1000);
+        testNode.initialize(makeAddr("initialEscrow"));
         testNode.setEscrow(newEscrow);
         vm.stopPrank();
 
@@ -484,7 +491,7 @@ contract NodeTest is BaseTest {
     function test_setEscrow_revert_ZeroAddress() public {
         vm.startPrank(owner);
         // Initialize first to avoid AlreadySet error
-        testNode.initialize(makeAddr("initialEscrow"), 1000);
+        testNode.initialize(makeAddr("initialEscrow"));
 
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         testNode.setEscrow(address(0));
@@ -495,7 +502,7 @@ contract NodeTest is BaseTest {
         address escrowAddr = makeAddr("escrow");
 
         vm.startPrank(owner);
-        testNode.initialize(escrowAddr, 1000);
+        testNode.initialize(escrowAddr);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.setEscrow(escrowAddr);
