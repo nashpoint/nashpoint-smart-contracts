@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {BaseRouter} from "../libraries/BaseRouter.sol";
+import {MathLib} from "../libraries/MathLib.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626Router} from "../interfaces/IERC4626Router.sol";
@@ -12,7 +13,9 @@ import {INode} from "../interfaces/INode.sol";
  * @dev Router for ERC4626 vaults
  */
 contract ERC4626Router is BaseRouter, IERC4626Router {
+    uint256 immutable WAD = 1e18;
     /* CONSTRUCTOR */
+
     constructor(address registry_) BaseRouter(registry_) {}
 
     /* EXTERNAL FUNCTIONS */
@@ -63,5 +66,20 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         onlyWhitelisted(vault)
     {
         INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
+    }
+
+    function getInvestmentSize(address node, address component)
+        internal
+        view
+        override
+        returns (uint256 depositAssets)
+    {
+        uint256 targetHoldings =
+            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentRatio(component), WAD);
+
+        uint256 currentBalance = IERC20(component).balanceOf(address(node));
+
+        uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
+        return delta;
     }
 }

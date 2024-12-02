@@ -88,4 +88,6 @@ contract BaseRouter is IBaseRouter {
     {
         INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
+
+    function getInvestmentSize(address node, address component) internal view virtual returns (uint256 depositAssets) {}
 }
