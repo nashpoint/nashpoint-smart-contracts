@@ -31,10 +31,11 @@ contract BaseRouter is IBaseRouter {
     error ExceedsMaxWithdrawal(address component, uint256 sharesRequested);
     error CannotRedeemZeroShares();
     error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
-
+    error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
     /* CONSTRUCTOR */
     /// @dev Initializes the contract
     /// @param registry_ The address of the NodeRegistry
+
     constructor(address registry_) {
         if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
         registry = INodeRegistry(registry_);

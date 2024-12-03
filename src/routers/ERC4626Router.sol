@@ -60,14 +60,24 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             }
         }
 
-        // todo: get expected shares from deposit
+        // Get expected shares from deposit
+        uint256 expectedShares = IERC4626(component).previewDeposit(depositAmount);
 
         // Execute deposit
-        _deposit(node, component, depositAmount);
-        return depositAmount;
+        uint256 shares = _deposit(node, component, depositAmount);
+
+        // Ensure shares returned is within an acceptable range of expectedShares
+        if (shares < expectedShares) {
+            revert InsufficientSharesReturned(component, shares, expectedShares);
+        }
+
+        return shares;
     }
 
-    // rebalancer to use this function to liquidate underlying vault to meet redeem requests
+    /// @notice Burns shares to assets in an ERC4626 vault on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param shares The amount of shares to liquidate.
     function liquidate(address node, address component, uint256 shares)
         external
         onlyNodeRebalancer(node)
@@ -105,21 +115,20 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
     /// @param node The address of the node.
     /// @param vault The address of the ERC4626 vault.
     /// @param assets The amount of assets to deposit.
-    function _deposit(address node, address vault, uint256 assets) internal {
+    function _deposit(address node, address vault, uint256 assets) internal returns (uint256) {
         address underlying = IERC4626(vault).asset();
         INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, vault, assets));
-        INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
+
+        bytes memory result =
+            INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
+        return abi.decode(result, (uint256));
     }
 
     /// @notice Burns shares to assets in an ERC4626 vault on behalf of the Node.
+    /// @param node The address of the node.
     /// @param vault The address of the ERC4626 vault.
     /// @param shares The amount of shares to burn.
-    function _redeem(address node, address vault, uint256 shares)
-        internal
-        onlyNodeRebalancer(node)
-        onlyWhitelisted(vault)
-        returns (uint256)
-    {
+    function _redeem(address node, address vault, uint256 shares) internal returns (uint256) {
         bytes memory result =
             INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
         return abi.decode(result, (uint256));
