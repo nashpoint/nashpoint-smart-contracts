@@ -2,12 +2,14 @@
 pragma solidity 0.8.26;
 
 import {BaseRouter} from "../libraries/BaseRouter.sol";
-import {MathLib} from "../libraries/MathLib.sol";
+import {INode} from "../interfaces/INode.sol";
+import {IERC4626Router} from "../interfaces/IERC4626Router.sol";
+
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IERC4626Router} from "../interfaces/IERC4626Router.sol";
-import {INode} from "../interfaces/INode.sol";
+
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
+import {MathLib} from "../libraries/MathLib.sol";
 
 /**
  * @title ERC4626Router
@@ -31,10 +33,6 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             revert ErrorsLib.InvalidComponent();
         }
 
-        // Calculate current available cash (accounting for pending withdrawals)
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
-            - INode(node).convertToAssets(INode(node).sharesExiting());
-
         // Calculate target deposit amount
         depositAmount = getInvestmentSize(node, component);
 
@@ -43,6 +41,10 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
             revert ComponentWithinTargetRange(node, component);
         }
+
+        // Calculate current available cash (accounting for pending withdrawals)
+        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
+            - INode(node).convertToAssets(INode(node).sharesExiting());
 
         // Limit deposit by reserve ratio requirements
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
@@ -61,6 +63,40 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         // Execute deposit
         _deposit(node, component, depositAmount);
         return depositAmount;
+    }
+
+    // rebalancer to use this function to liquidate underlying vault to meet redeem requests
+    function liquidate(address node, address component, uint256 shares)
+        external
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(component)
+        returns (uint256 assetsReturned)
+    {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
+
+        if (IERC4626(component).balanceOf(address(node)) < shares) {
+            revert ExceedsMaxWithdrawal(component, shares);
+        }
+
+        if (shares == 0) {
+            revert CannotRedeemZeroShares();
+        }
+
+        // Preview the expected assets from redemption
+        uint256 expectedAssets = IERC4626(component).previewRedeem(shares);
+
+        // Perform the redemption
+        assetsReturned = _redeem(node, component, shares);
+
+        // Ensure assets returned is within an acceptable range of expectedAssets
+        if (assetsReturned < expectedAssets) {
+            revert InsufficientAssetsReturned(component, assetsReturned, expectedAssets);
+        }
+
+        return assetsReturned;
     }
 
     /// @notice Deposits assets into an ERC4626 vault on behalf of the Node.
@@ -87,6 +123,17 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
     /// @notice Burns shares to assets in an ERC4626 vault on behalf of the Node.
     /// @param vault The address of the ERC4626 vault.
     /// @param shares The amount of shares to burn.
+    function _redeem(address node, address vault, uint256 shares)
+        internal
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(vault)
+        returns (uint256)
+    {
+        bytes memory result =
+            INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
+        return abi.decode(result, (uint256));
+    }
+
     function redeem(address node, address vault, uint256 shares)
         external
         onlyNodeRebalancer(node)

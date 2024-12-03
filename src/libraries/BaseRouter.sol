@@ -28,6 +28,9 @@ contract BaseRouter is IBaseRouter {
     error NotAComponent(address node, address component);
     error ComponentWithinTargetRange(address node, address component);
     error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
+    error ExceedsMaxWithdrawal(address component, uint256 sharesRequested);
+    error CannotRedeemZeroShares();
+    error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
 
     /* CONSTRUCTOR */
     /// @dev Initializes the contract
