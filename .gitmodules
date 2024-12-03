@@ -8,3 +8,6 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "lib/ERC-7540-Reference"]
+	path = lib/ERC-7540-Reference
+	url = https://github.com/ERC4626-Alliance/ERC-7540-Reference
