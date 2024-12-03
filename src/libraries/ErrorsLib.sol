@@ -114,4 +114,19 @@ library ErrorsLib {
 
     /// @notice Thrown when the fullfillment of the redeem request exceeds the available reserve.
     error ExceedsAvailableReserve();
+
+    /// @notice Thrown when the component is within the target range.
+    error ComponentWithinTargetRange(address node, address component);
+
+    /// @notice Thrown when the deposit amount exceeds the max vault deposit.
+    error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
+
+    /// @notice Thrown when the share value is invalid.
+    error InvalidShareValue(address component, uint256 shareValue);
+
+    /// @notice Thrown when the assets returned are insufficient.
+    error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
+
+    /// @notice Thrown when the shares returned are insufficient.
+    error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
 }
