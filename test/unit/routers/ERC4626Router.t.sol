@@ -212,9 +212,136 @@ contract ERC4626RouterTest is BaseTest {
             abi.encode(expectedShares + 1)
         );
 
-        // reverts because returnes shares less than previewDeposit shares
+        // reverts because returns shares less than previewDeposit shares
         vm.prank(rebalancer);
         vm.expectRevert();
         router4626.invest(address(node), address(testComponent));
+    }
+
+    function test_liquidate() public {
+        _seedNode(1000 ether);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent));
+
+        uint256 currentReserve = asset.balanceOf(address(node));
+        assertEq(currentReserve, 500 ether);
+
+        uint256 expectedAssets = testComponent.convertToAssets(100 ether);
+
+        vm.prank(rebalancer);
+        router4626.liquidate(address(node), address(testComponent), 100 ether);
+
+        assertEq(currentReserve + expectedAssets, 600 ether);
+    }
+
+    function test_liquidate_revert_notRebalancer() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.NotRebalancer.selector);
+        router4626.liquidate(address(node), address(testComponent), 100 ether);
+    }
+
+    function test_liquidate_revert_notWhitelisted() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        router4626.liquidate(address(node), address(testComponent), 100 ether);
+    }
+
+    function test_liquidate_revert_invalidComponent() public {
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.InvalidComponent.selector);
+        router4626.liquidate(address(node), address(testComponent), 100 ether);
+    }
+
+    function test_liquidate_revert_notNode() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.InvalidNode.selector);
+        router4626.liquidate(address(0), address(testComponent), 100 ether);
+    }
+
+    function test_liquidate_revert_zeroShareValue() public {
+        _seedNode(1000 ether);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidShareValue.selector, address(testComponent), 0));
+        router4626.liquidate(address(node), address(testComponent), 0);
+    }
+
+    function test_liquidate_revert_InvalidShareValue() public {
+        _seedNode(1000 ether);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent));
+
+        uint256 shares = testComponent.balanceOf(address(node));
+        vm.prank(rebalancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(ErrorsLib.InvalidShareValue.selector, address(testComponent), shares + 1)
+        );
+        router4626.liquidate(address(node), address(testComponent), shares + 1);
+    }
+
+    function test_liquidate_revert_InsufficientAssetsReturned() public {
+        _seedNode(1000 ether);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent));
+
+        uint256 shares = testComponent.balanceOf(address(node));
+        uint256 expectedAssets = testComponent.previewRedeem(shares);
+
+        vm.mockCall(
+            address(testComponent),
+            abi.encodeWithSelector(testComponent.previewRedeem.selector, shares),
+            abi.encode(expectedAssets + 1)
+        );
+
+        vm.prank(rebalancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.InsufficientAssetsReturned.selector,
+                address(testComponent),
+                expectedAssets,
+                expectedAssets + 1
+            )
+        );
+        router4626.liquidate(address(node), address(testComponent), shares);
     }
 }
