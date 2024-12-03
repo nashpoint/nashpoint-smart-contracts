@@ -192,5 +192,29 @@ contract ERC4626RouterTest is BaseTest {
         router4626.invest(address(node), address(testComponent));
     }
 
-    function test_invest_depositAmount_revert_InsufficientSharesReturned() public {}
+    function test_invest_depositAmount_revert_InsufficientSharesReturned() public {
+        _seedNode(1000 ether);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(testComponent));
+        uint256 expectedShares = testComponent.previewDeposit(investmentSize);
+
+        vm.mockCall(
+            address(testComponent),
+            abi.encodeWithSelector(testComponent.previewDeposit.selector, investmentSize),
+            abi.encode(expectedShares + 1)
+        );
+
+        // reverts because returnes shares less than previewDeposit shares
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        router4626.invest(address(node), address(testComponent));
+    }
 }
