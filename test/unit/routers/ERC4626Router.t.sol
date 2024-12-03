@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../../BaseTest.sol";
+import {console2} from "forge-std/Test.sol";
 import {BaseRouter} from "src/libraries/BaseRouter.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
@@ -19,11 +20,13 @@ contract ERC4626RouterHarness is ERC4626Router {
 contract ERC4626RouterTest is BaseTest {
     ERC4626RouterHarness public testRouter;
     ERC4626Mock public testComponent;
+    ERC4626Mock public testComponent70;
 
     function setUp() public override {
         super.setUp();
         testRouter = new ERC4626RouterHarness(address(registry));
         testComponent = new ERC4626Mock(address(asset));
+        testComponent70 = new ERC4626Mock(address(asset));
     }
 
     function test_getInvestmentSize() public {
@@ -99,12 +102,8 @@ contract ERC4626RouterTest is BaseTest {
     }
 
     function test_invest_revert_ComponentWithinTargetRange() public {
-        // Setup initial conditions
         _seedNode(1000 ether);
-        ComponentAllocation memory allocation = ComponentAllocation({
-            targetWeight: 0.5 ether, // 50%
-            maxDelta: 0.01 ether // 1%
-        });
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -127,7 +126,42 @@ contract ERC4626RouterTest is BaseTest {
         router4626.invest(address(node), address(testComponent));
     }
 
-    function test_invest_depositAmount_equals_availableReserve() public {}
+    function test_invest_depositAmount_equals_availableReserve() public {
+        // Seed the node with 1000 ether
+        _seedNode(1000 ether);
+
+        // Define component allocations
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation70 = ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether});
+
+        // Set up the environment as the owner
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent70), true);
+        node.addComponent(address(testComponent), allocation);
+        node.addComponent(address(testComponent70), allocation70);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        router4626.setWhitelistStatus(address(testComponent70), true);
+        vm.stopPrank();
+
+        // Invest in the component with 70% target weight
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent70));
+
+        // Assert that the balance of the node is 700 ether for the component and 300 ether in reserve
+        assertEq(testComponent70.balanceOf(address(node)), 700 ether);
+        assertEq(asset.balanceOf(address(node)), 300 ether);
+
+        // Calculate the investment size for the component with 50% target weight
+        uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(testComponent));
+
+        // Attempt to invest in the component with 50% target weight
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent));
+
+        // Assert that the balance of the node for the component is less than the calculated investment size
+        assertLt(testComponent.balanceOf(address(node)), investmentSize);
+    }
 
     function test_invest_depositAmount_revert_ExceedsMaxVaultDeposit() public {}
 
