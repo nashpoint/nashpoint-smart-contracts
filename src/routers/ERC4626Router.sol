@@ -43,7 +43,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         // Validate deposit amount exceeds minimum threshold
         uint256 totalAssets_ = INode(node).totalAssets();
         if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
-            revert ComponentWithinTargetRange(node, component);
+            revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
         // Calculate current available cash (accounting for pending withdrawals)
@@ -60,7 +60,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             // Check vault deposit limits
             uint256 maxDepositAmount = IERC4626(component).maxDeposit(address(this));
             if (depositAmount > maxDepositAmount) {
-                revert ExceedsMaxVaultDeposit(component, depositAmount, maxDepositAmount);
+                revert ErrorsLib.ExceedsMaxVaultDeposit(component, depositAmount, maxDepositAmount);
             }
         }
 
@@ -68,7 +68,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         uint256 expectedShares = IERC4626(component).previewDeposit(depositAmount);
         uint256 sharesReturned = _deposit(node, component, depositAmount);
         if (sharesReturned < expectedShares) {
-            revert InsufficientSharesReturned(component, sharesReturned, expectedShares);
+            revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, expectedShares);
         }
 
         return sharesReturned;
@@ -92,14 +92,14 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
 
         // Validate share value
         if (shares == 0 || shares > IERC4626(component).balanceOf(address(node))) {
-            revert InvalidShareValue(component, shares);
+            revert ErrorsLib.InvalidShareValue(component, shares);
         }
 
         // Execute the redemption and check the correct number of assets returned
         uint256 expectedAssets = IERC4626(component).previewRedeem(shares);
         assetsReturned = _redeem(node, component, shares);
         if (assetsReturned < expectedAssets) {
-            revert InsufficientAssetsReturned(component, assetsReturned, expectedAssets);
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, expectedAssets);
         }
 
         return assetsReturned;

@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../../BaseTest.sol";
+import {BaseRouter} from "src/libraries/BaseRouter.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ComponentAllocation} from "src/interfaces/INode.sol";
@@ -97,8 +98,34 @@ contract ERC4626RouterTest is BaseTest {
         router4626.invest(address(node), address(testComponent));
     }
 
-    /// create more tests that catch all the edge cases for invest()
-    function test_invest_revert_ComponentWithinTargetRange() public {}
+    function test_invest_revert_ComponentWithinTargetRange() public {
+        // Setup initial conditions
+        _seedNode(1000 ether);
+        ComponentAllocation memory allocation = ComponentAllocation({
+            targetWeight: 0.5 ether, // 50%
+            maxDelta: 0.01 ether // 1%
+        });
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent));
+
+        vm.startPrank(user);
+        asset.approve(address(node), 1 ether);
+        node.deposit(1 ether, address(user));
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(ErrorsLib.ComponentWithinTargetRange.selector, address(node), address(testComponent))
+        );
+        router4626.invest(address(node), address(testComponent));
+    }
 
     function test_invest_depositAmount_equals_availableReserve() public {}
 

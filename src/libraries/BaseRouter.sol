@@ -25,12 +25,7 @@ contract BaseRouter is IBaseRouter {
     event TargetWhitelisted(address indexed target, bool status);
 
     /* ERRORS */
-    error NotAComponent(address node, address component);
-    error ComponentWithinTargetRange(address node, address component);
-    error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
-    error InvalidShareValue(address component, uint256 shareValue);
-    error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
-    error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
+
     /* CONSTRUCTOR */
     /// @dev Initializes the contract
     /// @param registry_ The address of the NodeRegistry
