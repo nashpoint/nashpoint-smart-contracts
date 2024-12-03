@@ -10,8 +10,8 @@ import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 contract ERC4626RouterHarness is ERC4626Router {
     constructor(address _registry) ERC4626Router(_registry) {}
 
-    function _getInvestmentSize(address node, address component) public view returns (uint256 depositAssets) {
-        return super.getInvestmentSize(node, component);
+    function getInvestmentSize(address node, address component) public view returns (uint256 depositAssets) {
+        return super._getInvestmentSize(node, component);
     }
 }
 
@@ -34,7 +34,7 @@ contract ERC4626RouterTest is BaseTest {
         node.addComponent(address(testComponent), allocation);
         vm.stopPrank();
 
-        uint256 investmentSize = testRouter._getInvestmentSize(address(node), address(testComponent));
+        uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(testComponent));
 
         assertEq(node.getComponentRatio(address(testComponent)), 0.5 ether);
         assertEq(testComponent.balanceOf(address(node)), 0);
@@ -52,7 +52,7 @@ contract ERC4626RouterTest is BaseTest {
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        uint256 investmentSize = testRouter._getInvestmentSize(address(node), address(testComponent));
+        uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(testComponent));
 
         vm.prank(rebalancer);
         router4626.invest(address(node), address(testComponent));

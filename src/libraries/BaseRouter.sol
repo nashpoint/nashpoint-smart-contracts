@@ -28,8 +28,7 @@ contract BaseRouter is IBaseRouter {
     error NotAComponent(address node, address component);
     error ComponentWithinTargetRange(address node, address component);
     error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
-    error ExceedsMaxWithdrawal(address component, uint256 sharesRequested);
-    error CannotRedeemZeroShares();
+    error InvalidShareValue(address component, uint256 shareValue);
     error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
     error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
     /* CONSTRUCTOR */
@@ -98,7 +97,12 @@ contract BaseRouter is IBaseRouter {
         INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
 
-    function getInvestmentSize(address node, address component) internal view virtual returns (uint256 depositAssets) {}
+    function _getInvestmentSize(address node, address component)
+        internal
+        view
+        virtual
+        returns (uint256 depositAssets)
+    {}
 
     function invest(address node, address component)
         external

@@ -21,6 +21,10 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
 
+    /// @notice Invests in a component on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @return depositAmount The amount of assets invested.
     function invest(address node, address component)
         external
         override(IERC4626Router, BaseRouter)
@@ -34,7 +38,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         }
 
         // Calculate target deposit amount
-        depositAmount = getInvestmentSize(node, component);
+        depositAmount = _getInvestmentSize(node, component);
 
         // Validate deposit amount exceeds minimum threshold
         uint256 totalAssets_ = INode(node).totalAssets();
@@ -60,24 +64,21 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             }
         }
 
-        // Get expected shares from deposit
+        // Execute deposit and check correct shares received
         uint256 expectedShares = IERC4626(component).previewDeposit(depositAmount);
-
-        // Execute deposit
-        uint256 shares = _deposit(node, component, depositAmount);
-
-        // Ensure shares returned is within an acceptable range of expectedShares
-        if (shares < expectedShares) {
-            revert InsufficientSharesReturned(component, shares, expectedShares);
+        uint256 sharesReturned = _deposit(node, component, depositAmount);
+        if (sharesReturned < expectedShares) {
+            revert InsufficientSharesReturned(component, sharesReturned, expectedShares);
         }
 
-        return shares;
+        return sharesReturned;
     }
 
-    /// @notice Burns shares to assets in an ERC4626 vault on behalf of the Node.
+    /// @notice Liquidates a component on behalf of the Node.
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @param shares The amount of shares to liquidate.
+    /// @return assetsReturned The amount of assets returned.
     function liquidate(address node, address component, uint256 shares)
         external
         onlyNodeRebalancer(node)
@@ -89,27 +90,22 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             revert ErrorsLib.InvalidComponent();
         }
 
-        if (IERC4626(component).balanceOf(address(node)) < shares) {
-            revert ExceedsMaxWithdrawal(component, shares);
+        // Validate share value
+        if (shares == 0 || shares > IERC4626(component).balanceOf(address(node))) {
+            revert InvalidShareValue(component, shares);
         }
 
-        if (shares == 0) {
-            revert CannotRedeemZeroShares();
-        }
-
-        // Preview the expected assets from redemption
+        // Execute the redemption and check the correct number of assets returned
         uint256 expectedAssets = IERC4626(component).previewRedeem(shares);
-
-        // Perform the redemption
         assetsReturned = _redeem(node, component, shares);
-
-        // Ensure assets returned is within an acceptable range of expectedAssets
         if (assetsReturned < expectedAssets) {
             revert InsufficientAssetsReturned(component, assetsReturned, expectedAssets);
         }
 
         return assetsReturned;
     }
+
+    /* INTERNAL FUNCTIONS */
 
     /// @notice Deposits assets into an ERC4626 vault on behalf of the Node.
     /// @param node The address of the node.
@@ -138,7 +134,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return depositAssets The target investment size.
-    function getInvestmentSize(address node, address component)
+    function _getInvestmentSize(address node, address component)
         internal
         view
         override

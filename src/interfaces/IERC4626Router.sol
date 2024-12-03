@@ -11,11 +11,9 @@ interface IERC4626Router is IBaseRouter {
     /// @notice Invests in a component on behalf of the Node.
     /// @param node The address of the node.
     /// @param component The address of the component.
+    /// @return depositAmount The amount of assets invested.
     function invest(address node, address component) external returns (uint256);
 
     /// @notice Liquidates a component on behalf of the Node.
-    /// @param node The address of the node.
-    /// @param component The address of the component.
-    /// @param shares The amount of shares to liquidate.
     function liquidate(address node, address component, uint256 shares) external returns (uint256);
 }
