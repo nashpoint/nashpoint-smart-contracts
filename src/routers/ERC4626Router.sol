@@ -56,12 +56,13 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
 
         if (depositAmount > availableReserve) {
             depositAmount = availableReserve;
+        }
 
-            // Check vault deposit limits
-            uint256 maxDepositAmount = IERC4626(component).maxDeposit(address(this));
-            if (depositAmount > maxDepositAmount) {
-                revert ErrorsLib.ExceedsMaxVaultDeposit(component, depositAmount, maxDepositAmount);
-            }
+        // Check vault deposit limits
+        if (depositAmount > IERC4626(component).maxDeposit(address(node))) {
+            revert ErrorsLib.ExceedsMaxVaultDeposit(
+                component, depositAmount, IERC4626(component).maxDeposit(address(node))
+            );
         }
 
         // Execute deposit and check correct shares received
