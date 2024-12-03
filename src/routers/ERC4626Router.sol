@@ -26,42 +26,47 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         onlyWhitelisted(component)
         returns (uint256 depositAmount)
     {
+        // Validate component is part of the node
         if (!INode(node).isComponent(component)) {
             revert ErrorsLib.InvalidComponent();
         }
 
-        // get the current reserve after accounting for pending withdrawals
-        uint256 pendingWithdrawals = INode(node).convertToAssets(INode(node).sharesExiting());
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node)) - pendingWithdrawals;
+        // Calculate current available cash (accounting for pending withdrawals)
+        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
+            - INode(node).convertToAssets(INode(node).sharesExiting());
 
-        // gets amount of assets to deposit
+        // Calculate target deposit amount
         depositAmount = getInvestmentSize(node, component);
 
-        // checks if asset is within acceptable range of target
+        // Validate deposit amount exceeds minimum threshold
         uint256 totalAssets_ = INode(node).totalAssets();
         if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
             revert ComponentWithinTargetRange(node, component);
         }
 
-        // get max transaction size that will maintain reserve ratio
+        // Limit deposit by reserve ratio requirements
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
         uint256 availableReserve = currentCash - idealCashReserve;
 
-        // limits the depositAmount to this transaction size
         if (depositAmount > availableReserve) {
             depositAmount = availableReserve;
 
-            // Get the maximum deposit allowed by the component vault
+            // Check vault deposit limits
             uint256 maxDepositAmount = IERC4626(component).maxDeposit(address(this));
             if (depositAmount > maxDepositAmount) {
                 revert ExceedsMaxVaultDeposit(component, depositAmount, maxDepositAmount);
             }
         }
 
+        // Execute deposit
         _deposit(node, component, depositAmount);
         return depositAmount;
     }
 
+    /// @notice Deposits assets into an ERC4626 vault on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param vault The address of the ERC4626 vault.
+    /// @param assets The amount of assets to deposit.
     function _deposit(address node, address vault, uint256 assets) internal {
         address underlying = IERC4626(vault).asset();
         INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, vault, assets));
@@ -90,6 +95,10 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
     }
 
+    /// @notice Calculates the target investment size for a component.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @return depositAssets The target investment size.
     function getInvestmentSize(address node, address component)
         internal
         view
