@@ -98,5 +98,11 @@ contract ERC4626RouterTest is BaseTest {
     }
 
     /// create more tests that catch all the edge cases for invest()
-    function test_invest_fail_component_within_target_range() public {}
+    function test_invest_revert_ComponentWithinTargetRange() public {}
+
+    function test_invest_depositAmount_equals_availableReserve() public {}
+
+    function test_invest_depositAmount_revert_ExceedsMaxVaultDeposit() public {}
+
+    function test_invest_depositAmount_revert_InsufficientSharesReturned() public {}
 }
