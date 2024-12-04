@@ -90,6 +90,26 @@ contract ERC7540Router is BaseRouter {
         require(requestId == 0, "No requestId returned");
     }
 
+    // withdraws claimable assets from async vault
+    function executeAsyncWithdrawal(address node, address component, uint256 assets)
+        public
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(component)
+        returns (
+            // todo check is a valid node component
+            uint256 assetsReceived
+        )
+    {
+        if (assets > IERC7575(component).maxWithdraw(address(node))) {
+            revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
+        }
+
+        assetsReceived = _withdraw(node, component, assets);
+        require(assetsReceived >= assets, "Not enough assets received");
+
+        return assetsReceived;
+    }
+
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -119,6 +139,12 @@ contract ERC7540Router is BaseRouter {
         bytes memory result = INode(node).execute(
             component, 0, abi.encodeWithSelector(IERC7540Redeem.requestRedeem.selector, shares, node, node)
         );
+        return abi.decode(result, (uint256));
+    }
+
+    function _withdraw(address node, address component, uint256 assets) internal returns (uint256) {
+        bytes memory result =
+            INode(node).execute(component, 0, abi.encodeWithSelector(IERC7575.withdraw.selector, assets, node, node));
         return abi.decode(result, (uint256));
     }
 

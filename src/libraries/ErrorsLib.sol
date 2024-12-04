@@ -127,6 +127,9 @@ library ErrorsLib {
     /// @notice Thrown when the shares requested are more than the available shares.
     error ExceedsAvailableShares(address node, address component, uint256 sharesRequested);
 
+    /// @notice Thrown when the assets requested are more than the available assets
+    error ExceedsAvailableAssets(address node, address component, uint256 assetsRequested);
+
     /// @notice Thrown when the share value is invalid.
     error InvalidShareValue(address component, uint256 shareValue);
 

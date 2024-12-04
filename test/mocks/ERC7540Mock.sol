@@ -376,7 +376,6 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     }
 
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
-        // todo: complete implementation when you fix this contract
         uint256 redeemableShares = claimableRedeemRequests[controller];
         maxAssets = convertToAssets(redeemableShares);
     }

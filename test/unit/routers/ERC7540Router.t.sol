@@ -110,4 +110,44 @@ contract ERC7540RouterTest is BaseTest {
         assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 10 ether);
         assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(40 ether));
     }
+
+    function test_executeAsyncWithdrawal() public {
+        _seedNode(100 ether);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.prank(poolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.startPrank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+        vm.stopPrank();
+
+        assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 10 ether);
+
+        vm.prank(poolManager);
+        liquidityPool.processPendingRedemptions();
+
+        assertEq(liquidityPool.claimableRedeemRequest(0, address(node)), 10 ether);
+        assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 0);
+
+        uint256 balanceBefore = asset.balanceOf(address(node));
+
+        vm.prank(rebalancer);
+        router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+
+        uint256 balanceAfter = asset.balanceOf(address(node));
+        assertEq(balanceAfter - balanceBefore, 10 ether);
+    }
 }
