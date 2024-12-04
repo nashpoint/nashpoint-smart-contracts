@@ -60,4 +60,27 @@ contract ERC7540RouterTest is BaseTest {
 
         assertEq(liquidityPool.pendingDepositRequest(0, address(node)), 50 ether);
     }
+
+    function test_mintClaimableShares() public {
+        _seedNode(100 ether);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.prank(poolManager);
+        liquidityPool.processPendingDeposits();
+        assertEq(liquidityPool.claimableDepositRequest(0, address(node)), 50 ether);
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+        assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(50 ether));
+    }
 }

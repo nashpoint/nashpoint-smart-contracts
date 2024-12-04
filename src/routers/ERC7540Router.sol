@@ -66,6 +66,19 @@ contract ERC7540Router is BaseRouter {
         return (requestId);
     }
 
+    function mintClaimableShares(address node, address component) public onlyNodeRebalancer(node) returns (uint256) {
+        uint256 claimableShares = IERC7575(component).maxMint(address(node));
+
+        uint256 sharesReceived = _mint(node, component, claimableShares);
+        require(sharesReceived >= claimableShares, "Not enough shares received");
+
+        return sharesReceived;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     function _requestDeposit(address node, address component, uint256 assets) internal returns (uint256) {
         address underlying = IERC4626(component).asset();
 
@@ -74,6 +87,14 @@ contract ERC7540Router is BaseRouter {
         bytes memory result = INode(node).execute(
             component, 0, abi.encodeWithSelector(IERC7540Deposit.requestDeposit.selector, assets, node, node)
         );
+        return abi.decode(result, (uint256));
+    }
+
+    function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
+        bytes memory result = INode(node).execute(
+            component, 0, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
+        );
+
         return abi.decode(result, (uint256));
     }
 
