@@ -6,7 +6,7 @@ import {INode} from "../interfaces/INode.sol";
 
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {IERC7540, IERC7540Deposit} from "../interfaces/IERC7540.sol";
+import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "../interfaces/IERC7540.sol";
 import {IERC7575} from "../interfaces/IERC7575.sol";
 
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
@@ -75,6 +75,21 @@ contract ERC7540Router is BaseRouter {
         return sharesReceived;
     }
 
+    function requestAsyncWithdrawal(address node, address component, uint256 shares)
+        public
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(component)
+    // todo check is a valid node component
+    {
+        address shareToken = IERC7575(component).share();
+        if (shares > IERC20(shareToken).balanceOf(address(node))) {
+            revert ErrorsLib.ExceedsAvailableShares(node, component, shares);
+        }
+
+        uint256 requestId = _requestRedeem(node, component, shares);
+        require(requestId == 0, "No requestId returned");
+    }
+
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -91,10 +106,19 @@ contract ERC7540Router is BaseRouter {
     }
 
     function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
+        INode(node).execute(component, 0, abi.encodeWithSelector(IERC20.approve.selector, component, claimableShares));
+
         bytes memory result = INode(node).execute(
             component, 0, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
         );
 
+        return abi.decode(result, (uint256));
+    }
+
+    function _requestRedeem(address node, address component, uint256 shares) internal returns (uint256) {
+        bytes memory result = INode(node).execute(
+            component, 0, abi.encodeWithSelector(IERC7540Redeem.requestRedeem.selector, shares, node, node)
+        );
         return abi.decode(result, (uint256));
     }
 

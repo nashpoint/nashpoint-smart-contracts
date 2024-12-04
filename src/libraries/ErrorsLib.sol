@@ -124,6 +124,9 @@ library ErrorsLib {
     /// @notice Thrown when the deposit amount exceeds the max vault deposit.
     error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
 
+    /// @notice Thrown when the shares requested are more than the available shares.
+    error ExceedsAvailableShares(address node, address component, uint256 sharesRequested);
+
     /// @notice Thrown when the share value is invalid.
     error InvalidShareValue(address component, uint256 shareValue);
 
