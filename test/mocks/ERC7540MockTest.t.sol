@@ -6,9 +6,6 @@ import {BaseTest} from "test/BaseTest.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 
 contract MockERC7540Tests is BaseTest {
-    ERC7540Mock public liquidityPool;
-    address public poolManager = makeAddr("poolManager");
-
     function setUp() public override {
         super.setUp();
         liquidityPool = new ERC7540Mock(asset, "Mock", "MOCK", poolManager);

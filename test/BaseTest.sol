@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -11,6 +12,7 @@ import {Deployer} from "script/Deployer.sol";
 
 import {Node} from "src/Node.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
+import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import {Escrow} from "src/Escrow.sol";
 
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
@@ -31,11 +33,13 @@ contract BaseTest is Test {
     IQuoterV1 public quoter;
     ISwingPricingV1 public pricer;
     ERC4626Router public router4626;
+    ERC7540Router public router7540;
 
     INode public node;
     IEscrow public escrow;
     IERC20 public asset;
     ERC4626Mock public vault;
+    ERC7540Mock public liquidityPool;
 
     address public owner;
     address public user;
@@ -44,6 +48,7 @@ contract BaseTest is Test {
     address public randomUser;
     address public rebalancer;
     address public vaultSeeder;
+    address public poolManager;
 
     uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
@@ -58,6 +63,7 @@ contract BaseTest is Test {
         randomUser = makeAddr("randomUser");
         rebalancer = makeAddr("rebalancer");
         vaultSeeder = makeAddr("vaultSeeder");
+        poolManager = makeAddr("poolManager");
 
         deployer = new Deployer();
         deployer.deploy(owner);
@@ -67,6 +73,7 @@ contract BaseTest is Test {
         quoter = IQuoterV1(address(deployer.quoter()));
         pricer = ISwingPricingV1(address(deployer.pricer()));
         router4626 = deployer.erc4626router();
+        router7540 = deployer.erc7540router();
 
         if (block.chainid == 42161) {
             asset = IERC20(usdcAddress);
@@ -74,12 +81,13 @@ contract BaseTest is Test {
         } else {
             asset = new ERC20Mock("Test Token", "TEST");
             vault = new ERC4626Mock(address(asset));
+            liquidityPool = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", poolManager);
         }
 
         vm.startPrank(owner);
         registry.initialize(
             _toArray(address(factory)),
-            _toArray(address(router4626)),
+            _toArrayTwo(address(router4626), address(router7540)),
             _toArray(address(quoter)),
             _toArray(address(rebalancer))
         );
@@ -93,7 +101,7 @@ contract BaseTest is Test {
             owner,
             address(rebalancer),
             address(quoter),
-            _toArray(address(router4626)),
+            _toArrayTwo(address(router4626), address(router7540)),
             _toArray(address(vault)),
             _defaultComponentAllocations(1),
             _defaultReserveAllocation(),
@@ -116,6 +124,12 @@ contract BaseTest is Test {
     function _toArray(address addr) internal pure returns (address[] memory arr) {
         arr = new address[](1);
         arr[0] = addr;
+    }
+
+    function _toArrayTwo(address addr1, address addr2) internal pure returns (address[] memory arr) {
+        arr = new address[](2);
+        arr[0] = addr1;
+        arr[1] = addr2;
     }
 
     function _defaultComponentAllocations(uint256 count)

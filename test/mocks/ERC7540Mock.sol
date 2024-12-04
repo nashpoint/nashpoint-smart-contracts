@@ -124,7 +124,11 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
     function pendingDepositRequest(uint256, address controller) external view returns (uint256 assets) {
         uint256 index = controllerToDepositIndex[controller];
-        return pendingDepositRequests[index - 1].amount;
+        if (index == 0) {
+            return 0;
+        } else {
+            return pendingDepositRequests[index - 1].amount;
+        }
     }
 
     function claimableDepositRequest(uint256, address controller) external view returns (uint256 assets) {
@@ -226,7 +230,11 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
     function pendingRedeemRequest(uint256, address controller) external view returns (uint256 shares) {
         uint256 index = controllerToRedeemIndex[controller];
-        return pendingRedeemRequests[index - 1].amount;
+        if (index == 0) {
+            return 0;
+        } else {
+            return pendingRedeemRequests[index - 1].amount;
+        }
     }
 
     function claimableRedeemRequest(uint256, address controller) external view returns (uint256 shares) {
