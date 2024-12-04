@@ -16,8 +16,6 @@ import {MathLib} from "../libraries/MathLib.sol";
  * @dev Router for ERC4626 vaults
  */
 contract ERC4626Router is BaseRouter, IERC4626Router {
-    uint256 immutable WAD = 1e18;
-
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
 
@@ -49,6 +47,8 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         // Calculate current available cash (accounting for pending withdrawals)
         uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
             - INode(node).convertToAssets(INode(node).sharesExiting());
+
+        // todo need a check in here to make sure current reserve ratio > target reserve ratio
 
         // Limit deposit by reserve ratio requirements
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);

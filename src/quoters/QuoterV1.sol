@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 import {IERC7540} from "../interfaces/IERC7540.sol";
+import {IERC7575} from "../interfaces/IERC7575.sol";
 import {INode} from "../interfaces/INode.sol";
 import {IQuoterV1, IQuoter} from "../interfaces/IQuoterV1.sol";
 
@@ -81,16 +82,17 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
     function _getErc7540Assets(address node, address component) internal view returns (uint256) {
         uint256 assets;
-        uint256 shareBalance = IERC20(component).balanceOf(node);
+        address shareToken = IERC7575(component).share();
+        uint256 shareBalance = IERC20(shareToken).balanceOf(node);
 
         if (shareBalance > 0) {
             assets = IERC4626(component).convertToAssets(shareBalance);
         }
-
+        /// @dev in ERC7540 deposits are denominated in assets and redeems are in shares
         assets += IERC7540(component).pendingDepositRequest(0, node);
         assets += IERC7540(component).claimableDepositRequest(0, node);
-        assets += IERC7540(component).pendingRedeemRequest(0, node);
-        assets += IERC7540(component).claimableRedeemRequest(0, node);
+        assets += IERC4626(component).convertToAssets(IERC7540(component).pendingRedeemRequest(0, node));
+        assets += IERC4626(component).convertToAssets(IERC7540(component).claimableRedeemRequest(0, node));
 
         return assets;
     }
