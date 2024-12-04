@@ -8,15 +8,22 @@ import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/**
+ * @title ERC7540 Mock Contract
+ * @dev Mock implementation of Centrifuge's ERC7540 standard for testing
+ * @notice share price for clamable tokens is not accurate enough for testing with interest yet
+ * @notice only uses mint() & withdraw(), as deposit() & redeem() can lead to precision loss
+ */
 contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     using Math for uint256;
 
     address public immutable asset;
+    address public poolManager;
 
     // Mappings
     mapping(address => mapping(address => bool)) private _operators;
     mapping(address => uint256) public claimableDepositRequests; // stored as assets
-    mapping(address => uint256) public claimableRedeemRequests;
+    mapping(address => uint256) public claimableRedeemRequests; // stored as shares
     mapping(address => uint256) public controllerToDepositIndex;
     mapping(address => uint256) public controllerToRedeemIndex;
 
@@ -28,16 +35,23 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
     // Arrays
     PendingRequest[] public pendingDepositRequests; // stored as assets
-    PendingRequest[] public pendingRedeemRequests;
+    PendingRequest[] public pendingRedeemRequests; // stored as shares
 
     // @dev Requests for Centrifuge pool are non-fungible and all have ID = 0
     uint256 private constant REQUEST_ID = 0;
 
-    // Variables
-    bool private initialized = false;
-    address public poolManager;
+    /**
+     * @dev claimableShares and pendingAssets are used to keep the vault in balance.
+     *      claimableShares is used to track the number of shares that can be minted by users.
+     *      pendingAssets is used to track the number of assets waiting to be deposited by users.
+     *      claimableShares are not included in totalSupply().
+     *      pendingAssets are not included in totalAssets().
+     */
     uint256 public claimableShares; // represented as shares that can be minted
     uint256 public pendingAssets; // represented as assets waiting to be deposited
+
+    // @dev claimableSharePrice is defined when manager calls processPendingDeposits
+    // todo: fix this as will not work when you start earning yield
     uint256 public claimableSharePrice; // defined when manager calls processPendingDeposits
 
     // Events
@@ -65,9 +79,13 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         asset = address(_asset);
     }
 
-    // DEPOSIT FLOW
-    // requestDeposit is called by a depositor. Takes value of assets being deposited and adds it to the  pendingDepositRequests struct and pendingDeposits variable. PendingDeposits is used by ProcessPendingDeposits to ensure correct number of shares are allocated for the batch.
-    // Always transfers assets from user to vault when requestDeposit is called
+    /*//////////////////////////////////////////////////////////////
+                            DEPOSIT FLOW
+    //////////////////////////////////////////////////////////////*/
+    // requestDeposit is called by a depositor.
+    // Transfers assets from user to vault when requestDeposit is called
+    // Transferred assets are added to the pendingDepositRequests struct and pendingDeposits variable.
+    // PendingDeposits is subtracted from totalAssets until user has minted shares.
 
     function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256) {
         require(assets > 0, "Cannot request deposit of 0 assets");
@@ -103,8 +121,6 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
         return REQUEST_ID;
     }
-
-    function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {}
 
     function pendingDepositRequest(uint256, address controller) external view returns (uint256 assets) {
         uint256 index = controllerToDepositIndex[controller];
@@ -146,10 +162,45 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
         // Clear all processed data
         delete pendingDepositRequests;
-        pendingAssets = 0;
+        // pendingAssets = 0;
     }
 
-    // REDEMPTION FLOW
+    function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {}
+
+    function mint(uint256 shares, address receiver, address controller_) public returns (uint256 assets) {
+        address controller = msg.sender;
+
+        // Check if there's any claimable deposit for the controller
+        if (claimableDepositRequests[controller] == 0) {
+            revert ERC7540Mock_NoPendingDepositAvailable();
+        }
+
+        // Calculate assets based on shares and claimableSharePrice
+        assets = Math.mulDiv(shares, claimableSharePrice, 1e18, Math.Rounding.Floor);
+
+        // Check if requested assets exceed the claimable amount
+        if (assets > claimableDepositRequests[controller]) {
+            revert ERC7540Mock_ExceedsPendingDeposit();
+        }
+
+        // Subtract from claimableShares
+        claimableShares -= shares;
+
+        pendingAssets -= assets;
+
+        // Update claimable balance
+        claimableDepositRequests[controller] -= assets;
+
+        // Mint shares to the receiver
+        _mint(receiver, shares);
+
+        emit Deposit(msg.sender, receiver, assets, shares);
+        return assets;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            REDEMPTION FLOW
+    //////////////////////////////////////////////////////////////*/
     function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(owner) >= shares, "Insufficient shares");
@@ -215,46 +266,6 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         delete pendingRedeemRequests;
     }
 
-    // OPERATOR FUNCTIONS
-    function isOperator(address controller, address operator) public view returns (bool) {
-        return _operators[controller][operator];
-    }
-
-    function setOperator(address operator, bool approved) external returns (bool) {
-        _operators[msg.sender][operator] = approved;
-        emit OperatorSet(msg.sender, operator, approved);
-        return true;
-    }
-
-    function mint(uint256 shares, address receiver, address controller_) public returns (uint256 assets) {
-        address controller = msg.sender;
-
-        // Check if there's any claimable deposit for the controller
-        if (claimableDepositRequests[controller] == 0) {
-            revert ERC7540Mock_NoPendingDepositAvailable();
-        }
-
-        // Calculate assets based on shares and claimableSharePrice
-        assets = Math.mulDiv(shares, claimableSharePrice, 1e18, Math.Rounding.Floor);
-
-        // Check if requested assets exceed the claimable amount
-        if (assets > claimableDepositRequests[controller]) {
-            revert ERC7540Mock_ExceedsPendingDeposit();
-        }
-
-        // Subtract from claimableShares
-        claimableShares -= shares;
-
-        // Update claimable balance
-        claimableDepositRequests[controller] -= assets;
-
-        // Mint shares to the receiver
-        _mint(receiver, shares);
-
-        emit Deposit(msg.sender, receiver, assets, shares);
-        return assets;
-    }
-
     function withdraw(uint256 assets, address receiver, address owner) public returns (uint256 shares) {
         address controller = msg.sender;
 
@@ -286,7 +297,24 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         return shares;
     }
 
-    /* CFG Liquidity Pool Functions */
+    function redeem(uint256 shares, address receiver, address owner) public returns (uint256 assets) {}
+
+    /*//////////////////////////////////////////////////////////////
+                            OPERATOR FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    function isOperator(address controller, address operator) public view returns (bool) {
+        return _operators[controller][operator];
+    }
+
+    function setOperator(address operator, bool approved) external returns (bool) {
+        _operators[msg.sender][operator] = approved;
+        emit OperatorSet(msg.sender, operator, approved);
+        return true;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        CFG LIQUIDITY POOL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     function manager() public view returns (address) {
         return address(poolManager);
@@ -300,7 +328,9 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         return bytes16(0x1234567890abcdef1234567890abcdef); // dummy value
     }
 
-    // 4626 OVERIDES
+    /*//////////////////////////////////////////////////////////////
+                        4626 OVERIDES
+    //////////////////////////////////////////////////////////////*/
 
     function totalAssets() public view virtual returns (uint256) {
         return IERC20(asset).balanceOf(address(this)) - pendingAssets;
@@ -335,13 +365,23 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         maxShares = Math.mulDiv(claimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
     }
 
+    function maxDeposit(address controller) public view returns (uint256 maxAssets) {
+        maxAssets = claimableDepositRequests[controller];
+    }
+
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
         // todo: complete implementation when you fix this contract
         uint256 redeemableShares = claimableRedeemRequests[controller];
         maxAssets = convertToAssets(redeemableShares);
     }
 
-    // HELPERS
+    function maxRedeem(address controller) public view returns (uint256 maxShares) {
+        maxShares = claimableRedeemRequests[controller];
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            HELPERS
+    //////////////////////////////////////////////////////////////*/
 
     // Function takes new pendingAssets and defines new claimableShares.
     // PendingAssets * (totalSupply - claimableShares) / (totalAssets - pendingAssets)
@@ -350,15 +390,20 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         return _pendingAssets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), (totalAssets()) + 1, rounding);
     }
 
-    // ERC-165 support
+    /*//////////////////////////////////////////////////////////////
+                        INTERFACE COMPLIANCE
+    //////////////////////////////////////////////////////////////*/
     function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
         return interfaceId == type(IERC165).interfaceId;
     }
 
-    // ERC-7575 compliance
     function share() public view returns (address) {
         return address(this);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.

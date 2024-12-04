@@ -86,6 +86,101 @@ contract MockERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
     }
 
+    function test_multipleDeposits() public {
+        uint256 amount = 10 ether;
+        address[3] memory users = [user, user2, user3];
+
+        // Request deposits loop
+        for (uint256 i = 0; i < users.length; i++) {
+            vm.startPrank(users[i]);
+            asset.approve(address(liquidityPool), amount);
+            liquidityPool.requestDeposit(amount, users[i], users[i]);
+            vm.stopPrank();
+        }
+
+        // Verify pending deposits loop
+        for (uint256 i = 0; i < users.length; i++) {
+            assertEq(liquidityPool.pendingDepositRequest(0, users[i]), amount);
+        }
+
+        assertEq(liquidityPool.totalSupply(), 0);
+        assertEq(liquidityPool.totalAssets(), 0);
+
+        vm.startPrank(poolManager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+
+        assertEq(liquidityPool.totalSupply(), 0);
+        assertEq(liquidityPool.totalAssets(), 0);
+
+        // Mint and verify loop
+        uint256 shares;
+        for (uint256 i = 0; i < users.length; i++) {
+            shares = liquidityPool.maxMint(users[i]);
+            vm.prank(users[i]);
+            liquidityPool.mint(shares, users[i], users[i]);
+
+            assertEq(liquidityPool.balanceOf(users[i]), shares);
+            assertEq(liquidityPool.convertToAssets(shares), amount);
+            assertEq(liquidityPool.totalSupply(), shares * (i + 1));
+            assertEq(liquidityPool.totalAssets(), amount * (i + 1));
+        }
+    }
+
+    function test_multipleRedemptions() public {
+        uint256 amount = 10 ether;
+        address[3] memory users = [user, user2, user3];
+
+        // Request deposits loop
+        for (uint256 i = 0; i < users.length; i++) {
+            vm.startPrank(users[i]);
+            asset.approve(address(liquidityPool), amount);
+            liquidityPool.requestDeposit(amount, users[i], users[i]);
+            vm.stopPrank();
+        }
+
+        vm.startPrank(poolManager);
+        liquidityPool.processPendingDeposits();
+        vm.stopPrank();
+
+        // Mint shares loop
+        uint256 shares;
+        for (uint256 i = 0; i < users.length; i++) {
+            shares = liquidityPool.maxMint(users[i]);
+            vm.prank(users[i]);
+            liquidityPool.mint(shares, users[i], users[i]);
+        }
+
+        // Request redemptions loop
+        for (uint256 i = 0; i < users.length; i++) {
+            vm.startPrank(users[i]);
+            liquidityPool.approve(address(liquidityPool), shares);
+            liquidityPool.requestRedeem(shares, users[i], users[i]);
+            vm.stopPrank();
+        }
+
+        assertEq(liquidityPool.totalSupply(), shares * users.length);
+        assertEq(liquidityPool.totalAssets(), amount * users.length);
+
+        vm.startPrank(poolManager);
+        liquidityPool.processPendingRedemptions();
+        vm.stopPrank();
+
+        assertEq(liquidityPool.totalSupply(), shares * users.length);
+        assertEq(liquidityPool.totalAssets(), amount * users.length);
+
+        // Withdraw loop
+        for (uint256 i = 0; i < users.length; i++) {
+            uint256 claimableAssets = liquidityPool.claimableRedeemRequest(0, users[i]);
+            vm.startPrank(users[i]);
+            liquidityPool.withdraw(claimableAssets, users[i], users[i]);
+            vm.stopPrank();
+
+            assertEq(liquidityPool.balanceOf(users[i]), 0);
+            assertEq(liquidityPool.convertToAssets(shares), amount);
+        }
+    }
+
     function testRevertOnZeroDeposit() public {
         vm.startPrank(user);
         vm.expectRevert("Cannot request deposit of 0 assets");
