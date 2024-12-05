@@ -69,6 +69,8 @@ contract EthereumForkTests is BaseTest {
 
     ERC7540RouterHarness testRouter;
 
+    ComponentAllocation allocation;
+
     function setUp() public override {
         string memory ETHEREUM_RPC_URL = vm.envString("ETHEREUM_RPC_URL");
         ethereumFork = vm.createFork(ETHEREUM_RPC_URL, blockNumber);
@@ -83,6 +85,26 @@ contract EthereumForkTests is BaseTest {
         share = cfgLiquidityPool.share();
 
         testRouter = new ERC7540RouterHarness(address(registry));
+
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.03 ether});
+
+        // add centrifuge liquidity pool to protocol contracts
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
+        node.addComponent(address(cfgLiquidityPool), allocation);
+        quoter.setErc7540(address(cfgLiquidityPool), true);
+        vm.stopPrank();
+
+        // add node to cfg whitelist
+        vm.startPrank(address(root));
+        restrictionManager.updateMember(share, address(node), type(uint64).max);
+        vm.stopPrank();
+
+        // user approves and deposits to node
+        vm.startPrank(user);
+        IERC20(cfgLiquidityPool.asset()).approve(address(node), type(uint256).max);
+        node.deposit(100 ether, address(user));
+        vm.stopPrank();
     }
 
     function test_canSelectEthereum() public {
@@ -174,33 +196,18 @@ contract EthereumForkTests is BaseTest {
         assertEq(IERC20(cfgLiquidityPool.asset()).balanceOf(address(user)), balBefore + 100 ether);
     }
 
-    function test_cfgToNode_fullFlow() public {
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.03 ether});
-
-        vm.startPrank(owner);
-        router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
-        node.addComponent(address(cfgLiquidityPool), allocation);
-        quoter.setErc7540(address(cfgLiquidityPool), true);
-        vm.stopPrank();
-
-        // user approves and deposits to node
-        vm.startPrank(user);
-        IERC20(cfgLiquidityPool.asset()).approve(address(node), type(uint256).max);
-        node.deposit(100 ether, address(user));
-        vm.stopPrank();
-
-        // assert node has issued correct shares to user for 100 deposit
-        assertEq(node.convertToAssets(node.balanceOf(user)), 100 ether);
-
-        // add node to cfg whitelist
-        vm.startPrank(address(root));
-        restrictionManager.updateMember(share, address(node), type(uint64).max);
-        vm.stopPrank();
-
+    function test_cfgToNode_authorizedAddress() public view {
         // assert user has been whitelisted successfully
         (bool isMember,) = restrictionManager.isMember(address(share), address(node));
         assertTrue(isMember);
+    }
 
+    function test_cfgToNode_initialDeposit() public view {
+        // assert node has issued correct shares to user for 100 deposit
+        assertEq(node.convertToAssets(node.balanceOf(user)), 100 ether);
+    }
+
+    function test_cfgToNode_investInAsyncAsset() public {
         // rebalancer invests node in cfg vault
         vm.startPrank(rebalancer);
         router7540.investInAsyncVault(address(node), address(cfgLiquidityPool));
@@ -213,9 +220,15 @@ contract EthereumForkTests is BaseTest {
         uint256 pendingDeposit = cfgLiquidityPool.pendingDepositRequest(0, address(node));
         uint256 expectedDeposit = 100 ether * node.getComponentRatio(address(cfgLiquidityPool)) / 1e18;
         assertEq(pendingDeposit, expectedDeposit);
+    }
 
-        // estimate the shares cfg will mint based on current share price
-        uint256 sharesToMint = cfgLiquidityPool.convertToShares(pendingDeposit);
+    function test_cfgToNode_mintClaimableShares() public {
+        vm.startPrank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(cfgLiquidityPool));
+        vm.stopPrank();
+
+        uint256 pendingDepositAssets = cfgLiquidityPool.pendingDepositRequest(0, address(node));
+        uint256 sharesToMint = cfgLiquidityPool.convertToShares(pendingDepositAssets);
 
         // cfg root address uses manager to process the deposit request
         vm.startPrank(address(root));
@@ -224,98 +237,73 @@ contract EthereumForkTests is BaseTest {
             cfgLiquidityPool.trancheId(),
             address(node),
             poolManager_.assetToId(cfgLiquidityPool.asset()),
-            uint128(pendingDeposit),
+            uint128(pendingDepositAssets),
             uint128(sharesToMint)
         );
         vm.stopPrank();
 
-        uint256 claimableDepositValue = cfgLiquidityPool.claimableDepositRequest(0, address(node));
-        assertApproxEqAbs(claimableDepositValue, expectedDeposit, 1);
+        assertEq(cfgLiquidityPool.maxMint(address(node)), sharesToMint);
+        assertEq(cfgLiquidityPool.pendingDepositRequest(0, address(node)), 0);
+        assertApproxEqAbs(cfgLiquidityPool.claimableDepositRequest(0, address(node)), 90 ether, 1);
         assertApproxEqAbs(node.totalAssets(), 100 ether, 1);
 
-        // rebalancer mints claimable shares for node
-        vm.startPrank(rebalancer);
+        vm.prank(rebalancer);
         router7540.mintClaimableShares(address(node), address(cfgLiquidityPool));
+
+        assertEq(IERC20(share).balanceOf(address(node)), sharesToMint);
+        assertEq(cfgLiquidityPool.pendingDepositRequest(0, address(node)), 0);
+        assertEq(cfgLiquidityPool.claimableDepositRequest(0, address(node)), 0);
+        assertApproxEqAbs(node.totalAssets(), 100 ether, 1);
+    }
+
+    function test_cfgToNode_requestAsyncWithdrawal() public {
+        test_cfgToNode_mintClaimableShares();
+
+        uint256 shares = IERC20(share).balanceOf(address(node));
+
+        vm.prank(rebalancer);
+        router7540.requestAsyncWithdrawal(address(node), address(cfgLiquidityPool), shares);
+
+        assertEq(IERC20(share).balanceOf(address(node)), 0);
+        assertEq(cfgLiquidityPool.pendingRedeemRequest(0, address(node)), shares);
+        assertApproxEqAbs(cfgLiquidityPool.convertToAssets(shares), 90 ether, 1);
+        assertApproxEqAbs(node.totalAssets(), 100 ether, 1);
+
+        // manager processes redeem request
+        vm.startPrank(address(root));
+        investmentManager.fulfillRedeemRequest(
+            cfgLiquidityPool.poolId(),
+            cfgLiquidityPool.trancheId(),
+            address(node),
+            poolManager_.assetToId(cfgLiquidityPool.asset()),
+            uint128(cfgLiquidityPool.convertToAssets(shares)),
+            uint128(shares)
+        );
         vm.stopPrank();
 
-        // assertApproxEqAbs(node.totalAssets(), 100 ether, 1);
-        // assertEq(cfgLiquidityPool.pendingDepositRequest(0, address(node)), 0);
-        // assertApproxEqAbs(cfgLiquidityPool.claimableDepositRequest(0, address(node)), 0, 1);
+        assertApproxEqAbs(cfgLiquidityPool.maxWithdraw(address(node)), 90 ether, 1);
+        assertEq(cfgLiquidityPool.pendingRedeemRequest(0, address(node)), 0);
 
-        // uint256 mintedShares = IERC20(share).balanceOf(address(node));
-        // assertApproxEqAbs(cfgLiquidityPool.convertToAssets(mintedShares), expectedDeposit, 2);
+        // note: rounds up as totalAssets increased by 86 units
+        assertApproxEqAbs(node.totalAssets(), 100 ether, 100);
 
-        // // START WITHDRAWAL FLOW
+        // note: rounds up as asset value of shares increased by 86 units
+        uint256 redeemableShares = cfgLiquidityPool.claimableRedeemRequest(0, address(node));
+        assertApproxEqAbs(cfgLiquidityPool.convertToAssets(redeemableShares), 90 ether, 100);
+    }
 
-        // // rebalancer calls request asyncWithdrawal on Node
-        // vm.startPrank(rebalancer);
-        // router7540.requestAsyncWithdrawal(address(node), address(cfgLiquidityPool), mintedShares);
-        // vm.stopPrank();
+    function test_cfgToNode_executeAsyncWithdrawal() public {
+        test_cfgToNode_requestAsyncWithdrawal();
 
-        // // assert all of Node's shares have been returned to Centrifuge
-        // assertEq(IERC20(share).balanceOf(address(node)), 0);
+        // grab max amount of assets that can be withdrawn from cfg liquidityPool
+        uint256 maxWithdraw = cfgLiquidityPool.maxWithdraw(address(node));
 
-        // // assert pendingRedeemRequest == all shares minted to node
-        // assertEq(mintedShares, cfgLiquidityPool.pendingRedeemRequest(0, address(node)));
+        // rebalancer executes the withdrawal on the node contract
+        vm.prank(rebalancer);
+        router7540.executeAsyncWithdrawal(address(node), address(cfgLiquidityPool), maxWithdraw);
 
-        // // assert getAsyncAssets gets full value of Node holding in CFG LiquidityPool
-        // // subtract cash reserve from initial deposit to Node
-        // // assume some rounding down
-        // uint256 cashReserve = asset.balanceOf(address(node));
-        // assertApproxEqAbs(
-        //     testRouter.getErc7540Assets(address(node), address(cfgLiquidityPool)), 100 ether - cashReserve, 1
-        // );
-
-        // // assert totalAssets == initial deposit minus rounding
-        // assertApproxEqAbs(node.totalAssets(), 100 ether, 1);
-
-        // uint128 pendingRedeem = uint128(cfgLiquidityPool.pendingRedeemRequest(0, address(node)));
-        // uint128 redeemableAssets =
-        //     uint128(cfgLiquidityPool.convertToAssets(cfgLiquidityPool.pendingRedeemRequest(0, address(node))));
-
-        // // manager processes redeem request
-        // vm.startPrank(address(root));
-        // investmentManager.fulfillRedeemRequest(
-        //     cfgLiquidityPool.poolId(),
-        //     cfgLiquidityPool.trancheId(),
-        //     address(node),
-        //     poolManager_.assetToId(cfgLiquidityPool.asset()),
-        //     redeemableAssets,
-        //     pendingRedeem
-        // );
-        // vm.stopPrank();
-
-        // // grab assets due from redemption
-        // uint256 claimableRedeem =
-        //     cfgLiquidityPool.convertToAssets(cfgLiquidityPool.claimableRedeemRequest(0, address(node)));
-
-        // // assert correct assets are now available for redemption
-        // assertEq(redeemableAssets, claimableRedeem);
-
-        // // assert getAsyncAssets grabbing correct value for claimableRedeem
-        // assertApproxEqAbs(claimableRedeem, testRouter.getErc7540Assets(address(node), address(cfgLiquidityPool)), 1);
-
-        // // assert totalAssets == initial deposit minus rounding
-        // assertApproxEqAbs(node.totalAssets(), 100 ether, 1);
-
-        // // grab max amount of assets that can be withdrawn from cfg liquidityPool
-        // uint256 maxWithdraw = cfgLiquidityPool.maxWithdraw(address(node));
-
-        // // rebalancer executes the withdrawal on the node contract
-        // vm.startPrank(rebalancer);
-        // router7540.executeAsyncWithdrawal(address(node), address(cfgLiquidityPool), maxWithdraw);
-        // vm.stopPrank();
-
-        // // assert no more claimable withdraw from cfg lp
-        // assertEq(cfgLiquidityPool.maxWithdraw(address(node)), 0);
-
-        // // assert no shares still in claimable redeem state
-        // assertEq(cfgLiquidityPool.claimableRedeemRequest(0, address(node)), 0);
-
-        // // assert node not tracking and more async assets
-        // assertEq(testRouter.getErc7540Assets(address(node), address(cfgLiquidityPool)), 0);
-
-        // // assert node now has total assets == initial deposit after rounding
-        // assertApproxEqAbs(node.totalAssets(), 100 ether, 1);
+        assertEq(testRouter.getErc7540Assets(address(node), address(cfgLiquidityPool)), 0);
+        assertEq(cfgLiquidityPool.claimableRedeemRequest(0, address(node)), 0);
+        assertApproxEqAbs(node.totalAssets(), 100 ether, 1);
     }
 }

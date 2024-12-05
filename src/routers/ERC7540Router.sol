@@ -93,20 +93,21 @@ contract ERC7540Router is BaseRouter {
     // withdraws claimable assets from async vault
     function executeAsyncWithdrawal(address node, address component, uint256 assets)
         public
+        // todo check is a valid node component
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
-        returns (
-            // todo check is a valid node component
-            uint256 assetsReceived
-        )
+        returns (uint256 assetsReceived)
     {
         if (assets > IERC7575(component).maxWithdraw(address(node))) {
             revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
         }
 
-        assetsReceived = _withdraw(node, component, assets);
-        require(assetsReceived >= assets, "Not enough assets received");
+        uint256 shares = _withdraw(node, component, assets);
+        assetsReceived = IERC7575(component).convertToAssets(shares);
 
+        if (assetsReceived < assets) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
+        }
         return assetsReceived;
     }
 
