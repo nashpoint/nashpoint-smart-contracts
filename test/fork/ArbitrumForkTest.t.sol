@@ -17,7 +17,7 @@ contract ArbitrumForkTest is BaseTest {
     address constant sdUSDCV3Address = 0x890A69EF363C9c7BdD5E36eb95Ceb569F63ACbF6; // gearbox vault
     // note: gTrade has some weird epoch system so not possible to integrate currently
 
-    IERC20 public usdc = IERC20(usdcAddress);
+    IERC20 public usdc = IERC20(usdcArbitrum);
     IERC4626 public yUsdcA = IERC4626(yUsdcaAddress);
     IERC4626 public fUsdc = IERC4626(fUsdcAddress);
     IERC4626 public sdUsdcV3 = IERC4626(sdUSDCV3Address);
@@ -48,11 +48,11 @@ contract ArbitrumForkTest is BaseTest {
     }
 
     function test_usdcAddress() public view {
-        string memory name = IERC20Metadata(usdcAddress).name();
-        uint256 totalSupply = IERC20Metadata(usdcAddress).totalSupply();
+        string memory name = IERC20Metadata(usdcArbitrum).name();
+        uint256 totalSupply = IERC20Metadata(usdcArbitrum).totalSupply();
         assertEq(name, "USD Coin");
         assertEq(totalSupply, 1808663807522167);
-        assertEq(IERC20Metadata(usdcAddress).decimals(), 6);
+        assertEq(IERC20Metadata(usdcArbitrum).decimals(), 6);
     }
 
     function test_yearnUsdcA_Address() public view {
@@ -60,7 +60,7 @@ contract ArbitrumForkTest is BaseTest {
         address vaultAsset = IERC4626(yUsdcA).asset();
 
         assertEq(name, "USDC-A yVault");
-        assertEq(vaultAsset, usdcAddress);
+        assertEq(vaultAsset, usdcArbitrum);
     }
 
     function test_yUsdcA_userDeposit() public {

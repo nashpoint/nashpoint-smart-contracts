@@ -53,7 +53,8 @@ contract BaseTest is Test {
     uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
-    address constant usdcAddress = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // arbitrum usdc
+    address constant usdcArbitrum = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address constant usdcEthereum = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     function setUp() public virtual {
         owner = makeAddr("owner");
@@ -76,7 +77,10 @@ contract BaseTest is Test {
         router7540 = deployer.erc7540router();
 
         if (block.chainid == 42161) {
-            asset = IERC20(usdcAddress);
+            asset = IERC20(usdcArbitrum);
+            vault = new ERC4626Mock(address(asset));
+        } else if (block.chainid == 1) {
+            asset = IERC20(usdcEthereum);
             vault = new ERC4626Mock(address(asset));
         } else {
             asset = new ERC20Mock("Test Token", "TEST");
