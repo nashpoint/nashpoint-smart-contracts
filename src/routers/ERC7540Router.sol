@@ -126,7 +126,9 @@ contract ERC7540Router is BaseRouter {
     }
 
     function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
-        INode(node).execute(component, 0, abi.encodeWithSelector(IERC20.approve.selector, component, claimableShares));
+        address shareToken = IERC7575(component).share();
+        // Approve the component to spend share tokens
+        INode(node).execute(shareToken, 0, abi.encodeWithSelector(IERC20.approve.selector, component, claimableShares));
 
         bytes memory result = INode(node).execute(
             component, 0, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
