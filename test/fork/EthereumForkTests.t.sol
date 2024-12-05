@@ -6,13 +6,8 @@ import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-
-// centrifuge interfaces
-// import {IInvestmentManager} from "test/interfaces/centrifuge/IInvestmentManager.sol";
-// import {IPoolManager} from "test/interfaces/centrifuge/IPoolManager.sol";
-// import {IRestrictionManager} from "test/interfaces/centrifuge/IRestrictionManager.sol";
-// import {ITranche} from "test/interfaces/centrifuge/ITranche.sol";
-// import {IGateway} from "test/interfaces/centrifuge/IGateway.sol";
+import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
+import {IERC7575} from "src/interfaces/IERC7575.sol";
 
 import {console2} from "forge-std/console2.sol";
 
@@ -21,24 +16,63 @@ import {console2} from "forge-std/console2.sol";
 // taken from block 20591573
 // evm version: cancun
 
+interface ILiquidityPool is IERC7575, IERC7540Deposit, IERC7540Redeem {
+    function manager() external view returns (address);
+    function poolId() external view returns (uint64);
+    function trancheId() external view returns (bytes16);
+    function root() external view returns (address);
+}
+
+interface IRestrictionManager {
+    function updateMember(address, address, uint64) external;
+    function isMember(address token, address user) external view returns (bool isValid, uint64 validUntil);
+}
+
+interface IInvestmentManager {
+    function fulfillDepositRequest(
+        uint64 poolId,
+        bytes16 trancheId,
+        address user,
+        uint128 assetId,
+        uint128 assets,
+        uint128 shares
+    ) external;
+
+    function fulfillRedeemRequest(
+        uint64 poolId,
+        bytes16 trancheId,
+        address user,
+        uint128 assetId,
+        uint128 assets,
+        uint128 shares
+    ) external;
+}
+
+interface IPoolManager {
+    function assetToId(address) external view returns (uint128 assetId);
+}
+
 contract EthereumForkTests is BaseTest {
     uint256 ethereumFork;
     uint256 blockNumber = 20591573;
-    address ERC7540VaultAddress = 0x1d01Ef1997d44206d839b78bA6813f60F1B3A970;
-
-    // centrifuge: fork test contracts and addresses
-    // IInvestmentManager public investmentManager;
-    // IRestrictionManager public restrictionManager;
-    // IPoolManager public poolManager;
-    // IGateway public gateway;
-    // ITranche public share;
-    // address public root;
+    address cfgLiquidityPoolAddress = 0x1d01Ef1997d44206d839b78bA6813f60F1B3A970;
+    address root;
+    IRestrictionManager restrictionManager;
+    ILiquidityPool cfgLiquidityPool;
+    IInvestmentManager investmentManager;
+    IPoolManager poolManager_;
 
     function setUp() public override {
         string memory ETHEREUM_RPC_URL = vm.envString("ETHEREUM_RPC_URL");
         ethereumFork = vm.createFork(ETHEREUM_RPC_URL, blockNumber);
         vm.selectFork(ethereumFork);
         super.setUp();
+
+        cfgLiquidityPool = ILiquidityPool(cfgLiquidityPoolAddress);
+        root = cfgLiquidityPool.root();
+        restrictionManager = IRestrictionManager(0x4737C3f62Cc265e786b280153fC666cEA2fBc0c0);
+        investmentManager = IInvestmentManager(cfgLiquidityPool.manager());
+        poolManager_ = IPoolManager(0x91808B5E2F6d7483D41A681034D7c9DbB64B9E29);
     }
 
     function test_canSelectEthereum() public {
@@ -52,5 +86,83 @@ contract EthereumForkTests is BaseTest {
         assertEq(name, "USD Coin");
         assertEq(totalSupply, 25385817571885697);
         assertEq(IERC20Metadata(usdcEthereum).decimals(), 6);
+    }
+
+    function test_centrifugeLiquidityPool_info() public view {
+        // check all the liquidity pool data is correct
+        assertEq(cfgLiquidityPool.asset(), usdcEthereum);
+        assertEq(cfgLiquidityPool.share(), 0x8c213ee79581Ff4984583C6a801e5263418C4b86);
+        assertEq(cfgLiquidityPool.totalAssets(), 7160331396067);
+        assertEq(cfgLiquidityPool.manager(), 0xE79f06573d6aF1B66166A926483ba00924285d20);
+        assertEq(cfgLiquidityPool.poolId(), 4139607887);
+        assertEq(cfgLiquidityPool.trancheId(), bytes16(0x97aa65f23e7be09fcd62d0554d2e9273));
+        assertEq(cfgLiquidityPool.root(), root);
+        assertEq(poolManager_.assetToId(cfgLiquidityPool.asset()), 242333941209166991950178742833476896417);
+    }
+
+    function test_userInteractions() public {
+        address share = cfgLiquidityPool.share();
+
+        // as the root account, add user to whitelist
+        vm.startPrank(address(root));
+        restrictionManager.updateMember(share, user, type(uint64).max);
+        vm.stopPrank();
+
+        // assert users have been whitelisted successfully
+        (bool isMember,) = restrictionManager.isMember(address(share), user);
+        assertTrue(isMember);
+
+        // user requests deposit to cfg pool
+        vm.startPrank(user);
+        IERC20(cfgLiquidityPool.asset()).approve(address(cfgLiquidityPool), type(uint256).max);
+        cfgLiquidityPool.requestDeposit(100 ether, address(user), address(user));
+        vm.stopPrank();
+
+        // cfg root address uses manager to process the deposit request
+        vm.startPrank(address(root));
+        investmentManager.fulfillDepositRequest(
+            cfgLiquidityPool.poolId(),
+            cfgLiquidityPool.trancheId(),
+            address(user),
+            poolManager_.assetToId(cfgLiquidityPool.asset()),
+            100 ether,
+            100 ether
+        );
+        vm.stopPrank();
+
+        // user mints
+        vm.startPrank(address(user));
+        cfgLiquidityPool.mint(100 ether, address(user));
+        vm.stopPrank();
+
+        // assert user has received correct shares
+        assertEq(IERC20(share).balanceOf(address(user)), 100 ether);
+
+        // user requests redeem
+        vm.startPrank(address(user));
+        IERC20(share).approve(address(cfgLiquidityPool), 100 ether);
+        cfgLiquidityPool.requestRedeem(100 ether, address(user), address(user));
+        vm.stopPrank();
+
+        // cfg root address uses manager to process the redeem request
+        vm.startPrank(address(root));
+        investmentManager.fulfillRedeemRequest(
+            cfgLiquidityPool.poolId(),
+            cfgLiquidityPool.trancheId(),
+            address(user),
+            poolManager_.assetToId(cfgLiquidityPool.asset()),
+            100 ether,
+            100 ether
+        );
+        vm.stopPrank();
+
+        // user withdraws available tokens
+        vm.startPrank(user);
+        uint256 balBefore = IERC20(cfgLiquidityPool.asset()).balanceOf(address(user));
+        cfgLiquidityPool.withdraw(100 ether, address(user), address(user));
+        vm.stopPrank();
+
+        // assert user balance has increased by 100
+        assertEq(IERC20(cfgLiquidityPool.asset()).balanceOf(address(user)), balBefore + 100 ether);
     }
 }

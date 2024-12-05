@@ -9,6 +9,8 @@ remappings = [
     '@prb/math/=lib/prb-math/'
 ]
 
+evm_version = "cancun"
+
 # via-ir = true
 
 # gas_reports = ["Node"]

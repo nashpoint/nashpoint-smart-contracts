@@ -75,7 +75,7 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(rebalancer);
         router7540.investInAsyncVault(address(node), address(liquidityPool));
 
-        vm.prank(poolManager);
+        vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
         assertEq(liquidityPool.claimableDepositRequest(0, address(node)), 50 ether);
 
@@ -98,7 +98,7 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(rebalancer);
         router7540.investInAsyncVault(address(node), address(liquidityPool));
 
-        vm.prank(poolManager);
+        vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
 
         vm.startPrank(rebalancer);
@@ -125,7 +125,7 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(rebalancer);
         router7540.investInAsyncVault(address(node), address(liquidityPool));
 
-        vm.prank(poolManager);
+        vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
 
         vm.startPrank(rebalancer);
@@ -136,7 +136,7 @@ contract ERC7540RouterTest is BaseTest {
 
         assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 10 ether);
 
-        vm.prank(poolManager);
+        vm.prank(testPoolManager);
         liquidityPool.processPendingRedemptions();
 
         assertEq(liquidityPool.claimableRedeemRequest(0, address(node)), 10 ether);

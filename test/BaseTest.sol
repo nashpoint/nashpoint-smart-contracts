@@ -48,7 +48,7 @@ contract BaseTest is Test {
     address public randomUser;
     address public rebalancer;
     address public vaultSeeder;
-    address public poolManager;
+    address public testPoolManager;
 
     uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
@@ -64,7 +64,7 @@ contract BaseTest is Test {
         randomUser = makeAddr("randomUser");
         rebalancer = makeAddr("rebalancer");
         vaultSeeder = makeAddr("vaultSeeder");
-        poolManager = makeAddr("poolManager");
+        testPoolManager = makeAddr("testPoolManager");
 
         deployer = new Deployer();
         deployer.deploy(owner);
@@ -85,7 +85,7 @@ contract BaseTest is Test {
         } else {
             asset = new ERC20Mock("Test Token", "TEST");
             vault = new ERC4626Mock(address(asset));
-            liquidityPool = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", poolManager);
+            liquidityPool = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", testPoolManager);
         }
 
         vm.startPrank(owner);

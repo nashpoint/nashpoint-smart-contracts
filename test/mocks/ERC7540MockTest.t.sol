@@ -8,7 +8,7 @@ import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 contract MockERC7540Tests is BaseTest {
     function setUp() public override {
         super.setUp();
-        liquidityPool = new ERC7540Mock(asset, "Mock", "MOCK", poolManager);
+        liquidityPool = new ERC7540Mock(asset, "Mock", "MOCK", testPoolManager);
     }
 
     function testBasicDepositFlow() public {
@@ -25,7 +25,7 @@ contract MockERC7540Tests is BaseTest {
         assertEq(amount, pendingDeposits);
 
         // Manager processes deposits
-        vm.startPrank(poolManager);
+        vm.startPrank(testPoolManager);
         liquidityPool.processPendingDeposits();
         vm.stopPrank();
 
@@ -49,7 +49,7 @@ contract MockERC7540Tests is BaseTest {
         liquidityPool.requestDeposit(amount, user, user);
         vm.stopPrank();
 
-        vm.startPrank(poolManager);
+        vm.startPrank(testPoolManager);
         liquidityPool.processPendingDeposits();
         vm.stopPrank();
 
@@ -67,7 +67,7 @@ contract MockERC7540Tests is BaseTest {
         assertEq(shares, pendingRedemptions);
 
         // Manager processes redemptions
-        vm.startPrank(poolManager);
+        vm.startPrank(testPoolManager);
         liquidityPool.processPendingRedemptions();
         vm.stopPrank();
 
@@ -103,7 +103,7 @@ contract MockERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), 0);
         assertEq(liquidityPool.totalAssets(), 0);
 
-        vm.startPrank(poolManager);
+        vm.startPrank(testPoolManager);
         liquidityPool.processPendingDeposits();
         vm.stopPrank();
 
@@ -136,7 +136,7 @@ contract MockERC7540Tests is BaseTest {
             vm.stopPrank();
         }
 
-        vm.startPrank(poolManager);
+        vm.startPrank(testPoolManager);
         liquidityPool.processPendingDeposits();
         vm.stopPrank();
 
@@ -159,7 +159,7 @@ contract MockERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), shares * users.length);
         assertEq(liquidityPool.totalAssets(), amount * users.length);
 
-        vm.startPrank(poolManager);
+        vm.startPrank(testPoolManager);
         liquidityPool.processPendingRedemptions();
         vm.stopPrank();
 
