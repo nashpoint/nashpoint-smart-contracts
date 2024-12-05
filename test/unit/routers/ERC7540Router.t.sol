@@ -18,6 +18,10 @@ contract ERC7540RouterHarness is ERC7540Router {
     function getInvestmentSize(address node, address component) public view returns (uint256 depositAssets) {
         return super._getInvestmentSize(node, component);
     }
+
+    function getErc7540Assets(address node, address component) public view returns (uint256) {
+        return super._getErc7540Assets(node, component);
+    }
 }
 
 contract ERC7540RouterTest is BaseTest {
