@@ -6,6 +6,7 @@ import {IBaseRouter} from "../interfaces/IBaseRouter.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {INode} from "../interfaces/INode.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
+import {MathLib} from "./MathLib.sol";
 import {ErrorsLib} from "./ErrorsLib.sol";
 
 /**
@@ -106,4 +107,15 @@ contract BaseRouter is IBaseRouter {
         onlyNodeRebalancer(node)
         returns (uint256 depositAmount)
     {}
+
+    function _validateReserveAboveTargetRatio(address node) internal view {
+        uint256 totalAssets_ = INode(node).totalAssets();
+        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
+        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node));
+
+        // checks if available reserve exceeds target ratio
+        if (currentCash < idealCashReserve) {
+            revert ErrorsLib.ReserveBelowTargetRatio();
+        }
+    }
 }

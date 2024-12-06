@@ -35,6 +35,8 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             revert ErrorsLib.InvalidComponent();
         }
 
+        // todo need a check in here to make sure current reserve ratio > target reserve ratio
+
         // Calculate target deposit amount
         depositAmount = _getInvestmentSize(node, component);
 
@@ -47,8 +49,6 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         // Calculate current available cash (accounting for pending withdrawals)
         uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
             - INode(node).convertToAssets(INode(node).sharesExiting());
-
-        // todo need a check in here to make sure current reserve ratio > target reserve ratio
 
         // Limit deposit by reserve ratio requirements
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);

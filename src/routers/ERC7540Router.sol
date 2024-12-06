@@ -37,9 +37,7 @@ contract ERC7540Router is BaseRouter {
         uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node));
 
         // checks if available reserve exceeds target ratio
-        if (currentCash < idealCashReserve) {
-            revert ErrorsLib.ReserveBelowTargetRatio();
-        }
+        _validateReserveAboveTargetRatio(node);
 
         // gets deposit amount
         uint256 depositAmount = _getInvestmentSize(node, component);
