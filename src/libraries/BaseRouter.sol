@@ -16,6 +16,7 @@ contract BaseRouter is IBaseRouter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
+    uint256 immutable WAD = 1e18;
 
     /* STORAGE */
     /// @notice Mapping of whitelisted target addresses

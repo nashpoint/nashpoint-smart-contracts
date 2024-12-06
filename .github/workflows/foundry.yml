@@ -17,4 +17,4 @@ jobs:
           version: nightly
 
       - name: Run tests
-        run: forge test --no-match-contract ArbitrumForkTest
+        run: forge test --no-match-contract "(EthereumForkTest|ArbitrumForkTest)"
