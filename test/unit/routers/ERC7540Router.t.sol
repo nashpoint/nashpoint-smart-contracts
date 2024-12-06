@@ -127,11 +127,65 @@ contract ERC7540RouterTest is BaseTest {
     }
 
     function test_investInAsyncVault_revert_ReserveBelowTargetRatio() public {
-        _seedNode(100 ether);
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, address(user));
+        vm.stopPrank();
+
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        node.requestRedeem(1 ether, address(user), address(user));
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(address(user));
+
+        vm.expectRevert(ErrorsLib.ReserveBelowTargetRatio.selector);
+
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
     }
 
-    function test_investInAsyncVault_revert_ComponentWithinTargetRange() public {}
+    /// bug: you are calculating target holdings vs current holdings just using the share token position
+    /// todo: look at _getInvestmentSize & logic to "Validate deposit amount exceeds minimum threshold"
+    /// refactor to use full position size, but need to deal with cases where shares pending, claimable etc
+    function test_investInAsyncVault_revert_ComponentWithinTargetRange() public {
+        _seedNode(1000 ether);
+        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
 
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.startPrank(user);
+        asset.approve(address(node), 1 ether);
+        node.deposit(1 ether, address(user));
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(ErrorsLib.ComponentWithinTargetRange.selector, address(node), address(liquidityPool))
+        );
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+    }
+
+    /// todo: do this one after you fix the valuation problem mentioned above
     function test_investInAsyncVault_depositAmount_equals_availableReserve() public {}
 
     function test_mintClaimableShares() public {
