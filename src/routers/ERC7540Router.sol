@@ -102,8 +102,7 @@ contract ERC7540Router is BaseRouter {
             revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
         }
 
-        uint256 shares = _withdraw(node, component, assets);
-        assetsReceived = IERC7575(component).convertToAssets(shares);
+        assetsReceived = IERC7575(component).convertToAssets(_withdraw(node, component, assets));
 
         if (assetsReceived < assets) {
             revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
