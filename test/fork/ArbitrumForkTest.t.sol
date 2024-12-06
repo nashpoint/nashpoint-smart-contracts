@@ -17,7 +17,7 @@ contract ArbitrumForkTest is BaseTest {
     address constant sdUSDCV3Address = 0x890A69EF363C9c7BdD5E36eb95Ceb569F63ACbF6; // gearbox vault
     // note: gTrade has some weird epoch system so not possible to integrate currently
 
-    IERC20 public usdc = IERC20(usdcAddress);
+    IERC20 public usdc = IERC20(usdcArbitrum);
     IERC4626 public yUsdcA = IERC4626(yUsdcaAddress);
     IERC4626 public fUsdc = IERC4626(fUsdcAddress);
     IERC4626 public sdUsdcV3 = IERC4626(sdUSDCV3Address);
@@ -48,11 +48,11 @@ contract ArbitrumForkTest is BaseTest {
     }
 
     function test_usdcAddress() public view {
-        string memory name = IERC20Metadata(usdcAddress).name();
-        uint256 totalSupply = IERC20Metadata(usdcAddress).totalSupply();
+        string memory name = IERC20Metadata(usdcArbitrum).name();
+        uint256 totalSupply = IERC20Metadata(usdcArbitrum).totalSupply();
         assertEq(name, "USD Coin");
         assertEq(totalSupply, 1808663807522167);
-        assertEq(IERC20Metadata(usdcAddress).decimals(), 6);
+        assertEq(IERC20Metadata(usdcArbitrum).decimals(), 6);
     }
 
     function test_yearnUsdcA_Address() public view {
@@ -60,7 +60,7 @@ contract ArbitrumForkTest is BaseTest {
         address vaultAsset = IERC4626(yUsdcA).asset();
 
         assertEq(name, "USDC-A yVault");
-        assertEq(vaultAsset, usdcAddress);
+        assertEq(vaultAsset, usdcArbitrum);
     }
 
     function test_yUsdcA_userDeposit() public {
@@ -74,7 +74,7 @@ contract ArbitrumForkTest is BaseTest {
         assertEq(yUsdcA.balanceOf(address(user)), expectedShares);
     }
 
-    function test_yUsdcA_nodeDepositRedeem() public {
+    function test_yUsdcA_nodeInvestLiquidate() public {
         vm.startPrank(user);
         usdc.approve(address(node), 100e6);
         node.deposit(100e6, user);
@@ -87,7 +87,7 @@ contract ArbitrumForkTest is BaseTest {
         assertEq(yUsdcA.balanceOf(address(node)), 0);
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(yUsdcA), 90e6);
+        router4626.invest(address(node), address(yUsdcA));
         vm.stopPrank();
 
         uint256 nodeShares = yUsdcA.balanceOf(address(node));
@@ -97,21 +97,21 @@ contract ArbitrumForkTest is BaseTest {
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);
-        router4626.redeem(address(node), address(yUsdcA), yUsdcA.balanceOf(address(node)));
+        router4626.liquidate(address(node), address(yUsdcA), yUsdcA.balanceOf(address(node)));
         vm.stopPrank();
 
         assertEq(yUsdcA.balanceOf(address(node)), 0);
         assertApproxEqAbs(usdc.balanceOf(address(node)), 100e6, 1);
     }
 
-    function test_fUsdc_nodeDepositRedeem() public {
+    function test_fUsdc_nodeInvestLiquidate() public {
         vm.startPrank(user);
         usdc.approve(address(node), 100e6);
         node.deposit(100e6, user);
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(fUsdc), 90e6);
+        router4626.invest(address(node), address(fUsdc));
         vm.stopPrank();
 
         uint256 nodeShares = fUsdc.balanceOf(address(node));
@@ -121,21 +121,21 @@ contract ArbitrumForkTest is BaseTest {
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);
-        router4626.redeem(address(node), address(fUsdc), fUsdc.balanceOf(address(node)));
+        router4626.liquidate(address(node), address(fUsdc), fUsdc.balanceOf(address(node)));
         vm.stopPrank();
 
         assertEq(fUsdc.balanceOf(address(node)), 0);
         assertApproxEqAbs(usdc.balanceOf(address(node)), 100e6, 1);
     }
 
-    function test_sdUsdcV3_nodeDepositRedeem() public {
+    function test_sdUsdcV3_nodeInvestLiquidate() public {
         vm.startPrank(user);
         usdc.approve(address(node), 100e6);
         node.deposit(100e6, user);
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.deposit(address(node), address(sdUsdcV3), 90e6);
+        router4626.invest(address(node), address(sdUsdcV3));
         vm.stopPrank();
 
         uint256 nodeShares = sdUsdcV3.balanceOf(address(node));
@@ -145,7 +145,7 @@ contract ArbitrumForkTest is BaseTest {
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);
-        router4626.redeem(address(node), address(sdUsdcV3), sdUsdcV3.balanceOf(address(node)));
+        router4626.liquidate(address(node), address(sdUsdcV3), sdUsdcV3.balanceOf(address(node)));
         vm.stopPrank();
 
         assertEq(sdUsdcV3.balanceOf(address(node)), 0);

@@ -6,6 +6,7 @@ import {NodeRegistry} from "src/NodeRegistry.sol";
 import {QuoterV1} from "src/quoters/QuoterV1.sol";
 import {SwingPricingV1} from "src/pricers/SwingPricingV1.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
+import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import "forge-std/Script.sol";
 
 contract Deployer is Script {
@@ -13,6 +14,7 @@ contract Deployer is Script {
     NodeFactory public factory;
     QuoterV1 public quoter;
     ERC4626Router public erc4626router;
+    ERC7540Router public erc7540router;
     SwingPricingV1 public pricer;
 
     function deploy(address owner) public {
@@ -23,6 +25,7 @@ contract Deployer is Script {
         factory = new NodeFactory{salt: salt}(address(registry));
         quoter = new QuoterV1{salt: salt}(address(registry));
         erc4626router = new ERC4626Router{salt: salt}(address(registry));
+        erc7540router = new ERC7540Router{salt: salt}(address(registry));
         pricer = new SwingPricingV1{salt: salt}(address(registry));
     }
 }

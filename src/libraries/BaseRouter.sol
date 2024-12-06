@@ -16,6 +16,7 @@ contract BaseRouter is IBaseRouter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
+    uint256 immutable WAD = 1e18;
 
     /* STORAGE */
     /// @notice Mapping of whitelisted target addresses
@@ -24,9 +25,12 @@ contract BaseRouter is IBaseRouter {
     /* EVENTS */
     event TargetWhitelisted(address indexed target, bool status);
 
+    /* ERRORS */
+
     /* CONSTRUCTOR */
     /// @dev Initializes the contract
     /// @param registry_ The address of the NodeRegistry
+
     constructor(address registry_) {
         if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
         registry = INodeRegistry(registry_);
@@ -88,4 +92,18 @@ contract BaseRouter is IBaseRouter {
     {
         INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
+
+    function _getInvestmentSize(address node, address component)
+        internal
+        view
+        virtual
+        returns (uint256 depositAssets)
+    {}
+
+    function invest(address node, address component)
+        external
+        virtual
+        onlyNodeRebalancer(node)
+        returns (uint256 depositAmount)
+    {}
 }

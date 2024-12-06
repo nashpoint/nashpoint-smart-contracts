@@ -101,6 +101,11 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
 
+    /// @notice Returns the target ratio of a component
+    /// @param component The address of the component
+    /// @return uint256 The target ratio of the component
+    function getComponentRatio(address component) external view returns (uint256);
+
     /// @notice Fulfill a redeem request from the reserve
     /// @param user The address of the user to redeem for
     function fulfillRedeemFromReserve(address user) external;
@@ -116,8 +121,14 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Returns the target reserve ratio
     function targetReserveRatio() external view returns (uint256);
 
+    /// @notice Returns the max delta for the component
+    function getMaxDelta(address component) external view returns (uint256);
+
     /// @notice Converts assets to shares
     /// @param assets The amount of assets to convert
     /// @return shares The amount of shares received
     function convertToShares(uint256 assets) external view returns (uint256);
+
+    /// @notice Returns the shares exiting the node
+    function sharesExiting() external view returns (uint256);
 }

@@ -476,8 +476,16 @@ contract Node is INode, ERC20, Ownable {
         return components;
     }
 
+    function getComponentRatio(address component) external view returns (uint256 ratio) {
+        return componentAllocations[component].targetWeight;
+    }
+
     function isComponent(address component) external view returns (bool) {
         return _isComponent(component);
+    }
+
+    function getMaxDelta(address component) external view returns (uint256) {
+        return componentAllocations[component].maxDelta;
     }
 
     function previewDeposit(uint256 assets) external view returns (uint256 shares) {
