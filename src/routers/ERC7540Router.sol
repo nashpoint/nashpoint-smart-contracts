@@ -28,7 +28,6 @@ contract ERC7540Router is BaseRouter {
         onlyWhitelisted(component)
         returns (uint256 cashInvested)
     {
-        // Validate component is part of the node
         if (!INode(node).isComponent(component)) {
             revert ErrorsLib.InvalidComponent();
         }
@@ -66,7 +65,16 @@ contract ERC7540Router is BaseRouter {
         return (requestId);
     }
 
-    function mintClaimableShares(address node, address component) public onlyNodeRebalancer(node) returns (uint256) {
+    function mintClaimableShares(address node, address component)
+        public
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(component)
+        returns (uint256)
+    {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
         uint256 claimableShares = IERC7575(component).maxMint(address(node));
 
         uint256 sharesReceived = _mint(node, component, claimableShares);
@@ -79,8 +87,11 @@ contract ERC7540Router is BaseRouter {
         public
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
-    // todo check is a valid node component
     {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
         address shareToken = IERC7575(component).share();
         if (shares > IERC20(shareToken).balanceOf(address(node))) {
             revert ErrorsLib.ExceedsAvailableShares(node, component, shares);
@@ -93,11 +104,14 @@ contract ERC7540Router is BaseRouter {
     // withdraws claimable assets from async vault
     function executeAsyncWithdrawal(address node, address component, uint256 assets)
         public
-        // todo check is a valid node component
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         returns (uint256 assetsReceived)
     {
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
+
         if (assets > IERC7575(component).maxWithdraw(address(node))) {
             revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
         }
@@ -127,7 +141,6 @@ contract ERC7540Router is BaseRouter {
 
     function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
         address shareToken = IERC7575(component).share();
-        // Approve the component to spend share tokens
         INode(node).execute(shareToken, 0, abi.encodeWithSelector(IERC20.approve.selector, component, claimableShares));
 
         bytes memory result = INode(node).execute(
@@ -150,10 +163,6 @@ contract ERC7540Router is BaseRouter {
         return abi.decode(result, (uint256));
     }
 
-    /// @notice Calculates the target investment size for a component.
-    /// @param node The address of the node.
-    /// @param component The address of the component.
-    /// @return depositAssets The target investment size.
     function _getInvestmentSize(address node, address component)
         internal
         view
