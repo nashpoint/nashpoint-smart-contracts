@@ -33,8 +33,9 @@ contract ERC7540Router is BaseRouter {
         }
 
         uint256 totalAssets_ = INode(node).totalAssets();
+        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
+            - INode(node).convertToAssets(INode(node).sharesExiting());
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node));
 
         // checks if available reserve exceeds target ratio
         _validateReserveAboveTargetRatio(node);
@@ -42,11 +43,8 @@ contract ERC7540Router is BaseRouter {
         // gets deposit amount
         uint256 depositAmount = _getInvestmentSize(node, component);
 
-        // Check if the current allocation is below the lower bound
-        uint256 currentAllocation = MathLib.mulDiv(_getErc7540Assets(node, component), WAD, totalAssets_);
-        uint256 lowerBound = INode(node).getComponentRatio(component) - INode(node).getMaxDelta(component);
-
-        if (currentAllocation >= lowerBound) {
+        // Validate deposit amount exceeds minimum threshold
+        if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 

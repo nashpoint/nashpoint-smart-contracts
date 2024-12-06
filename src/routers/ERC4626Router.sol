@@ -35,23 +35,23 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             revert ErrorsLib.InvalidComponent();
         }
 
+        uint256 totalAssets_ = INode(node).totalAssets();
+        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
+            - INode(node).convertToAssets(INode(node).sharesExiting());
+        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
+
         // todo need a check in here to make sure current reserve ratio > target reserve ratio
+        _validateReserveAboveTargetRatio(node);
 
         // Calculate target deposit amount
         depositAmount = _getInvestmentSize(node, component);
 
         // Validate deposit amount exceeds minimum threshold
-        uint256 totalAssets_ = INode(node).totalAssets();
         if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
-        // Calculate current available cash (accounting for pending withdrawals)
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
-            - INode(node).convertToAssets(INode(node).sharesExiting());
-
         // Limit deposit by reserve ratio requirements
-        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
         uint256 availableReserve = currentCash - idealCashReserve;
 
         if (depositAmount > availableReserve) {
