@@ -7,6 +7,8 @@ import {BaseTest} from "../../BaseTest.sol";
 import {BaseRouter} from "src/libraries/BaseRouter.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import {IERC7540, IERC7540Deposit} from "src/interfaces/IERC7540.sol";
+import {IERC7575} from "src/interfaces/IERC7575.sol";
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {ComponentAllocation} from "src/interfaces/INode.sol";
 
@@ -21,6 +23,10 @@ contract ERC7540RouterHarness is ERC7540Router {
 
     function getErc7540Assets(address node, address component) public view returns (uint256) {
         return super._getErc7540Assets(node, component);
+    }
+
+    function mint(address node, address component, uint256 amount) public returns (uint256) {
+        return super._mint(node, component, amount);
     }
 }
 
@@ -273,53 +279,226 @@ contract ERC7540RouterTest is BaseTest {
     }
 
     /* mintClaimableShares Tests */
-    function test_mintClaimableShares_fail_not_whitelisted() public {}
+    function test_mintClaimableShares_fail_not_whitelisted() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+    }
 
-    function test_mintClaimableShares_fail_not_rebalancer() public {}
+    function test_mintClaimableShares_fail_not_rebalancer() public {
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+    }
 
-    function test_mintClaimableShares_fail_invalid_component() public {}
+    function test_mintClaimableShares_fail_invalid_component() public {
+        address invalidComponent = makeAddr("invalidComponent");
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(invalidComponent, true);
+        vm.stopPrank();
 
-    function test_mintClaimableShares_revert_not_enough_shares_received() public {}
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidComponent.selector));
+        router7540.mintClaimableShares(address(node), invalidComponent);
+    }
+
+    function test_mintClaimableShares_revert_not_enough_shares_received() public {
+        _seedNode(100 ether);
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        // Setup: First create a deposit request
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        // Make deposit claimable
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        // Mock the mint function to return fewer shares than requested
+        uint256 claimableShares = liquidityPool.maxMint(address(node));
+        vm.mockCall(
+            address(liquidityPool),
+            abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, address(node), address(node)),
+            abi.encode(claimableShares - 1) // Return 1 less share than expected
+        );
+
+        // Attempt to mint should revert
+        vm.prank(rebalancer);
+        vm.expectRevert("Not enough shares received");
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+    }
 
     /* requestAsyncWithdrawal Tests */
-    function test_requestAsyncWithdrawal_fail_not_whitelisted() public {}
+    function test_requestAsyncWithdrawal_fail_not_whitelisted() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+    }
 
-    function test_requestAsyncWithdrawal_fail_not_rebalancer() public {}
+    function test_requestAsyncWithdrawal_fail_not_rebalancer() public {
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+    }
 
-    function test_requestAsyncWithdrawal_fail_invalid_component() public {}
+    function test_requestAsyncWithdrawal_fail_invalid_component() public {
+        address invalidComponent = makeAddr("invalidComponent");
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(invalidComponent, true);
+        vm.stopPrank();
 
-    function test_requestAsyncWithdrawal_revert_ExceedsAvailableShares() public {}
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidComponent.selector));
+        router7540.requestAsyncWithdrawal(address(node), invalidComponent, 10 ether);
+    }
+
+    function test_requestAsyncWithdrawal_revert_ExceedsAvailableShares() public {
+        // Setup: Seed node and invest in async vault
+        _seedNode(100 ether);
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        // Invest and mint shares
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        // Get current share balance
+        address shareToken = IERC7575(address(liquidityPool)).share();
+        uint256 currentShares = IERC20(shareToken).balanceOf(address(node));
+
+        // Try to withdraw more shares than available
+        vm.prank(rebalancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.ExceedsAvailableShares.selector, address(node), address(liquidityPool), currentShares + 1
+            )
+        );
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), currentShares + 1);
+    }
 
     /* executeAsyncWithdrawal Tests */
-    function test_executeAsyncWithdrawal_fail_not_whitelisted() public {}
+    function test_executeAsyncWithdrawal_fail_not_whitelisted() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
+        router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+    }
 
-    function test_executeAsyncWithdrawal_fail_not_rebalancer() public {}
+    function test_executeAsyncWithdrawal_fail_not_rebalancer() public {
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
+        router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+    }
 
-    function test_executeAsyncWithdrawal_fail_invalid_component() public {}
+    function test_executeAsyncWithdrawal_fail_invalid_component() public {
+        address invalidComponent = makeAddr("invalidComponent");
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(invalidComponent, true);
+        vm.stopPrank();
 
-    function test_executeAsyncWithdrawal_revert_ExceedsAvailableAssets() public {}
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidComponent.selector));
+        router7540.executeAsyncWithdrawal(address(node), invalidComponent, 10 ether);
+    }
 
-    function test_executeAsyncWithdrawal_revert_InsufficientAssetsReturned() public {}
+    function test_executeAsyncWithdrawal_revert_ExceedsAvailableAssets() public {
+        // Setup: Seed node and invest in async vault
+        _seedNode(100 ether);
 
-    /* Internal Function Tests */
-    function test_getErc7540Assets_with_share_balance() public {}
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
 
-    function test_getErc7540Assets_with_pending_deposits() public {}
+        // Invest and mint shares
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
 
-    function test_getErc7540Assets_with_claimable_deposits() public {}
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
 
-    function test_getErc7540Assets_with_pending_redeems() public {}
+        // Request withdrawal
+        uint256 withdrawAmount = 10 ether;
 
-    function test_getErc7540Assets_with_claimable_redeems() public {}
+        vm.startPrank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), withdrawAmount);
+        vm.stopPrank();
 
-    function test_getErc7540Assets_with_all_states() public {}
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingRedemptions();
 
-    /* Edge Cases */
-    function test_non_zero_requestId() public {}
+        // Try to withdraw more assets than are available
+        uint256 maxWithdraw = IERC7575(address(liquidityPool)).maxWithdraw(address(node));
 
-    function test_multiple_deposit_withdrawal_requests() public {}
+        vm.prank(rebalancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.ExceedsAvailableAssets.selector, address(node), address(liquidityPool), maxWithdraw + 1
+            )
+        );
+        router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), maxWithdraw + 1);
+    }
 
-    function test_zero_value_operations() public {}
+    function test_executeAsyncWithdrawal_revert_InsufficientAssetsReturned() public {
+        // Setup: Seed node and invest in async vault
+        _seedNode(100 ether);
 
-    function test_different_share_asset_conversion_rates() public {}
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        // Invest and mint shares
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+
+        // Request withdrawal
+        uint256 withdrawAmount = 10 ether;
+        vm.prank(rebalancer);
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), withdrawAmount);
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingRedemptions();
+
+        // Mock the withdrawal to return less than requested
+        bytes memory withdrawData =
+            abi.encodeWithSelector(IERC7575.withdraw.selector, withdrawAmount, address(node), address(node));
+        vm.mockCall(address(liquidityPool), withdrawData, abi.encode(withdrawAmount - 1));
+
+        // Attempt withdrawal should revert with InsufficientAssetsReturned
+        vm.prank(rebalancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.InsufficientAssetsReturned.selector,
+                address(liquidityPool),
+                withdrawAmount - 1,
+                withdrawAmount
+            )
+        );
+        router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), withdrawAmount);
+    }
 }
