@@ -163,9 +163,6 @@ contract ERC7540RouterTest is BaseTest {
         router7540.investInAsyncVault(address(node), address(liquidityPool));
     }
 
-    /// bug: you are calculating target holdings vs current holdings just using the share token position
-    /// todo: look at _getInvestmentSize & logic to "Validate deposit amount exceeds minimum threshold"
-    /// refactor to use full position size, but need to deal with cases where shares pending, claimable etc
     function test_investInAsyncVault_revert_ComponentWithinTargetRange() public {
         _seedNode(1000 ether);
         allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
@@ -358,7 +355,6 @@ contract ERC7540RouterTest is BaseTest {
     }
 
     function test_requestAsyncWithdrawal_revert_ExceedsAvailableShares() public {
-        // Setup: Seed node and invest in async vault
         _seedNode(100 ether);
 
         vm.startPrank(owner);
@@ -367,7 +363,6 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        // Invest and mint shares
         vm.prank(rebalancer);
         router7540.investInAsyncVault(address(node), address(liquidityPool));
 
@@ -378,11 +373,9 @@ contract ERC7540RouterTest is BaseTest {
         router7540.mintClaimableShares(address(node), address(liquidityPool));
         vm.stopPrank();
 
-        // Get current share balance
         address shareToken = IERC7575(address(liquidityPool)).share();
         uint256 currentShares = IERC20(shareToken).balanceOf(address(node));
 
-        // Try to withdraw more shares than available
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -417,7 +410,6 @@ contract ERC7540RouterTest is BaseTest {
     }
 
     function test_executeAsyncWithdrawal_revert_ExceedsAvailableAssets() public {
-        // Setup: Seed node and invest in async vault
         _seedNode(100 ether);
 
         vm.startPrank(owner);
@@ -426,14 +418,12 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        // Invest and mint shares
         vm.prank(rebalancer);
         router7540.investInAsyncVault(address(node), address(liquidityPool));
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
 
-        // Request withdrawal
         uint256 withdrawAmount = 10 ether;
 
         vm.startPrank(rebalancer);
@@ -444,7 +434,6 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(testPoolManager);
         liquidityPool.processPendingRedemptions();
 
-        // Try to withdraw more assets than are available
         uint256 maxWithdraw = IERC7575(address(liquidityPool)).maxWithdraw(address(node));
 
         vm.prank(rebalancer);
@@ -457,7 +446,6 @@ contract ERC7540RouterTest is BaseTest {
     }
 
     function test_executeAsyncWithdrawal_revert_InsufficientAssetsReturned() public {
-        // Setup: Seed node and invest in async vault
         _seedNode(100 ether);
 
         vm.startPrank(owner);
@@ -466,7 +454,6 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        // Invest and mint shares
         vm.prank(rebalancer);
         router7540.investInAsyncVault(address(node), address(liquidityPool));
 

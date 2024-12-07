@@ -22,6 +22,7 @@ contract ERC7540Router is BaseRouter {
 
     /* EXTERNAL FUNCTIONS */
 
+    // todo need to deal with cases where shares pending, claimable etc
     function investInAsyncVault(address node, address component)
         external
         onlyNodeRebalancer(node)
@@ -168,8 +169,7 @@ contract ERC7540Router is BaseRouter {
         uint256 targetHoldings =
             MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentRatio(component), WAD);
 
-        address shareToken = IERC7575(component).share();
-        uint256 currentBalance = IERC20(shareToken).balanceOf(address(node));
+        uint256 currentBalance = _getErc7540Assets(node, component);
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
