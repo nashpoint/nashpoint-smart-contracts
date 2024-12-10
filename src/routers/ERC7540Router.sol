@@ -18,6 +18,10 @@ import {MathLib} from "../libraries/MathLib.sol";
  * @dev Router for ERC7540 vaults
  */
 contract ERC7540Router is BaseRouter {
+    uint256 internal totalAssets;
+    uint256 internal currentCash;
+    uint256 internal idealCashReserve;
+
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
 
@@ -34,19 +38,16 @@ contract ERC7540Router is BaseRouter {
             revert ErrorsLib.InvalidComponent();
         }
 
-        uint256 totalAssets_ = INode(node).totalAssets();
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
-            - INode(node).convertToAssets(INode(node).sharesExiting());
-        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
-
-        // checks if available reserve exceeds target ratio
+        // checks if excess reserve is available to invest
         _validateReserveAboveTargetRatio(node);
 
-        // gets deposit amount
+        (totalAssets, currentCash, idealCashReserve) = _getNodeCashStatus(node);
+
+        // gets units of asset required to set component to target ratio
         uint256 depositAmount = _getInvestmentSize(node, component);
 
         // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
+        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
