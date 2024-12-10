@@ -101,13 +101,6 @@ contract BaseRouter is IBaseRouter {
         returns (uint256 depositAssets)
     {}
 
-    function invest(address node, address component)
-        external
-        virtual
-        onlyNodeRebalancer(node)
-        returns (uint256 depositAmount)
-    {}
-
     function _validateReserveAboveTargetRatio(address node) internal view {
         uint256 totalAssets_ = INode(node).totalAssets();
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
@@ -117,5 +110,16 @@ contract BaseRouter is IBaseRouter {
         if (currentCash < idealCashReserve) {
             revert ErrorsLib.ReserveBelowTargetRatio();
         }
+    }
+
+    function _getNodeCashStatus(address node)
+        internal
+        view
+        returns (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve)
+    {
+        totalAssets = INode(node).totalAssets();
+        currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
+            - INode(node).convertToAssets(INode(node).sharesExiting());
+        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
     }
 }

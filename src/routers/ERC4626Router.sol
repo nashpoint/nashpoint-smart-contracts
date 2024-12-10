@@ -16,6 +16,10 @@ import {MathLib} from "../libraries/MathLib.sol";
  * @dev Router for ERC4626 vaults
  */
 contract ERC4626Router is BaseRouter, IERC4626Router {
+    uint256 internal totalAssets;
+    uint256 internal currentCash;
+    uint256 internal idealCashReserve;
+
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
 
@@ -25,7 +29,6 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
     /// @return depositAmount The amount of assets invested.
     function invest(address node, address component)
         external
-        override(IERC4626Router, BaseRouter)
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         returns (uint256 depositAmount)
@@ -35,19 +38,16 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             revert ErrorsLib.InvalidComponent();
         }
 
-        uint256 totalAssets_ = INode(node).totalAssets();
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
-            - INode(node).convertToAssets(INode(node).sharesExiting());
-        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
-
-        // todo need a check in here to make sure current reserve ratio > target reserve ratio
+        // checks if excess reserve is available to invest
         _validateReserveAboveTargetRatio(node);
 
-        // Calculate target deposit amount
+        (totalAssets, currentCash, idealCashReserve) = _getNodeCashStatus(node);
+
+        // gets units of asset required to set component to target ratio
         depositAmount = _getInvestmentSize(node, component);
 
         // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
+        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
