@@ -204,7 +204,6 @@ contract Node is INode, ERC20, Ownable {
 
     /* REBALANCER FUNCTIONS */
     function execute(address target, uint256 value, bytes calldata data) external onlyRouter returns (bytes memory) {
-        /// todo: change this so that execute calls the router
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
 
         bytes memory result = target.functionCallWithValue(data, value);

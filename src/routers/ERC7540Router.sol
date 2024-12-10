@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {INode} from "../interfaces/INode.sol";
+import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
 
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
@@ -22,34 +23,30 @@ contract ERC7540Router is BaseRouter {
 
     /* EXTERNAL FUNCTIONS */
 
+    // todo need to deal with cases where shares pending, claimable etc
     function investInAsyncVault(address node, address component)
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         returns (uint256 cashInvested)
     {
-        // Validate component is part of the node
         if (!INode(node).isComponent(component)) {
             revert ErrorsLib.InvalidComponent();
         }
 
         uint256 totalAssets_ = INode(node).totalAssets();
+        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
+            - INode(node).convertToAssets(INode(node).sharesExiting());
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node));
 
         // checks if available reserve exceeds target ratio
-        if (currentCash < idealCashReserve) {
-            revert ErrorsLib.ReserveBelowTargetRatio();
-        }
+        _validateReserveAboveTargetRatio(node);
 
         // gets deposit amount
         uint256 depositAmount = _getInvestmentSize(node, component);
 
-        // Check if the current allocation is below the lower bound
-        uint256 currentAllocation = MathLib.mulDiv(_getErc7540Assets(node, component), WAD, totalAssets_);
-        uint256 lowerBound = INode(node).getComponentRatio(component) - INode(node).getMaxDelta(component);
-
-        if (currentAllocation >= lowerBound) {
+        // Validate deposit amount exceeds minimum threshold
+        if (depositAmount < MathLib.mulDiv(totalAssets_, INode(node).getMaxDelta(component), WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
@@ -66,7 +63,16 @@ contract ERC7540Router is BaseRouter {
         return (requestId);
     }
 
-    function mintClaimableShares(address node, address component) public onlyNodeRebalancer(node) returns (uint256) {
+    function mintClaimableShares(address node, address component)
+        public
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(component)
+        returns (uint256)
+    {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
         uint256 claimableShares = IERC7575(component).maxMint(address(node));
 
         uint256 sharesReceived = _mint(node, component, claimableShares);
@@ -79,8 +85,11 @@ contract ERC7540Router is BaseRouter {
         public
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
-    // todo check is a valid node component
     {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
         address shareToken = IERC7575(component).share();
         if (shares > IERC20(shareToken).balanceOf(address(node))) {
             revert ErrorsLib.ExceedsAvailableShares(node, component, shares);
@@ -93,11 +102,14 @@ contract ERC7540Router is BaseRouter {
     // withdraws claimable assets from async vault
     function executeAsyncWithdrawal(address node, address component, uint256 assets)
         public
-        // todo check is a valid node component
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         returns (uint256 assetsReceived)
     {
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
+
         if (assets > IERC7575(component).maxWithdraw(address(node))) {
             revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
         }
@@ -127,7 +139,6 @@ contract ERC7540Router is BaseRouter {
 
     function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
         address shareToken = IERC7575(component).share();
-        // Approve the component to spend share tokens
         INode(node).execute(shareToken, 0, abi.encodeWithSelector(IERC20.approve.selector, component, claimableShares));
 
         bytes memory result = INode(node).execute(
@@ -150,10 +161,6 @@ contract ERC7540Router is BaseRouter {
         return abi.decode(result, (uint256));
     }
 
-    /// @notice Calculates the target investment size for a component.
-    /// @param node The address of the node.
-    /// @param component The address of the component.
-    /// @return depositAssets The target investment size.
     function _getInvestmentSize(address node, address component)
         internal
         view
@@ -163,28 +170,14 @@ contract ERC7540Router is BaseRouter {
         uint256 targetHoldings =
             MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentRatio(component), WAD);
 
-        address shareToken = IERC7575(component).share();
-        uint256 currentBalance = IERC20(shareToken).balanceOf(address(node));
+        uint256 currentBalance = _getErc7540Assets(node, component);
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
     }
 
-    // todo: delete this later and call it from quoter via node instead
     function _getErc7540Assets(address node, address component) internal view returns (uint256) {
-        uint256 assets;
-        address shareToken = IERC7575(component).share();
-        uint256 shareBalance = IERC20(shareToken).balanceOf(node);
-
-        if (shareBalance > 0) {
-            assets = IERC4626(component).convertToAssets(shareBalance);
-        }
-        /// @dev in ERC7540 deposits are denominated in assets and redeems are in shares
-        assets += IERC7540(component).pendingDepositRequest(0, node);
-        assets += IERC7540(component).claimableDepositRequest(0, node);
-        assets += IERC4626(component).convertToAssets(IERC7540(component).pendingRedeemRequest(0, node));
-        assets += IERC4626(component).convertToAssets(IERC7540(component).claimableRedeemRequest(0, node));
-
-        return assets;
+        address quoter = address(INode(node).quoter());
+        return IQuoterV1(quoter).getErc7540Assets(node, component);
     }
 }

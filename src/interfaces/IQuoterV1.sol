@@ -21,6 +21,12 @@ interface IQuoterV1 is IQuoter {
     /// @param value True if ERC7540, false otherwise
     function setErc7540(address component, bool value) external;
 
+    /// @notice Returns the assets of an ERC7540 vault
+    /// @param node The node address
+    /// @param component The component address
+    /// @return The assets of the ERC7540 vault
+    function getErc7540Assets(address node, address component) external view returns (uint256);
+
     /// @notice Checks if a component is an ERC4626 vault
     /// @param component The component address to check
     /// @return True if the component is an ERC4626 vault

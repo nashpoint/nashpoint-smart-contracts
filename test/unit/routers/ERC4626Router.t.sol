@@ -126,9 +126,42 @@ contract ERC4626RouterTest is BaseTest {
         router4626.invest(address(node), address(testComponent));
     }
 
-    function test_invest_depositAmount_equals_availableReserve() public {
+    function test_invest_revert_ReserveBelowTargetRatio() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, address(user));
+        vm.stopPrank();
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent));
+
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        node.requestRedeem(1 ether, address(user), address(user));
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(address(user));
+
+        vm.expectRevert(ErrorsLib.ReserveBelowTargetRatio.selector);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent));
+    }
+
+    function test_invest_depositAmount_reducedToAvailableReserve() public {
         // Seed the node with 1000 ether
         _seedNode(1000 ether);
+
+        // todo: do this with more realistic allocation values later that all sum to 100%
 
         // Define component allocations
         ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
@@ -161,6 +194,7 @@ contract ERC4626RouterTest is BaseTest {
 
         // Assert that the balance of the node for the component is less than the calculated investment size
         assertLt(testComponent.balanceOf(address(node)), investmentSize);
+        assertEq(testComponent.balanceOf(address(node)), 200 ether);
     }
 
     function test_invest_depositAmount_revert_ExceedsMaxVaultDeposit() public {
