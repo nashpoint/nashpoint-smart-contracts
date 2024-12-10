@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {INode} from "../interfaces/INode.sol";
+import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
 
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
@@ -175,21 +176,8 @@ contract ERC7540Router is BaseRouter {
         return delta;
     }
 
-    // todo: delete this later and call it from quoter via node instead
     function _getErc7540Assets(address node, address component) internal view returns (uint256) {
-        uint256 assets;
-        address shareToken = IERC7575(component).share();
-        uint256 shareBalance = IERC20(shareToken).balanceOf(node);
-
-        if (shareBalance > 0) {
-            assets = IERC4626(component).convertToAssets(shareBalance);
-        }
-        /// @dev in ERC7540 deposits are denominated in assets and redeems are in shares
-        assets += IERC7540(component).pendingDepositRequest(0, node);
-        assets += IERC7540(component).claimableDepositRequest(0, node);
-        assets += IERC4626(component).convertToAssets(IERC7540(component).pendingRedeemRequest(0, node));
-        assets += IERC4626(component).convertToAssets(IERC7540(component).claimableRedeemRequest(0, node));
-
-        return assets;
+        address quoter = address(INode(node).quoter());
+        return IQuoterV1(quoter).getErc7540Assets(node, component);
     }
 }

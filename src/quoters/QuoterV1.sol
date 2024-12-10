@@ -73,6 +73,10 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return _getTotalAssets(node);
     }
 
+    function getErc7540Assets(address node, address component) external view returns (uint256) {
+        return _getErc7540Assets(node, component);
+    }
+
     /* INTERNAL FUNCTIONS */
     function _getErc4626Assets(address node, address component) internal view returns (uint256) {
         uint256 balance = IERC4626(component).balanceOf(node);

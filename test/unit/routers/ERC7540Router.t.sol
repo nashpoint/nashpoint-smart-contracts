@@ -6,13 +6,14 @@ import {BaseTest} from "../../BaseTest.sol";
 
 import {BaseRouter} from "src/libraries/BaseRouter.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
-import {IERC7540, IERC7540Deposit} from "src/interfaces/IERC7540.sol";
+import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {ComponentAllocation} from "src/interfaces/INode.sol";
 
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
+import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 
 contract ERC7540RouterHarness is ERC7540Router {
     constructor(address _registry) ERC7540Router(_registry) {}
@@ -32,11 +33,13 @@ contract ERC7540RouterHarness is ERC7540Router {
 
 contract ERC7540RouterTest is BaseTest {
     ERC7540RouterHarness public testRouter;
+    ERC4626Mock public testComponent70;
     ComponentAllocation public allocation;
 
     function setUp() public override {
         super.setUp();
         testRouter = new ERC7540RouterHarness(address(registry));
+        testComponent70 = new ERC4626Mock(address(asset));
 
         allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
     }
@@ -47,6 +50,7 @@ contract ERC7540RouterTest is BaseTest {
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(liquidityPool));
@@ -54,6 +58,30 @@ contract ERC7540RouterTest is BaseTest {
         assertEq(node.getComponentRatio(address(liquidityPool)), 0.5 ether);
         assertEq(liquidityPool.balanceOf(address(node)), 0);
         assertEq(investmentSize, 50 ether);
+    }
+
+    function test_getInvestmentSize_7540_atTargetRatio() public {
+        _seedNode(100 ether);
+
+        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+
+        uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(liquidityPool));
+        assertEq(investmentSize, 0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -188,8 +216,91 @@ contract ERC7540RouterTest is BaseTest {
         router7540.investInAsyncVault(address(node), address(liquidityPool));
     }
 
-    /// todo: do this one after you fix the valuation problem mentioned above
-    function test_investInAsyncVault_depositAmount_equals_availableReserve() public {}
+    function test_investInAsyncVault_depositAmount_reducedToAvailableReserve() public {
+        // Seed the node with 1000 ether
+        _seedNode(1000 ether);
+
+        // todo: do this with more realistic allocation values later that all sum to 100%
+
+        // Define component allocations
+        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation70 = ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether});
+
+        // Set up the environment as the owner
+        vm.startPrank(owner);
+        quoter.setErc4626(address(liquidityPool), true);
+        quoter.setErc4626(address(testComponent70), true);
+        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(testComponent70), allocation70);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        router4626.setWhitelistStatus(address(testComponent70), true);
+        vm.stopPrank();
+
+        // Invest in the component with 70% target weight
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(testComponent70));
+
+        // Assert that the balance of the node is 700 ether for the component and 300 ether in reserve
+        assertEq(testComponent70.balanceOf(address(node)), 700 ether);
+        assertEq(asset.balanceOf(address(node)), 300 ether);
+
+        // Calculate the investment size for the component with 50% target weight
+        uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(liquidityPool));
+
+        // Attempt to invest in the component with 50% target weight
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+
+        // Assert that the balance of the node for the component is less than the calculated investment size
+        assertLt(liquidityPool.balanceOf(address(node)), investmentSize);
+        assertEq(liquidityPool.balanceOf(address(node)), 200 ether);
+    }
+
+    function test_investInAsyncVault_fail_deposit_request_reverts() public {
+        _seedNode(100 ether);
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        // Mock the requestDeposit call to revert
+        vm.mockCall(
+            address(liquidityPool),
+            abi.encodeWithSelector(IERC7540Deposit.requestDeposit.selector),
+            abi.encodePacked(bytes4(0)) // revert with no reason
+        );
+
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+    }
+
+    function test_investInAsyncVault_fail_zero_request_id() public {
+        _seedNode(100 ether);
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        // Mock requestDeposit to return non-zero request ID
+        vm.mockCall(
+            address(liquidityPool),
+            abi.encodeWithSelector(IERC7540Deposit.requestDeposit.selector),
+            abi.encode(1) // Return non-zero request ID
+        );
+
+        vm.prank(rebalancer);
+        vm.expectRevert("No requestId returned");
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+    }
 
     function test_mintClaimableShares() public {
         _seedNode(100 ether);
@@ -487,5 +598,36 @@ contract ERC7540RouterTest is BaseTest {
             )
         );
         router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), withdrawAmount);
+    }
+
+    function test_requestAsyncWithdrawal_fail_nonzero_request_id() public {
+        _seedNode(100 ether);
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        // First invest and mint shares
+        vm.prank(rebalancer);
+        router7540.investInAsyncVault(address(node), address(liquidityPool));
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+
+        // Mock requestRedeem to return non-zero request ID
+        vm.mockCall(
+            address(liquidityPool),
+            abi.encodeWithSelector(IERC7540Redeem.requestRedeem.selector),
+            abi.encode(1) // Return non-zero request ID
+        );
+
+        vm.prank(rebalancer);
+        vm.expectRevert("No requestId returned");
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
     }
 }
