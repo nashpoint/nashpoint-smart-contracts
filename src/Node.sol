@@ -403,6 +403,48 @@ contract Node is INode, ERC20, Ownable {
         onRedeemClaimable(controller, assetsToReturn, sharesPending);
     }
 
+    function fulfillRedeemFromSyncComponent(
+        bytes calldata functionSignature,
+        address controller,
+        address component,
+        address router
+    ) external onlyRebalancer returns (uint256 returnValue) {
+        Request storage request = requests[controller];
+        if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
+
+        uint256 sharesPending = request.pendingRedeemRequest;
+        uint256 sharesAdjusted = request.sharesAdjusted;
+        uint256 assetsToReturn = convertToAssets(sharesAdjusted);
+
+        // grab the share value of the target component
+        uint256 componentShares = IERC7575(component).convertToShares(assetsToReturn);
+
+        // check that the node has enough shares to liquidate in the target component
+        if (componentShares < IERC20(component).balanceOf(address(this))) {
+            revert ErrorsLib.ExceedsAvailableShares(address(this), component, componentShares);
+        }
+
+        // get the router and encode the function call with the required parameters
+        bytes memory data = abi.encodePacked(functionSignature, abi.encode(address(this), component, componentShares));
+
+        // Execute the call and decode the result
+        bytes memory result = router.functionCall(data);
+        returnValue = abi.decode(result, (uint256));
+
+        _burn(escrow, sharesPending);
+
+        request.pendingRedeemRequest -= sharesPending;
+        request.claimableRedeemRequest += sharesPending;
+        request.claimableAssets += assetsToReturn;
+        request.sharesAdjusted -= sharesAdjusted;
+
+        sharesExiting -= sharesPending;
+
+        onRedeemClaimable(controller, assetsToReturn, sharesPending);
+
+        return returnValue;
+    }
+
     /* INTERNAL */
     function _processDeposit(Request storage request, uint256 sharesUp, uint256 sharesDown, address receiver)
         internal
