@@ -106,9 +106,6 @@ library ErrorsLib {
     /// @notice Thrown when the target node is invalid
     error InvalidNode();
 
-    /// @notice Thrown when the ERC4626 deposit exceeds max deposit.
-    error ERC4626ExceededMaxDeposit(address receiver, uint256 assets, uint256 maxAssets);
-
     /// @notice Thrown when the input to getSwingFactoris invalid.
     error InvalidInput(int256 reserveImpact);
 
@@ -123,6 +120,12 @@ library ErrorsLib {
 
     /// @notice Thrown when the deposit amount exceeds the max vault deposit.
     error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
+
+    /// @notice ERC4626 standard errors.
+    error ERC4626ExceededMaxDeposit(address receiver, uint256 assets, uint256 maxAssets);
+    error ERC4626ExceededMaxMint(address component, uint256 sharesAmount, uint256 maxMintAmount);
+    error ERC4626ExceededMaxWithdraw(address component, uint256 assetsAmount, uint256 maxWithdrawAmount);
+    error ERC4626ExceededMaxRedeem(address component, uint256 assetsAmount, uint256 maxRedeemAmount);
 
     /// @notice Thrown when the shares requested are more than the available shares.
     error ExceedsAvailableShares(address node, address component, uint256 sharesRequested);
