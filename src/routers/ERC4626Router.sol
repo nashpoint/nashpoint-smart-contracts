@@ -82,7 +82,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
     /// @return assetsReturned The amount of assets returned.
     function liquidate(address node, address component, uint256 shares)
         external
-        onlyNodeRebalancer(node)
+        onlyNode
         onlyWhitelisted(component)
         returns (uint256 assetsReturned)
     {
@@ -90,6 +90,8 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         if (!INode(node).isComponent(component)) {
             revert ErrorsLib.InvalidComponent();
         }
+
+        _validateNodeUsesRouter(node);
 
         // Validate share value
         if (shares == 0 || shares > IERC4626(component).balanceOf(address(node))) {

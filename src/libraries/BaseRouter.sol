@@ -45,6 +45,11 @@ contract BaseRouter is IBaseRouter {
         _;
     }
 
+    modifier onlyNode() {
+        if (!registry.isNode(msg.sender)) revert ErrorsLib.InvalidNode();
+        _;
+    }
+
     /// @dev Reverts if the caller is not the registry owner
     modifier onlyRegistryOwner() {
         if (msg.sender != Ownable(address(registry)).owner()) revert ErrorsLib.NotRegistryOwner();
@@ -109,6 +114,12 @@ contract BaseRouter is IBaseRouter {
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
             revert ErrorsLib.ReserveBelowTargetRatio();
+        }
+    }
+
+    function _validateNodeUsesRouter(address node) internal view {
+        if (!INode(node).isRouter(address(this))) {
+            revert ErrorsLib.NotRouter();
         }
     }
 
