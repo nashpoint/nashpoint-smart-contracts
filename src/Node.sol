@@ -423,7 +423,7 @@ contract Node is INode, ERC20, Ownable {
         uint256 componentShares = IERC7575(component).convertToShares(assetsToReturn);
 
         // check that the node has enough shares to liquidate in the target component
-        if (componentShares < IERC20(component).balanceOf(address(this))) {
+        if (componentShares > IERC20(component).balanceOf(address(this))) {
             revert ErrorsLib.ExceedsAvailableShares(address(this), component, componentShares);
         }
 

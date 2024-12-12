@@ -131,4 +131,17 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Returns the shares exiting the node
     function sharesExiting() external view returns (uint256);
+
+    /// @notice Fulfill a redeem request by liquidating a component
+    /// @param functionSignature The encoded function signature to call on the router
+    /// @param controller The address of the user who requested the redemption
+    /// @param component The component to liquidate
+    /// @param router The router to use for liquidation
+    /// @return returnValue The amount of assets returned from liquidation
+    function fulfillRedeemFromSyncComponent(
+        bytes calldata functionSignature,
+        address controller,
+        address component,
+        address router
+    ) external returns (uint256 returnValue);
 }
