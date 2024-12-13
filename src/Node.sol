@@ -431,33 +431,16 @@ contract Node is INode, ERC20, Ownable {
         uint256 assetsToReturn = convertToAssets(sharesAdjusted);
 
         _enforceLiquidationQueue(component, assetsToReturn);
-
-        // grab the share value of the target component
         uint256 componentShares = IERC7575(component).convertToShares(assetsToReturn);
-
-        // check that the node has enough shares to liquidate in the target component
         if (componentShares > IERC20(component).balanceOf(address(this))) {
             revert ErrorsLib.ExceedsAvailableShares(address(this), component, componentShares);
         }
 
-        // get the router and encode the function call with the required parameters
         bytes memory data = abi.encodePacked(functionSignature, abi.encode(address(this), component, componentShares));
-
-        // Execute the call and decode the result
         bytes memory result = router.functionCall(data);
         returnValue = abi.decode(result, (uint256));
 
-        _burn(escrow, sharesPending);
-
-        request.pendingRedeemRequest -= sharesPending;
-        request.claimableRedeemRequest += sharesPending;
-        request.claimableAssets += assetsToReturn;
-        request.sharesAdjusted -= sharesAdjusted;
-
-        sharesExiting -= sharesPending;
-
-        onRedeemClaimable(controller, assetsToReturn, sharesPending);
-
+        _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
         return returnValue;
     }
 
@@ -525,6 +508,25 @@ contract Node is INode, ERC20, Ownable {
                 break;
             }
         }
+    }
+
+    function _finalizeRedemption(
+        address controller,
+        uint256 sharesPending,
+        uint256 sharesAdjusted,
+        uint256 assetsToReturn
+    ) internal {
+        Request storage request = requests[controller];
+        _burn(escrow, sharesPending);
+
+        request.pendingRedeemRequest -= sharesPending;
+        request.claimableRedeemRequest += sharesPending;
+        request.claimableAssets += assetsToReturn;
+        request.sharesAdjusted -= sharesAdjusted;
+
+        sharesExiting -= sharesPending;
+
+        onRedeemClaimable(controller, assetsToReturn, sharesPending);
     }
 
     /* EVENT EMITTERS */
