@@ -117,7 +117,7 @@ contract BaseRouter is IBaseRouter {
         }
     }
 
-    function _validateNodeUsesRouter(address node) internal view {
+    function _validateNodeAcceptsRouter(address node) internal view {
         if (!INode(node).isRouter(address(this))) {
             revert ErrorsLib.NotRouter();
         }

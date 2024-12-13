@@ -482,21 +482,6 @@ contract Node is INode, ERC20, Ownable {
         return false;
     }
 
-    function _enforceLiquidationQueue(address component, uint256 assetsToReturn) internal view {
-        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
-            address candidate = liquidationsQueue[i];
-            uint256 candidateShares = IERC20(candidate).balanceOf(address(this));
-            uint256 candidateAssets = IERC7575(candidate).convertToAssets(candidateShares);
-
-            if (candidateAssets >= assetsToReturn) {
-                if (candidate != component) {
-                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
-                }
-                break;
-            }
-        }
-    }
-
     function finalizeRedemption(
         address controller,
         uint256 sharesPending,
