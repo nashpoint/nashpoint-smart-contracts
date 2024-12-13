@@ -25,9 +25,13 @@ contract NodeTest is BaseTest {
     address public testRouter;
     address public testRebalancer;
     address public testComponent;
+    address public testComponent2;
+    address public testComponent3;
     address public testEscrow;
     ERC20Mock public testToken;
     ERC4626Mock public testVault;
+    ERC4626Mock public testVault2;
+    ERC4626Mock public testVault3;
 
     string constant TEST_NAME = "Test Node";
     string constant TEST_SYMBOL = "TNODE";
@@ -37,6 +41,8 @@ contract NodeTest is BaseTest {
 
         testToken = new ERC20Mock("Test Token", "TEST");
         testVault = new ERC4626Mock(address(testToken));
+        testVault2 = new ERC4626Mock(address(testToken));
+        testVault3 = new ERC4626Mock(address(testToken));
         testEscrow = makeAddr("testEscrow");
 
         testAsset = address(testToken);
@@ -44,6 +50,8 @@ contract NodeTest is BaseTest {
         testRouter = makeAddr("testRouter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = address(testVault);
+        testComponent2 = address(testVault2);
+        testComponent3 = address(testVault3);
 
         testRegistry = new NodeRegistry(owner);
 
@@ -528,6 +536,25 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.setQuoter(testQuoter);
+    }
+
+    function test_setLiquidationQueue() public {
+        vm.startPrank(owner);
+        testNode.addComponent(testComponent2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        testNode.addComponent(testComponent3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+
+        address[] memory components = testNode.getComponents();
+        assertEq(components.length, 3);
+        assertEq(components[0], testComponent);
+        assertEq(components[1], testComponent2);
+        assertEq(components[2], testComponent3);
+
+        testNode.setLiquidationQueue(components);
+        vm.stopPrank();
+
+        assertEq(testNode.liquidationsQueue(0), testComponent);
+        assertEq(testNode.liquidationsQueue(1), testComponent2);
+        assertEq(testNode.liquidationsQueue(2), testComponent3);
     }
 
     function test_enableSwingPricing() public {

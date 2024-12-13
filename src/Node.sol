@@ -36,6 +36,7 @@ contract Node is INode, ERC20, Ownable {
 
     /* STORAGE */
     address[] public components;
+    address[] public liquidationsQueue;
     mapping(address => ComponentAllocation) public componentAllocations;
     ComponentAllocation public reserveAllocation;
 
@@ -111,6 +112,8 @@ contract Node is INode, ERC20, Ownable {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
+
+        // todo: add setLiquidationQueue to initialize
 
         emit EventsLib.Initialize(escrow_, address(this));
     }
@@ -195,6 +198,19 @@ contract Node is INode, ERC20, Ownable {
         if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
         quoter = IQuoter(newQuoter);
         emit EventsLib.SetQuoter(newQuoter);
+    }
+
+    function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
+        for (uint256 i = 0; i < newQueue.length; i++) {
+            address component = newQueue[i];
+            if (!_isComponent(component)) {
+                revert ErrorsLib.InvalidComponent();
+            }
+        }
+
+        liquidationsQueue = newQueue;
+
+        emit EventsLib.LiquidationQueueUpdated(newQueue);
     }
 
     function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
@@ -449,6 +465,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     /* INTERNAL */
+
     function _processDeposit(Request storage request, uint256 sharesUp, uint256 sharesDown, address receiver)
         internal
     {
