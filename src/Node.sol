@@ -135,7 +135,6 @@ contract Node is INode, ERC20, Ownable {
         uint256 length = components.length;
         for (uint256 i = 0; i < length; i++) {
             if (components[i] == component) {
-                // Move the last element to the position being deleted
                 if (i != length - 1) {
                     components[i] = components[length - 1];
                 }
@@ -405,16 +404,9 @@ contract Node is INode, ERC20, Ownable {
 
         IERC20(asset).approve(address(this), assetsToReturn); // note: directly calling approve
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
+
         _burn(escrow, sharesPending);
-
-        request.pendingRedeemRequest -= sharesPending;
-        request.claimableRedeemRequest += sharesPending;
-        request.claimableAssets += assetsToReturn;
-        request.sharesAdjusted -= sharesAdjusted;
-
-        sharesExiting -= sharesPending;
-
-        onRedeemClaimable(controller, assetsToReturn, sharesPending);
+        _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
     }
 
     function fulfillRedeemFromSyncComponent(
@@ -440,6 +432,7 @@ contract Node is INode, ERC20, Ownable {
         bytes memory result = router.functionCall(data);
         returnValue = abi.decode(result, (uint256));
 
+        _burn(escrow, sharesPending);
         _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
         return returnValue;
     }
@@ -517,7 +510,6 @@ contract Node is INode, ERC20, Ownable {
         uint256 assetsToReturn
     ) internal {
         Request storage request = requests[controller];
-        _burn(escrow, sharesPending);
 
         request.pendingRedeemRequest -= sharesPending;
         request.claimableRedeemRequest += sharesPending;
