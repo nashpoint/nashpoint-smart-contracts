@@ -520,7 +520,7 @@ contract Node is INode, ERC20, Ownable {
 
             if (candidateAssets >= assetsToReturn) {
                 if (candidate != component) {
-                    revert("Higher-ranked component can fulfill the request");
+                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
                 }
                 break;
             }
