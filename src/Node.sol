@@ -206,9 +206,7 @@ contract Node is INode, ERC20, Ownable {
             if (component == address(0)) revert ErrorsLib.ZeroAddress();
             if (!_isComponent(component)) revert ErrorsLib.InvalidComponent();
         }
-
         liquidationsQueue = newQueue;
-
         emit EventsLib.LiquidationQueueUpdated(newQueue);
     }
 
@@ -216,14 +214,12 @@ contract Node is INode, ERC20, Ownable {
         swingPricingEnabled = status_;
         pricer = ISwingPricingV1(pricer_);
         maxSwingFactor = maxSwingFactor_;
-
         emit EventsLib.SwingPricingStatusUpdated(status_);
     }
 
     /* REBALANCER FUNCTIONS */
     function execute(address target, uint256 value, bytes calldata data) external onlyRouter returns (bytes memory) {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
-
         bytes memory result = target.functionCallWithValue(data, value);
         emit EventsLib.Execute(target, value, data, result);
         return result;
