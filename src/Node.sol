@@ -203,9 +203,8 @@ contract Node is INode, ERC20, Ownable {
     function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
         for (uint256 i = 0; i < newQueue.length; i++) {
             address component = newQueue[i];
-            if (!_isComponent(component)) {
-                revert ErrorsLib.InvalidComponent();
-            }
+            if (component == address(0)) revert ErrorsLib.ZeroAddress();
+            if (!_isComponent(component)) revert ErrorsLib.InvalidComponent();
         }
 
         liquidationsQueue = newQueue;
