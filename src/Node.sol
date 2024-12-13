@@ -394,7 +394,7 @@ contract Node is INode, ERC20, Ownable {
 
         // apply swing factor correction
         uint256 adjustedAssets = swingPricingForAssetDeposit(assets);
-        shares = convertToShares(adjustedAssets); // TODO do we adjust the number of shares minted accordingly?
+        shares = convertToShares(adjustedAssets);
         _deposit(_msgSender(), receiver, adjustedAssets, shares);
 
         emit IERC7575.Deposit(receiver, receiver, adjustedAssets, shares);

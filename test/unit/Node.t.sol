@@ -753,4 +753,9 @@ contract NodeTest is BaseTest {
     /// @dev I did not write tests for deposit()
 
     function test_maxMint() public view {}
+
+    function test_initial_status() public view {
+        uint256 shares = 1e18;
+        uint256 assets = testNode.convertToAssets(shares);
+    }
 }
