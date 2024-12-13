@@ -40,6 +40,9 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Sets the quoter
     function setQuoter(address newQuoter) external;
 
+    /// @notice Sets the liquidation queue
+    function setLiquidationQueue(address[] calldata newQueue) external;
+
     /// @notice Adds a rebalancer
     function addRebalancer(address newRebalancer) external;
 
@@ -131,4 +134,23 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Returns the shares exiting the node
     function sharesExiting() external view returns (uint256);
+
+    function getRequestState(address controller)
+        external
+        view
+        returns (
+            uint256 pendingRedeemRequest_,
+            uint256 claimableRedeemRequest_,
+            uint256 claimableAssets_,
+            uint256 sharesAdjusted_
+        );
+
+    function getLiquidationsQueue() external view returns (address[] memory);
+
+    function finalizeRedemption(
+        address controller,
+        uint256 sharesPending,
+        uint256 sharesAdjusted,
+        uint256 assetsToReturn
+    ) external;
 }

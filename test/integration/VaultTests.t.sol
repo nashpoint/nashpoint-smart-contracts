@@ -267,6 +267,45 @@ contract VaultTests is BaseTest {
         // check for correct swing factor is in that test
     }
 
+    function test_fulfilRedeemRequest_4626Router() public {
+        _seedNode(1000 ether);
+
+        address[] memory components = node.getComponents();
+
+        vm.prank(owner);
+        node.setLiquidationQueue(components);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        uint256 vaultShares = vault.balanceOf(address(node));
+        console2.log("vaultShares: ", vaultShares);
+
+        uint256 vaultAssets = vault.convertToAssets(vaultShares);
+        console2.log("vaultAssets: ", vaultAssets);
+
+        uint256 sharesToRedeem = node.balanceOf(user);
+
+        assertLt(node.convertToAssets(sharesToRedeem), vaultAssets);
+
+        vm.startPrank(user);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+
+        // bytes memory functionSignature = abi.encodeWithSignature("liquidate(address,address,uint256)");
+
+        vm.startPrank(rebalancer);
+        router4626.fulfillRedeemRequest(address(node), user, address(vault));
+        vm.stopPrank();
+    }
+
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/

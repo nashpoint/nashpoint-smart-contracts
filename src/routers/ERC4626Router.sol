@@ -86,24 +86,27 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         onlyWhitelisted(component)
         returns (uint256 assetsReturned)
     {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
+        assetsReturned = _liquidate(node, component, shares);
+    }
+
+    function fulfillRedeemRequest(address node, address controller, address component)
+        external
+        onlyNodeRebalancer(node)
+        onlyWhitelisted(component)
+    {
+        (uint256 pendingRedeemRequest,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
+        uint256 assetsToReturn = INode(node).convertToAssets(sharesAdjusted);
+
+        address[] memory liquidationsQueue = INode(node).getLiquidationsQueue();
+        _enforceLiquidationQueue(component, assetsToReturn, liquidationsQueue);
+
+        uint256 componentShares = IERC4626(component).convertToShares(assetsToReturn);
+        if (componentShares > IERC20(component).balanceOf(address(node))) {
+            revert ErrorsLib.ExceedsAvailableShares(address(node), component, componentShares);
         }
 
-        // Validate share value
-        if (shares == 0 || shares > IERC4626(component).balanceOf(address(node))) {
-            revert ErrorsLib.InvalidShareValue(component, shares);
-        }
-
-        // Execute the redemption and check the correct number of assets returned
-        uint256 expectedAssets = IERC4626(component).previewRedeem(shares);
-        assetsReturned = _redeem(node, component, shares);
-        if (assetsReturned < expectedAssets) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, expectedAssets);
-        }
-
-        return assetsReturned;
+        _liquidate(node, component, componentShares);
+        INode(node).finalizeRedemption(controller, pendingRedeemRequest, sharesAdjusted, assetsToReturn);
     }
 
     /* INTERNAL FUNCTIONS */
@@ -148,5 +151,51 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
+    }
+
+    /// @notice Liquidates a component on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param shares The amount of shares to liquidate.
+    /// @return assetsReturned The amount of assets returned.
+    function _liquidate(address node, address component, uint256 shares) internal returns (uint256 assetsReturned) {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
+
+        _validateNodeAcceptsRouter(node);
+
+        // Validate share value
+        if (shares == 0 || shares > IERC4626(component).balanceOf(address(node))) {
+            revert ErrorsLib.InvalidShareValue(component, shares);
+        }
+
+        // Execute the redemption and check the correct number of assets returned
+        uint256 expectedAssets = IERC4626(component).previewRedeem(shares);
+        assetsReturned = _redeem(node, component, shares);
+        if (assetsReturned < expectedAssets) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, expectedAssets);
+        }
+
+        return assetsReturned;
+    }
+
+    function _enforceLiquidationQueue(address component, uint256 assetsToReturn, address[] memory liquidationsQueue)
+        internal
+        view
+    {
+        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
+            address candidate = liquidationsQueue[i];
+            uint256 candidateShares = IERC20(candidate).balanceOf(address(this));
+            uint256 candidateAssets = IERC4626(candidate).convertToAssets(candidateShares);
+
+            if (candidateAssets >= assetsToReturn) {
+                if (candidate != component) {
+                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
+                }
+                break;
+            }
+        }
     }
 }

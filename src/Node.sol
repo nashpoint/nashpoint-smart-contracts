@@ -10,6 +10,7 @@ import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/uti
 
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {IQuoter} from "./interfaces/IQuoter.sol";
+import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
@@ -35,6 +36,7 @@ contract Node is INode, ERC20, Ownable {
 
     /* STORAGE */
     address[] public components;
+    address[] public liquidationsQueue;
     mapping(address => ComponentAllocation) public componentAllocations;
     ComponentAllocation public reserveAllocation;
 
@@ -111,6 +113,8 @@ contract Node is INode, ERC20, Ownable {
         swingPricingEnabled = false;
         isInitialized = true;
 
+        // todo: add setLiquidationQueue to initialize
+
         emit EventsLib.Initialize(escrow_, address(this));
     }
 
@@ -131,7 +135,6 @@ contract Node is INode, ERC20, Ownable {
         uint256 length = components.length;
         for (uint256 i = 0; i < length; i++) {
             if (components[i] == component) {
-                // Move the last element to the position being deleted
                 if (i != length - 1) {
                     components[i] = components[length - 1];
                 }
@@ -157,6 +160,7 @@ contract Node is INode, ERC20, Ownable {
     function addRouter(address newRouter) external onlyOwner {
         if (isRouter[newRouter]) revert ErrorsLib.AlreadySet();
         if (newRouter == address(0)) revert ErrorsLib.ZeroAddress();
+        if (!INodeRegistry(registry).isRouter(newRouter)) revert ErrorsLib.NotWhitelisted();
         isRouter[newRouter] = true;
         emit EventsLib.AddRouter(newRouter);
     }
@@ -171,6 +175,7 @@ contract Node is INode, ERC20, Ownable {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
         if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
         isRebalancer[newRebalancer] = true;
+        if (!INodeRegistry(registry).isRebalancer(newRebalancer)) revert ErrorsLib.NotWhitelisted();
         emit EventsLib.RebalancerAdded(newRebalancer);
     }
 
@@ -194,18 +199,26 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetQuoter(newQuoter);
     }
 
+    function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
+        for (uint256 i = 0; i < newQueue.length; i++) {
+            address component = newQueue[i];
+            if (component == address(0)) revert ErrorsLib.ZeroAddress();
+            if (!_isComponent(component)) revert ErrorsLib.InvalidComponent();
+        }
+        liquidationsQueue = newQueue;
+        emit EventsLib.LiquidationQueueUpdated(newQueue);
+    }
+
     function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
         swingPricingEnabled = status_;
         pricer = ISwingPricingV1(pricer_);
         maxSwingFactor = maxSwingFactor_;
-
         emit EventsLib.SwingPricingStatusUpdated(status_);
     }
 
     /* REBALANCER FUNCTIONS */
     function execute(address target, uint256 value, bytes calldata data) external onlyRouter returns (bytes memory) {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
-
         bytes memory result = target.functionCallWithValue(data, value);
         emit EventsLib.Execute(target, value, data, result);
         return result;
@@ -279,6 +292,29 @@ contract Node is INode, ERC20, Ownable {
         isOperator[msg.sender][operator] = approved;
         emit OperatorSet(msg.sender, operator, approved);
         success = true;
+    }
+
+    function getRequestState(address controller)
+        external
+        view
+        returns (
+            uint256 pendingRedeemRequest_,
+            uint256 claimableRedeemRequest_,
+            uint256 claimableAssets_,
+            uint256 sharesAdjusted_
+        )
+    {
+        Request storage request = requests[controller];
+        return (
+            request.pendingRedeemRequest,
+            request.claimableRedeemRequest,
+            request.claimableAssets,
+            request.sharesAdjusted
+        );
+    }
+
+    function getLiquidationsQueue() external view returns (address[] memory) {
+        return liquidationsQueue;
     }
 
     /* ERC-165 FUNCTIONS */
@@ -391,19 +427,12 @@ contract Node is INode, ERC20, Ownable {
 
         IERC20(asset).approve(address(this), assetsToReturn); // note: directly calling approve
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
-        _burn(escrow, sharesPending);
 
-        request.pendingRedeemRequest -= sharesPending;
-        request.claimableRedeemRequest += sharesPending;
-        request.claimableAssets += assetsToReturn;
-        request.sharesAdjusted -= sharesAdjusted;
-
-        sharesExiting -= sharesPending;
-
-        onRedeemClaimable(controller, assetsToReturn, sharesPending);
+        _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
     }
 
     /* INTERNAL */
+
     function _processDeposit(Request storage request, uint256 sharesUp, uint256 sharesDown, address receiver)
         internal
     {
@@ -451,6 +480,35 @@ contract Node is INode, ERC20, Ownable {
             }
         }
         return false;
+    }
+
+    function finalizeRedemption(
+        address controller,
+        uint256 sharesPending,
+        uint256 sharesAdjusted,
+        uint256 assetsToReturn
+    ) external onlyRouter {
+        _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
+    }
+
+    function _finalizeRedemption(
+        address controller,
+        uint256 sharesPending,
+        uint256 sharesAdjusted,
+        uint256 assetsToReturn
+    ) internal {
+        Request storage request = requests[controller];
+
+        _burn(escrow, sharesPending);
+
+        request.pendingRedeemRequest -= sharesPending;
+        request.claimableRedeemRequest += sharesPending;
+        request.claimableAssets += assetsToReturn;
+        request.sharesAdjusted -= sharesAdjusted;
+
+        sharesExiting -= sharesPending;
+
+        onRedeemClaimable(controller, assetsToReturn, sharesPending);
     }
 
     /* EVENT EMITTERS */
