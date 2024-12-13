@@ -557,6 +557,16 @@ contract NodeTest is BaseTest {
         assertEq(testNode.liquidationsQueue(2), testComponent3);
     }
 
+    function test_setLiquidationQueue_revert_invalidComponent() public {
+        address[] memory components = new address[](1);
+        components[0] = makeAddr("invalidComponent");
+
+        assertFalse(testNode.isComponent(components[0]));
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.InvalidComponent.selector);
+        testNode.setLiquidationQueue(components);
+    }
+
     function test_enableSwingPricing() public {
         address newPricer = makeAddr("newPricer");
         uint256 newMaxSwingFactor = 0.1 ether;
