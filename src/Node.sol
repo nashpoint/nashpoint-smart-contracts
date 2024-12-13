@@ -434,6 +434,8 @@ contract Node is INode, ERC20, Ownable {
         uint256 sharesAdjusted = request.sharesAdjusted;
         uint256 assetsToReturn = convertToAssets(sharesAdjusted);
 
+        _enforceLiquidationQueue(component, assetsToReturn);
+
         // grab the share value of the target component
         uint256 componentShares = IERC7575(component).convertToShares(assetsToReturn);
 
@@ -512,6 +514,21 @@ contract Node is INode, ERC20, Ownable {
             }
         }
         return false;
+    }
+
+    function _enforceLiquidationQueue(address component, uint256 assetsToReturn) internal view {
+        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
+            address candidate = liquidationsQueue[i];
+            uint256 candidateShares = IERC20(candidate).balanceOf(address(this));
+            uint256 candidateAssets = IERC7575(candidate).convertToAssets(candidateShares);
+
+            if (candidateAssets >= assetsToReturn) {
+                if (candidate != component) {
+                    revert("Higher-ranked component can fulfill the request");
+                }
+                break;
+            }
+        }
     }
 
     /* EVENT EMITTERS */

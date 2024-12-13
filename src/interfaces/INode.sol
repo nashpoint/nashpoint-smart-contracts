@@ -40,6 +40,9 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Sets the quoter
     function setQuoter(address newQuoter) external;
 
+    /// @notice Sets the liquidation queue
+    function setLiquidationQueue(address[] calldata newQueue) external;
+
     /// @notice Adds a rebalancer
     function addRebalancer(address newRebalancer) external;
 

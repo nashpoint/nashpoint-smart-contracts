@@ -270,6 +270,11 @@ contract VaultTests is BaseTest {
     function test_fulfilRedeemFromSyncComponent() public {
         _seedNode(1000 ether);
 
+        address[] memory components = node.getComponents();
+
+        vm.prank(owner);
+        node.setLiquidationQueue(components);
+
         vm.startPrank(user);
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
