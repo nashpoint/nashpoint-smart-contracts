@@ -373,9 +373,9 @@ contract Node is INode, ERC20, Ownable {
         return (sharesToMint);
     }
 
-    function maxMint(address controller) public view returns (uint256 maxShares) {
-        Request storage request = requests[controller];
-        maxShares = request.claimableRedeemRequest;
+    function maxMint(address /* controller */ ) public pure returns (uint256 maxShares) {
+        // todo: find an actual use for this
+        return type(uint256).max;
     }
 
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {}
