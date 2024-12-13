@@ -21,7 +21,7 @@ contract VaultTests is BaseTest {
         mockPricer = new SwingPricingV1(address(1));
     }
 
-    function test_VaultTests_depositAndRedeem() public {
+    function test_VaultTests_depositAndWithdraw() public {
         _seedNode(1000 ether);
         console2.log(node.totalAssets());
         uint256 startingBalance = asset.balanceOf(address(user));
