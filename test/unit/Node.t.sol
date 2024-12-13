@@ -715,6 +715,10 @@ contract NodeTest is BaseTest {
     }
 
     function test_convertToShares() public {
+        assertEq(node.totalAssets(), 0);
+        assertEq(node.totalSupply(), 0);
+        assertEq(node.convertToShares(1e18), 1e18);
+
         vm.startPrank(user);
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
@@ -727,6 +731,10 @@ contract NodeTest is BaseTest {
     }
 
     function test_convertToAssets() public {
+        assertEq(node.totalAssets(), 0);
+        assertEq(node.totalSupply(), 0);
+        assertEq(node.convertToAssets(1e18), 1e18);
+
         vm.startPrank(user);
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
