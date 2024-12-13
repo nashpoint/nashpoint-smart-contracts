@@ -294,6 +294,29 @@ contract Node is INode, ERC20, Ownable {
         success = true;
     }
 
+    function getRequestState(address controller)
+        external
+        view
+        returns (
+            uint256 pendingRedeemRequest_,
+            uint256 claimableRedeemRequest_,
+            uint256 claimableAssets_,
+            uint256 sharesAdjusted_
+        )
+    {
+        Request storage request = requests[controller];
+        return (
+            request.pendingRedeemRequest,
+            request.claimableRedeemRequest,
+            request.claimableAssets,
+            request.sharesAdjusted
+        );
+    }
+
+    function getLiquidationsQueue() external view returns (address[] memory) {
+        return liquidationsQueue;
+    }
+
     /* ERC-165 FUNCTIONS */
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IERC7540Redeem).interfaceId || interfaceId == type(IERC7540Operator).interfaceId
@@ -405,36 +428,7 @@ contract Node is INode, ERC20, Ownable {
         IERC20(asset).approve(address(this), assetsToReturn); // note: directly calling approve
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
 
-        _burn(escrow, sharesPending);
         _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
-    }
-
-    function fulfillRedeemFromSyncComponent(
-        bytes calldata functionSignature,
-        address controller,
-        address component,
-        address router
-    ) external onlyRebalancer returns (uint256 returnValue) {
-        Request storage request = requests[controller];
-        if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
-
-        uint256 sharesPending = request.pendingRedeemRequest;
-        uint256 sharesAdjusted = request.sharesAdjusted;
-        uint256 assetsToReturn = convertToAssets(sharesAdjusted);
-
-        _enforceLiquidationQueue(component, assetsToReturn);
-        uint256 componentShares = IERC7575(component).convertToShares(assetsToReturn);
-        if (componentShares > IERC20(component).balanceOf(address(this))) {
-            revert ErrorsLib.ExceedsAvailableShares(address(this), component, componentShares);
-        }
-
-        bytes memory data = abi.encodePacked(functionSignature, abi.encode(address(this), component, componentShares));
-        bytes memory result = router.functionCall(data);
-        returnValue = abi.decode(result, (uint256));
-
-        _burn(escrow, sharesPending);
-        _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
-        return returnValue;
     }
 
     /* INTERNAL */
@@ -503,6 +497,15 @@ contract Node is INode, ERC20, Ownable {
         }
     }
 
+    function finalizeRedemption(
+        address controller,
+        uint256 sharesPending,
+        uint256 sharesAdjusted,
+        uint256 assetsToReturn
+    ) external onlyRouter {
+        _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
+    }
+
     function _finalizeRedemption(
         address controller,
         uint256 sharesPending,
@@ -510,6 +513,8 @@ contract Node is INode, ERC20, Ownable {
         uint256 assetsToReturn
     ) internal {
         Request storage request = requests[controller];
+
+        _burn(escrow, sharesPending);
 
         request.pendingRedeemRequest -= sharesPending;
         request.claimableRedeemRequest += sharesPending;

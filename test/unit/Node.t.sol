@@ -15,6 +15,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
+import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
 contract NodeTest is BaseTest {
     NodeRegistry public testRegistry;
@@ -420,9 +421,12 @@ contract NodeTest is BaseTest {
     function test_addRouter() public {
         address newRouter = makeAddr("newRouter");
 
+        vm.mockCall(
+            address(testRegistry), abi.encodeWithSelector(INodeRegistry.isRouter.selector, newRouter), abi.encode(true)
+        );
+
         vm.prank(owner);
         testNode.addRouter(newRouter);
-
         assertTrue(testNode.isRouter(newRouter));
     }
 
@@ -454,9 +458,14 @@ contract NodeTest is BaseTest {
     function test_addRebalancer() public {
         address newRebalancer = makeAddr("newRebalancer");
 
+        vm.mockCall(
+            address(testRegistry),
+            abi.encodeWithSelector(INodeRegistry.isRebalancer.selector, newRebalancer),
+            abi.encode(true)
+        );
+
         vm.prank(owner);
         testNode.addRebalancer(newRebalancer);
-
         assertTrue(testNode.isRebalancer(newRebalancer));
     }
 

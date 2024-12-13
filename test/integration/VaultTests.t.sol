@@ -267,7 +267,7 @@ contract VaultTests is BaseTest {
         // check for correct swing factor is in that test
     }
 
-    function test_fulfilRedeemFromSyncComponent() public {
+    function test_fulfilRedeemRequest_4626Router() public {
         _seedNode(1000 ether);
 
         address[] memory components = node.getComponents();
@@ -299,10 +299,10 @@ contract VaultTests is BaseTest {
         node.requestRedeem(sharesToRedeem, user, user);
         vm.stopPrank();
 
-        bytes memory functionSignature = abi.encodeWithSignature("liquidate(address,address,uint256)");
+        // bytes memory functionSignature = abi.encodeWithSignature("liquidate(address,address,uint256)");
 
         vm.startPrank(rebalancer);
-        node.fulfillRedeemFromSyncComponent(functionSignature, user, address(vault), address(router4626));
+        router4626.fulfillRedeemRequest(address(node), user, address(vault));
         vm.stopPrank();
     }
 
