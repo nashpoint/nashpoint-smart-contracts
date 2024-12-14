@@ -411,14 +411,23 @@ contract Node is INode, ERC20, Ownable {
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {}
 
     function fulfillRedeemFromReserve(address controller) external onlyRebalancer {
+        _fulfillRedeemFromReserve(controller);
+    }
+
+    function fulfillRedeemBatch(address[] memory controllers) external onlyRebalancer {
+        for (uint256 i = 0; i < controllers.length; i++) {
+            _fulfillRedeemFromReserve(controllers[i]);
+        }
+    }
+
+    /* INTERNAL */
+
+    function _fulfillRedeemFromReserve(address controller) internal {
         Request storage request = requests[controller];
         if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
 
         uint256 balance = IERC20(asset).balanceOf(address(this));
-
-        uint256 sharesPending = request.pendingRedeemRequest;
-        uint256 sharesAdjusted = request.sharesAdjusted;
-        uint256 assetsToReturn = convertToAssets(sharesAdjusted);
+        uint256 assetsToReturn = convertToAssets(request.sharesAdjusted);
 
         // check that current reserve is enough for redeem
         if (assetsToReturn > balance) {
@@ -428,10 +437,8 @@ contract Node is INode, ERC20, Ownable {
         IERC20(asset).approve(address(this), assetsToReturn); // note: directly calling approve
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
 
-        _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
+        _finalizeRedemption(controller, assetsToReturn);
     }
-
-    /* INTERNAL */
 
     function _processDeposit(Request storage request, uint256 sharesUp, uint256 sharesDown, address receiver)
         internal
@@ -482,22 +489,14 @@ contract Node is INode, ERC20, Ownable {
         return false;
     }
 
-    function finalizeRedemption(
-        address controller,
-        uint256 sharesPending,
-        uint256 sharesAdjusted,
-        uint256 assetsToReturn
-    ) external onlyRouter {
-        _finalizeRedemption(controller, sharesPending, sharesAdjusted, assetsToReturn);
+    function finalizeRedemption(address controller, uint256 assetsToReturn) external onlyRouter {
+        _finalizeRedemption(controller, assetsToReturn);
     }
 
-    function _finalizeRedemption(
-        address controller,
-        uint256 sharesPending,
-        uint256 sharesAdjusted,
-        uint256 assetsToReturn
-    ) internal {
+    function _finalizeRedemption(address controller, uint256 assetsToReturn) internal {
         Request storage request = requests[controller];
+        uint256 sharesPending = request.pendingRedeemRequest;
+        uint256 sharesAdjusted = request.sharesAdjusted;
 
         _burn(escrow, sharesPending);
 

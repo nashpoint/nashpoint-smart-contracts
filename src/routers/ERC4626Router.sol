@@ -94,7 +94,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
     {
-        (uint256 pendingRedeemRequest,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
+        (,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
         uint256 assetsToReturn = INode(node).convertToAssets(sharesAdjusted);
 
         address[] memory liquidationsQueue = INode(node).getLiquidationsQueue();
@@ -106,7 +106,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         }
 
         _liquidate(node, component, componentShares);
-        INode(node).finalizeRedemption(controller, pendingRedeemRequest, sharesAdjusted, assetsToReturn);
+        INode(node).finalizeRedemption(controller, assetsToReturn);
     }
 
     /* INTERNAL FUNCTIONS */
