@@ -754,8 +754,18 @@ contract NodeTest is BaseTest {
 
     function test_maxMint() public view {}
 
-    function test_initial_status() public view {
-        uint256 shares = 1e18;
-        uint256 assets = testNode.convertToAssets(shares);
+    function test_mint() public {
+        uint256 assets = 1e18;
+        uint256 shares = node.convertToShares(assets);
+        deal(address(asset), address(user), assets);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.mint(shares, user);
+        vm.stopPrank();
+
+        assertEq(asset.balanceOf(address(node)), assets);
+        assertEq(asset.balanceOf(user), 0);
+        assertEq(node.balanceOf(user), shares);
     }
 }

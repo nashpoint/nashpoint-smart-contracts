@@ -331,11 +331,6 @@ contract Node is INode, ERC20, Ownable {
         return _convertToAssets(shares, MathLib.Rounding.Down);
     }
 
-    function maxDeposit(address /* controller */ ) public pure returns (uint256 maxAssets) {
-        // todo find an actual use for this
-        return type(uint256).max;
-    }
-
     function swingPricingForAssetDeposit(uint256 assets) public view returns (uint256) {
         uint256 reserveCash = IERC20(asset).balanceOf(address(this));
 
@@ -442,9 +437,14 @@ contract Node is INode, ERC20, Ownable {
         return assets;
     }
 
+    function maxDeposit(address /* controller */ ) public pure returns (uint256 maxAssets) {
+        // todo find an actual use for this
+        return type(uint256).max;
+    }
+
     function maxMint(address controller) public view returns (uint256 maxShares) {
-        Request storage request = requests[controller];
-        maxShares = request.claimableRedeemRequest;
+        // todo find an actual use for this
+        return type(uint256).max;
     }
 
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
