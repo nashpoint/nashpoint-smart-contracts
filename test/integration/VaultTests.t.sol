@@ -306,6 +306,57 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
     }
 
+    function test_fulfilRedeemBatch_fromReserve() public {
+        _seedNode(1_000_000 ether);
+
+        address[] memory components = node.getComponents();
+        address[] memory users = new address[](2);
+        users[0] = address(user);
+        users[1] = address(user2);
+
+        vm.prank(owner);
+        node.setLiquidationQueue(components);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user2);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        vm.startPrank(user);
+        node.approve(address(node), node.balanceOf(user));
+        node.requestRedeem(node.balanceOf(user), user, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        node.approve(address(node), node.balanceOf(user2));
+        node.requestRedeem(node.balanceOf(user2), user2, user2);
+        vm.stopPrank();
+
+        console2.log(node.pendingRedeemRequest(0, user));
+        console2.log(node.pendingRedeemRequest(0, user2));
+
+        vm.startPrank(rebalancer);
+        node.fulfillRedeemBatch(users);
+
+        assertEq(node.balanceOf(user), 0);
+        assertEq(node.balanceOf(user2), 0);
+
+        assertEq(node.totalAssets(), 1_000_000 ether);
+        assertEq(node.totalSupply(), node.convertToShares(1_000_000 ether));
+
+        assertEq(asset.balanceOf(address(escrow)), 200 ether);
+        assertEq(node.claimableRedeemRequest(0, user), 100 ether);
+        assertEq(node.claimableRedeemRequest(0, user2), 100 ether);
+    }
+
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/

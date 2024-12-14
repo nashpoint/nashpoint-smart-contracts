@@ -113,6 +113,10 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param user The address of the user to redeem for
     function fulfillRedeemFromReserve(address user) external;
 
+    /// @notice Fulfill a batch of redeem requests from the reserve
+    /// @param controllers The addresses of the controllers to redeem for
+    function fulfillRedeemBatch(address[] memory controllers) external;
+
     /// @notice Returns the pending redeem request for a user
     /// @param user The address of the user to check
     /// @return uint256 The pending redeem request
@@ -147,10 +151,5 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     function getLiquidationsQueue() external view returns (address[] memory);
 
-    function finalizeRedemption(
-        address controller,
-        uint256 sharesPending,
-        uint256 sharesAdjusted,
-        uint256 assetsToReturn
-    ) external;
+    function finalizeRedemption(address controller, uint256 assetsToReturn) external;
 }
