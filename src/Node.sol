@@ -28,6 +28,11 @@ contract Node is INode, ERC20, Ownable {
     uint256 private constant REQUEST_ID = 0;
     uint256 internal constant PRICE_DECIMALS = 18;
 
+    /* COOLDOWN */
+    uint256 public cooldownDuration = 1 days; // this is number of blocks until next time
+    uint256 public rebalanceWindow = 1 hours; // this is number of blocks allowed since last rebalance
+    uint256 public lastRebalance; // this should record a block
+
     /* IMMUTABLES */
     address public immutable registry;
     address public immutable asset;
@@ -101,6 +106,16 @@ contract Node is INode, ERC20, Ownable {
 
     modifier onlyRebalancer() {
         if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+        _;
+    }
+
+    // need a rebalance window modifier
+    // todo: change this to be if not
+    modifier rebalanceWindowOpen() {
+        require(
+            block.timestamp >= lastRebalance && block.timestamp < lastRebalance + rebalanceWindow,
+            "Rebalancing not available"
+        );
         _;
     }
 
@@ -216,8 +231,18 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SwingPricingStatusUpdated(status_);
     }
 
+    function startRebalance() external onlyRebalancer {
+        require(block.timestamp >= lastRebalance + cooldownDuration, "Cooldown active");
+        lastRebalance = block.timestamp;
+    }
+
     /* REBALANCER FUNCTIONS */
-    function execute(address target, uint256 value, bytes calldata data) external onlyRouter returns (bytes memory) {
+    function execute(address target, uint256 value, bytes calldata data)
+        external
+        onlyRouter
+        rebalanceWindowOpen
+        returns (bytes memory)
+    {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
         bytes memory result = target.functionCallWithValue(data, value);
         emit EventsLib.Execute(target, value, data, result);

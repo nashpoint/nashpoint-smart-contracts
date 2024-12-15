@@ -87,6 +87,7 @@ contract ArbitrumForkTest is BaseTest {
         assertEq(yUsdcA.balanceOf(address(node)), 0);
 
         vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(yUsdcA));
         vm.stopPrank();
 
@@ -111,6 +112,7 @@ contract ArbitrumForkTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(fUsdc));
         vm.stopPrank();
 
@@ -135,6 +137,7 @@ contract ArbitrumForkTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(sdUsdcV3));
         vm.stopPrank();
 
