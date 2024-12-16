@@ -629,9 +629,10 @@ contract NodeTest is BaseTest {
         vm.expectCall(testAsset, 0, transferData);
 
         // Execute as router
-        vm.prank(testRouter);
+        vm.startPrank(testRouter);
+        testNode.updateTotalAssets();
         bytes memory result = testNode.execute(testAsset, 0, transferData);
-
+        vm.stopPrank();
         // Verify the call succeeded
         assertEq(abi.decode(result, (bool)), true);
     }
@@ -733,6 +734,9 @@ contract NodeTest is BaseTest {
         assertEq(node.convertToShares(1 ether), 1 ether);
 
         deal(address(asset), address(node), 200 ether);
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
         assertEq(node.convertToShares(2 ether), 1 ether);
     }
 
@@ -749,6 +753,8 @@ contract NodeTest is BaseTest {
         assertEq(node.convertToAssets(1 ether), 1 ether);
 
         deal(address(asset), address(node), 200 ether);
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
         assertEq(node.convertToAssets(1 ether), 2 ether - 1); // minus 1 to account for rounding
     }
 

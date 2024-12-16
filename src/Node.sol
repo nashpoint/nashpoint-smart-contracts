@@ -446,6 +446,10 @@ contract Node is INode, ERC20, Ownable {
 
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {}
 
+    function updateTotalAssets() external onlyRebalancer {
+        _updateTotalAssets();
+    }
+
     function fulfillRedeemFromReserve(address controller) external onlyRebalancer ifRebalanceWindowOpen {
         _fulfillRedeemFromReserve(controller);
     }
