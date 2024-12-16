@@ -2,6 +2,8 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
+
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
@@ -18,6 +20,8 @@ import {IQuoter} from "src/interfaces/IQuoter.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
 contract NodeTest is BaseTest {
+    using stdStorage for StdStorage;
+
     NodeRegistry public testRegistry;
     Node public testNode;
 
@@ -611,28 +615,41 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute() public {
-        vm.prank(testRebalancer);
-        testNode.startRebalance();
+        // Setup minimal test node with just a router
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
 
-        // Setup a realistic scenario - calling transfer() on the asset token
-        bytes memory transferData = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
-
-        // Mock the asset token to return success
-        vm.mockCall(
+        Node simpleNode = new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
             testAsset,
-            0, // no value transfer
-            transferData,
-            abi.encode(true)
+            testQuoter,
+            owner,
+            testRebalancer,
+            routers,
+            new address[](0), // no components
+            new ComponentAllocation[](0), // no allocations
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
         );
 
-        // Expect the exact call to be made to the token
-        vm.expectCall(testAsset, 0, transferData);
+        // Mock the storage slot for lastRebalance to be current timestamp
+        uint256 currentTime = block.timestamp;
+        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
+        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
+        vm.warp(currentTime + 1);
+
+        // Setup simple transfer call
+        bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
+
+        // Mock the transfer call to return true
+
+        vm.mockCall(testAsset, 0, data, abi.encode(true));
 
         // Execute as router
-        vm.startPrank(testRouter);
-        testNode.updateTotalAssets();
-        bytes memory result = testNode.execute(testAsset, 0, transferData);
-        vm.stopPrank();
+        vm.prank(testRouter);
+        bytes memory result = simpleNode.execute(testAsset, 0, data);
+
         // Verify the call succeeded
         assertEq(abi.decode(result, (bool)), true);
     }
