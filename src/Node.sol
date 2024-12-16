@@ -7,6 +7,7 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20
 import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {IQuoter} from "./interfaces/IQuoter.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
@@ -295,6 +296,7 @@ contract Node is INode, ERC20, Ownable {
         } else {
             adjustedAssets = assets;
         }
+
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
         Request storage request = requests[controller];
@@ -361,21 +363,12 @@ contract Node is INode, ERC20, Ownable {
         return _convertToAssets(shares, MathLib.Rounding.Down);
     }
 
-    function swingPricingForAssetDeposit(uint256 assets) public view returns (uint256) {
-        uint256 reserveCash = IERC20(asset).balanceOf(address(this));
-
-        int256 reserveImpact =
-            int256(pricer.calculateReserveImpact(reserveAllocation.targetWeight, reserveCash, totalAssets(), assets));
-
-        // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets = MathLib.mulDiv(
-            assets, (WAD + pricer.getSwingFactor(reserveImpact, maxSwingFactor, reserveAllocation.targetWeight)), WAD
-        );
-
-        return adjustedAssets;
+    function maxDeposit(address /* controller */ ) public pure returns (uint256 maxAssets) {
+        // todo find an actual use for this
+        return type(uint256).max;
     }
 
-    /// note: openzeppelin ERC4626 functions
+    /// note: openzeppelin ERC4626 function
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
         if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
@@ -391,7 +384,15 @@ contract Node is INode, ERC20, Ownable {
             return sharesToMint;
         }
 
-        uint256 adjustedAssets = swingPricingForAssetDeposit(assets);
+        uint256 reserveCash = IERC20(asset).balanceOf(address(this));
+
+        int256 reserveImpact =
+            int256(pricer.calculateReserveImpact(reserveAllocation.targetWeight, reserveCash, totalAssets(), assets));
+
+        // Adjust the deposited assets based on the swing pricing factor.
+        uint256 adjustedAssets = MathLib.mulDiv(
+            assets, (WAD + pricer.getSwingFactor(reserveImpact, maxSwingFactor, reserveAllocation.targetWeight)), WAD
+        );
 
         // Calculate the number of shares to mint based on the adjusted assets.
         sharesToMint = convertToShares(adjustedAssets);
@@ -401,46 +402,31 @@ contract Node is INode, ERC20, Ownable {
 
         emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
 
-        return sharesToMint;
+        return (sharesToMint);
     }
 
-    function mint(uint256 shares, address receiver) public virtual returns (uint256) {
-        uint256 maxShares = maxMint(receiver);
-        if (shares > maxShares) {
-            revert ErrorsLib.ERC4626ExceededMaxMint(receiver, shares, maxShares);
-        }
+    function maxMint(address /* controller */ ) public pure returns (uint256 maxShares) {
+        // todo: find an actual use for this
+        return type(uint256).max;
+    }
 
-        uint256 assets = convertToAssets(shares);
-        if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
-            _deposit(_msgSender(), receiver, assets, shares);
-            emit IERC7575.Deposit(receiver, receiver, assets, shares);
-            return shares;
-        }
+    function mint(uint256 shares, address receiver) public returns (uint256 assets) {}
 
-        // apply swing factor correction
-        uint256 adjustedAssets = swingPricingForAssetDeposit(assets);
-        shares = convertToShares(adjustedAssets);
-        _deposit(_msgSender(), receiver, adjustedAssets, shares);
-
-        emit IERC7575.Deposit(receiver, receiver, adjustedAssets, shares);
-
-        return adjustedAssets;
+    function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
+        Request storage request = requests[controller];
+        maxAssets = request.claimableAssets;
     }
 
     function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
-        uint256 maxAssets = maxWithdraw(controller);
-        if (assets > maxAssets) {
-            revert ErrorsLib.ERC4626ExceededMaxWithdraw(controller, assets, maxAssets);
-        }
-
         _validateController(controller);
         Request storage request = requests[controller];
 
-        //uint256 maxShares = maxRedeem(controller);
-        //if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
-        //shares = MathLib.mulDiv(assets, maxShares, maxAssets);
+        uint256 maxAssets = maxWithdraw(controller);
+        uint256 maxShares = maxRedeem(controller);
 
-        shares = convertToShares(assets);
+        if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
+        shares = MathLib.mulDiv(assets, maxShares, maxAssets);
+
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
@@ -449,43 +435,12 @@ contract Node is INode, ERC20, Ownable {
         return shares;
     }
 
-    function redeem(uint256 shares, address receiver, address controller) public virtual returns (uint256 assets) {
-        uint256 maxShares = maxRedeem(controller);
-        if (shares > maxShares) {
-            revert ErrorsLib.ERC4626ExceededMaxRedeem(controller, shares, maxShares);
-        }
-
-        _validateController(controller);
-        Request storage request = requests[controller];
-
-        assets = convertToAssets(shares);
-        request.claimableRedeemRequest -= shares;
-        request.claimableAssets -= assets;
-
-        IERC20(asset).safeTransferFrom(escrow, receiver, assets);
-
-        return assets;
-    }
-
-    function maxDeposit(address /* controller */ ) public pure returns (uint256 maxAssets) {
-        // todo find an actual use for this
-        return type(uint256).max;
-    }
-
-    function maxMint(address controller) public view returns (uint256 maxShares) {
-        // todo find an actual use for this
-        return type(uint256).max;
-    }
-
-    function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
-        Request storage request = requests[controller];
-        maxAssets = request.claimableAssets;
-    }
-
     function maxRedeem(address controller) public view returns (uint256 maxShares) {
         Request storage request = requests[controller];
         maxShares = request.claimableRedeemRequest;
     }
+
+    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {}
 
     function fulfillRedeemFromReserve(address controller) external onlyRebalancer {
         _fulfillRedeemFromReserve(controller);
