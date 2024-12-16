@@ -225,6 +225,16 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.LiquidationQueueUpdated(newQueue);
     }
 
+    function setCooldownDuration(uint256 newCooldownDuration) external onlyOwner {
+        cooldownDuration = newCooldownDuration;
+        emit EventsLib.CooldownDurationUpdated(newCooldownDuration);
+    }
+
+    function setRebalanceWindow(uint256 newRebalanceWindow) external onlyOwner {
+        rebalanceWindow = newRebalanceWindow;
+        emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
+    }
+
     function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
         swingPricingEnabled = status_;
         pricer = ISwingPricingV1(pricer_);
@@ -235,6 +245,7 @@ contract Node is INode, ERC20, Ownable {
     function startRebalance() external onlyRebalancer {
         require(block.timestamp >= lastRebalance + cooldownDuration, "Cooldown active");
         lastRebalance = block.timestamp;
+        emit EventsLib.RebalanceStart(address(this), block.timestamp, rebalanceWindow);
     }
 
     /* REBALANCER FUNCTIONS */

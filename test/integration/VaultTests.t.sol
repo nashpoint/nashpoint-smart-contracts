@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Test, console2} from "forge-std/Test.sol";
 import {BaseTest} from "../BaseTest.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
+import {EventsLib} from "src/libraries/EventsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
 import {SwingPricingV1} from "src/pricers/SwingPricingV1.sol";
 
@@ -397,7 +398,12 @@ contract VaultTests is BaseTest {
         vm.expectRevert();
         node.startRebalance();
 
+        // warp forward 1 day so cooldown is over
         vm.warp(block.timestamp + 1 days);
+
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.RebalanceStart(address(node), block.timestamp, node.rebalanceWindow());
+
         vm.prank(rebalancer);
         node.startRebalance();
     }
