@@ -365,9 +365,9 @@ contract Node is INode, ERC20, Ownable {
         return _convertToAssets(shares, MathLib.Rounding.Down);
     }
 
-    function maxDeposit(address /* controller */ ) public pure returns (uint256 maxAssets) {
-        // todo find an actual use for this
-        return type(uint256).max;
+    function maxDeposit(address /* controller */ ) public view returns (uint256 maxAssets) {
+        maxAssets = _validateCacheLiveness();
+        return maxAssets;
     }
 
     /// note: openzeppelin ERC4626 function
@@ -409,9 +409,9 @@ contract Node is INode, ERC20, Ownable {
         return (sharesToMint);
     }
 
-    function maxMint(address /* controller */ ) public pure returns (uint256 maxShares) {
-        // todo: find an actual use for this
-        return type(uint256).max;
+    function maxMint(address /* controller */ ) public view returns (uint256 maxShares) {
+        maxShares = _validateCacheLiveness();
+        return maxShares;
     }
 
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {}
@@ -584,6 +584,14 @@ contract Node is INode, ERC20, Ownable {
 
     function previewMint(uint256 shares) external view returns (uint256 assets) {
         return _convertToAssets(shares, MathLib.Rounding.Down);
+    }
+
+    function _validateCacheLiveness() public view returns (uint256) {
+        if (block.timestamp > lastRebalance + cooldownDuration) {
+            return 0;
+        } else {
+            return type(uint256).max;
+        }
     }
 
     function previewWithdraw(uint256 /* assets */ ) external pure returns (uint256 /* shares */ ) {
