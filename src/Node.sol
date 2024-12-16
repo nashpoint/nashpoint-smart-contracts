@@ -50,7 +50,7 @@ contract Node is INode, ERC20, Ownable {
     uint256 public cacheTotalAssets;
 
     IQuoter public quoter;
-    ISwingPricingV1 public pricer;
+    ISwingPricingV1 public pricer; // todo: generalize this to IPricer
     address public escrow;
     mapping(address => mapping(address => bool)) public isOperator;
 
@@ -382,6 +382,7 @@ contract Node is INode, ERC20, Ownable {
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
             sharesToMint = convertToShares(assets);
             _deposit(_msgSender(), receiver, assets, sharesToMint);
+            cacheTotalAssets += assets;
             emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
             return sharesToMint;
         }
@@ -445,23 +446,20 @@ contract Node is INode, ERC20, Ownable {
 
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {}
 
-    function fulfillRedeemFromReserve(address controller) external onlyRebalancer {
-        _updateTotalAssets();
+    function fulfillRedeemFromReserve(address controller) external onlyRebalancer ifRebalanceWindowOpen {
         _fulfillRedeemFromReserve(controller);
     }
 
-    function fulfillRedeemBatch(address[] memory controllers) external onlyRebalancer {
-        _updateTotalAssets();
+    function fulfillRedeemBatch(address[] memory controllers) external onlyRebalancer ifRebalanceWindowOpen {
         for (uint256 i = 0; i < controllers.length; i++) {
             _fulfillRedeemFromReserve(controllers[i]);
         }
     }
 
+    /* INTERNAL */
     function finalizeRedemption(address controller, uint256 assetsToReturn) external onlyRouter {
         _finalizeRedemption(controller, assetsToReturn);
     }
-
-    /* INTERNAL */
 
     function _fulfillRedeemFromReserve(address controller) internal {
         Request storage request = requests[controller];
@@ -501,16 +499,6 @@ contract Node is INode, ERC20, Ownable {
 
     function _updateTotalAssets() internal {
         cacheTotalAssets = quoter.getTotalAssets(address(this));
-    }
-
-    function _processDeposit(Request storage request, uint256 sharesUp, uint256 sharesDown, address receiver)
-        internal
-    {
-        // todo: feed both deposit and mint into this
-    }
-
-    function _processRedeem(Request storage request, uint256 assetsUp, uint256 assetsDown, address receiver) internal {
-        // todo: feed both redeem and withdraw here
     }
 
     function _validateController(address controller) internal view {
