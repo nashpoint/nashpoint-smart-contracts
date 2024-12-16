@@ -47,6 +47,7 @@ contract Node is INode, ERC20, Ownable {
 
     mapping(address => Request) public requests;
     uint256 public sharesExiting;
+    uint256 public cacheTotalAssets;
 
     IQuoter public quoter;
     ISwingPricingV1 public pricer;
@@ -240,6 +241,7 @@ contract Node is INode, ERC20, Ownable {
     function startRebalance() external onlyRebalancer {
         if (block.timestamp < lastRebalance + cooldownDuration) revert ErrorsLib.CooldownActive();
         lastRebalance = block.timestamp;
+        _updateTotalAssets();
         emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
     }
 
@@ -399,6 +401,7 @@ contract Node is INode, ERC20, Ownable {
 
         // Mint shares for the receiver.
         _deposit(_msgSender(), receiver, assets, sharesToMint);
+        cacheTotalAssets += assets;
 
         emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
 
@@ -443,13 +446,19 @@ contract Node is INode, ERC20, Ownable {
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {}
 
     function fulfillRedeemFromReserve(address controller) external onlyRebalancer {
+        _updateTotalAssets();
         _fulfillRedeemFromReserve(controller);
     }
 
     function fulfillRedeemBatch(address[] memory controllers) external onlyRebalancer {
+        _updateTotalAssets();
         for (uint256 i = 0; i < controllers.length; i++) {
             _fulfillRedeemFromReserve(controllers[i]);
         }
+    }
+
+    function finalizeRedemption(address controller, uint256 assetsToReturn) external onlyRouter {
+        _finalizeRedemption(controller, assetsToReturn);
     }
 
     /* INTERNAL */
@@ -470,6 +479,28 @@ contract Node is INode, ERC20, Ownable {
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
 
         _finalizeRedemption(controller, assetsToReturn);
+    }
+
+    function _finalizeRedemption(address controller, uint256 assetsToReturn) internal {
+        Request storage request = requests[controller];
+        uint256 sharesPending = request.pendingRedeemRequest;
+        uint256 sharesAdjusted = request.sharesAdjusted;
+
+        _burn(escrow, sharesPending);
+
+        request.pendingRedeemRequest -= sharesPending;
+        request.claimableRedeemRequest += sharesPending;
+        request.claimableAssets += assetsToReturn;
+        request.sharesAdjusted -= sharesAdjusted;
+
+        sharesExiting -= sharesPending;
+        cacheTotalAssets -= assetsToReturn;
+
+        onRedeemClaimable(controller, assetsToReturn, sharesPending);
+    }
+
+    function _updateTotalAssets() internal {
+        cacheTotalAssets = quoter.getTotalAssets(address(this));
     }
 
     function _processDeposit(Request storage request, uint256 sharesUp, uint256 sharesDown, address receiver)
@@ -519,27 +550,6 @@ contract Node is INode, ERC20, Ownable {
             }
         }
         return false;
-    }
-
-    function finalizeRedemption(address controller, uint256 assetsToReturn) external onlyRouter {
-        _finalizeRedemption(controller, assetsToReturn);
-    }
-
-    function _finalizeRedemption(address controller, uint256 assetsToReturn) internal {
-        Request storage request = requests[controller];
-        uint256 sharesPending = request.pendingRedeemRequest;
-        uint256 sharesAdjusted = request.sharesAdjusted;
-
-        _burn(escrow, sharesPending);
-
-        request.pendingRedeemRequest -= sharesPending;
-        request.claimableRedeemRequest += sharesPending;
-        request.claimableAssets += assetsToReturn;
-        request.sharesAdjusted -= sharesAdjusted;
-
-        sharesExiting -= sharesPending;
-
-        onRedeemClaimable(controller, assetsToReturn, sharesPending);
     }
 
     /* EVENT EMITTERS */
@@ -600,7 +610,7 @@ contract Node is INode, ERC20, Ownable {
      * @dev See {IERC4626-totalAssets}.
      */
     function totalAssets() public view virtual returns (uint256) {
-        return quoter.getTotalAssets(address(this));
+        return cacheTotalAssets;
     }
 
     /**
