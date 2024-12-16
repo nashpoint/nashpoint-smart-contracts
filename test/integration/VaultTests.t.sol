@@ -143,6 +143,9 @@ contract VaultTests is BaseTest {
         mockAsset.mint(address(vault), 10 ether + 1);
         assertEq(asset.balanceOf(address(vault)), 100 ether + 1);
 
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
         // get the shares to be minted from a tx with no swing factor
         // this will break later when you complete 4626 conversion
         uint256 nonAdjustedShares = node.convertToShares(10 ether);
