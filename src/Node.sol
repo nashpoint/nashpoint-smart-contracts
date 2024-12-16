@@ -28,6 +28,11 @@ contract Node is INode, ERC20, Ownable {
     uint256 private constant REQUEST_ID = 0;
     uint256 internal constant PRICE_DECIMALS = 18;
 
+    /* COOLDOWN */
+    uint256 public cooldownDuration = 1 days;
+    uint256 public rebalanceWindow = 1 hours;
+    uint256 public lastRebalance;
+
     /* IMMUTABLES */
     address public immutable registry;
     address public immutable asset;
@@ -104,6 +109,11 @@ contract Node is INode, ERC20, Ownable {
         _;
     }
 
+    modifier ifRebalanceWindowOpen() {
+        if (block.timestamp > lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceNotAvailable();
+        _;
+    }
+
     /* OWNER FUNCTIONS */
     function initialize(address escrow_) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
@@ -112,6 +122,7 @@ contract Node is INode, ERC20, Ownable {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
+        lastRebalance = block.timestamp - cooldownDuration;
 
         // todo: add setLiquidationQueue to initialize
 
@@ -209,6 +220,16 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.LiquidationQueueUpdated(newQueue);
     }
 
+    function setCooldownDuration(uint256 newCooldownDuration) external onlyOwner {
+        cooldownDuration = newCooldownDuration;
+        emit EventsLib.CooldownDurationUpdated(newCooldownDuration);
+    }
+
+    function setRebalanceWindow(uint256 newRebalanceWindow) external onlyOwner {
+        rebalanceWindow = newRebalanceWindow;
+        emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
+    }
+
     function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
         swingPricingEnabled = status_;
         pricer = ISwingPricingV1(pricer_);
@@ -216,8 +237,19 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SwingPricingStatusUpdated(status_);
     }
 
+    function startRebalance() external onlyRebalancer {
+        if (block.timestamp < lastRebalance + cooldownDuration) revert ErrorsLib.CooldownActive();
+        lastRebalance = block.timestamp;
+        emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
+    }
+
     /* REBALANCER FUNCTIONS */
-    function execute(address target, uint256 value, bytes calldata data) external onlyRouter returns (bytes memory) {
+    function execute(address target, uint256 value, bytes calldata data)
+        external
+        onlyRouter
+        ifRebalanceWindowOpen
+        returns (bytes memory)
+    {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
         bytes memory result = target.functionCallWithValue(data, value);
         emit EventsLib.Execute(target, value, data, result);
