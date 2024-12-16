@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import {console2} from "forge-std/Test.sol";
-
 import {Address} from "../lib/openzeppelin-contracts/contracts/utils/Address.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {IQuoter} from "./interfaces/IQuoter.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
@@ -246,8 +243,6 @@ contract Node is INode, ERC20, Ownable {
         // get the asset value of the redeem request
         uint256 assets = convertToAssets(shares);
 
-        console2.log("1");
-
         // gets the expected reserve ratio after tx
         // check redemption (assets) exceed current cash balance
         // if not get reserve ratio
@@ -257,8 +252,6 @@ contract Node is INode, ERC20, Ownable {
         } else {
             reserveRatioAfterTX = int256(MathLib.mulDiv(balance - assets, WAD, totalAssets() - assets));
         }
-
-        console2.log("2");
 
         uint256 adjustedAssets;
         if (swingPricingEnabled) {
@@ -270,8 +263,6 @@ contract Node is INode, ERC20, Ownable {
         } else {
             adjustedAssets = assets;
         }
-        console2.log("3");
-
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
         Request storage request = requests[controller];
