@@ -643,7 +643,6 @@ contract NodeTest is BaseTest {
         bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
 
         // Mock the transfer call to return true
-
         vm.mockCall(testAsset, 0, data, abi.encode(true));
 
         // Execute as router
@@ -660,12 +659,33 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute_revert_ZeroAddress() public {
-        vm.prank(testRebalancer);
-        testNode.startRebalance();
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        Node simpleNode = new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            testQuoter,
+            owner,
+            testRebalancer,
+            routers,
+            new address[](0), // no components
+            new ComponentAllocation[](0), // no allocations
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+
+        // Mock the storage slot for lastRebalance to be current timestamp
+        uint256 currentTime = block.timestamp;
+        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
+        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
+
+        vm.warp(currentTime + 1);
 
         vm.prank(testRouter);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.execute(address(0), 0, "");
+        simpleNode.execute(address(0), 0, "");
     }
 
     /// @dev I did not write tests for requestRedeem()
