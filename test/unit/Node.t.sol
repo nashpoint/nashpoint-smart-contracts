@@ -611,6 +611,9 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute() public {
+        vm.prank(testRebalancer);
+        testNode.startRebalance();
+
         // Setup a realistic scenario - calling transfer() on the asset token
         bytes memory transferData = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
 
@@ -639,6 +642,9 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute_revert_ZeroAddress() public {
+        vm.prank(testRebalancer);
+        testNode.startRebalance();
+
         vm.prank(testRouter);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         testNode.execute(address(0), 0, "");

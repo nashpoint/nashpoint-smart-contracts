@@ -141,4 +141,10 @@ library ErrorsLib {
 
     /// @notice Thrown when the liquidation order is incorrect.
     error IncorrectLiquidationOrder(address component, uint256 assetsToReturn);
+
+    /// @notice Thrown when the cooldown is active.
+    error CooldownActive();
+
+    /// @notice Thrown when the rebalance is not available.
+    error RebalanceNotAvailable();
 }

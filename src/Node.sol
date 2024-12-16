@@ -109,13 +109,8 @@ contract Node is INode, ERC20, Ownable {
         _;
     }
 
-    // need a rebalance window modifier
-    // todo: change this to be if not
-    modifier rebalanceWindowOpen() {
-        require(
-            block.timestamp >= lastRebalance && block.timestamp < lastRebalance + rebalanceWindow,
-            "Rebalancing not available"
-        );
+    modifier ifRebalanceWindowOpen() {
+        if (block.timestamp > lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceNotAvailable();
         _;
     }
 
@@ -127,7 +122,7 @@ contract Node is INode, ERC20, Ownable {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
-        lastRebalance = block.timestamp;
+        lastRebalance = block.timestamp - cooldownDuration;
 
         // todo: add setLiquidationQueue to initialize
 
@@ -243,16 +238,16 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function startRebalance() external onlyRebalancer {
-        require(block.timestamp >= lastRebalance + cooldownDuration, "Cooldown active");
+        if (block.timestamp < lastRebalance + cooldownDuration) revert ErrorsLib.CooldownActive();
         lastRebalance = block.timestamp;
-        emit EventsLib.RebalanceStart(address(this), block.timestamp, rebalanceWindow);
+        emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
     }
 
     /* REBALANCER FUNCTIONS */
     function execute(address target, uint256 value, bytes calldata data)
         external
         onlyRouter
-        rebalanceWindowOpen
+        ifRebalanceWindowOpen
         returns (bytes memory)
     {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();

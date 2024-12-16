@@ -366,7 +366,7 @@ contract VaultTests is BaseTest {
 
         assertEq(node.cooldownDuration(), 1 days);
         assertEq(node.rebalanceWindow(), 1 hours);
-        assertEq(node.lastRebalance(), 1);
+        assertEq(node.lastRebalance(), 86401);
 
         vm.prank(rebalancer);
         router4626.invest(address(node), address(vault));
@@ -402,7 +402,7 @@ contract VaultTests is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.expectEmit(true, true, true, true);
-        emit EventsLib.RebalanceStart(address(node), block.timestamp, node.rebalanceWindow());
+        emit EventsLib.RebalanceStarted(address(node), block.timestamp, node.rebalanceWindow());
 
         vm.prank(rebalancer);
         node.startRebalance();

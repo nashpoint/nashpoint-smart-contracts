@@ -99,7 +99,7 @@ library EventsLib {
     event SwingPricingStatusUpdated(bool status);
 
     /// @notice Emitted when rebalance is started
-    event RebalanceStart(address node, uint256 blockStarted, uint256 duration);
+    event RebalanceStarted(address node, uint256 blockStarted, uint256 duration);
 
     /// @notice Emitted when cooldown duration is updated
     event CooldownDurationUpdated(uint256 newCooldownDuration);

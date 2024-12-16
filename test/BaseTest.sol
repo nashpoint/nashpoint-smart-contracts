@@ -57,6 +57,8 @@ contract BaseTest is Test {
     address constant usdcEthereum = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     function setUp() public virtual {
+        vm.warp(block.timestamp + 1 days);
+
         owner = makeAddr("owner");
         user = makeAddr("user");
         user2 = makeAddr("user2");
@@ -123,6 +125,9 @@ contract BaseTest is Test {
 
         _labelAddresses();
         vm.label(address(vault), "Vault");
+
+        vm.prank(rebalancer);
+        node.startRebalance();
     }
 
     function _toArray(address addr) internal pure returns (address[] memory arr) {
