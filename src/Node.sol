@@ -29,9 +29,9 @@ contract Node is INode, ERC20, Ownable {
     uint256 internal constant PRICE_DECIMALS = 18;
 
     /* COOLDOWN */
-    uint256 public cooldownDuration = 1 days; // this is number of blocks until next time
-    uint256 public rebalanceWindow = 1 hours; // this is number of blocks allowed since last rebalance
-    uint256 public lastRebalance; // this should record a block
+    uint256 public cooldownDuration = 1 days;
+    uint256 public rebalanceWindow = 1 hours;
+    uint256 public lastRebalance;
 
     /* IMMUTABLES */
     address public immutable registry;
@@ -127,6 +127,7 @@ contract Node is INode, ERC20, Ownable {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
+        lastRebalance = block.timestamp;
 
         // todo: add setLiquidationQueue to initialize
 
