@@ -555,9 +555,18 @@ contract Node is INode, ERC20, Ownable {
                 if (components_[i] == address(0)) revert ErrorsLib.ZeroAddress();
                 components.push(components_[i]);
                 componentAllocations[components_[i]] = allocations[i];
+                _validateComponentRatios(allocations);
                 emit EventsLib.ComponentAdded(address(this), components_[i], allocations[i]);
             }
         }
+    }
+
+    function _validateComponentRatios(ComponentAllocation[] memory allocations) internal view {
+        uint256 totalWeight = 0;
+        for (uint256 i = 0; i < allocations.length; i++) {
+            totalWeight += allocations[i].targetWeight;
+        }
+        if (totalWeight + reserveAllocation.targetWeight != WAD) revert ErrorsLib.InvalidComponentRatios();
     }
 
     function _isComponent(address component) internal view returns (bool) {

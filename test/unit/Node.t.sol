@@ -926,7 +926,48 @@ contract NodeTest is BaseTest {
         // todo: write a unit test just for this operation
     }
 
-    // Helper functions
+    function test_validateComponentRatios_revert_InvalidComponentRatios() public {
+        ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
+        invalidAllocation[0] = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
+
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+
+        new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            testQuoter,
+            owner,
+            testRebalancer,
+            routers,
+            _toArray(testComponent),
+            invalidAllocation,
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+
+        invalidAllocation[0] = ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether});
+
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+        new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            testQuoter,
+            owner,
+            testRebalancer,
+            routers,
+            _toArray(testComponent),
+            invalidAllocation,
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+    }
+
+    // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
         assertEq(asset.balanceOf(address(node)), assets);
         assertEq(asset.balanceOf(user), 0);

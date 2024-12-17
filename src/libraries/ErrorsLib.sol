@@ -150,4 +150,7 @@ library ErrorsLib {
 
     /// @notice Thrown when the rebalance is not available.
     error RebalanceNotAvailable();
+
+    /// @notice Thrown when the component ratios do not sum to 100%.
+    error InvalidComponentRatios();
 }
