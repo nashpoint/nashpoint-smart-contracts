@@ -149,7 +149,10 @@ library ErrorsLib {
     error CooldownActive();
 
     /// @notice Thrown when the rebalance is not available.
-    error RebalanceNotAvailable();
+    error RebalanceWindowClosed();
+
+    /// @notice Thrown when the rebalance window is open.
+    error RebalanceWindowOpen();
 
     /// @notice Thrown when the component ratios do not sum to 100%.
     error InvalidComponentRatios();

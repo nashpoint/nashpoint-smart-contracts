@@ -967,6 +967,15 @@ contract NodeTest is BaseTest {
         );
     }
 
+    function test_startRebalance_revert_InvalidComponentRatios() public {
+        vm.prank(owner);
+        node.addComponent(testComponent, ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether}));
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+        node.startRebalance();
+    }
+
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
         assertEq(asset.balanceOf(address(node)), assets);
