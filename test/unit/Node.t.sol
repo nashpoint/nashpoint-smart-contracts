@@ -802,13 +802,37 @@ contract NodeTest is BaseTest {
         assertEq(node.maxDeposit(user), 0);
     }
 
-    /// @dev I did not write tests for deposit()
+    function test_deposit(uint256 assets) public {
+        uint256 shares = node.convertToShares(assets);
+
+        deal(address(asset), address(user), assets);
+        vm.startPrank(user);
+        asset.approve(address(node), assets);
+        node.deposit(assets, user);
+        vm.stopPrank();
+
+        _verifySuccessfulEntry(user, assets, shares);
+    }
 
     function test_maxMint() public {
         assertEq(node.maxMint(user), type(uint256).max);
 
         vm.warp(block.timestamp + 25 hours);
         assertEq(node.maxMint(user), 0);
+    }
+
+    function test_mint(uint256 assets) public {
+        uint256 shares = node.convertToShares(assets);
+        uint256 expectedShares = node.previewDeposit(assets);
+        assertEq(shares, expectedShares);
+
+        deal(address(asset), address(user), assets);
+        vm.startPrank(user);
+        asset.approve(address(node), assets);
+        node.mint(shares, user);
+        vm.stopPrank();
+
+        _verifySuccessfulEntry(user, assets, shares);
     }
 
     function test_RebalanceCooldown() public {
@@ -898,16 +922,15 @@ contract NodeTest is BaseTest {
         assertEq(node.totalAssets(), 110 ether - 1);
     }
 
-    function test_deposit() public {
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
-        vm.stopPrank();
-
-        assertEq(node.totalAssets(), 100 ether);
-    }
-
     function test_finalizeRedemption_decrements_cacheTotalAssest() public {
         // todo: write a unit test just for this operation
+    }
+
+    // Helper functions
+    function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
+        assertEq(asset.balanceOf(address(node)), assets);
+        assertEq(asset.balanceOf(user), 0);
+        assertEq(node.balanceOf(user), shares);
+        assertEq(asset.balanceOf(address(escrow)), 0);
     }
 }

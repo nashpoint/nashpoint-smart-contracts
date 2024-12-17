@@ -24,7 +24,6 @@ contract VaultTests is BaseTest {
 
     function test_VaultTests_depositAndWithdraw() public {
         _seedNode(1000 ether);
-        console2.log(node.totalAssets());
         uint256 startingBalance = asset.balanceOf(address(user));
         uint256 expectedShares = node.previewDeposit(100 ether);
 
@@ -77,6 +76,80 @@ contract VaultTests is BaseTest {
         assertEq(asset.balanceOf(address(escrow)), 0);
         assertEq(node.totalAssets(), 1000 ether);
         assertEq(node.totalSupply(), node.convertToShares(1000 ether));
+
+        uint256 claimableAssets;
+        uint256 sharesAdjusted;
+
+        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        assertEq(pendingRedeemRequest, 0);
+        assertEq(claimableRedeemRequest, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, 0);
+    }
+
+    function test_VaultTests_mintAndRedeem() public {
+        _seedNode(1000 ether);
+        uint256 startingBalance = asset.balanceOf(address(user));
+        uint256 expectedAssets = node.previewMint(100 ether);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether); // @note this approval ok
+        node.mint(100 ether, user);
+        vm.stopPrank();
+
+        // check user got the right shares
+        uint256 userBalance = node.convertToAssets(node.balanceOf(address(user)));
+        assertEq(userBalance, expectedAssets);
+
+        // check accounts ended up with the correct balances
+        assertEq(node.totalAssets(), 100 ether + 1000 ether);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);
+
+        // check convertToShares work properly
+        assertEq(node.totalSupply(), node.convertToShares(expectedAssets + 1000 ether));
+        assertEq(node.totalAssets(), expectedAssets + 1000 ether);
+
+        // start redemption flow
+        vm.startPrank(user);
+        node.approve(address(node), type(uint256).max);
+        node.requestRedeem(node.balanceOf(user), user, user);
+        vm.stopPrank();
+
+        assertEq(node.balanceOf(address(escrow)), node.convertToShares(expectedAssets));
+        assertEq(node.balanceOf(address(user)), 0);
+        assertEq(node.totalAssets(), 1000 ether + 100 ether);
+        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);
+
+        uint256 pendingRedeemRequest = node.pendingRedeemRequest(0, user);
+        assertEq(pendingRedeemRequest, node.convertToShares(100 ether));
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        uint256 claimableRedeemRequest = node.claimableRedeemRequest(0, user);
+        assertEq(claimableRedeemRequest, expectedAssets);
+
+        assertEq(node.balanceOf(address(escrow)), 0);
+        assertEq(node.totalSupply(), node.convertToShares(1000 ether));
+        assertEq(asset.balanceOf(address(escrow)), 100 ether);
+
+        vm.prank(user);
+        node.redeem(100 ether, user, user);
+
+        assertEq(asset.balanceOf(address(user)), startingBalance);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(node.totalAssets(), 1000 ether);
+        assertEq(node.totalSupply(), node.convertToShares(1000 ether));
+
+        uint256 claimableAssets;
+        uint256 sharesAdjusted;
+
+        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        assertEq(pendingRedeemRequest, 0);
+        assertEq(claimableRedeemRequest, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, 0);
     }
 
     function test_VaultTests_investsToVault() public {
@@ -302,8 +375,6 @@ contract VaultTests is BaseTest {
         node.approve(address(node), sharesToRedeem);
         node.requestRedeem(sharesToRedeem, user, user);
         vm.stopPrank();
-
-        // bytes memory functionSignature = abi.encodeWithSignature("liquidate(address,address,uint256)");
 
         vm.startPrank(rebalancer);
         router4626.fulfillRedeemRequest(address(node), user, address(vault));

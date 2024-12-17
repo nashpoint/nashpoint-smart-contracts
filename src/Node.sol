@@ -414,7 +414,17 @@ contract Node is INode, ERC20, Ownable {
         return maxShares;
     }
 
-    function mint(uint256 shares, address receiver) public returns (uint256 assets) {}
+    function mint(uint256 shares, address receiver) public returns (uint256 assets) {
+        if (shares > maxMint(receiver)) {
+            revert ErrorsLib.ERC4626ExceededMaxMint(receiver, shares, maxMint(receiver));
+        }
+
+        uint256 assetsToDeposit = convertToAssets(shares);
+        _deposit(_msgSender(), receiver, assetsToDeposit, shares);
+        cacheTotalAssets += assetsToDeposit;
+        emit IERC7575.Deposit(receiver, receiver, assetsToDeposit, shares);
+        return assetsToDeposit;
+    }
 
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
         Request storage request = requests[controller];
@@ -444,7 +454,23 @@ contract Node is INode, ERC20, Ownable {
         maxShares = request.claimableRedeemRequest;
     }
 
-    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {}
+    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
+        _validateController(controller);
+        Request storage request = requests[controller];
+
+        uint256 maxAssets = maxWithdraw(controller);
+        uint256 maxShares = maxRedeem(controller);
+
+        if (shares > maxShares) revert ErrorsLib.ExceedsMaxRedeem();
+        assets = MathLib.mulDiv(shares, maxAssets, maxShares);
+
+        request.claimableRedeemRequest -= shares;
+        request.claimableAssets -= assets;
+
+        IERC20(asset).safeTransferFrom(escrow, receiver, assets);
+
+        return shares;
+    }
 
     function updateTotalAssets() external onlyRebalancer {
         _updateTotalAssets();
