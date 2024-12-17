@@ -76,6 +76,15 @@ contract VaultTests is BaseTest {
         assertEq(asset.balanceOf(address(escrow)), 0);
         assertEq(node.totalAssets(), 1000 ether);
         assertEq(node.totalSupply(), node.convertToShares(1000 ether));
+
+        uint256 claimableAssets;
+        uint256 sharesAdjusted;
+
+        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        assertEq(pendingRedeemRequest, 0);
+        assertEq(claimableRedeemRequest, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, 0);
     }
 
     function test_VaultTests_mintAndRedeem() public {
@@ -102,6 +111,45 @@ contract VaultTests is BaseTest {
         assertEq(node.totalAssets(), expectedAssets + 1000 ether);
 
         // start redemption flow
+        vm.startPrank(user);
+        node.approve(address(node), type(uint256).max);
+        node.requestRedeem(node.balanceOf(user), user, user);
+        vm.stopPrank();
+
+        assertEq(node.balanceOf(address(escrow)), node.convertToShares(expectedAssets));
+        assertEq(node.balanceOf(address(user)), 0);
+        assertEq(node.totalAssets(), 1000 ether + 100 ether);
+        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);
+
+        uint256 pendingRedeemRequest = node.pendingRedeemRequest(0, user);
+        assertEq(pendingRedeemRequest, node.convertToShares(100 ether));
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        uint256 claimableRedeemRequest = node.claimableRedeemRequest(0, user);
+        assertEq(claimableRedeemRequest, expectedAssets);
+
+        assertEq(node.balanceOf(address(escrow)), 0);
+        assertEq(node.totalSupply(), node.convertToShares(1000 ether));
+        assertEq(asset.balanceOf(address(escrow)), 100 ether);
+
+        vm.prank(user);
+        node.redeem(100 ether, user, user);
+
+        assertEq(asset.balanceOf(address(user)), startingBalance);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(node.totalAssets(), 1000 ether);
+        assertEq(node.totalSupply(), node.convertToShares(1000 ether));
+
+        uint256 claimableAssets;
+        uint256 sharesAdjusted;
+
+        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        assertEq(pendingRedeemRequest, 0);
+        assertEq(claimableRedeemRequest, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, 0);
     }
 
     function test_VaultTests_investsToVault() public {
