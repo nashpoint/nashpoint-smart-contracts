@@ -376,8 +376,6 @@ contract VaultTests is BaseTest {
         node.requestRedeem(sharesToRedeem, user, user);
         vm.stopPrank();
 
-        // bytes memory functionSignature = abi.encodeWithSignature("liquidate(address,address,uint256)");
-
         vm.startPrank(rebalancer);
         router4626.fulfillRedeemRequest(address(node), user, address(vault));
         vm.stopPrank();
