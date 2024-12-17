@@ -454,7 +454,23 @@ contract Node is INode, ERC20, Ownable {
         maxShares = request.claimableRedeemRequest;
     }
 
-    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {}
+    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
+        _validateController(controller);
+        Request storage request = requests[controller];
+
+        uint256 maxAssets = maxWithdraw(controller);
+        uint256 maxShares = maxRedeem(controller);
+
+        if (shares > maxShares) revert ErrorsLib.ExceedsMaxRedeem();
+        assets = MathLib.mulDiv(shares, maxAssets, maxShares);
+
+        request.claimableRedeemRequest -= shares;
+        request.claimableAssets -= assets;
+
+        IERC20(asset).safeTransferFrom(escrow, receiver, assets);
+
+        return shares;
+    }
 
     function updateTotalAssets() external onlyRebalancer {
         _updateTotalAssets();

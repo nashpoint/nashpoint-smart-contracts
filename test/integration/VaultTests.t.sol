@@ -24,7 +24,6 @@ contract VaultTests is BaseTest {
 
     function test_VaultTests_depositAndWithdraw() public {
         _seedNode(1000 ether);
-        console2.log(node.totalAssets());
         uint256 startingBalance = asset.balanceOf(address(user));
         uint256 expectedShares = node.previewDeposit(100 ether);
 
@@ -77,6 +76,32 @@ contract VaultTests is BaseTest {
         assertEq(asset.balanceOf(address(escrow)), 0);
         assertEq(node.totalAssets(), 1000 ether);
         assertEq(node.totalSupply(), node.convertToShares(1000 ether));
+    }
+
+    function test_VaultTests_mintAndRedeem() public {
+        _seedNode(1000 ether);
+        uint256 startingBalance = asset.balanceOf(address(user));
+        uint256 expectedAssets = node.previewMint(100 ether);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether); // @note this approval ok
+        node.mint(100 ether, user);
+        vm.stopPrank();
+
+        // check user got the right shares
+        uint256 userBalance = node.convertToAssets(node.balanceOf(address(user)));
+        assertEq(userBalance, expectedAssets);
+
+        // check accounts ended up with the correct balances
+        assertEq(node.totalAssets(), 100 ether + 1000 ether);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(asset.balanceOf(address(user)), startingBalance - 100 ether);
+
+        // check convertToShares work properly
+        assertEq(node.totalSupply(), node.convertToShares(expectedAssets + 1000 ether));
+        assertEq(node.totalAssets(), expectedAssets + 1000 ether);
+
+        // start redemption flow
     }
 
     function test_VaultTests_investsToVault() public {
