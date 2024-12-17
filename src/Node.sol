@@ -414,7 +414,17 @@ contract Node is INode, ERC20, Ownable {
         return maxShares;
     }
 
-    function mint(uint256 shares, address receiver) public returns (uint256 assets) {}
+    function mint(uint256 shares, address receiver) public returns (uint256 assets) {
+        if (shares > maxMint(receiver)) {
+            revert ErrorsLib.ERC4626ExceededMaxMint(receiver, shares, maxMint(receiver));
+        }
+
+        uint256 assetsToDeposit = convertToAssets(shares);
+        _deposit(_msgSender(), receiver, assetsToDeposit, shares);
+        cacheTotalAssets += assetsToDeposit;
+        emit IERC7575.Deposit(receiver, receiver, assetsToDeposit, shares);
+        return assetsToDeposit;
+    }
 
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
         Request storage request = requests[controller];
