@@ -802,4 +802,54 @@ contract NodeTest is BaseTest {
     /// @dev I did not write tests for deposit()
 
     function test_maxMint() public view {}
+
+    function test_RebalanceCooldown() public {
+        _seedNode(100 ether);
+
+        // Cast the interface back to the concrete implementation
+        Node node = Node(address(node));
+
+        assertEq(node.cooldownDuration(), 1 days);
+        assertEq(node.rebalanceWindow(), 1 hours);
+        assertEq(node.lastRebalance(), 86401);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        // warp forward 30 mins so still inside rebalance window
+        vm.warp(block.timestamp + 30 minutes);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        // warp forward 30 mins so outside rebalance window
+        vm.warp(block.timestamp + 31 minutes);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        router4626.invest(address(node), address(vault));
+
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        node.startRebalance();
+
+        // warp forward 1 day so cooldown is over
+        vm.warp(block.timestamp + 1 days);
+
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.RebalanceStarted(address(node), block.timestamp, node.rebalanceWindow());
+
+        vm.prank(rebalancer);
+        node.startRebalance();
+    }
 }
