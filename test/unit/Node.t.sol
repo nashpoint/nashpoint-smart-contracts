@@ -2,6 +2,8 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
+
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
@@ -18,6 +20,8 @@ import {IQuoter} from "src/interfaces/IQuoter.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
 contract NodeTest is BaseTest {
+    using stdStorage for StdStorage;
+
     NodeRegistry public testRegistry;
     Node public testNode;
 
@@ -611,26 +615,39 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute() public {
-        vm.prank(testRebalancer);
-        testNode.startRebalance();
+        // Setup minimal test node with just a router
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
 
-        // Setup a realistic scenario - calling transfer() on the asset token
-        bytes memory transferData = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
-
-        // Mock the asset token to return success
-        vm.mockCall(
+        Node simpleNode = new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
             testAsset,
-            0, // no value transfer
-            transferData,
-            abi.encode(true)
+            testQuoter,
+            owner,
+            testRebalancer,
+            routers,
+            new address[](0), // no components
+            new ComponentAllocation[](0), // no allocations
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
         );
 
-        // Expect the exact call to be made to the token
-        vm.expectCall(testAsset, 0, transferData);
+        // Mock the storage slot for lastRebalance to be current timestamp
+        uint256 currentTime = block.timestamp;
+        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
+        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
+        vm.warp(currentTime + 1);
+
+        // Setup simple transfer call
+        bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
+
+        // Mock the transfer call to return true
+        vm.mockCall(testAsset, 0, data, abi.encode(true));
 
         // Execute as router
         vm.prank(testRouter);
-        bytes memory result = testNode.execute(testAsset, 0, transferData);
+        bytes memory result = simpleNode.execute(testAsset, 0, data);
 
         // Verify the call succeeded
         assertEq(abi.decode(result, (bool)), true);
@@ -642,12 +659,33 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute_revert_ZeroAddress() public {
-        vm.prank(testRebalancer);
-        testNode.startRebalance();
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        Node simpleNode = new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            testQuoter,
+            owner,
+            testRebalancer,
+            routers,
+            new address[](0), // no components
+            new ComponentAllocation[](0), // no allocations
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+
+        // Mock the storage slot for lastRebalance to be current timestamp
+        uint256 currentTime = block.timestamp;
+        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
+        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
+
+        vm.warp(currentTime + 1);
 
         vm.prank(testRouter);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.execute(address(0), 0, "");
+        simpleNode.execute(address(0), 0, "");
     }
 
     /// @dev I did not write tests for requestRedeem()
@@ -733,6 +771,9 @@ contract NodeTest is BaseTest {
         assertEq(node.convertToShares(1 ether), 1 ether);
 
         deal(address(asset), address(node), 200 ether);
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
         assertEq(node.convertToShares(2 ether), 1 ether);
     }
 
@@ -749,14 +790,124 @@ contract NodeTest is BaseTest {
         assertEq(node.convertToAssets(1 ether), 1 ether);
 
         deal(address(asset), address(node), 200 ether);
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
         assertEq(node.convertToAssets(1 ether), 2 ether - 1); // minus 1 to account for rounding
     }
 
-    function test_maxDeposit() public view {
+    function test_maxDeposit() public {
         assertEq(node.maxDeposit(user), type(uint256).max);
+
+        vm.warp(block.timestamp + 25 hours);
+        assertEq(node.maxDeposit(user), 0);
     }
 
     /// @dev I did not write tests for deposit()
 
-    function test_maxMint() public view {}
+    function test_maxMint() public {
+        assertEq(node.maxMint(user), type(uint256).max);
+
+        vm.warp(block.timestamp + 25 hours);
+        assertEq(node.maxMint(user), 0);
+    }
+
+    function test_RebalanceCooldown() public {
+        _seedNode(100 ether);
+
+        // Cast the interface back to the concrete implementation
+        Node node = Node(address(node));
+
+        assertEq(node.cooldownDuration(), 1 days);
+        assertEq(node.rebalanceWindow(), 1 hours);
+        assertEq(node.lastRebalance(), 86401);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        // warp forward 30 mins so still inside rebalance window
+        vm.warp(block.timestamp + 30 minutes);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        // warp forward 30 mins so outside rebalance window
+        vm.warp(block.timestamp + 31 minutes);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        router4626.invest(address(node), address(vault));
+
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        node.startRebalance();
+
+        // warp forward 1 day so cooldown is over
+        vm.warp(block.timestamp + 1 days);
+
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.RebalanceStarted(address(node), block.timestamp, node.rebalanceWindow());
+
+        vm.prank(rebalancer);
+        node.startRebalance();
+    }
+
+    function test_cacheIsValid() public view {
+        assertEq(block.timestamp, node.lastRebalance());
+
+        assertEq(node.cacheIsValid(), true);
+    }
+
+    function test_cacheIsValid_isFalse() public {
+        uint256 lastRebalance = node.lastRebalance();
+        vm.warp(block.timestamp + lastRebalance + 1);
+        assertFalse(node.cacheIsValid());
+    }
+
+    function test_startRebalance() public {
+        _seedNode(100 ether);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        assertEq(node.totalAssets(), 100 ether);
+        assertEq(vault.totalAssets(), 90 ether);
+        assertEq(vault.convertToAssets(vault.balanceOf(address(node))), 90 ether);
+
+        // increase asset holdings of vault to 100 units, node being the only shareholder
+        deal(address(asset), address(vault), 100 ether);
+        assertEq(vault.totalAssets(), 100 ether);
+
+        uint256 lastRebalance = node.lastRebalance();
+        vm.warp(block.timestamp + lastRebalance + 1);
+
+        vm.prank(rebalancer);
+        node.startRebalance();
+
+        // assert that calling startRebalance() has updated the cache correctly
+        assertEq(vault.convertToAssets(vault.balanceOf(address(node))), 100 ether - 1);
+        assertEq(node.totalAssets(), 110 ether - 1);
+    }
+
+    function test_deposit() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        assertEq(node.totalAssets(), 100 ether);
+    }
+
+    function test_finalizeRedemption_decrements_cacheTotalAssest() public {
+        // todo: write a unit test just for this operation
+    }
 }
