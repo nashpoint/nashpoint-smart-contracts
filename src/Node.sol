@@ -366,7 +366,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function maxDeposit(address /* controller */ ) public view returns (uint256 maxAssets) {
-        maxAssets = _validateCacheLiveness();
+        maxAssets = cacheIsValid() ? type(uint256).max : 0;
         return maxAssets;
     }
 
@@ -410,7 +410,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function maxMint(address /* controller */ ) public view returns (uint256 maxShares) {
-        maxShares = _validateCacheLiveness();
+        maxShares = cacheIsValid() ? type(uint256).max : 0;
         return maxShares;
     }
 
@@ -586,12 +586,8 @@ contract Node is INode, ERC20, Ownable {
         return _convertToAssets(shares, MathLib.Rounding.Down);
     }
 
-    function _validateCacheLiveness() public view returns (uint256) {
-        if (block.timestamp > lastRebalance + cooldownDuration) {
-            return 0;
-        } else {
-            return type(uint256).max;
-        }
+    function cacheIsValid() public view returns (bool) {
+        return (block.timestamp <= lastRebalance + cooldownDuration);
     }
 
     function previewWithdraw(uint256 /* assets */ ) external pure returns (uint256 /* shares */ ) {
