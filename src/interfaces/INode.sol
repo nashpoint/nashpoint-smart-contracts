@@ -156,4 +156,8 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function startRebalance() external;
 
     function updateTotalAssets() external;
+
+    function cacheIsValid() external view returns (bool);
+
+    function lastRebalance() external view returns (uint256);
 }

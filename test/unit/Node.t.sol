@@ -795,13 +795,21 @@ contract NodeTest is BaseTest {
         assertEq(node.convertToAssets(1 ether), 2 ether - 1); // minus 1 to account for rounding
     }
 
-    function test_maxDeposit() public view {
+    function test_maxDeposit() public {
         assertEq(node.maxDeposit(user), type(uint256).max);
+
+        vm.warp(block.timestamp + 25 hours);
+        assertEq(node.maxDeposit(user), 0);
     }
 
     /// @dev I did not write tests for deposit()
 
-    function test_maxMint() public view {}
+    function test_maxMint() public {
+        assertEq(node.maxMint(user), type(uint256).max);
+
+        vm.warp(block.timestamp + 25 hours);
+        assertEq(node.maxMint(user), 0);
+    }
 
     function test_RebalanceCooldown() public {
         _seedNode(100 ether);
@@ -851,5 +859,55 @@ contract NodeTest is BaseTest {
 
         vm.prank(rebalancer);
         node.startRebalance();
+    }
+
+    function test_cacheIsValid() public view {
+        assertEq(block.timestamp, node.lastRebalance());
+
+        assertEq(node.cacheIsValid(), true);
+    }
+
+    function test_cacheIsValid_isFalse() public {
+        uint256 lastRebalance = node.lastRebalance();
+        vm.warp(block.timestamp + lastRebalance + 1);
+        assertFalse(node.cacheIsValid());
+    }
+
+    function test_startRebalance() public {
+        _seedNode(100 ether);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        assertEq(node.totalAssets(), 100 ether);
+        assertEq(vault.totalAssets(), 90 ether);
+        assertEq(vault.convertToAssets(vault.balanceOf(address(node))), 90 ether);
+
+        // increase asset holdings of vault to 100 units, node being the only shareholder
+        deal(address(asset), address(vault), 100 ether);
+        assertEq(vault.totalAssets(), 100 ether);
+
+        uint256 lastRebalance = node.lastRebalance();
+        vm.warp(block.timestamp + lastRebalance + 1);
+
+        vm.prank(rebalancer);
+        node.startRebalance();
+
+        // assert that calling startRebalance() has updated the cache correctly
+        assertEq(vault.convertToAssets(vault.balanceOf(address(node))), 100 ether - 1);
+        assertEq(node.totalAssets(), 110 ether - 1);
+    }
+
+    function test_deposit() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        assertEq(node.totalAssets(), 100 ether);
+    }
+
+    function test_finalizeRedemption_decrements_cacheTotalAssest() public {
+        // todo: write a unit test just for this operation
     }
 }
