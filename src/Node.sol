@@ -236,9 +236,9 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.LiquidationQueueUpdated(newQueue);
     }
 
-    function setCooldownDuration(uint256 newCooldownDuration) external onlyOwner {
-        rebalanceCooldown = newCooldownDuration;
-        emit EventsLib.CooldownDurationUpdated(newCooldownDuration);
+    function setRebalanceCooldown(uint256 newRebalanceCooldown) external onlyOwner {
+        rebalanceCooldown = newRebalanceCooldown;
+        emit EventsLib.CooldownDurationUpdated(newRebalanceCooldown);
     }
 
     function setRebalanceWindow(uint256 newRebalanceWindow) external onlyOwner {
