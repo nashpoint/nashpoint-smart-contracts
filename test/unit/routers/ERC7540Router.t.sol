@@ -41,7 +41,13 @@ contract ERC7540RouterTest is BaseTest {
         testRouter = new ERC7540RouterHarness(address(registry));
         testComponent70 = new ERC4626Mock(address(asset));
 
-        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(owner);
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether})
+        );
     }
 
     function test_getInvestmentSize_7540() public {
