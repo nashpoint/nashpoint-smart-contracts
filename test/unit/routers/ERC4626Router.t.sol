@@ -27,6 +27,11 @@ contract ERC4626RouterTest is BaseTest {
         testRouter = new ERC4626RouterHarness(address(registry));
         testComponent = new ERC4626Mock(address(asset));
         testComponent70 = new ERC4626Mock(address(asset));
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(owner);
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether})
+        );
     }
 
     function test_getInvestmentSize() public {
@@ -48,7 +53,7 @@ contract ERC4626RouterTest is BaseTest {
     function test_invest() public {
         _seedNode(100 ether);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -58,14 +63,16 @@ contract ERC4626RouterTest is BaseTest {
 
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(testComponent));
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
 
         assertEq(testComponent.balanceOf(address(node)), investmentSize);
     }
 
     function test_invest_fail_not_whitelisted() public {
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         _seedNode(100 ether);
         vm.startPrank(owner);
@@ -73,37 +80,72 @@ contract ERC4626RouterTest is BaseTest {
         node.addComponent(address(testComponent), allocation);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
     }
 
     function test_invest_fail_not_rebalancer() public {
-        vm.prank(user);
-        vm.expectRevert(ErrorsLib.NotRebalancer.selector);
-        router4626.invest(address(node), address(testComponent));
-    }
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
-    function test_invest_fail_not_node() public {
-        vm.prank(rebalancer);
-        vm.expectRevert(ErrorsLib.InvalidNode.selector);
-        router4626.invest(address(0), address(testComponent));
-    }
-
-    function test_invest_fail_invalid_component() public {
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         router4626.setWhitelistStatus(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
         vm.stopPrank();
 
         vm.prank(rebalancer);
+        node.startRebalance();
+
+        vm.startPrank(user);
+        vm.expectRevert(ErrorsLib.NotRebalancer.selector);
+        router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
+    }
+
+    function test_invest_fail_not_node() public {
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        vm.expectRevert(ErrorsLib.InvalidNode.selector);
+        router4626.invest(address(0), address(testComponent));
+        vm.stopPrank();
+    }
+
+    function test_invest_fail_invalid_component() public {
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+        ERC4626Mock dummyComponent = new ERC4626Mock(address(asset));
+
+        vm.startPrank(owner);
+        // testComponent is not added to the node but is whitelisted and added to the quoter
+        quoter.setErc4626(address(testComponent), true);
+        router4626.setWhitelistStatus(address(testComponent), true);
+
+        // dummyComponent is added to the node so component allocations = 100
+        quoter.setErc4626(address(dummyComponent), true);
+        router4626.setWhitelistStatus(address(dummyComponent), true);
+        node.addComponent(address(dummyComponent), allocation);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         vm.expectRevert(ErrorsLib.InvalidComponent.selector);
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
     }
 
     function test_invest_revert_ComponentWithinTargetRange() public {
         _seedNode(1000 ether);
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -111,8 +153,10 @@ contract ERC4626RouterTest is BaseTest {
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
 
         vm.startPrank(user);
         asset.approve(address(node), 1 ether);
@@ -140,8 +184,10 @@ contract ERC4626RouterTest is BaseTest {
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
 
         vm.startPrank(user);
         node.approve(address(node), 1 ether);
@@ -164,7 +210,7 @@ contract ERC4626RouterTest is BaseTest {
         // todo: do this with more realistic allocation values later that all sum to 100%
 
         // Define component allocations
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
         ComponentAllocation memory allocation70 = ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether});
 
         // Set up the environment as the owner
@@ -178,19 +224,34 @@ contract ERC4626RouterTest is BaseTest {
         vm.stopPrank();
 
         // Invest in the component with 70% target weight
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent70));
+        vm.stopPrank();
 
         // Assert that the balance of the node is 700 ether for the component and 300 ether in reserve
         assertEq(testComponent70.balanceOf(address(node)), 700 ether);
         assertEq(asset.balanceOf(address(node)), 300 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
+        // set both original component to 50% target weight
+        vm.startPrank(owner);
+        node.updateComponentAllocation(
+            address(testComponent), ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether})
+        );
+        node.updateComponentAllocation(
+            address(testComponent70), ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether})
+        );
+        vm.stopPrank();
         // Calculate the investment size for the component with 50% target weight
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(testComponent));
 
         // Attempt to invest in the component with 50% target weight
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
 
         // Assert that the balance of the node for the component is less than the calculated investment size
         assertLt(testComponent.balanceOf(address(node)), investmentSize);
@@ -200,7 +261,7 @@ contract ERC4626RouterTest is BaseTest {
     function test_invest_depositAmount_revert_ExceedsMaxVaultDeposit() public {
         _seedNode(1000 ether);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -229,7 +290,7 @@ contract ERC4626RouterTest is BaseTest {
     function test_invest_depositAmount_revert_InsufficientSharesReturned() public {
         _seedNode(1000 ether);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -255,7 +316,7 @@ contract ERC4626RouterTest is BaseTest {
     function test_liquidate() public {
         _seedNode(1000 ether);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -263,30 +324,34 @@ contract ERC4626RouterTest is BaseTest {
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
 
         uint256 currentReserve = asset.balanceOf(address(node));
-        assertEq(currentReserve, 500 ether);
+        assertEq(currentReserve, 100 ether);
 
         uint256 expectedAssets = testComponent.convertToAssets(100 ether);
 
         vm.prank(rebalancer);
         router4626.liquidate(address(node), address(testComponent), 100 ether);
 
-        assertEq(currentReserve + expectedAssets, 600 ether);
+        assertEq(currentReserve + expectedAssets, 200 ether);
     }
 
     function test_liquidate_revert_notRebalancer() public {
-        vm.prank(user);
+        vm.startPrank(user);
         vm.expectRevert(ErrorsLib.NotRebalancer.selector);
         router4626.liquidate(address(node), address(testComponent), 100 ether);
+        vm.stopPrank();
     }
 
     function test_liquidate_revert_notWhitelisted() public {
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
         vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
         router4626.liquidate(address(node), address(testComponent), 100 ether);
+        vm.stopPrank();
     }
 
     function test_liquidate_revert_invalidComponent() public {
@@ -309,7 +374,7 @@ contract ERC4626RouterTest is BaseTest {
     function test_liquidate_revert_zeroShareValue() public {
         _seedNode(1000 ether);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -325,7 +390,7 @@ contract ERC4626RouterTest is BaseTest {
     function test_liquidate_revert_InvalidShareValue() public {
         _seedNode(1000 ether);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -333,8 +398,10 @@ contract ERC4626RouterTest is BaseTest {
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
 
         uint256 shares = testComponent.balanceOf(address(node));
         vm.prank(rebalancer);
@@ -347,7 +414,7 @@ contract ERC4626RouterTest is BaseTest {
     function test_liquidate_revert_InsufficientAssetsReturned() public {
         _seedNode(1000 ether);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -355,8 +422,10 @@ contract ERC4626RouterTest is BaseTest {
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
 
         uint256 shares = testComponent.balanceOf(address(node));
         uint256 expectedAssets = testComponent.previewRedeem(shares);

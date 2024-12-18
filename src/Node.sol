@@ -29,7 +29,7 @@ contract Node is INode, ERC20, Ownable {
     uint256 internal constant PRICE_DECIMALS = 18;
 
     /* COOLDOWN */
-    uint256 public cooldownDuration = 1 days;
+    uint256 public rebalanceCooldown = 1 days;
     uint256 public rebalanceWindow = 1 hours;
     uint256 public lastRebalance;
 
@@ -130,7 +130,7 @@ contract Node is INode, ERC20, Ownable {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
-        lastRebalance = block.timestamp - cooldownDuration;
+        lastRebalance = block.timestamp - rebalanceCooldown;
 
         // todo: add setLiquidationQueue to initialize
 
@@ -237,7 +237,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function setCooldownDuration(uint256 newCooldownDuration) external onlyOwner {
-        cooldownDuration = newCooldownDuration;
+        rebalanceCooldown = newCooldownDuration;
         emit EventsLib.CooldownDurationUpdated(newCooldownDuration);
     }
 
@@ -261,7 +261,7 @@ contract Node is INode, ERC20, Ownable {
         if (!_validateComponentRatios()) {
             revert ErrorsLib.InvalidComponentRatios();
         }
-        if (block.timestamp < lastRebalance + cooldownDuration) revert ErrorsLib.CooldownActive();
+        if (block.timestamp < lastRebalance + rebalanceCooldown) revert ErrorsLib.CooldownActive();
 
         lastRebalance = block.timestamp;
         _updateTotalAssets();
@@ -647,7 +647,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function cacheIsValid() public view returns (bool) {
-        return (block.timestamp <= lastRebalance + cooldownDuration);
+        return (block.timestamp <= lastRebalance + rebalanceCooldown);
     }
 
     function previewWithdraw(uint256 /* assets */ ) external pure returns (uint256 /* shares */ ) {

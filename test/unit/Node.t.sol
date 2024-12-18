@@ -841,7 +841,7 @@ contract NodeTest is BaseTest {
         // Cast the interface back to the concrete implementation
         Node node = Node(address(node));
 
-        assertEq(node.cooldownDuration(), 1 days);
+        assertEq(node.rebalanceCooldown(), 1 days);
         assertEq(node.rebalanceWindow(), 1 hours);
         assertEq(node.lastRebalance(), 86401);
 
