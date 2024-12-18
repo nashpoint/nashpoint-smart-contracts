@@ -968,10 +968,11 @@ contract NodeTest is BaseTest {
     }
 
     function test_startRebalance_revert_InvalidComponentRatios() public {
+        vm.warp(block.timestamp + 1 days);
         vm.prank(owner);
         node.addComponent(testComponent, ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether}));
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
         vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
         node.startRebalance();
     }
