@@ -61,15 +61,15 @@ contract ERC7540RouterTest is BaseTest {
 
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(liquidityPool));
 
-        assertEq(node.getComponentRatio(address(liquidityPool)), 0.5 ether);
+        assertEq(node.getComponentRatio(address(liquidityPool)), 0.9 ether);
         assertEq(liquidityPool.balanceOf(address(node)), 0);
-        assertEq(investmentSize, 50 ether);
+        assertEq(investmentSize, 90 ether);
     }
 
     function test_getInvestmentSize_7540_atTargetRatio() public {
         _seedNode(100 ether);
 
-        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -77,8 +77,10 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
@@ -103,10 +105,12 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
-        assertEq(liquidityPool.pendingDepositRequest(0, address(node)), 50 ether);
+        assertEq(liquidityPool.pendingDepositRequest(0, address(node)), 90 ether);
     }
 
     function test_investInAsyncVault_fail_not_whitelisted() public {
@@ -116,9 +120,11 @@ contract ERC7540RouterTest is BaseTest {
         node.addComponent(address(liquidityPool), allocation);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
     }
 
     function test_investInAsyncVault_fail_not_rebalancer() public {
@@ -129,9 +135,11 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
+        vm.prank(rebalancer);
+        node.startRebalance();
 
         vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
         router7540.investInAsyncVault(address(node), address(liquidityPool));
     }
 
@@ -143,10 +151,11 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidNode.selector));
-
-        vm.prank(rebalancer);
         router7540.investInAsyncVault(address(user), address(liquidityPool));
+        vm.stopPrank();
     }
 
     function test_investInAsyncVault_fail_invalid_component() public {
@@ -180,8 +189,10 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.startPrank(user);
         node.approve(address(node), 1 ether);
@@ -198,8 +209,8 @@ contract ERC7540RouterTest is BaseTest {
     }
 
     function test_investInAsyncVault_revert_ComponentWithinTargetRange() public {
-        _seedNode(1000 ether);
-        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        _seedNode(10000 ether);
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -207,8 +218,10 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.startPrank(user);
         asset.approve(address(node), 1 ether);
@@ -230,32 +243,49 @@ contract ERC7540RouterTest is BaseTest {
 
         // Define component allocations
         allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation20 = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
         ComponentAllocation memory allocation70 = ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether});
 
         // Set up the environment as the owner
         vm.startPrank(owner);
         quoter.setErc4626(address(liquidityPool), true);
         quoter.setErc4626(address(testComponent70), true);
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation20);
         node.addComponent(address(testComponent70), allocation70);
         router7540.setWhitelistStatus(address(liquidityPool), true);
         router4626.setWhitelistStatus(address(testComponent70), true);
         vm.stopPrank();
 
         // Invest in the component with 70% target weight
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(testComponent70));
+        vm.stopPrank();
 
         // Assert that the balance of the node is 700 ether for the component and 300 ether in reserve
         assertEq(testComponent70.balanceOf(address(node)), 700 ether);
         assertEq(asset.balanceOf(address(node)), 300 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
+        // set both original component to 50% target weight
+        vm.startPrank(owner);
+        node.updateComponentAllocation(
+            address(liquidityPool), ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether})
+        );
+        node.updateComponentAllocation(
+            address(testComponent70), ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether})
+        );
+        vm.stopPrank();
+
         // Calculate the investment size for the component with 50% target weight
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(liquidityPool));
 
         // Attempt to invest in the component with 50% target weight
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
@@ -303,9 +333,11 @@ contract ERC7540RouterTest is BaseTest {
             abi.encode(1) // Return non-zero request ID
         );
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         vm.expectRevert("No requestId returned");
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
     }
 
     function test_mintClaimableShares() public {
@@ -317,16 +349,18 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
-        assertEq(liquidityPool.claimableDepositRequest(0, address(node)), 50 ether);
+        assertEq(liquidityPool.claimableDepositRequest(0, address(node)), 90 ether);
 
         vm.prank(rebalancer);
         router7540.mintClaimableShares(address(node), address(liquidityPool));
-        assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(50 ether));
+        assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(90 ether));
     }
 
     function test_requestAsyncWithdrawal() public {
@@ -338,20 +372,22 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
 
         vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(liquidityPool));
-        assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(50 ether));
+        assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(90 ether));
         router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
         vm.stopPrank();
 
         assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 10 ether);
-        assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(40 ether));
+        assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(80 ether));
     }
 
     function test_executeAsyncWithdrawal() public {
@@ -363,8 +399,10 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
@@ -426,8 +464,10 @@ contract ERC7540RouterTest is BaseTest {
         vm.stopPrank();
 
         // Setup: First create a deposit request
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         // Make deposit claimable
         vm.prank(testPoolManager);
@@ -480,8 +520,10 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
@@ -535,8 +577,10 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
@@ -571,8 +615,10 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
@@ -616,8 +662,10 @@ contract ERC7540RouterTest is BaseTest {
         vm.stopPrank();
 
         // First invest and mint shares
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        node.startRebalance();
         router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
 
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();

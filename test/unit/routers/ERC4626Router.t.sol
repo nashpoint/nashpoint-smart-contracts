@@ -235,6 +235,7 @@ contract ERC4626RouterTest is BaseTest {
             address(testComponent70), ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether})
         );
         vm.stopPrank();
+
         // Calculate the investment size for the component with 50% target weight
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(testComponent));
 
