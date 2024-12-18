@@ -88,6 +88,9 @@ contract EthereumForkTests is BaseTest {
 
         allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.03 ether});
 
+        // warp forward to ensure not rebalancing
+        vm.warp(block.timestamp + 1 days);
+
         // add centrifuge liquidity pool to protocol contracts
         vm.startPrank(owner);
         router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
@@ -105,6 +108,12 @@ contract EthereumForkTests is BaseTest {
         IERC20(cfgLiquidityPool.asset()).approve(address(node), type(uint256).max);
         node.deposit(100 ether, address(user));
         vm.stopPrank();
+
+        vm.prank(owner);
+        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0.01 ether}));
+
+        vm.prank(rebalancer);
+        node.startRebalance();
     }
 
     function test_canSelectEthereum() public {
