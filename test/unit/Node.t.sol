@@ -841,7 +841,7 @@ contract NodeTest is BaseTest {
         // Cast the interface back to the concrete implementation
         Node node = Node(address(node));
 
-        assertEq(node.cooldownDuration(), 1 days);
+        assertEq(node.rebalanceCooldown(), 1 days);
         assertEq(node.rebalanceWindow(), 1 hours);
         assertEq(node.lastRebalance(), 86401);
 
@@ -926,7 +926,58 @@ contract NodeTest is BaseTest {
         // todo: write a unit test just for this operation
     }
 
-    // Helper functions
+    function test_validateComponentRatios_revert_InvalidComponentRatios() public {
+        ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
+        invalidAllocation[0] = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
+
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+
+        new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            testQuoter,
+            owner,
+            testRebalancer,
+            routers,
+            _toArray(testComponent),
+            invalidAllocation,
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+
+        invalidAllocation[0] = ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether});
+
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+        new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            testQuoter,
+            owner,
+            testRebalancer,
+            routers,
+            _toArray(testComponent),
+            invalidAllocation,
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+    }
+
+    function test_startRebalance_revert_InvalidComponentRatios() public {
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(owner);
+        node.addComponent(testComponent, ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether}));
+
+        vm.startPrank(rebalancer);
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+        node.startRebalance();
+    }
+
+    // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
         assertEq(asset.balanceOf(address(node)), assets);
         assertEq(asset.balanceOf(user), 0);

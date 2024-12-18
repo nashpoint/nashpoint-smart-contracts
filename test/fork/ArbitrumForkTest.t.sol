@@ -28,6 +28,9 @@ contract ArbitrumForkTest is BaseTest {
         vm.selectFork(arbitrumFork);
         super.setUp();
 
+        // warp forward to ensure not rebalancing
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         router4626.setWhitelistStatus(yUsdcaAddress, true);
         router4626.setWhitelistStatus(fUsdcAddress, true);
@@ -36,10 +39,13 @@ contract ArbitrumForkTest is BaseTest {
         quoter.setErc4626(fUsdcAddress, true);
         quoter.setErc4626(sdUSDCV3Address, true);
         node.removeComponent(address(vault));
-        node.addComponent(address(yUsdcA), ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether}));
-        node.addComponent(address(fUsdc), ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether}));
-        node.addComponent(address(sdUsdcV3), ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether}));
+        node.addComponent(address(yUsdcA), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
+        node.addComponent(address(fUsdc), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
+        node.addComponent(address(sdUsdcV3), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
         vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.startRebalance();
     }
 
     function test_canSelectArbitrum() public {
@@ -92,8 +98,8 @@ contract ArbitrumForkTest is BaseTest {
 
         uint256 nodeShares = yUsdcA.balanceOf(address(node));
 
-        assertApproxEqAbs(yUsdcA.convertToAssets(nodeShares), 90e6, 1);
-        assertEq(usdc.balanceOf(address(node)), 10e6);
+        assertApproxEqAbs(yUsdcA.convertToAssets(nodeShares), 30e6, 1);
+        assertEq(usdc.balanceOf(address(node)), 70e6);
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);
@@ -116,8 +122,8 @@ contract ArbitrumForkTest is BaseTest {
 
         uint256 nodeShares = fUsdc.balanceOf(address(node));
 
-        assertApproxEqAbs(fUsdc.convertToAssets(nodeShares), 90e6, 1);
-        assertEq(usdc.balanceOf(address(node)), 10e6);
+        assertApproxEqAbs(fUsdc.convertToAssets(nodeShares), 30e6, 1);
+        assertEq(usdc.balanceOf(address(node)), 70e6);
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);
@@ -140,8 +146,8 @@ contract ArbitrumForkTest is BaseTest {
 
         uint256 nodeShares = sdUsdcV3.balanceOf(address(node));
 
-        assertApproxEqAbs(sdUsdcV3.convertToAssets(nodeShares), 90e6, 1);
-        assertEq(usdc.balanceOf(address(node)), 10e6);
+        assertApproxEqAbs(sdUsdcV3.convertToAssets(nodeShares), 30e6, 1);
+        assertEq(usdc.balanceOf(address(node)), 70e6);
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);

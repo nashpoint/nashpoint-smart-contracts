@@ -29,7 +29,7 @@ contract Node is INode, ERC20, Ownable {
     uint256 internal constant PRICE_DECIMALS = 18;
 
     /* COOLDOWN */
-    uint256 public cooldownDuration = 1 days;
+    uint256 public rebalanceCooldown = 1 days;
     uint256 public rebalanceWindow = 1 hours;
     uint256 public lastRebalance;
 
@@ -110,8 +110,15 @@ contract Node is INode, ERC20, Ownable {
         _;
     }
 
-    modifier ifRebalanceWindowOpen() {
-        if (block.timestamp > lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceNotAvailable();
+    modifier onlyWhenRebalancing() {
+        if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
+        _;
+    }
+
+    modifier onlyWhenNotRebalancing() {
+        if (block.timestamp >= lastRebalance && block.timestamp <= lastRebalance + rebalanceWindow) {
+            revert ErrorsLib.RebalanceWindowOpen();
+        }
         _;
     }
 
@@ -123,14 +130,18 @@ contract Node is INode, ERC20, Ownable {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
-        lastRebalance = block.timestamp - cooldownDuration;
+        lastRebalance = block.timestamp - rebalanceCooldown;
 
         // todo: add setLiquidationQueue to initialize
 
         emit EventsLib.Initialize(escrow_, address(this));
     }
 
-    function addComponent(address component, ComponentAllocation memory allocation) external onlyOwner {
+    function addComponent(address component, ComponentAllocation memory allocation)
+        external
+        onlyOwner
+        onlyWhenNotRebalancing
+    {
         if (component == address(0)) revert ErrorsLib.ZeroAddress();
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
 
@@ -140,7 +151,7 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.ComponentAdded(address(this), component, allocation);
     }
 
-    function removeComponent(address component) external onlyOwner {
+    function removeComponent(address component) external onlyOwner onlyWhenNotRebalancing {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
         if (IERC20(component).balanceOf(address(this)) > 0) revert ErrorsLib.NonZeroBalance();
 
@@ -158,13 +169,17 @@ contract Node is INode, ERC20, Ownable {
         }
     }
 
-    function updateComponentAllocation(address component, ComponentAllocation memory allocation) external onlyOwner {
+    function updateComponentAllocation(address component, ComponentAllocation memory allocation)
+        external
+        onlyOwner
+        onlyWhenNotRebalancing
+    {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
         componentAllocations[component] = allocation;
         emit EventsLib.ComponentAllocationUpdated(address(this), component, allocation);
     }
 
-    function updateReserveAllocation(ComponentAllocation memory allocation) external onlyOwner {
+    function updateReserveAllocation(ComponentAllocation memory allocation) external onlyOwner onlyWhenNotRebalancing {
         reserveAllocation = allocation;
         emit EventsLib.ReserveAllocationUpdated(address(this), allocation);
     }
@@ -222,7 +237,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function setCooldownDuration(uint256 newCooldownDuration) external onlyOwner {
-        cooldownDuration = newCooldownDuration;
+        rebalanceCooldown = newCooldownDuration;
         emit EventsLib.CooldownDurationUpdated(newCooldownDuration);
     }
 
@@ -239,7 +254,15 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function startRebalance() external onlyRebalancer {
-        if (block.timestamp < lastRebalance + cooldownDuration) revert ErrorsLib.CooldownActive();
+        ComponentAllocation[] memory allocations = new ComponentAllocation[](components.length);
+        for (uint256 i = 0; i < components.length; i++) {
+            allocations[i] = componentAllocations[components[i]];
+        }
+        if (!_validateComponentRatios()) {
+            revert ErrorsLib.InvalidComponentRatios();
+        }
+        if (block.timestamp < lastRebalance + rebalanceCooldown) revert ErrorsLib.CooldownActive();
+
         lastRebalance = block.timestamp;
         _updateTotalAssets();
         emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
@@ -249,7 +272,7 @@ contract Node is INode, ERC20, Ownable {
     function execute(address target, uint256 value, bytes calldata data)
         external
         onlyRouter
-        ifRebalanceWindowOpen
+        onlyWhenRebalancing
         returns (bytes memory)
     {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
@@ -476,11 +499,11 @@ contract Node is INode, ERC20, Ownable {
         _updateTotalAssets();
     }
 
-    function fulfillRedeemFromReserve(address controller) external onlyRebalancer ifRebalanceWindowOpen {
+    function fulfillRedeemFromReserve(address controller) external onlyRebalancer onlyWhenRebalancing {
         _fulfillRedeemFromReserve(controller);
     }
 
-    function fulfillRedeemBatch(address[] memory controllers) external onlyRebalancer ifRebalanceWindowOpen {
+    function fulfillRedeemBatch(address[] memory controllers) external onlyRebalancer onlyWhenRebalancing {
         for (uint256 i = 0; i < controllers.length; i++) {
             _fulfillRedeemFromReserve(controllers[i]);
         }
@@ -555,9 +578,20 @@ contract Node is INode, ERC20, Ownable {
                 if (components_[i] == address(0)) revert ErrorsLib.ZeroAddress();
                 components.push(components_[i]);
                 componentAllocations[components_[i]] = allocations[i];
+                if (!_validateComponentRatios()) {
+                    revert ErrorsLib.InvalidComponentRatios();
+                }
                 emit EventsLib.ComponentAdded(address(this), components_[i], allocations[i]);
             }
         }
+    }
+
+    function _validateComponentRatios() internal view returns (bool) {
+        uint256 totalWeight = reserveAllocation.targetWeight;
+        for (uint256 i = 0; i < components.length; i++) {
+            totalWeight += componentAllocations[components[i]].targetWeight;
+        }
+        return totalWeight == WAD;
     }
 
     function _isComponent(address component) internal view returns (bool) {
@@ -613,7 +647,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function cacheIsValid() public view returns (bool) {
-        return (block.timestamp <= lastRebalance + cooldownDuration);
+        return (block.timestamp <= lastRebalance + rebalanceCooldown);
     }
 
     function previewWithdraw(uint256 /* assets */ ) external pure returns (uint256 /* shares */ ) {

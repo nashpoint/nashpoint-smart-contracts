@@ -36,6 +36,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
     /// @inheritdoc INodeRegistry
     bool public isInitialized;
 
+    // todo: add arbitry module mapping
+
     /* CONSTRUCTOR */
     constructor(address owner_) Ownable(owner_) {}
 
