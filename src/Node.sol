@@ -280,8 +280,7 @@ contract Node is INode, ERC20, Ownable {
         _updateTotalAssets();
 
         uint256 timePeriod = block.timestamp - lastPayment;
-        feeForPeriod = MathLib.mulDiv((annualManagementFee * cacheTotalAssets * timePeriod), 1, SECONDS_PER_YEAR * WAD);
-        // same as (0.01e18 * 100e18 * 1 days) * 1e18 / 365 days
+        feeForPeriod = (annualManagementFee * cacheTotalAssets * timePeriod) / (SECONDS_PER_YEAR * WAD);
 
         if (feeForPeriod > 0) {
             uint256 protocolFeeAmount =
