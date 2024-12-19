@@ -40,6 +40,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
 
     address public protocolFeeAddress;
     uint256 public protocolManagementFee;
+    uint256 public protocolExecutionFee;
 
     /* CONSTRUCTOR */
     constructor(address owner_) Ownable(owner_) {}
@@ -165,6 +166,12 @@ contract NodeRegistry is INodeRegistry, Ownable {
     function setProtocolManagementFee(uint256 newProtocolManagementFee) external onlyOwner {
         protocolManagementFee = newProtocolManagementFee;
         emit EventsLib.ProtocolManagementFeeSet(newProtocolManagementFee);
+    }
+
+    /// @inheritdoc INodeRegistry
+    function setProtocolExecutionFee(uint256 newProtocolExecutionFee) external onlyOwner {
+        protocolExecutionFee = newProtocolExecutionFee;
+        emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
     }
 
     /* VIEW */

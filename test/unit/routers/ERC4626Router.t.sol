@@ -427,4 +427,32 @@ contract ERC4626RouterTest is BaseTest {
         );
         router4626.liquidate(address(node), address(testComponent), shares);
     }
+
+    function test_subtractExecutionFee_4626() public {
+        address feeRecipient = makeAddr("feeRecipient");
+
+        vm.startPrank(owner);
+        registry.setProtocolExecutionFee(0.01 ether);
+        registry.setProtocolFeeAddress(feeRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+
+        vm.startPrank(owner);
+        quoter.setErc4626(address(testComponent), true);
+        node.addComponent(address(testComponent), allocation);
+        router4626.setWhitelistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        uint256 expectedDeposit = 100 ether * node.getComponentRatio(address(testComponent)) / 1 ether;
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        uint256 depositAmount = router4626.invest(address(node), address(testComponent));
+        vm.stopPrank();
+
+        assertEq(asset.balanceOf(address(feeRecipient)) + depositAmount, expectedDeposit);
+        assertEq(depositAmount, expectedDeposit * 0.99 ether / 1 ether);
+        assertEq(asset.balanceOf(address(feeRecipient)), expectedDeposit * 0.01 ether / 1 ether);
+    }
 }

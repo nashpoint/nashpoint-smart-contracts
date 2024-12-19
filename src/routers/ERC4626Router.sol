@@ -51,12 +51,14 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
-        // Limit deposit by reserve ratio requirements
+        // limit deposit by reserve ratio requirements
         uint256 availableReserve = currentCash - idealCashReserve;
-
         if (depositAmount > availableReserve) {
             depositAmount = availableReserve;
         }
+
+        // subtract execution fee for protocol
+        depositAmount = _subtractExecutionFee(depositAmount, node);
 
         // Check vault deposit limits
         if (depositAmount > IERC4626(component).maxDeposit(address(node))) {
