@@ -159,4 +159,7 @@ library ErrorsLib {
 
     /// @notice Thrown when the component ratios do not sum to 100%.
     error InvalidComponentRatios();
+
+    /// @notice Thrown when the fee exceeds the amount.
+    error FeeExceedsAmount(uint256 fee, uint256 amount);
 }

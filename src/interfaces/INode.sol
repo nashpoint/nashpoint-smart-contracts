@@ -166,4 +166,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external;
 
     function setAnnualManagementFee(uint256 newAnnualManagementFee) external;
+
+    function subtractProtocolExecutionFee(uint256 executionFee) external;
 }

@@ -133,4 +133,20 @@ contract BaseRouter is IBaseRouter {
             - INode(node).convertToAssets(INode(node).sharesExiting());
         idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
     }
+
+    function _subtractExecutionFee(uint256 transactionAmount, address node) internal returns (uint256) {
+        uint256 executionFee = transactionAmount * registry.protocolExecutionFee() / WAD;
+        if (executionFee == 0) {
+            return transactionAmount;
+        }
+
+        if (executionFee >= transactionAmount) {
+            revert ErrorsLib.FeeExceedsAmount(executionFee, transactionAmount);
+        }
+
+        uint256 transactionAfterFee = transactionAmount - executionFee;
+        INode(node).subtractProtocolExecutionFee(executionFee);
+
+        return transactionAfterFee;
+    }
 }

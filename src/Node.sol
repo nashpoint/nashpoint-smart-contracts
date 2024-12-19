@@ -595,6 +595,11 @@ contract Node is INode, ERC20, Ownable {
         cacheTotalAssets = quoter.getTotalAssets(address(this));
     }
 
+    function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter {
+        IERC20(asset).transfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
+        cacheTotalAssets -= executionFee;
+    }
+
     function _validateController(address controller) internal view {
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
     }
