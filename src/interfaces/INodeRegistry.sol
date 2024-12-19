@@ -146,4 +146,16 @@ interface INodeRegistry {
      * @param newProtocolManagementFee Protocol management fee
      */
     function setProtocolManagementFee(uint256 newProtocolManagementFee) external;
+
+    /**
+     * @notice Returns the protocol execution fee
+     * @return uint256 Protocol execution fee
+     */
+    function protocolExecutionFee() external view returns (uint256);
+
+    /**
+     * @notice Sets the protocol execution fee
+     * @param newProtocolExecutionFee Protocol execution fee
+     */
+    function setProtocolExecutionFee(uint256 newProtocolExecutionFee) external;
 }

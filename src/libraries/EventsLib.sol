@@ -113,6 +113,9 @@ library EventsLib {
     /// @notice Emitted when protocol management fee is set
     event ProtocolManagementFeeSet(uint256 protocolManagementFee);
 
+    /// @notice Emitted when protocol execution fee is set
+    event ProtocolExecutionFeeSet(uint256 protocolExecutionFee);
+
     /// @notice Emitted when node owner fee address is set
     event NodeOwnerFeeAddressSet(address nodeOwnerFeeAddress);
 }
