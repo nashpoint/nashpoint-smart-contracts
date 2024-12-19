@@ -154,6 +154,9 @@ library ErrorsLib {
     /// @notice Thrown when the rebalance window is open.
     error RebalanceWindowOpen();
 
+    /// @notice Thrown when the not enough assets to pay fees.
+    error NotEnoughAssetsToPayFees(uint256 feeForPeriod, uint256 assetsBalance);
+
     /// @notice Thrown when the component ratios do not sum to 100%.
     error InvalidComponentRatios();
 }

@@ -280,7 +280,8 @@ contract Node is INode, ERC20, Ownable {
         _updateTotalAssets();
 
         uint256 timePeriod = block.timestamp - lastPayment;
-        feeForPeriod = MathLib.mulDiv((annualManagementFee * cacheTotalAssets * timePeriod), WAD, SECONDS_PER_YEAR);
+        feeForPeriod = MathLib.mulDiv((annualManagementFee * cacheTotalAssets * timePeriod), 1, SECONDS_PER_YEAR * WAD);
+        // same as (0.01e18 * 100e18 * 1 days) * 1e18 / 365 days
 
         if (feeForPeriod > 0) {
             uint256 protocolFeeAmount =
@@ -288,7 +289,7 @@ contract Node is INode, ERC20, Ownable {
             uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
 
             if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
-                revert("not enough assets to pay fees");
+                revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
             }
             IERC20(asset).transfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
             IERC20(asset).transfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
