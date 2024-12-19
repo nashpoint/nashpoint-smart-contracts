@@ -122,4 +122,28 @@ interface INodeRegistry {
      * @return bool True if address is a system contract
      */
     function isSystemContract(address contract_) external view returns (bool);
+
+    /**
+     * @notice Returns the address of the protocol fee address
+     * @return address Address of the protocol fee address
+     */
+    function protocolFeeAddress() external view returns (address);
+
+    /**
+     * @notice Sets the address of the protocol fee address
+     * @param newProtocolFeeAddress Address of the protocol fee address
+     */
+    function setProtocolFeeAddress(address newProtocolFeeAddress) external;
+
+    /**
+     * @notice Returns the protocol management fee
+     * @return uint256 Protocol management fee
+     */
+    function protocolManagementFee() external view returns (uint256);
+
+    /**
+     * @notice Sets the protocol management fee
+     * @param newProtocolManagementFee Protocol management fee
+     */
+    function setProtocolManagementFee(uint256 newProtocolManagementFee) external;
 }

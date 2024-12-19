@@ -160,4 +160,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function cacheIsValid() external view returns (bool);
 
     function lastRebalance() external view returns (uint256);
+
+    function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external;
 }

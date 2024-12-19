@@ -34,10 +34,8 @@ contract Node is INode, ERC20, Ownable {
     uint256 public lastRebalance;
 
     /* FEES */
-    uint256 public annualManagementFee = 1 ether;
-    uint256 public protocolFee = 0.2 ether;
+    uint256 public annualManagementFee;
     address public nodeOwnerFeeAddress;
-    address public protocolFeeAddress;
     uint256 public lastPayment;
     uint256 public immutable SECONDS_PER_YEAR = 365 days;
 
@@ -139,6 +137,7 @@ contract Node is INode, ERC20, Ownable {
         swingPricingEnabled = false;
         isInitialized = true;
         lastRebalance = block.timestamp - rebalanceCooldown;
+        lastPayment = block.timestamp;
 
         // todo: add setLiquidationQueue to initialize
 
@@ -284,19 +283,30 @@ contract Node is INode, ERC20, Ownable {
         feeForPeriod = MathLib.mulDiv((annualManagementFee * cacheTotalAssets * timePeriod), WAD, SECONDS_PER_YEAR);
 
         if (feeForPeriod > 0) {
-            uint256 protocolFeeAmount = MathLib.mulDiv(feeForPeriod, protocolFee, WAD);
+            uint256 protocolFeeAmount =
+                MathLib.mulDiv(feeForPeriod, INodeRegistry(registry).protocolManagementFee(), WAD);
             uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
 
             if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
                 revert("not enough assets to pay fees");
             }
-            IERC20(asset).transfer(protocolFeeAddress, protocolFeeAmount);
+            IERC20(asset).transfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
             IERC20(asset).transfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
 
             cacheTotalAssets = cacheTotalAssets - feeForPeriod;
             lastPayment = block.timestamp;
             return feeForPeriod;
         }
+    }
+
+    function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external onlyOwner {
+        nodeOwnerFeeAddress = newNodeOwnerFeeAddress;
+        emit EventsLib.NodeOwnerFeeAddressSet(newNodeOwnerFeeAddress);
+    }
+
+    function setAnnualManagementFee(uint256 newAnnualManagementFee) external onlyOwner {
+        annualManagementFee = newAnnualManagementFee;
+        emit EventsLib.ProtocolManagementFeeSet(newAnnualManagementFee);
     }
 
     /* REBALANCER FUNCTIONS */

@@ -106,4 +106,13 @@ library EventsLib {
 
     /// @notice Emitted when rebalance window is updated
     event RebalanceWindowUpdated(uint256 newRebalanceWindow);
+
+    /// @notice Emitted when protocol fee address is set
+    event ProtocolFeeAddressSet(address protocolFeeAddress);
+
+    /// @notice Emitted when protocol management fee is set
+    event ProtocolManagementFeeSet(uint256 protocolManagementFee);
+
+    /// @notice Emitted when node owner fee address is set
+    event NodeOwnerFeeAddressSet(address nodeOwnerFeeAddress);
 }
