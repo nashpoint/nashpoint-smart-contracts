@@ -33,6 +33,12 @@ contract Node is INode, ERC20, Ownable {
     uint256 public rebalanceWindow = 1 hours;
     uint256 public lastRebalance;
 
+    /* FEES */
+    uint256 public annualManagementFee;
+    address public nodeOwnerFeeAddress;
+    uint256 public lastPayment;
+    uint256 public immutable SECONDS_PER_YEAR = 365 days;
+
     /* IMMUTABLES */
     address public immutable registry;
     address public immutable asset;
@@ -131,6 +137,7 @@ contract Node is INode, ERC20, Ownable {
         swingPricingEnabled = false;
         isInitialized = true;
         lastRebalance = block.timestamp - rebalanceCooldown;
+        lastPayment = block.timestamp;
 
         // todo: add setLiquidationQueue to initialize
 
@@ -265,7 +272,41 @@ contract Node is INode, ERC20, Ownable {
 
         lastRebalance = block.timestamp;
         _updateTotalAssets();
+
         emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
+    }
+
+    function payManagementFees() public onlyOwner onlyWhenNotRebalancing returns (uint256 feeForPeriod) {
+        _updateTotalAssets();
+
+        uint256 timePeriod = block.timestamp - lastPayment;
+        feeForPeriod = (annualManagementFee * cacheTotalAssets * timePeriod) / (SECONDS_PER_YEAR * WAD);
+
+        if (feeForPeriod > 0) {
+            uint256 protocolFeeAmount =
+                MathLib.mulDiv(feeForPeriod, INodeRegistry(registry).protocolManagementFee(), WAD);
+            uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
+
+            if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
+                revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
+            }
+            IERC20(asset).transfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
+            IERC20(asset).transfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
+
+            cacheTotalAssets = cacheTotalAssets - feeForPeriod;
+            lastPayment = block.timestamp;
+            return feeForPeriod;
+        }
+    }
+
+    function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external onlyOwner {
+        nodeOwnerFeeAddress = newNodeOwnerFeeAddress;
+        emit EventsLib.NodeOwnerFeeAddressSet(newNodeOwnerFeeAddress);
+    }
+
+    function setAnnualManagementFee(uint256 newAnnualManagementFee) external onlyOwner {
+        annualManagementFee = newAnnualManagementFee;
+        emit EventsLib.ProtocolManagementFeeSet(newAnnualManagementFee);
     }
 
     /* REBALANCER FUNCTIONS */

@@ -977,6 +977,81 @@ contract NodeTest is BaseTest {
         node.startRebalance();
     }
 
+    /* FEE TESTS */
+
+    function test_payManagementFees() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // takes 1% of totalAssets
+        registry.setProtocolManagementFee(0.2 ether); // takes 20% of annualManagementFee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+        assertEq(node.totalAssets(), 100 ether);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        uint256 feeForPeriod = node.payManagementFees();
+
+        assertEq(asset.balanceOf(address(ownerFeesRecipient)), 0.8 ether);
+        assertEq(asset.balanceOf(address(protocolFeesRecipient)), 0.2 ether);
+        assertEq(feeForPeriod, 1 ether);
+        assertEq(node.totalAssets(), 100 ether - feeForPeriod);
+    }
+
+    function test_payManagementFees_zeroFees() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0);
+        registry.setProtocolManagementFee(0);
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+        assertEq(node.totalAssets(), 100 ether);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        node.payManagementFees();
+
+        assertEq(asset.balanceOf(address(ownerFeesRecipient)), 0);
+        assertEq(asset.balanceOf(address(protocolFeesRecipient)), 0);
+        assertEq(node.totalAssets(), 100 ether);
+    }
+
+    function test_payManagementFees_1Days() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // takes 1% of totalAssets
+        registry.setProtocolManagementFee(0.2 ether); // takes 20% of annualManagementFee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+        assertEq(node.totalAssets(), 100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(owner);
+        uint256 feeForPeriod = node.payManagementFees();
+
+        assertApproxEqAbs(asset.balanceOf(address(ownerFeesRecipient)) * 365, 0.8 ether, 100);
+        assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether, 100);
+        assertEq(node.totalAssets(), 100 ether - feeForPeriod);
+    }
+
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
         assertEq(asset.balanceOf(address(node)), assets);
