@@ -276,7 +276,7 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
     }
 
-    function payManagementFees() public onlyOwner returns (uint256 feeForPeriod) {
+    function payManagementFees() public onlyOwner onlyWhenNotRebalancing returns (uint256 feeForPeriod) {
         _updateTotalAssets();
 
         uint256 timePeriod = block.timestamp - lastPayment;
