@@ -684,4 +684,33 @@ contract ERC7540RouterTest is BaseTest {
         vm.expectRevert("No requestId returned");
         router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
     }
+
+    function test_subtractExecutionFee_7540() public {
+        address feeRecipient = makeAddr("feeRecipient");
+
+        vm.startPrank(owner);
+        registry.setProtocolExecutionFee(0.01 ether);
+        registry.setProtocolFeeAddress(feeRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        uint256 expectedDeposit = 100 ether * node.getComponentRatio(address(liquidityPool)) / 1 ether;
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        uint256 depositAmount = router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        assertEq(asset.balanceOf(address(feeRecipient)) + depositAmount, expectedDeposit);
+        assertEq(depositAmount, expectedDeposit * 0.99 ether / 1 ether);
+        assertEq(asset.balanceOf(address(feeRecipient)), expectedDeposit * 0.01 ether / 1 ether);
+        assertEq(liquidityPool.pendingDepositRequest(0, address(node)), depositAmount);
+    }
 }

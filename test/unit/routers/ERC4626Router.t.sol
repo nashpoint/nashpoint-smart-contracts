@@ -428,7 +428,7 @@ contract ERC4626RouterTest is BaseTest {
         router4626.liquidate(address(node), address(testComponent), shares);
     }
 
-    function test_subtractExecutionFee() public {
+    function test_subtractExecutionFee_4626() public {
         address feeRecipient = makeAddr("feeRecipient");
 
         vm.startPrank(owner);

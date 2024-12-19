@@ -57,6 +57,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             depositAmount = availableReserve;
         }
 
+        // subtract execution fee for protocol
         depositAmount = _subtractExecutionFee(depositAmount, node);
 
         // Check vault deposit limits

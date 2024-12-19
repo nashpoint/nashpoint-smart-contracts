@@ -51,17 +51,18 @@ contract ERC7540Router is BaseRouter {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
-        // get max transaction size that will maintain reserve ratio
-        uint256 availableReserve = currentCash - idealCashReserve;
-
         // limits the depositAmount to this transaction size
+        uint256 availableReserve = currentCash - idealCashReserve;
         if (depositAmount > availableReserve) {
             depositAmount = availableReserve;
         }
 
+        // subtract execution fee for protocol
+        depositAmount = _subtractExecutionFee(depositAmount, node);
+
         uint256 requestId = _requestDeposit(node, component, depositAmount);
         require(requestId == 0, "No requestId returned");
-        return (requestId);
+        return (depositAmount);
     }
 
     function mintClaimableShares(address node, address component)
