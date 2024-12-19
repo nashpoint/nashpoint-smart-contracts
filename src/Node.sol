@@ -33,6 +33,14 @@ contract Node is INode, ERC20, Ownable {
     uint256 public rebalanceWindow = 1 hours;
     uint256 public lastRebalance;
 
+    /* FEES */
+    uint256 public annualManagementFee = 1 ether;
+    uint256 public protocolFee = 0.2 ether;
+    address public nodeOwnerFeeAddress;
+    address public protocolFeeAddress;
+    uint256 public lastPayment;
+    uint256 public immutable SECONDS_PER_YEAR = 365 days;
+
     /* IMMUTABLES */
     address public immutable registry;
     address public immutable asset;
@@ -265,7 +273,30 @@ contract Node is INode, ERC20, Ownable {
 
         lastRebalance = block.timestamp;
         _updateTotalAssets();
+
         emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
+    }
+
+    function payManagementFees() public onlyOwner returns (uint256 feeForPeriod) {
+        _updateTotalAssets();
+
+        uint256 timePeriod = block.timestamp - lastPayment;
+        feeForPeriod = MathLib.mulDiv((annualManagementFee * cacheTotalAssets * timePeriod), WAD, SECONDS_PER_YEAR);
+
+        if (feeForPeriod > 0) {
+            uint256 protocolFeeAmount = MathLib.mulDiv(feeForPeriod, protocolFee, WAD);
+            uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
+
+            if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
+                revert("not enough assets to pay fees");
+            }
+            IERC20(asset).transfer(protocolFeeAddress, protocolFeeAmount);
+            IERC20(asset).transfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
+
+            cacheTotalAssets = cacheTotalAssets - feeForPeriod;
+            lastPayment = block.timestamp;
+            return feeForPeriod;
+        }
     }
 
     /* REBALANCER FUNCTIONS */
