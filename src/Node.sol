@@ -8,7 +8,7 @@ import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC2
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {INode, ComponentAllocation} from "./interfaces/INode.sol";
+import {INode, ComponentAllocation, Request} from "./interfaces/INode.sol";
 import {IQuoter} from "./interfaces/IQuoter.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
@@ -66,17 +66,6 @@ contract Node is INode, ERC20, Ownable {
     uint256 public maxSwingFactor;
     bool public swingPricingEnabled;
     bool public isInitialized;
-
-    struct Request {
-        /// shares
-        uint256 pendingRedeemRequest;
-        /// shares
-        uint256 claimableRedeemRequest;
-        /// assets
-        uint256 claimableAssets;
-        /// down-weighted shares for swing pricing
-        uint256 sharesAdjusted;
-    }
 
     /* CONSTRUCTOR */
     constructor(

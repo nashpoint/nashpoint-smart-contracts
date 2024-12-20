@@ -11,6 +11,17 @@ struct ComponentAllocation {
     uint256 maxDelta;
 }
 
+struct Request {
+    /// shares
+    uint256 pendingRedeemRequest;
+    /// shares
+    uint256 claimableRedeemRequest;
+    /// assets
+    uint256 claimableAssets;
+    /// down-weighted shares for swing pricing
+    uint256 sharesAdjusted;
+}
+
 /**
  * @title INode
  * @author ODND Studios
