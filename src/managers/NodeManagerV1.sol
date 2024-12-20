@@ -22,6 +22,9 @@ interface INodeManagerV1 {
         external
         pure
         returns (uint256);
+
+    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256);
+    function calculateDeposit(uint256 assets, address receiver) external returns (uint256);
 }
 
 /// @title NodeManagerV1
@@ -34,14 +37,20 @@ contract NodeManagerV1 is BaseManager, INodeManagerV1 {
     /* CONSTRUCTOR */
     constructor(address registry_) BaseManager(registry_) {}
 
+    function calculateDeposit(uint256 assets, address receiver) external onlyValidNode(msg.sender) returns (uint256) {}
+
+    function requestRedeem(uint256 shares, address controller, address owner)
+        external
+        onlyValidNode(msg.sender)
+        returns (uint256)
+    {}
+
     function calculateReserveImpact(
         uint256 targetReserveRatio,
         uint256 reserveCash,
         uint256 totalAssets,
         uint256 deposit
     ) external pure returns (int256) {
-        // note: do happy path first then edge cases at each step
-
         console2.log("targetReserveRatio: ", targetReserveRatio / 1e16);
         console2.log("reserveCash: ", reserveCash / 1e18);
         console2.log("totalAssets: ", totalAssets / 1e18);
