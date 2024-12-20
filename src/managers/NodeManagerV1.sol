@@ -7,6 +7,8 @@ import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {BaseManager} from "src/libraries/BaseManager.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
+import {INode} from "src/interfaces/INode.sol";
+
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 // temp
@@ -29,7 +31,14 @@ interface INodeManagerV1 {
         pure
         returns (uint256);
 
-    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256);
+    function getAdjustedAssets(
+        address asset,
+        uint256 sharesExiting,
+        uint256 shares,
+        uint256 maxSwingFactor,
+        uint256 targetReserveRatio,
+        bool swingPricingEnabled
+    ) external returns (uint256);
 }
 
 /// @title NodeManagerV1
@@ -61,11 +70,49 @@ contract NodeManagerV1 is BaseManager, INodeManagerV1 {
         return (sharesToMint);
     }
 
-    function requestRedeem(uint256 shares, address controller, address owner)
-        external
-        onlyValidNode(msg.sender)
-        returns (uint256)
-    {}
+    function getAdjustedAssets(
+        address asset,
+        uint256 sharesExiting,
+        uint256 shares,
+        uint256 maxSwingFactor,
+        uint256 targetReserveRatio,
+        bool swingPricingEnabled
+    ) external view onlyValidNode(msg.sender) returns (uint256 adjustedAssets) {
+        // get the cash balance of the node and pending redemptions
+        uint256 balance = IERC20(asset).balanceOf(address(msg.sender));
+        uint256 pendingRedemptions = IERC7575(msg.sender).convertToAssets(sharesExiting);
+
+        // check if pending redemptions exceed current cash balance
+        // if not subtract pending redemptions from balance
+        if (pendingRedemptions > balance) {
+            balance = 0;
+        } else {
+            balance = balance - pendingRedemptions;
+        }
+
+        // get the asset value of the redeem request
+        uint256 assets = IERC7575(msg.sender).convertToAssets(shares);
+
+        // gets the expected reserve ratio after tx
+        // check redemption (assets) exceed current cash balance
+        // if not get reserve ratio
+        int256 reserveRatioAfterTX;
+        if (assets > balance) {
+            reserveRatioAfterTX = 0;
+        } else {
+            reserveRatioAfterTX =
+                int256(Math.mulDiv(balance - assets, WAD, IERC7575(msg.sender).totalAssets() - assets));
+        }
+
+        if (swingPricingEnabled) {
+            adjustedAssets = Math.mulDiv(
+                assets, (WAD - getSwingFactor(reserveRatioAfterTX, maxSwingFactor, targetReserveRatio)), WAD
+            );
+        } else {
+            adjustedAssets = assets;
+        }
+        return adjustedAssets;
+    }
 
     function calculateReserveImpact(
         uint256 targetReserveRatio,

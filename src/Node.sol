@@ -332,41 +332,9 @@ contract Node is INode, ERC20, Ownable {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        // get the cash balance of the node and pending redemptions
-        uint256 balance = IERC20(asset).balanceOf(address(this));
-        uint256 pendingRedemptions = convertToAssets(sharesExiting);
-
-        // check if pending redemptions exceed current cash balance
-        // if not subtract pending redemptions from balance
-        if (pendingRedemptions > balance) {
-            balance = 0;
-        } else {
-            balance = balance - pendingRedemptions;
-        }
-
-        // get the asset value of the redeem request
-        uint256 assets = convertToAssets(shares);
-
-        // gets the expected reserve ratio after tx
-        // check redemption (assets) exceed current cash balance
-        // if not get reserve ratio
-        int256 reserveRatioAfterTX;
-        if (assets > balance) {
-            reserveRatioAfterTX = 0;
-        } else {
-            reserveRatioAfterTX = int256(MathLib.mulDiv(balance - assets, WAD, totalAssets() - assets));
-        }
-
-        uint256 adjustedAssets;
-        if (swingPricingEnabled) {
-            adjustedAssets = MathLib.mulDiv(
-                assets,
-                (WAD - manager.getSwingFactor(reserveRatioAfterTX, maxSwingFactor, reserveAllocation.targetWeight)),
-                WAD
-            );
-        } else {
-            adjustedAssets = assets;
-        }
+        uint256 adjustedAssets = manager.getAdjustedAssets(
+            asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight, swingPricingEnabled
+        );
 
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
@@ -439,26 +407,17 @@ contract Node is INode, ERC20, Ownable {
         return maxAssets;
     }
 
-    /// note: openzeppelin ERC4626 function
-    function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
         if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
         }
 
-        // Handle initial deposit separately to avoid divide by zero
-        // This is the first deposit OR !swingPricingEnabled
-        uint256 sharesToMint;
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
             sharesToMint = convertToShares(assets);
-            _deposit(_msgSender(), receiver, assets, sharesToMint);
-            cacheTotalAssets += assets;
-            emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
-            return sharesToMint;
         } else {
             sharesToMint = manager.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
         }
 
-        // Mint shares for the receiver.
         _deposit(_msgSender(), receiver, assets, sharesToMint);
         cacheTotalAssets += assets;
         emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
