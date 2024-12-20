@@ -69,7 +69,8 @@ contract DeployTestEnv is Script {
         asset.mint(deployer, 1000000 ether);
         asset.approve(address(node), type(uint256).max);
         node.deposit(1000 ether, deployer);
-        node.enableSwingPricing(true, address(manager), 2e16);
+        node.enableSwingPricing(true, 2e16);
+        node.setNodeManager(address(manager));
         vm.stopBroadcast();
 
         vm.startBroadcast(rebalancerKey);

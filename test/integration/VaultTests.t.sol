@@ -202,7 +202,7 @@ contract VaultTests is BaseTest {
         uint256 maxDiscount = 2e16;
 
         vm.prank(owner);
-        node.enableSwingPricing(true, address(deployer.manager()), maxDiscount);
+        node.enableSwingPricing(true, maxDiscount);
 
         vm.startPrank(rebalancer);
         router4626.invest(address(node), address(vault));
@@ -304,7 +304,7 @@ contract VaultTests is BaseTest {
 
         // enable swing pricing
         vm.prank(owner);
-        node.enableSwingPricing(true, address(deployer.manager()), maxDiscount);
+        node.enableSwingPricing(true, maxDiscount);
 
         // assert user2 has zero usdc balance
         assertEq(asset.balanceOf(user2), 0);

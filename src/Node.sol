@@ -233,6 +233,12 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetQuoter(newQuoter);
     }
 
+    // todo: do this properly once node is a core contract on registry
+    function setNodeManager(address newManager) external onlyOwner {
+        manager = INodeManagerV1(newManager);
+        emit EventsLib.SetNodeManager(newManager);
+    }
+
     function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
         for (uint256 i = 0; i < newQueue.length; i++) {
             address component = newQueue[i];
@@ -253,9 +259,8 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
     }
 
-    function enableSwingPricing(bool status_, address manager_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
+    function enableSwingPricing(bool status_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
         swingPricingEnabled = status_;
-        manager = INodeManagerV1(manager_);
         maxSwingFactor = maxSwingFactor_;
         emit EventsLib.SwingPricingStatusUpdated(status_);
     }

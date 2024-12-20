@@ -115,6 +115,7 @@ contract BaseTest is Test {
         );
 
         escrow.approveMax(address(asset), address(node));
+        node.setNodeManager(address(manager));
         vm.stopPrank();
 
         deal(address(asset), user, INITIAL_BALANCE);
