@@ -4,13 +4,13 @@ pragma solidity 0.8.26;
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import {BasePricer} from "src/libraries/BasePricer.sol";
+import {BaseManager} from "src/libraries/BaseManager.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
 // temp
 import {console2} from "forge-std/Test.sol";
 
-interface ISwingPricingV1 {
+interface INodeManagerV1 {
     function calculateReserveImpact(
         uint256 targetReserveRatio,
         uint256 reserveCash,
@@ -24,15 +24,15 @@ interface ISwingPricingV1 {
         returns (uint256);
 }
 
-/// @title SwingPricing
+/// @title NodeManagerV1
 /// @notice Library for calculating swing pricing.
-contract SwingPricingV1 is BasePricer, ISwingPricingV1 {
+contract NodeManagerV1 is BaseManager, INodeManagerV1 {
     // Constants
     int256 public constant SCALING_FACTOR = -5e18;
     uint256 public constant WAD = 1e18;
 
     /* CONSTRUCTOR */
-    constructor(address registry_) BasePricer(registry_) {}
+    constructor(address registry_) BaseManager(registry_) {}
 
     function calculateReserveImpact(
         uint256 targetReserveRatio,

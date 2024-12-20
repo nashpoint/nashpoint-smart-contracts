@@ -589,13 +589,15 @@ contract NodeTest is BaseTest {
     }
 
     function test_enableSwingPricing() public {
+        // todo: do this properly once you fix the pricer
+
         address newPricer = makeAddr("newPricer");
         uint256 newMaxSwingFactor = 0.1 ether;
 
         testNode.enableSwingPricing(true, newPricer, newMaxSwingFactor);
 
         assertTrue(testNode.swingPricingEnabled());
-        assertEq(address(testNode.pricer()), newPricer);
+        assertEq(address(testNode.manager()), newPricer);
         assertEq(testNode.maxSwingFactor(), newMaxSwingFactor);
     }
 
@@ -610,7 +612,7 @@ contract NodeTest is BaseTest {
         testNode.enableSwingPricing(false, newPricer, newMaxSwingFactor);
 
         assertFalse(testNode.swingPricingEnabled());
-        assertEq(address(testNode.pricer()), newPricer);
+        assertEq(address(testNode.manager()), newPricer);
         assertEq(testNode.maxSwingFactor(), newMaxSwingFactor);
     }
 

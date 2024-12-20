@@ -20,7 +20,7 @@ import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
-import {ISwingPricingV1} from "src/pricers/SwingPricingV1.sol";
+import {INodeManagerV1} from "src/managers/NodeManagerV1.sol";
 
 import {MathLib} from "src/libraries/MathLib.sol";
 
@@ -31,7 +31,7 @@ contract BaseTest is Test {
     INodeRegistry public registry;
     INodeFactory public factory;
     IQuoterV1 public quoter;
-    ISwingPricingV1 public pricer;
+    INodeManagerV1 public manager;
     ERC4626Router public router4626;
     ERC7540Router public router7540;
 
@@ -74,7 +74,7 @@ contract BaseTest is Test {
         registry = INodeRegistry(address(deployer.registry()));
         factory = INodeFactory(address(deployer.factory()));
         quoter = IQuoterV1(address(deployer.quoter()));
-        pricer = ISwingPricingV1(address(deployer.pricer()));
+        manager = INodeManagerV1(address(deployer.manager()));
         router4626 = deployer.erc4626router();
         router7540 = deployer.erc7540router();
 
@@ -160,7 +160,9 @@ contract BaseTest is Test {
         vm.label(address(registry), "Registry");
         vm.label(address(factory), "Factory");
         vm.label(address(quoter), "Quoter");
+        vm.label(address(manager), "Manager");
         vm.label(address(router4626), "ERC4626Router");
+        vm.label(address(router7540), "ERC7540Router");
         vm.label(address(node), "Node");
         vm.label(address(escrow), "Escrow");
         vm.label(address(asset), "Asset");

@@ -17,7 +17,7 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
-import {ISwingPricingV1} from "./pricers/SwingPricingV1.sol";
+import {INodeManagerV1} from "./managers/NodeManagerV1.sol";
 
 contract Node is INode, ERC20, Ownable {
     using Address for address;
@@ -56,7 +56,7 @@ contract Node is INode, ERC20, Ownable {
     uint256 public cacheTotalAssets;
 
     IQuoter public quoter;
-    ISwingPricingV1 public pricer; // todo: generalize this to IPricer
+    INodeManagerV1 public manager; // todo: generalize this to IManager using base manager
     address public escrow;
     mapping(address => mapping(address => bool)) public isOperator;
 
@@ -253,9 +253,9 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
     }
 
-    function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
+    function enableSwingPricing(bool status_, address manager_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
         swingPricingEnabled = status_;
-        pricer = ISwingPricingV1(pricer_);
+        manager = INodeManagerV1(manager_);
         maxSwingFactor = maxSwingFactor_;
         emit EventsLib.SwingPricingStatusUpdated(status_);
     }
@@ -356,7 +356,7 @@ contract Node is INode, ERC20, Ownable {
         if (swingPricingEnabled) {
             adjustedAssets = MathLib.mulDiv(
                 assets,
-                (WAD - pricer.getSwingFactor(reserveRatioAfterTX, maxSwingFactor, reserveAllocation.targetWeight)),
+                (WAD - manager.getSwingFactor(reserveRatioAfterTX, maxSwingFactor, reserveAllocation.targetWeight)),
                 WAD
             );
         } else {
@@ -454,11 +454,11 @@ contract Node is INode, ERC20, Ownable {
         uint256 reserveCash = IERC20(asset).balanceOf(address(this));
 
         int256 reserveImpact =
-            int256(pricer.calculateReserveImpact(reserveAllocation.targetWeight, reserveCash, totalAssets(), assets));
+            int256(manager.calculateReserveImpact(reserveAllocation.targetWeight, reserveCash, totalAssets(), assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets = MathLib.mulDiv(
-            assets, (WAD + pricer.getSwingFactor(reserveImpact, maxSwingFactor, reserveAllocation.targetWeight)), WAD
+            assets, (WAD + manager.getSwingFactor(reserveImpact, maxSwingFactor, reserveAllocation.targetWeight)), WAD
         );
 
         // Calculate the number of shares to mint based on the adjusted assets.

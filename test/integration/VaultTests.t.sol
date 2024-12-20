@@ -6,20 +6,20 @@ import {BaseTest} from "../BaseTest.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
-import {SwingPricingV1} from "src/pricers/SwingPricingV1.sol";
+import {NodeManagerV1} from "src/managers/NodeManagerV1.sol";
 
 import {Node, ComponentAllocation} from "src/Node.sol";
 
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
 contract VaultTests is BaseTest {
-    SwingPricingV1 mockPricer;
+    NodeManagerV1 mockManager;
     ERC20Mock internal mockAsset;
 
     function setUp() public override {
         super.setUp();
         mockAsset = ERC20Mock(address(asset));
-        mockPricer = new SwingPricingV1(address(1));
+        mockManager = new NodeManagerV1(address(1));
     }
 
     function test_VaultTests_depositAndWithdraw() public {
@@ -170,27 +170,27 @@ contract VaultTests is BaseTest {
         uint256 maxDiscount = 2e16;
         uint256 targetReserveRatio = 10e16;
 
-        vm.assertGt(mockPricer.getSwingFactor(1e16, maxDiscount, targetReserveRatio), 0);
+        vm.assertGt(mockManager.getSwingFactor(1e16, maxDiscount, targetReserveRatio), 0);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidInput.selector, -1e16));
-        mockPricer.getSwingFactor(-1e16, maxDiscount, targetReserveRatio);
+        mockManager.getSwingFactor(-1e16, maxDiscount, targetReserveRatio);
 
         // assert swing factor is zero if reserve target is met
-        uint256 swingFactor = mockPricer.getSwingFactor(int256(targetReserveRatio), maxDiscount, targetReserveRatio);
+        uint256 swingFactor = mockManager.getSwingFactor(int256(targetReserveRatio), maxDiscount, targetReserveRatio);
         assertEq(swingFactor, 0);
 
         // assert swing factor is zero if reserve target is exceeded
-        swingFactor = mockPricer.getSwingFactor(int256(targetReserveRatio) + 1e16, maxDiscount, targetReserveRatio);
+        swingFactor = mockManager.getSwingFactor(int256(targetReserveRatio) + 1e16, maxDiscount, targetReserveRatio);
         assertEq(swingFactor, 0);
 
         // assert that swing factor approaches maxDiscount when reserve approaches zero
         int256 minReservePossible = 1;
-        swingFactor = mockPricer.getSwingFactor(minReservePossible, maxDiscount, targetReserveRatio);
+        swingFactor = mockManager.getSwingFactor(minReservePossible, maxDiscount, targetReserveRatio);
         assertEq(swingFactor, maxDiscount - 1);
 
         // assert that swing factor is very small when reserve approaches target
         int256 maxReservePossible = int256(targetReserveRatio) - 1;
-        swingFactor = mockPricer.getSwingFactor(maxReservePossible, maxDiscount, targetReserveRatio);
+        swingFactor = mockManager.getSwingFactor(maxReservePossible, maxDiscount, targetReserveRatio);
         assertGt(swingFactor, 0);
         assertLt(swingFactor, 1e15); // 0.1%
     }
@@ -202,7 +202,7 @@ contract VaultTests is BaseTest {
         uint256 maxDiscount = 2e16;
 
         vm.prank(owner);
-        node.enableSwingPricing(true, address(deployer.pricer()), maxDiscount);
+        node.enableSwingPricing(true, address(deployer.manager()), maxDiscount);
 
         vm.startPrank(rebalancer);
         router4626.invest(address(node), address(vault));
@@ -304,7 +304,7 @@ contract VaultTests is BaseTest {
 
         // enable swing pricing
         vm.prank(owner);
-        node.enableSwingPricing(true, address(deployer.pricer()), maxDiscount);
+        node.enableSwingPricing(true, address(deployer.manager()), maxDiscount);
 
         // assert user2 has zero usdc balance
         assertEq(asset.balanceOf(user2), 0);
