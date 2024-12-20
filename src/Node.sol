@@ -454,28 +454,15 @@ contract Node is INode, ERC20, Ownable {
             cacheTotalAssets += assets;
             emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
             return sharesToMint;
+        } else {
+            sharesToMint = manager.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
         }
-
-        uint256 reserveCash = IERC20(asset).balanceOf(address(this));
-
-        int256 reserveImpact =
-            int256(manager.calculateReserveImpact(reserveAllocation.targetWeight, reserveCash, totalAssets(), assets));
-
-        // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets = MathLib.mulDiv(
-            assets, (WAD + manager.getSwingFactor(reserveImpact, maxSwingFactor, reserveAllocation.targetWeight)), WAD
-        );
-
-        // Calculate the number of shares to mint based on the adjusted assets.
-        sharesToMint = convertToShares(adjustedAssets);
 
         // Mint shares for the receiver.
         _deposit(_msgSender(), receiver, assets, sharesToMint);
         cacheTotalAssets += assets;
-
         emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
-
-        return (sharesToMint);
+        return sharesToMint;
     }
 
     function maxMint(address /* controller */ ) public view returns (uint256 maxShares) {
@@ -654,6 +641,8 @@ contract Node is INode, ERC20, Ownable {
         }
         return false;
     }
+
+    function _processDeposit() internal {}
 
     /* EVENT EMITTERS */
     function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {

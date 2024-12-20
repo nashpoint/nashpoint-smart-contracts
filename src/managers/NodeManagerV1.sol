@@ -7,10 +7,16 @@ import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {BaseManager} from "src/libraries/BaseManager.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
+import {IERC7575} from "src/interfaces/IERC7575.sol";
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 // temp
 import {console2} from "forge-std/Test.sol";
 
 interface INodeManagerV1 {
+    function calculateDeposit(address asset, uint256 assets, uint256 maxSwingFactor, uint256 targetReserveRatio)
+        external
+        returns (uint256);
+
     function calculateReserveImpact(
         uint256 targetReserveRatio,
         uint256 reserveCash,
@@ -18,13 +24,12 @@ interface INodeManagerV1 {
         uint256 deposit
     ) external pure returns (int256);
 
-    function getSwingFactor(int256 reserveImpact, uint256 maxDiscount, uint256 targetReserveRatio)
+    function getSwingFactor(int256 reserveImpact, uint256 maxSwingFactor, uint256 targetReserveRatio)
         external
         pure
         returns (uint256);
 
     function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256);
-    function calculateDeposit(uint256 assets, address receiver) external returns (uint256);
 }
 
 /// @title NodeManagerV1
@@ -37,7 +42,24 @@ contract NodeManagerV1 is BaseManager, INodeManagerV1 {
     /* CONSTRUCTOR */
     constructor(address registry_) BaseManager(registry_) {}
 
-    function calculateDeposit(uint256 assets, address receiver) external onlyValidNode(msg.sender) returns (uint256) {}
+    function calculateDeposit(address asset, uint256 assets, uint256 targetReserveRatio, uint256 maxSwingFactor)
+        external
+        view
+        onlyValidNode(msg.sender)
+        returns (uint256)
+    {
+        uint256 reserveCash = IERC20(asset).balanceOf(address(msg.sender));
+        int256 reserveImpact =
+            int256(calculateReserveImpact(targetReserveRatio, reserveCash, IERC7575(msg.sender).totalAssets(), assets));
+
+        // Adjust the deposited assets based on the swing pricing factor.
+        uint256 adjustedAssets =
+            Math.mulDiv(assets, (WAD + getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
+
+        // Calculate the number of shares to mint based on the adjusted assets.
+        uint256 sharesToMint = IERC7575(msg.sender).convertToShares(adjustedAssets);
+        return (sharesToMint);
+    }
 
     function requestRedeem(uint256 shares, address controller, address owner)
         external
@@ -50,7 +72,7 @@ contract NodeManagerV1 is BaseManager, INodeManagerV1 {
         uint256 reserveCash,
         uint256 totalAssets,
         uint256 deposit
-    ) external pure returns (int256) {
+    ) public pure returns (int256) {
         console2.log("targetReserveRatio: ", targetReserveRatio / 1e16);
         console2.log("reserveCash: ", reserveCash / 1e18);
         console2.log("totalAssets: ", totalAssets / 1e18);
@@ -117,8 +139,8 @@ contract NodeManagerV1 is BaseManager, INodeManagerV1 {
         return int256(reserveImpact);
     }
 
-    function getSwingFactor(int256 reserveImpact, uint256 maxDiscount, uint256 targetReserveRatio)
-        external
+    function getSwingFactor(int256 reserveImpact, uint256 maxSwingFactor, uint256 targetReserveRatio)
+        public
         pure
         returns (uint256 swingFactor)
     {
@@ -134,7 +156,7 @@ contract NodeManagerV1 is BaseManager, INodeManagerV1 {
         } else {
             SD59x18 reserveImpactSd = sd(int256(reserveImpact));
 
-            SD59x18 result = sd(int256(maxDiscount))
+            SD59x18 result = sd(int256(maxSwingFactor))
                 * exp(sd(SCALING_FACTOR).mul(reserveImpactSd).div(sd(int256(targetReserveRatio))));
 
             return uint256(result.unwrap());
