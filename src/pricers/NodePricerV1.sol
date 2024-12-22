@@ -14,7 +14,7 @@ import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.so
 // temp
 import {console2} from "forge-std/Test.sol";
 
-interface INodeManagerV1 {
+interface INodePricerV1 {
     function calculateDeposit(address asset, uint256 assets, uint256 maxSwingFactor, uint256 targetReserveRatio)
         external
         returns (uint256);
@@ -43,7 +43,7 @@ interface INodeManagerV1 {
 
 /// @title NodeManagerV1
 /// @notice Library for calculating swing pricing.
-contract NodeManagerV1 is BaseManager, INodeManagerV1 {
+contract NodePricerV1 is BaseManager, INodePricerV1 {
     // Constants
     int256 public constant SCALING_FACTOR = -5e18;
     uint256 public constant WAD = 1e18;
