@@ -8,7 +8,7 @@ import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC2
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {INode, ComponentAllocation} from "./interfaces/INode.sol";
+import {INode, ComponentAllocation, Request} from "./interfaces/INode.sol";
 import {IQuoter} from "./interfaces/IQuoter.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
@@ -17,7 +17,7 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
-import {ISwingPricingV1} from "./pricers/SwingPricingV1.sol";
+import {INodeManagerV1} from "./managers/NodeManagerV1.sol";
 
 contract Node is INode, ERC20, Ownable {
     using Address for address;
@@ -56,7 +56,7 @@ contract Node is INode, ERC20, Ownable {
     uint256 public cacheTotalAssets;
 
     IQuoter public quoter;
-    ISwingPricingV1 public pricer; // todo: generalize this to IPricer
+    INodeManagerV1 public manager; // todo: generalize this to IManager using base manager
     address public escrow;
     mapping(address => mapping(address => bool)) public isOperator;
 
@@ -66,17 +66,6 @@ contract Node is INode, ERC20, Ownable {
     uint256 public maxSwingFactor;
     bool public swingPricingEnabled;
     bool public isInitialized;
-
-    struct Request {
-        /// shares
-        uint256 pendingRedeemRequest;
-        /// shares
-        uint256 claimableRedeemRequest;
-        /// assets
-        uint256 claimableAssets;
-        /// down-weighted shares for swing pricing
-        uint256 sharesAdjusted;
-    }
 
     /* CONSTRUCTOR */
     constructor(
@@ -233,6 +222,12 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetQuoter(newQuoter);
     }
 
+    // todo: do this properly once node is a core contract on registry
+    function setNodeManager(address newManager) external onlyOwner {
+        manager = INodeManagerV1(newManager);
+        emit EventsLib.SetNodeManager(newManager);
+    }
+
     function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
         for (uint256 i = 0; i < newQueue.length; i++) {
             address component = newQueue[i];
@@ -253,9 +248,8 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
     }
 
-    function enableSwingPricing(bool status_, address pricer_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
+    function enableSwingPricing(bool status_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
         swingPricingEnabled = status_;
-        pricer = ISwingPricingV1(pricer_);
         maxSwingFactor = maxSwingFactor_;
         emit EventsLib.SwingPricingStatusUpdated(status_);
     }
@@ -327,41 +321,9 @@ contract Node is INode, ERC20, Ownable {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        // get the cash balance of the node and pending redemptions
-        uint256 balance = IERC20(asset).balanceOf(address(this));
-        uint256 pendingRedemptions = convertToAssets(sharesExiting);
-
-        // check if pending redemptions exceed current cash balance
-        // if not subtract pending redemptions from balance
-        if (pendingRedemptions > balance) {
-            balance = 0;
-        } else {
-            balance = balance - pendingRedemptions;
-        }
-
-        // get the asset value of the redeem request
-        uint256 assets = convertToAssets(shares);
-
-        // gets the expected reserve ratio after tx
-        // check redemption (assets) exceed current cash balance
-        // if not get reserve ratio
-        int256 reserveRatioAfterTX;
-        if (assets > balance) {
-            reserveRatioAfterTX = 0;
-        } else {
-            reserveRatioAfterTX = int256(MathLib.mulDiv(balance - assets, WAD, totalAssets() - assets));
-        }
-
-        uint256 adjustedAssets;
-        if (swingPricingEnabled) {
-            adjustedAssets = MathLib.mulDiv(
-                assets,
-                (WAD - pricer.getSwingFactor(reserveRatioAfterTX, maxSwingFactor, reserveAllocation.targetWeight)),
-                WAD
-            );
-        } else {
-            adjustedAssets = assets;
-        }
+        uint256 adjustedAssets = manager.getAdjustedAssets(
+            asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight, swingPricingEnabled
+        );
 
         uint256 sharesToBurn = convertToShares(adjustedAssets);
 
@@ -434,43 +396,21 @@ contract Node is INode, ERC20, Ownable {
         return maxAssets;
     }
 
-    /// note: openzeppelin ERC4626 function
-    function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
         if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
         }
 
-        // Handle initial deposit separately to avoid divide by zero
-        // This is the first deposit OR !swingPricingEnabled
-        uint256 sharesToMint;
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
             sharesToMint = convertToShares(assets);
-            _deposit(_msgSender(), receiver, assets, sharesToMint);
-            cacheTotalAssets += assets;
-            emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
-            return sharesToMint;
+        } else {
+            sharesToMint = manager.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
         }
 
-        uint256 reserveCash = IERC20(asset).balanceOf(address(this));
-
-        int256 reserveImpact =
-            int256(pricer.calculateReserveImpact(reserveAllocation.targetWeight, reserveCash, totalAssets(), assets));
-
-        // Adjust the deposited assets based on the swing pricing factor.
-        uint256 adjustedAssets = MathLib.mulDiv(
-            assets, (WAD + pricer.getSwingFactor(reserveImpact, maxSwingFactor, reserveAllocation.targetWeight)), WAD
-        );
-
-        // Calculate the number of shares to mint based on the adjusted assets.
-        sharesToMint = convertToShares(adjustedAssets);
-
-        // Mint shares for the receiver.
         _deposit(_msgSender(), receiver, assets, sharesToMint);
         cacheTotalAssets += assets;
-
         emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
-
-        return (sharesToMint);
+        return sharesToMint;
     }
 
     function maxMint(address /* controller */ ) public view returns (uint256 maxShares) {
@@ -649,6 +589,8 @@ contract Node is INode, ERC20, Ownable {
         }
         return false;
     }
+
+    function _processDeposit() internal {}
 
     /* EVENT EMITTERS */
     function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {

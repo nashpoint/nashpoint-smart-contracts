@@ -65,6 +65,9 @@ library EventsLib {
     /// @notice Emitted when a quoter is set.
     event SetQuoter(address indexed quoter);
 
+    /// @notice Emitted when node manager is set
+    event SetNodeManager(address nodeManager);
+
     /// @notice Emitted when a node is initialized.
     event Initialize(address escrow, address manager);
 

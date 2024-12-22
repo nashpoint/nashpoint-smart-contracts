@@ -4,13 +4,21 @@ pragma solidity 0.8.26;
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import {BasePricer} from "src/libraries/BasePricer.sol";
+import {BaseManager} from "src/libraries/BaseManager.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
+import {INode} from "src/interfaces/INode.sol";
+
+import {IERC7575} from "src/interfaces/IERC7575.sol";
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 // temp
 import {console2} from "forge-std/Test.sol";
 
-interface ISwingPricingV1 {
+interface INodeManagerV1 {
+    function calculateDeposit(address asset, uint256 assets, uint256 maxSwingFactor, uint256 targetReserveRatio)
+        external
+        returns (uint256);
+
     function calculateReserveImpact(
         uint256 targetReserveRatio,
         uint256 reserveCash,
@@ -18,30 +26,100 @@ interface ISwingPricingV1 {
         uint256 deposit
     ) external pure returns (int256);
 
-    function getSwingFactor(int256 reserveImpact, uint256 maxDiscount, uint256 targetReserveRatio)
+    function getSwingFactor(int256 reserveImpact, uint256 maxSwingFactor, uint256 targetReserveRatio)
         external
         pure
         returns (uint256);
+
+    function getAdjustedAssets(
+        address asset,
+        uint256 sharesExiting,
+        uint256 shares,
+        uint256 maxSwingFactor,
+        uint256 targetReserveRatio,
+        bool swingPricingEnabled
+    ) external returns (uint256);
 }
 
-/// @title SwingPricing
+/// @title NodeManagerV1
 /// @notice Library for calculating swing pricing.
-contract SwingPricingV1 is BasePricer, ISwingPricingV1 {
+contract NodeManagerV1 is BaseManager, INodeManagerV1 {
     // Constants
     int256 public constant SCALING_FACTOR = -5e18;
     uint256 public constant WAD = 1e18;
 
     /* CONSTRUCTOR */
-    constructor(address registry_) BasePricer(registry_) {}
+    constructor(address registry_) BaseManager(registry_) {}
+
+    function calculateDeposit(address asset, uint256 assets, uint256 targetReserveRatio, uint256 maxSwingFactor)
+        external
+        view
+        onlyValidNode(msg.sender)
+        returns (uint256)
+    {
+        uint256 reserveCash = IERC20(asset).balanceOf(address(msg.sender));
+        int256 reserveImpact =
+            int256(calculateReserveImpact(targetReserveRatio, reserveCash, IERC7575(msg.sender).totalAssets(), assets));
+
+        // Adjust the deposited assets based on the swing pricing factor.
+        uint256 adjustedAssets =
+            Math.mulDiv(assets, (WAD + getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
+
+        // Calculate the number of shares to mint based on the adjusted assets.
+        uint256 sharesToMint = IERC7575(msg.sender).convertToShares(adjustedAssets);
+        return (sharesToMint);
+    }
+
+    function getAdjustedAssets(
+        address asset,
+        uint256 sharesExiting,
+        uint256 shares,
+        uint256 maxSwingFactor,
+        uint256 targetReserveRatio,
+        bool swingPricingEnabled
+    ) external view onlyValidNode(msg.sender) returns (uint256 adjustedAssets) {
+        // get the cash balance of the node and pending redemptions
+        uint256 balance = IERC20(asset).balanceOf(address(msg.sender));
+        uint256 pendingRedemptions = IERC7575(msg.sender).convertToAssets(sharesExiting);
+
+        // check if pending redemptions exceed current cash balance
+        // if not subtract pending redemptions from balance
+        if (pendingRedemptions > balance) {
+            balance = 0;
+        } else {
+            balance = balance - pendingRedemptions;
+        }
+
+        // get the asset value of the redeem request
+        uint256 assets = IERC7575(msg.sender).convertToAssets(shares);
+
+        // gets the expected reserve ratio after tx
+        // check redemption (assets) exceed current cash balance
+        // if not get reserve ratio
+        int256 reserveRatioAfterTX;
+        if (assets > balance) {
+            reserveRatioAfterTX = 0;
+        } else {
+            reserveRatioAfterTX =
+                int256(Math.mulDiv(balance - assets, WAD, IERC7575(msg.sender).totalAssets() - assets));
+        }
+
+        if (swingPricingEnabled) {
+            adjustedAssets = Math.mulDiv(
+                assets, (WAD - getSwingFactor(reserveRatioAfterTX, maxSwingFactor, targetReserveRatio)), WAD
+            );
+        } else {
+            adjustedAssets = assets;
+        }
+        return adjustedAssets;
+    }
 
     function calculateReserveImpact(
         uint256 targetReserveRatio,
         uint256 reserveCash,
         uint256 totalAssets,
         uint256 deposit
-    ) external pure returns (int256) {
-        // note: do happy path first then edge cases at each step
-
+    ) public pure returns (int256) {
         console2.log("targetReserveRatio: ", targetReserveRatio / 1e16);
         console2.log("reserveCash: ", reserveCash / 1e18);
         console2.log("totalAssets: ", totalAssets / 1e18);
@@ -108,8 +186,8 @@ contract SwingPricingV1 is BasePricer, ISwingPricingV1 {
         return int256(reserveImpact);
     }
 
-    function getSwingFactor(int256 reserveImpact, uint256 maxDiscount, uint256 targetReserveRatio)
-        external
+    function getSwingFactor(int256 reserveImpact, uint256 maxSwingFactor, uint256 targetReserveRatio)
+        public
         pure
         returns (uint256 swingFactor)
     {
@@ -125,7 +203,7 @@ contract SwingPricingV1 is BasePricer, ISwingPricingV1 {
         } else {
             SD59x18 reserveImpactSd = sd(int256(reserveImpact));
 
-            SD59x18 result = sd(int256(maxDiscount))
+            SD59x18 result = sd(int256(maxSwingFactor))
                 * exp(sd(SCALING_FACTOR).mul(reserveImpactSd).div(sd(int256(targetReserveRatio))));
 
             return uint256(result.unwrap());

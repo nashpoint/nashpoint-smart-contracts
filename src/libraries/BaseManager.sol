@@ -9,7 +9,7 @@ import {ErrorsLib} from "./ErrorsLib.sol";
  * @title BaseQuoter
  * @author ODND Studios
  */
-contract BasePricer {
+contract BaseManager {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry.
     INodeRegistry public immutable registry;

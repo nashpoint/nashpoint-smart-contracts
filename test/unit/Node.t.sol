@@ -589,29 +589,23 @@ contract NodeTest is BaseTest {
     }
 
     function test_enableSwingPricing() public {
-        address newPricer = makeAddr("newPricer");
         uint256 newMaxSwingFactor = 0.1 ether;
-
-        testNode.enableSwingPricing(true, newPricer, newMaxSwingFactor);
+        testNode.enableSwingPricing(true, newMaxSwingFactor);
 
         assertTrue(testNode.swingPricingEnabled());
-        assertEq(address(testNode.pricer()), newPricer);
         assertEq(testNode.maxSwingFactor(), newMaxSwingFactor);
     }
 
     function test_enableSwingPricing_disable() public {
-        address newPricer = makeAddr("newPricer");
         uint256 newMaxSwingFactor = 0.1 ether;
 
         // Enable first
-        testNode.enableSwingPricing(true, newPricer, newMaxSwingFactor);
+        testNode.enableSwingPricing(true, newMaxSwingFactor);
 
         // Then disable
-        testNode.enableSwingPricing(false, newPricer, newMaxSwingFactor);
-
+        testNode.enableSwingPricing(false, 0);
         assertFalse(testNode.swingPricingEnabled());
-        assertEq(address(testNode.pricer()), newPricer);
-        assertEq(testNode.maxSwingFactor(), newMaxSwingFactor);
+        assertEq(testNode.maxSwingFactor(), 0);
     }
 
     function test_execute() public {

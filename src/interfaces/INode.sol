@@ -11,6 +11,17 @@ struct ComponentAllocation {
     uint256 maxDelta;
 }
 
+struct Request {
+    /// shares
+    uint256 pendingRedeemRequest;
+    /// shares
+    uint256 claimableRedeemRequest;
+    /// assets
+    uint256 claimableAssets;
+    /// down-weighted shares for swing pricing
+    uint256 sharesAdjusted;
+}
+
 /**
  * @title INode
  * @author ODND Studios
@@ -123,7 +134,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function pendingRedeemRequest(uint256, address user) external view returns (uint256);
 
     /// @notice Enables swing pricing
-    function enableSwingPricing(bool enabled, address pricer, uint256 maxDiscount) external;
+    function enableSwingPricing(bool enabled, uint256 maxDiscount) external;
 
     /// @notice Returns the target reserve ratio
     function targetReserveRatio() external view returns (uint256);
@@ -168,4 +179,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function setAnnualManagementFee(uint256 newAnnualManagementFee) external;
 
     function subtractProtocolExecutionFee(uint256 executionFee) external;
+
+    function setNodeManager(address newManager) external;
 }
