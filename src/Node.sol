@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
+import {INode, ComponentAllocation, Request} from "src/interfaces/INode.sol";
+import {IQuoter} from "src/interfaces/IQuoter.sol";
+import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
+import {EventsLib} from "src/libraries/EventsLib.sol";
+import {MathLib} from "src/libraries/MathLib.sol";
+
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-
-import {INode, ComponentAllocation, Request} from "src/interfaces/INode.sol";
-import {IQuoter} from "src/interfaces/IQuoter.sol";
-import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
-
-import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
-import {EventsLib} from "src/libraries/EventsLib.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 
 contract Node is INode, ERC20, Ownable {
     using Address for address;
@@ -648,16 +648,10 @@ contract Node is INode, ERC20, Ownable {
                         ERC4626 INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @dev Internal conversion function (from assets to shares) with support for rounding direction.
-     */
     function _convertToShares(uint256 assets, MathLib.Rounding rounding) internal view virtual returns (uint256) {
         return assets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), totalAssets() + 1, rounding);
     }
 
-    /**
-     * @dev Internal conversion function (from shares to assets) with support for rounding direction.
-     */
     function _convertToAssets(uint256 shares, MathLib.Rounding rounding) internal view virtual returns (uint256) {
         return shares.mulDiv(totalAssets() + 1, totalSupply() + 10 ** _decimalsOffset(), rounding);
     }
