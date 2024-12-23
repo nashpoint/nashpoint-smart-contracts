@@ -3,10 +3,11 @@ pragma solidity 0.8.26;
 
 import {Address} from "../lib/openzeppelin-contracts/contracts/utils/Address.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {
+    IERC20Metadata, IERC20
+} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 import {INode, ComponentAllocation, Request} from "./interfaces/INode.sol";
 import {IQuoter} from "./interfaces/IQuoter.sol";
@@ -23,44 +24,41 @@ contract Node is INode, ERC20, Ownable {
     using SafeERC20 for IERC20;
     using MathLib for uint256;
 
-    /* CONSTANTS */
-    uint256 private constant REQUEST_ID = 0;
-    uint256 internal constant PRICE_DECIMALS = 18;
-
-    /* COOLDOWN */
-    uint256 public rebalanceCooldown = 1 days;
-    uint256 public rebalanceWindow = 1 hours;
-    uint256 public lastRebalance;
-
-    /* FEES */
-    uint256 public annualManagementFee;
-    address public nodeOwnerFeeAddress;
-    uint256 public lastPayment;
-    uint256 public immutable SECONDS_PER_YEAR = 365 days;
-
     /* IMMUTABLES */
     address public immutable registry;
     address public immutable asset;
     address public immutable share;
     uint256 internal immutable WAD = 1e18;
+    uint256 private immutable REQUEST_ID = 0;
+    uint256 public immutable SECONDS_PER_YEAR = 365 days;
 
-    /* STORAGE */
+    /* COMPONENTS */
     address[] public components;
     address[] public liquidationsQueue;
     mapping(address => ComponentAllocation) public componentAllocations;
     ComponentAllocation public reserveAllocation;
 
-    mapping(address => Request) public requests;
-    uint256 public sharesExiting;
-    uint256 public cacheTotalAssets;
-
+    /* MODULES */
     IQuoter public quoter;
     address public escrow;
-    mapping(address => mapping(address => bool)) public isOperator;
-
     mapping(address => bool) public isRebalancer;
     mapping(address => bool) public isRouter;
+    mapping(address => mapping(address => bool)) public isOperator;
 
+    /* REBALANCE COOLDOWN */
+    uint256 public rebalanceCooldown = 1 days;
+    uint256 public rebalanceWindow = 1 hours;
+    uint256 public lastRebalance;
+
+    /* FEES & ACCOUNTING */
+    uint256 public annualManagementFee;
+    address public nodeOwnerFeeAddress;
+    uint256 public lastPayment;
+    uint256 public sharesExiting;
+    uint256 public cacheTotalAssets;
+    mapping(address => Request) public requests;
+
+    /* SWING PRICING */
     uint256 public maxSwingFactor;
     bool public swingPricingEnabled;
     bool public isInitialized;
@@ -236,7 +234,7 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
     }
 
-    function enableSwingPricing(bool status_, uint256 maxSwingFactor_) public /*onlyOwner*/ {
+    function enableSwingPricing(bool status_, uint256 maxSwingFactor_) public onlyOwner {
         swingPricingEnabled = status_;
         maxSwingFactor = maxSwingFactor_;
         emit EventsLib.SwingPricingStatusUpdated(status_);

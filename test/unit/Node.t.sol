@@ -573,6 +573,8 @@ contract NodeTest is BaseTest {
 
     function test_enableSwingPricing() public {
         uint256 newMaxSwingFactor = 0.1 ether;
+
+        vm.prank(owner);
         testNode.enableSwingPricing(true, newMaxSwingFactor);
 
         assertTrue(testNode.swingPricingEnabled());
@@ -583,9 +585,11 @@ contract NodeTest is BaseTest {
         uint256 newMaxSwingFactor = 0.1 ether;
 
         // Enable first
+        vm.prank(owner);
         testNode.enableSwingPricing(true, newMaxSwingFactor);
 
         // Then disable
+        vm.prank(owner);
         testNode.enableSwingPricing(false, 0);
         assertFalse(testNode.swingPricingEnabled());
         assertEq(testNode.maxSwingFactor(), 0);
