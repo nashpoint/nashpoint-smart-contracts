@@ -862,16 +862,16 @@ contract NodeTest is BaseTest {
         node.startRebalance();
     }
 
-    function test_cacheIsValid() public view {
+    function test_isCacheValid() public view {
         assertEq(block.timestamp, node.lastRebalance());
 
-        assertEq(node.cacheIsValid(), true);
+        assertEq(node.isCacheValid(), true);
     }
 
-    function test_cacheIsValid_isFalse() public {
+    function test_isCacheValid_isFalse() public {
         uint256 lastRebalance = node.lastRebalance();
         vm.warp(block.timestamp + lastRebalance + 1);
-        assertFalse(node.cacheIsValid());
+        assertFalse(node.isCacheValid());
     }
 
     function test_startRebalance() public {
