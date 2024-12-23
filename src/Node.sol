@@ -23,9 +23,9 @@ contract Node is INode, ERC20, Ownable {
     using MathLib for uint256;
 
     /* IMMUTABLES */
-    address public immutable registry;
     address public immutable asset;
     address public immutable share;
+    address public immutable registry;
     uint256 internal immutable WAD = 1e18;
     uint256 private immutable REQUEST_ID = 0;
     uint256 public immutable SECONDS_PER_YEAR = 365 days;
@@ -36,7 +36,7 @@ contract Node is INode, ERC20, Ownable {
     mapping(address => ComponentAllocation) public componentAllocations;
     ComponentAllocation public reserveAllocation;
 
-    /* MODULES */
+    /* PROTOCOL ADDRESSES */
     IQuoter public quoter;
     address public escrow;
     mapping(address => bool) public isRebalancer;
@@ -84,7 +84,10 @@ contract Node is INode, ERC20, Ownable {
         _setInitialComponents(components_, componentAllocations_);
     }
 
-    /* MODIFIERS */
+    /*//////////////////////////////////////////////////////////////
+                            MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
     modifier onlyRouter() {
         if (!isRouter[msg.sender]) revert ErrorsLib.NotRouter();
         _;
