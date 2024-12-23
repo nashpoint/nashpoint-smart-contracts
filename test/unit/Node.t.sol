@@ -100,10 +100,8 @@ contract NodeTest is BaseTest {
         assertEq(testNode.share(), address(testNode));
 
         // Check initial state
-        assertEq(address(testNode.quoter()), testQuoter);
         assertEq(testNode.name(), TEST_NAME);
         assertEq(testNode.symbol(), TEST_SYMBOL);
-        assertTrue(testNode.isRebalancer(testRebalancer));
         assertTrue(testNode.isRouter(testRouter));
 
         // Check components
@@ -458,11 +456,17 @@ contract NodeTest is BaseTest {
 
     function test_addRebalancer_revert_AlreadySet() public {
         vm.prank(owner);
+        testNode.addRebalancer(testRebalancer);
+
+        vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.addRebalancer(testRebalancer);
     }
 
     function test_removeRebalancer() public {
+        vm.prank(owner);
+        testNode.addRebalancer(testRebalancer);
+
         vm.prank(owner);
         testNode.removeRebalancer(testRebalancer);
 
@@ -518,11 +522,17 @@ contract NodeTest is BaseTest {
 
     function test_setQuoter_revert_ZeroAddress() public {
         vm.prank(owner);
+        testNode.setQuoter(testQuoter);
+
+        vm.prank(owner);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         testNode.setQuoter(address(0));
     }
 
     function test_setQuoter_revert_AlreadySet() public {
+        vm.prank(owner);
+        testNode.setQuoter(testQuoter);
+
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.setQuoter(testQuoter);
