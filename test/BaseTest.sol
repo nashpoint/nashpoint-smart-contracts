@@ -17,7 +17,7 @@ import {Escrow} from "src/Escrow.sol";
 
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
-import {INodeFactory} from "src/interfaces/INodeFactory.sol";
+import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {INodePricerV1} from "src/pricers/NodePricerV1.sol";
@@ -101,20 +101,22 @@ contract BaseTest is Test {
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);
 
-        (node, escrow) = factory.deployFullNode(
-            "Test Node",
-            "TNODE",
-            address(asset),
-            owner,
-            address(rebalancer),
-            address(quoter),
-            address(pricer),
-            _toArrayTwo(address(router4626), address(router7540)),
-            _toArray(address(vault)),
-            _defaultComponentAllocations(1),
-            _defaultReserveAllocation(),
-            SALT
-        );
+        DeployParams memory params = DeployParams({
+            name: "Test Node",
+            symbol: "TNODE",
+            asset: address(asset),
+            owner: owner,
+            rebalancer: address(rebalancer),
+            quoter: address(quoter),
+            pricer: address(pricer),
+            routers: _toArrayTwo(address(router4626), address(router7540)),
+            components: _toArray(address(vault)),
+            componentAllocations: _defaultComponentAllocations(1),
+            reserveAllocation: _defaultReserveAllocation(),
+            salt: SALT
+        });
+
+        (node, escrow) = factory.deployFullNode(params);
 
         escrow.approveMax(address(asset), address(node));
         node.setNodePricer(address(pricer));
