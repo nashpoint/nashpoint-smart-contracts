@@ -73,22 +73,18 @@ contract Node is INode, ERC20, Ownable {
         string memory name,
         string memory symbol,
         address asset_,
-        address quoter_,
         address owner,
-        address rebalancer_,
         address[] memory routers,
         address[] memory components_,
         ComponentAllocation[] memory componentAllocations_,
         ComponentAllocation memory reserveAllocation_
     ) ERC20(name, symbol) Ownable(owner) {
-        if (registry_ == address(0) || asset_ == address(0) || quoter_ == address(0)) revert ErrorsLib.ZeroAddress();
+        if (registry_ == address(0) || asset_ == address(0)) revert ErrorsLib.ZeroAddress();
         if (components_.length != componentAllocations_.length) revert ErrorsLib.LengthMismatch();
 
         registry = registry_;
         asset = asset_;
         share = address(this);
-        quoter = IQuoter(quoter_);
-        isRebalancer[rebalancer_] = true;
         _setReserveAllocation(reserveAllocation_);
         _setRouters(routers);
         _setInitialComponents(components_, componentAllocations_);
