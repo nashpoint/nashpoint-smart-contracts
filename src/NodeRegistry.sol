@@ -34,8 +34,6 @@ contract NodeRegistry is INodeRegistry, Ownable {
     /// @inheritdoc INodeRegistry
     mapping(address => bool) public isRebalancer;
     /// @inheritdoc INodeRegistry
-    mapping(address => bool) public isPricer;
-    /// @inheritdoc INodeRegistry
     bool public isInitialized;
 
     // todo: add arbitry module mapping
@@ -53,8 +51,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
         address[] calldata factories_,
         address[] calldata routers_,
         address[] calldata quoters_,
-        address[] calldata rebalancers_,
-        address[] calldata pricers_
+        address[] calldata rebalancers_
     ) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
 
@@ -62,7 +59,6 @@ contract NodeRegistry is INodeRegistry, Ownable {
         _initalizeRouters(routers_);
         _initalizeQuoters(quoters_);
         _initalizeRebalancers(rebalancers_);
-        _initalizePricers(pricers_);
         isInitialized = true;
     }
 
@@ -141,22 +137,6 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     /// @inheritdoc INodeRegistry
-    function addPricer(address pricer_) external onlyInitialized onlyOwner {
-        if (isPricer[pricer_]) revert ErrorsLib.AlreadySet();
-
-        isPricer[pricer_] = true;
-        emit EventsLib.PricerAdded(pricer_);
-    }
-
-    /// @inheritdoc INodeRegistry
-    function removePricer(address pricer_) external onlyInitialized onlyOwner {
-        if (!isPricer[pricer_]) revert ErrorsLib.NotSet();
-
-        isPricer[pricer_] = false;
-        emit EventsLib.PricerRemoved(pricer_);
-    }
-
-    /// @inheritdoc INodeRegistry
     function setProtocolFeeAddress(address newProtocolFeeAddress) external onlyOwner {
         protocolFeeAddress = newProtocolFeeAddress;
         emit EventsLib.ProtocolFeeAddressSet(newProtocolFeeAddress);
@@ -212,14 +192,6 @@ contract NodeRegistry is INodeRegistry, Ownable {
             if (rebalancers_[i] == address(0)) revert ErrorsLib.ZeroAddress();
             isRebalancer[rebalancers_[i]] = true;
             emit EventsLib.RebalancerAdded(rebalancers_[i]);
-        }
-    }
-
-    function _initalizePricers(address[] calldata pricers_) internal {
-        for (uint256 i = 0; i < pricers_.length; i++) {
-            if (pricers_[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            isPricer[pricers_[i]] = true;
-            emit EventsLib.PricerAdded(pricers_[i]);
         }
     }
 }

@@ -17,7 +17,6 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
-import {INodePricerV1} from "./pricers/NodePricerV1.sol"; // todo: generalize this to IPricer using base manager
 
 contract Node is INode, ERC20, Ownable {
     using Address for address;
@@ -56,7 +55,6 @@ contract Node is INode, ERC20, Ownable {
     uint256 public cacheTotalAssets;
 
     IQuoter public quoter;
-    INodePricerV1 public pricer; // todo: generalize this to IPricer using base manager
     address public escrow;
     mapping(address => mapping(address => bool)) public isOperator;
 
@@ -123,13 +121,6 @@ contract Node is INode, ERC20, Ownable {
         isInitialized = true;
         lastRebalance = block.timestamp - rebalanceCooldown;
         lastPayment = block.timestamp;
-
-        // rebalancer,
-        // quoter,
-        // routers,
-        // components,
-        // componentAllocations,
-        // reserveAllocation,
 
         // todo: add setLiquidationQueue to initialize
 
@@ -225,12 +216,6 @@ contract Node is INode, ERC20, Ownable {
         emit EventsLib.SetQuoter(newQuoter);
     }
 
-    // todo: do this properly once node is a core contract on registry
-    function setNodePricer(address newPricer) external onlyOwner {
-        pricer = INodePricerV1(newPricer);
-        emit EventsLib.SetNodePricer(newPricer);
-    }
-
     function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
         for (uint256 i = 0; i < newQueue.length; i++) {
             address component = newQueue[i];
@@ -324,7 +309,7 @@ contract Node is INode, ERC20, Ownable {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        uint256 adjustedAssets = pricer.getAdjustedAssets(
+        uint256 adjustedAssets = quoter.getAdjustedAssets(
             asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight, swingPricingEnabled
         );
 
@@ -407,7 +392,7 @@ contract Node is INode, ERC20, Ownable {
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
             sharesToMint = convertToShares(assets);
         } else {
-            sharesToMint = pricer.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
+            sharesToMint = quoter.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
         }
 
         _deposit(_msgSender(), receiver, assets, sharesToMint);

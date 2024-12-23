@@ -20,7 +20,6 @@ import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
-import {INodePricerV1} from "src/pricers/NodePricerV1.sol";
 
 import {MathLib} from "src/libraries/MathLib.sol";
 
@@ -31,7 +30,6 @@ contract BaseTest is Test {
     INodeRegistry public registry;
     INodeFactory public factory;
     IQuoterV1 public quoter;
-    INodePricerV1 public pricer;
     ERC4626Router public router4626;
     ERC7540Router public router7540;
 
@@ -74,7 +72,6 @@ contract BaseTest is Test {
         registry = INodeRegistry(address(deployer.registry()));
         factory = INodeFactory(address(deployer.factory()));
         quoter = IQuoterV1(address(deployer.quoter()));
-        pricer = INodePricerV1(address(deployer.pricer()));
         router4626 = deployer.erc4626router();
         router7540 = deployer.erc7540router();
 
@@ -95,8 +92,7 @@ contract BaseTest is Test {
             _toArray(address(factory)),
             _toArrayTwo(address(router4626), address(router7540)),
             _toArray(address(quoter)),
-            _toArray(address(rebalancer)),
-            _toArray(address(pricer))
+            _toArray(address(rebalancer))
         );
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);
@@ -108,7 +104,6 @@ contract BaseTest is Test {
             owner: owner,
             rebalancer: address(rebalancer),
             quoter: address(quoter),
-            pricer: address(pricer),
             routers: _toArrayTwo(address(router4626), address(router7540)),
             components: _toArray(address(vault)),
             componentAllocations: _defaultComponentAllocations(1),
@@ -119,7 +114,6 @@ contract BaseTest is Test {
         (node, escrow) = factory.deployFullNode(params);
 
         escrow.approveMax(address(asset), address(node));
-        node.setNodePricer(address(pricer));
         vm.stopPrank();
 
         deal(address(asset), user, INITIAL_BALANCE);
@@ -165,7 +159,6 @@ contract BaseTest is Test {
         vm.label(address(registry), "Registry");
         vm.label(address(factory), "Factory");
         vm.label(address(quoter), "Quoter");
-        vm.label(address(pricer), "Pricer");
         vm.label(address(router4626), "ERC4626Router");
         vm.label(address(router7540), "ERC7540Router");
         vm.label(address(node), "Node");
