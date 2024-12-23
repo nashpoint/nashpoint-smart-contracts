@@ -357,7 +357,6 @@ contract Node is INode, ERC20, Ownable {
         sharesExiting += shares;
 
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
-
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
@@ -416,15 +415,14 @@ contract Node is INode, ERC20, Ownable {
 
         uint256 maxAssets = maxWithdraw(controller);
         uint256 maxShares = maxRedeem(controller);
-
         if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
-        shares = MathLib.mulDiv(assets, maxShares, maxAssets);
 
+        shares = MathLib.mulDiv(assets, maxShares, maxAssets);
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
-
+        emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
         return shares;
     }
 
@@ -434,15 +432,14 @@ contract Node is INode, ERC20, Ownable {
 
         uint256 maxAssets = maxWithdraw(controller);
         uint256 maxShares = maxRedeem(controller);
-
         if (shares > maxShares) revert ErrorsLib.ExceedsMaxRedeem();
-        assets = MathLib.mulDiv(shares, maxAssets, maxShares);
 
+        assets = MathLib.mulDiv(shares, maxAssets, maxShares);
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
-
+        emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
         return shares;
     }
 
@@ -674,6 +671,7 @@ contract Node is INode, ERC20, Ownable {
     /*//////////////////////////////////////////////////////////////
                             EVENT EMITTERS
     //////////////////////////////////////////////////////////////*/
+
     function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {
         emit EventsLib.DepositClaimable(controller, REQUEST_ID, assets, shares);
     }
