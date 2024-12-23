@@ -95,7 +95,8 @@ contract BaseTest is Test {
             _toArray(address(factory)),
             _toArrayTwo(address(router4626), address(router7540)),
             _toArray(address(quoter)),
-            _toArray(address(rebalancer))
+            _toArray(address(rebalancer)),
+            _toArray(address(pricer))
         );
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);
@@ -107,6 +108,7 @@ contract BaseTest is Test {
             owner,
             address(rebalancer),
             address(quoter),
+            address(pricer),
             _toArrayTwo(address(router4626), address(router7540)),
             _toArray(address(vault)),
             _defaultComponentAllocations(1),

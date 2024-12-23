@@ -37,6 +37,7 @@ contract NodeFactory is INodeFactory {
         address owner,
         address rebalancer,
         address quoter,
+        address pricer,
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
@@ -57,6 +58,7 @@ contract NodeFactory is INodeFactory {
             salt
         );
         escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
+        node.setNodePricer(address(pricer));
         node.initialize(address(escrow));
         Ownable(address(node)).transferOwnership(owner);
     }

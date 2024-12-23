@@ -128,6 +128,13 @@ contract Node is INode, ERC20, Ownable {
         lastRebalance = block.timestamp - rebalanceCooldown;
         lastPayment = block.timestamp;
 
+        // rebalancer,
+        // quoter,
+        // routers,
+        // components,
+        // componentAllocations,
+        // reserveAllocation,
+
         // todo: add setLiquidationQueue to initialize
 
         emit EventsLib.Initialize(escrow_, address(this));

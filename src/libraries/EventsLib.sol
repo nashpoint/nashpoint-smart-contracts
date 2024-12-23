@@ -62,6 +62,12 @@ library EventsLib {
     /// @notice Emitted when a rebalancer is removed from node registry
     event RebalancerRemoved(address indexed rebalancer);
 
+    /// @notice Emitted when a pricer is added
+    event PricerAdded(address indexed pricer);
+
+    /// @notice Emitted when a pricer is removed
+    event PricerRemoved(address indexed pricer);
+
     /// @notice Emitted when a quoter is set.
     event SetQuoter(address indexed quoter);
 

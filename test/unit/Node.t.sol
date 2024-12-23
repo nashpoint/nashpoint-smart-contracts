@@ -27,6 +27,7 @@ contract NodeTest is BaseTest {
 
     address public testAsset;
     address public testQuoter;
+    address public testPricer;
     address public testRouter;
     address public testRebalancer;
     address public testComponent;
@@ -52,6 +53,7 @@ contract NodeTest is BaseTest {
 
         testAsset = address(testToken);
         testQuoter = makeAddr("testQuoter");
+        testPricer = makeAddr("testPricer");
         testRouter = makeAddr("testRouter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = address(testVault);
@@ -65,7 +67,8 @@ contract NodeTest is BaseTest {
             _toArray(address(this)), // factory
             _toArray(testRouter),
             _toArray(testQuoter),
-            _toArray(testRebalancer)
+            _toArray(testRebalancer),
+            _toArray(address(testPricer))
         );
 
         testNode = new Node(

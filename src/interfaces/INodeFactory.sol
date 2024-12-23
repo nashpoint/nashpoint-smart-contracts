@@ -30,6 +30,7 @@ interface INodeFactory {
         address owner,
         address rebalancer,
         address quoter,
+        address pricer,
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
