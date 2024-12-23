@@ -61,14 +61,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /// @inheritdoc IQuoter
-    function getPrice(address node) external view onlyValidNode(node) returns (uint128) {
-        uint256 totalAssets = _getTotalAssets(node);
-        uint256 totalSupply = INode(node).totalSupply();
-        if (totalSupply == 0) return 0;
-        return uint128(totalAssets.mulDiv(10 ** PRICE_DECIMALS, totalSupply, MathLib.Rounding.Down));
-    }
-
-    /// @inheritdoc IQuoter
     function getTotalAssets(address node) external view onlyValidNode(node) returns (uint256) {
         return _getTotalAssets(node);
     }
