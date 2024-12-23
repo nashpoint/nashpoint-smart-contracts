@@ -324,7 +324,7 @@ contract Node is INode, ERC20, Ownable {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        uint256 adjustedAssets = pricer.getAdjustedAssets(
+        uint256 adjustedAssets = quoter.getAdjustedAssets(
             asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight, swingPricingEnabled
         );
 
@@ -407,7 +407,7 @@ contract Node is INode, ERC20, Ownable {
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
             sharesToMint = convertToShares(assets);
         } else {
-            sharesToMint = pricer.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
+            sharesToMint = quoter.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
         }
 
         _deposit(_msgSender(), receiver, assets, sharesToMint);
