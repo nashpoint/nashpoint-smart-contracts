@@ -8,7 +8,7 @@ import {Node} from "./Node.sol";
 
 import {IEscrow} from "./interfaces/IEscrow.sol";
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
-import {INodeFactory} from "./interfaces/INodeFactory.sol";
+import {INodeFactory, DeployParams} from "./interfaces/INodeFactory.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
@@ -30,29 +30,24 @@ contract NodeFactory is INodeFactory {
 
     /* EXTERNAL FUNCTIONS */
     /// @inheritdoc INodeFactory
-    function deployFullNode(
-        string memory name,
-        string memory symbol,
-        address asset,
-        address owner,
-        address rebalancer,
-        address quoter,
-        address pricer,
-        address[] memory routers,
-        address[] memory components,
-        ComponentAllocation[] memory componentAllocations,
-        ComponentAllocation memory reserveAllocation,
-        bytes32 salt
-    ) external returns (INode node, IEscrow escrow) {
+    function deployFullNode(DeployParams memory params) external returns (INode node, IEscrow escrow) {
         node = createNode(
-            name, symbol, asset, address(this), routers, components, componentAllocations, reserveAllocation, salt
+            params.name,
+            params.symbol,
+            params.asset,
+            address(this),
+            params.routers,
+            params.components,
+            params.componentAllocations,
+            params.reserveAllocation,
+            params.salt
         );
-        escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
-        node.setNodePricer(address(pricer));
-        node.addRebalancer(rebalancer);
-        node.setQuoter(quoter);
+        escrow = IEscrow(address(new Escrow{salt: params.salt}(address(node))));
+        node.setNodePricer(address(params.pricer));
+        node.addRebalancer(params.rebalancer);
+        node.setQuoter(params.quoter);
         node.initialize(address(escrow));
-        Ownable(address(node)).transferOwnership(owner);
+        Ownable(address(node)).transferOwnership(params.owner);
     }
 
     /// @inheritdoc INodeFactory

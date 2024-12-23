@@ -9,6 +9,7 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
+import {DeployParams} from "src/interfaces/INodeFactory.sol";
 
 contract NodeFactoryTest is BaseTest {
     NodeRegistry public testRegistry;
@@ -101,20 +102,22 @@ contract NodeFactoryTest is BaseTest {
             TEST_SALT
         );
 
-        (INode node, IEscrow escrow) = testFactory.deployFullNode(
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            testRebalancer,
-            testQuoter,
-            testPricer,
-            _toArray(testRouter),
-            _toArray(testComponent),
-            getTestComponentAllocations(1),
-            getTestReserveAllocation(),
-            TEST_SALT
-        );
+        DeployParams memory params = DeployParams({
+            name: TEST_NAME,
+            symbol: TEST_SYMBOL,
+            asset: testAsset,
+            owner: owner,
+            rebalancer: testRebalancer,
+            quoter: testQuoter,
+            pricer: testPricer,
+            routers: _toArray(testRouter),
+            components: _toArray(testComponent),
+            componentAllocations: getTestComponentAllocations(1),
+            reserveAllocation: getTestReserveAllocation(),
+            salt: TEST_SALT
+        });
+
+        (INode node, IEscrow escrow) = testFactory.deployFullNode(params);
 
         assertTrue(testRegistry.isNode(address(node)));
         assertEq(Ownable(address(node)).owner(), owner);
