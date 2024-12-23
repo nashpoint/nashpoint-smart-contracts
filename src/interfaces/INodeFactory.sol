@@ -11,7 +11,6 @@ struct DeployParams {
     address owner;
     address rebalancer;
     address quoter;
-    address pricer;
     address[] routers;
     address[] components;
     ComponentAllocation[] componentAllocations;

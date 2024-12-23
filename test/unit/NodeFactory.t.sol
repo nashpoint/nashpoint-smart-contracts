@@ -20,7 +20,6 @@ contract NodeFactoryTest is BaseTest {
     address public testRouter;
     address public testRebalancer;
     address public testComponent;
-    address public testPricer;
     string constant TEST_NAME = "Test Node";
     string constant TEST_SYMBOL = "TNODE";
     bytes32 constant TEST_SALT = bytes32(uint256(1));
@@ -48,18 +47,13 @@ contract NodeFactoryTest is BaseTest {
         testRouter = makeAddr("testRouter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = makeAddr("testComponent");
-        testPricer = makeAddr("testPricer");
 
         testRegistry = new NodeRegistry(owner);
         testFactory = new NodeFactory(address(testRegistry));
 
         vm.startPrank(owner);
         testRegistry.initialize(
-            _toArray(address(testFactory)),
-            _toArray(testRouter),
-            _toArray(testQuoter),
-            _toArray(testRebalancer),
-            _toArray(testPricer)
+            _toArray(address(testFactory)), _toArray(testRouter), _toArray(testQuoter), _toArray(testRebalancer)
         );
         vm.stopPrank();
 
@@ -109,7 +103,6 @@ contract NodeFactoryTest is BaseTest {
             owner: owner,
             rebalancer: testRebalancer,
             quoter: testQuoter,
-            pricer: testPricer,
             routers: _toArray(testRouter),
             components: _toArray(testComponent),
             componentAllocations: getTestComponentAllocations(1),

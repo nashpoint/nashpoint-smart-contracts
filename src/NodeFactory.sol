@@ -43,7 +43,6 @@ contract NodeFactory is INodeFactory {
             params.salt
         );
         escrow = IEscrow(address(new Escrow{salt: params.salt}(address(node))));
-        node.setNodePricer(address(params.pricer));
         node.addRebalancer(params.rebalancer);
         node.setQuoter(params.quoter);
         node.initialize(address(escrow));
