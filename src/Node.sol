@@ -385,16 +385,10 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
-        if (assets > maxDeposit(receiver)) {
-            revert ErrorsLib.ERC4626ExceededMaxDeposit(receiver, assets, maxDeposit(receiver));
+        if (assets > maxDeposit(msg.sender)) {
+            revert ErrorsLib.ERC4626ExceededMaxDeposit(msg.sender, assets, maxDeposit(msg.sender));
         }
-
-        if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
-            sharesToMint = convertToShares(assets);
-        } else {
-            sharesToMint = quoter.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
-        }
-
+        sharesToMint = _calculateShares(assets);
         _deposit(_msgSender(), receiver, assets, sharesToMint);
         cacheTotalAssets += assets;
         emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
@@ -578,6 +572,14 @@ contract Node is INode, ERC20, Ownable {
         return false;
     }
 
+    function _calculateShares(uint256 assets) internal view returns (uint256 shares) {
+        if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
+            shares = convertToShares(assets);
+        } else {
+            return quoter.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
+        }
+    }
+
     /* EVENT EMITTERS */
     function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {
         emit EventsLib.DepositClaimable(controller, REQUEST_ID, assets, shares);
@@ -613,7 +615,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function previewDeposit(uint256 assets) external view returns (uint256 shares) {
-        return _convertToShares(assets, MathLib.Rounding.Down);
+        return _calculateShares(assets);
     }
 
     function previewMint(uint256 shares) external view returns (uint256 assets) {
