@@ -573,6 +573,8 @@ contract NodeTest is BaseTest {
 
     function test_enableSwingPricing() public {
         uint256 newMaxSwingFactor = 0.1 ether;
+
+        vm.prank(owner);
         testNode.enableSwingPricing(true, newMaxSwingFactor);
 
         assertTrue(testNode.swingPricingEnabled());
@@ -583,9 +585,11 @@ contract NodeTest is BaseTest {
         uint256 newMaxSwingFactor = 0.1 ether;
 
         // Enable first
+        vm.prank(owner);
         testNode.enableSwingPricing(true, newMaxSwingFactor);
 
         // Then disable
+        vm.prank(owner);
         testNode.enableSwingPricing(false, 0);
         assertFalse(testNode.swingPricingEnabled());
         assertEq(testNode.maxSwingFactor(), 0);
@@ -858,16 +862,16 @@ contract NodeTest is BaseTest {
         node.startRebalance();
     }
 
-    function test_cacheIsValid() public view {
+    function test_isCacheValid() public view {
         assertEq(block.timestamp, node.lastRebalance());
 
-        assertEq(node.cacheIsValid(), true);
+        assertEq(node.isCacheValid(), true);
     }
 
-    function test_cacheIsValid_isFalse() public {
+    function test_isCacheValid_isFalse() public {
         uint256 lastRebalance = node.lastRebalance();
         vm.warp(block.timestamp + lastRebalance + 1);
-        assertFalse(node.cacheIsValid());
+        assertFalse(node.isCacheValid());
     }
 
     function test_startRebalance() public {

@@ -81,9 +81,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Returns whether the node has been initialized
     function isInitialized() external view returns (bool);
 
-    /// @notice Returns the price per share in asset decimals
-    function pricePerShare() external view returns (uint256);
-
     /// @notice Initializes the Node with escrow and manager contracts
     /// @param escrow_ The address of the escrow contract
     function initialize(address escrow_) external;
@@ -168,7 +165,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     function updateTotalAssets() external;
 
-    function cacheIsValid() external view returns (bool);
+    function isCacheValid() external view returns (bool);
 
     function lastRebalance() external view returns (uint256);
 
