@@ -7,6 +7,7 @@ interface IQuoter {
 
     function calculateDeposit(address asset, uint256 assets, uint256 maxSwingFactor, uint256 targetReserveRatio)
         external
+        view
         returns (uint256);
 
     function calculateReserveImpact(
