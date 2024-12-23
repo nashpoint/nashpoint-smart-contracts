@@ -30,6 +30,7 @@ interface INodeFactory {
         address owner,
         address rebalancer,
         address quoter,
+        address pricer,
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
@@ -42,8 +43,6 @@ interface INodeFactory {
     /// @param symbol The ERC20 symbol of the vault
     /// @param asset The underlying asset address
     /// @param owner The owner of the node
-    /// @param rebalancer The rebalancer address
-    /// @param quoter The quoter address
     /// @param routers Array of initial router addresses
     /// @param components Array of initial component addresses
     /// @param componentAllocations Array of initial component allocations
@@ -55,8 +54,6 @@ interface INodeFactory {
         string memory symbol,
         address asset,
         address owner,
-        address rebalancer,
-        address quoter,
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,

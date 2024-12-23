@@ -16,9 +16,7 @@ library EventsLib {
     event RemoveRouter(address indexed oldRouter);
 
     /// @notice Emitted when a node is created
-    event CreateNode(
-        address indexed node, address asset, string name, string symbol, address owner, address rebalancer, bytes32 salt
-    );
+    event CreateNode(address indexed node, address asset, string name, string symbol, address owner, bytes32 salt);
 
     /// @notice Emitted when a Rebalancer executes an external call.
     event Execute(address indexed target, uint256 value, bytes data, bytes result);
@@ -62,11 +60,17 @@ library EventsLib {
     /// @notice Emitted when a rebalancer is removed from node registry
     event RebalancerRemoved(address indexed rebalancer);
 
+    /// @notice Emitted when a pricer is added
+    event PricerAdded(address indexed pricer);
+
+    /// @notice Emitted when a pricer is removed
+    event PricerRemoved(address indexed pricer);
+
     /// @notice Emitted when a quoter is set.
     event SetQuoter(address indexed quoter);
 
-    /// @notice Emitted when node manager is set
-    event SetNodeManager(address nodeManager);
+    /// @notice Emitted when node pricer is set
+    event SetNodePricer(address nodePricer);
 
     /// @notice Emitted when a node is initialized.
     event Initialize(address escrow, address manager);

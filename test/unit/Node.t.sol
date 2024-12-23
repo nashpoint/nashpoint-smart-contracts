@@ -27,6 +27,7 @@ contract NodeTest is BaseTest {
 
     address public testAsset;
     address public testQuoter;
+    address public testPricer;
     address public testRouter;
     address public testRebalancer;
     address public testComponent;
@@ -52,6 +53,7 @@ contract NodeTest is BaseTest {
 
         testAsset = address(testToken);
         testQuoter = makeAddr("testQuoter");
+        testPricer = makeAddr("testPricer");
         testRouter = makeAddr("testRouter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = address(testVault);
@@ -65,7 +67,8 @@ contract NodeTest is BaseTest {
             _toArray(address(this)), // factory
             _toArray(testRouter),
             _toArray(testQuoter),
-            _toArray(testRebalancer)
+            _toArray(testRebalancer),
+            _toArray(address(testPricer))
         );
 
         testNode = new Node(
@@ -73,9 +76,7 @@ contract NodeTest is BaseTest {
             TEST_NAME,
             TEST_SYMBOL,
             testAsset,
-            testQuoter,
             owner,
-            testRebalancer,
             _toArray(testRouter),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
@@ -99,10 +100,8 @@ contract NodeTest is BaseTest {
         assertEq(testNode.share(), address(testNode));
 
         // Check initial state
-        assertEq(address(testNode.quoter()), testQuoter);
         assertEq(testNode.name(), TEST_NAME);
         assertEq(testNode.symbol(), TEST_SYMBOL);
-        assertTrue(testNode.isRebalancer(testRebalancer));
         assertTrue(testNode.isRouter(testRouter));
 
         // Check components
@@ -132,9 +131,7 @@ contract NodeTest is BaseTest {
             TEST_NAME,
             TEST_SYMBOL,
             testAsset,
-            testQuoter,
             owner,
-            testRebalancer,
             _toArray(testRouter),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
@@ -148,25 +145,7 @@ contract NodeTest is BaseTest {
             TEST_NAME,
             TEST_SYMBOL,
             address(0),
-            testQuoter,
             owner,
-            testRebalancer,
-            _toArray(testRouter),
-            _toArray(testComponent),
-            _defaultComponentAllocations(1),
-            _defaultReserveAllocation()
-        );
-
-        // Test zero quoter address
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Node(
-            address(testRegistry),
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            address(0),
-            owner,
-            testRebalancer,
             _toArray(testRouter),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
@@ -180,9 +159,7 @@ contract NodeTest is BaseTest {
             TEST_NAME,
             TEST_SYMBOL,
             testAsset,
-            testQuoter,
             owner,
-            testRebalancer,
             _toArray(testRouter),
             _toArray(address(0)),
             _defaultComponentAllocations(1),
@@ -201,9 +178,7 @@ contract NodeTest is BaseTest {
             TEST_NAME,
             TEST_SYMBOL,
             testAsset,
-            testQuoter,
             owner,
-            testRebalancer,
             _toArray(testRouter),
             components,
             _defaultComponentAllocations(1), // Only 1 allocation for 2 components
@@ -481,11 +456,17 @@ contract NodeTest is BaseTest {
 
     function test_addRebalancer_revert_AlreadySet() public {
         vm.prank(owner);
+        testNode.addRebalancer(testRebalancer);
+
+        vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.addRebalancer(testRebalancer);
     }
 
     function test_removeRebalancer() public {
+        vm.prank(owner);
+        testNode.addRebalancer(testRebalancer);
+
         vm.prank(owner);
         testNode.removeRebalancer(testRebalancer);
 
@@ -541,11 +522,17 @@ contract NodeTest is BaseTest {
 
     function test_setQuoter_revert_ZeroAddress() public {
         vm.prank(owner);
+        testNode.setQuoter(testQuoter);
+
+        vm.prank(owner);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         testNode.setQuoter(address(0));
     }
 
     function test_setQuoter_revert_AlreadySet() public {
+        vm.prank(owner);
+        testNode.setQuoter(testQuoter);
+
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.setQuoter(testQuoter);
@@ -618,9 +605,7 @@ contract NodeTest is BaseTest {
             "Test Node",
             "TNODE",
             testAsset,
-            testQuoter,
             owner,
-            testRebalancer,
             routers,
             new address[](0), // no components
             new ComponentAllocation[](0), // no allocations
@@ -661,9 +646,7 @@ contract NodeTest is BaseTest {
             "Test Node",
             "TNODE",
             testAsset,
-            testQuoter,
             owner,
-            testRebalancer,
             routers,
             new address[](0), // no components
             new ComponentAllocation[](0), // no allocations
@@ -934,9 +917,7 @@ contract NodeTest is BaseTest {
             "Test Node",
             "TNODE",
             testAsset,
-            testQuoter,
             owner,
-            testRebalancer,
             routers,
             _toArray(testComponent),
             invalidAllocation,
@@ -951,9 +932,7 @@ contract NodeTest is BaseTest {
             "Test Node",
             "TNODE",
             testAsset,
-            testQuoter,
             owner,
-            testRebalancer,
             routers,
             _toArray(testComponent),
             invalidAllocation,

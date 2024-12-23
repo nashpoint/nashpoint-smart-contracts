@@ -17,7 +17,7 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
-import {INodeManagerV1} from "./managers/NodeManagerV1.sol";
+import {INodePricerV1} from "./pricers/NodePricerV1.sol"; // todo: generalize this to IPricer using base manager
 
 contract Node is INode, ERC20, Ownable {
     using Address for address;
@@ -56,7 +56,7 @@ contract Node is INode, ERC20, Ownable {
     uint256 public cacheTotalAssets;
 
     IQuoter public quoter;
-    INodeManagerV1 public manager; // todo: generalize this to IManager using base manager
+    INodePricerV1 public pricer; // todo: generalize this to IPricer using base manager
     address public escrow;
     mapping(address => mapping(address => bool)) public isOperator;
 
@@ -73,22 +73,18 @@ contract Node is INode, ERC20, Ownable {
         string memory name,
         string memory symbol,
         address asset_,
-        address quoter_,
         address owner,
-        address rebalancer_,
         address[] memory routers,
         address[] memory components_,
         ComponentAllocation[] memory componentAllocations_,
         ComponentAllocation memory reserveAllocation_
     ) ERC20(name, symbol) Ownable(owner) {
-        if (registry_ == address(0) || asset_ == address(0) || quoter_ == address(0)) revert ErrorsLib.ZeroAddress();
+        if (registry_ == address(0) || asset_ == address(0)) revert ErrorsLib.ZeroAddress();
         if (components_.length != componentAllocations_.length) revert ErrorsLib.LengthMismatch();
 
         registry = registry_;
         asset = asset_;
         share = address(this);
-        quoter = IQuoter(quoter_);
-        isRebalancer[rebalancer_] = true;
         _setReserveAllocation(reserveAllocation_);
         _setRouters(routers);
         _setInitialComponents(components_, componentAllocations_);
@@ -127,6 +123,13 @@ contract Node is INode, ERC20, Ownable {
         isInitialized = true;
         lastRebalance = block.timestamp - rebalanceCooldown;
         lastPayment = block.timestamp;
+
+        // rebalancer,
+        // quoter,
+        // routers,
+        // components,
+        // componentAllocations,
+        // reserveAllocation,
 
         // todo: add setLiquidationQueue to initialize
 
@@ -223,9 +226,9 @@ contract Node is INode, ERC20, Ownable {
     }
 
     // todo: do this properly once node is a core contract on registry
-    function setNodeManager(address newManager) external onlyOwner {
-        manager = INodeManagerV1(newManager);
-        emit EventsLib.SetNodeManager(newManager);
+    function setNodePricer(address newPricer) external onlyOwner {
+        pricer = INodePricerV1(newPricer);
+        emit EventsLib.SetNodePricer(newPricer);
     }
 
     function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
@@ -321,7 +324,7 @@ contract Node is INode, ERC20, Ownable {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        uint256 adjustedAssets = manager.getAdjustedAssets(
+        uint256 adjustedAssets = pricer.getAdjustedAssets(
             asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight, swingPricingEnabled
         );
 
@@ -404,7 +407,7 @@ contract Node is INode, ERC20, Ownable {
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
             sharesToMint = convertToShares(assets);
         } else {
-            sharesToMint = manager.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
+            sharesToMint = pricer.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
         }
 
         _deposit(_msgSender(), receiver, assets, sharesToMint);
@@ -589,8 +592,6 @@ contract Node is INode, ERC20, Ownable {
         }
         return false;
     }
-
-    function _processDeposit() internal {}
 
     /* EVENT EMITTERS */
     function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {

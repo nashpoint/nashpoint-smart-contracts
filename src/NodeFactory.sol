@@ -37,6 +37,7 @@ contract NodeFactory is INodeFactory {
         address owner,
         address rebalancer,
         address quoter,
+        address pricer,
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
@@ -44,19 +45,12 @@ contract NodeFactory is INodeFactory {
         bytes32 salt
     ) external returns (INode node, IEscrow escrow) {
         node = createNode(
-            name,
-            symbol,
-            asset,
-            address(this),
-            rebalancer,
-            quoter,
-            routers,
-            components,
-            componentAllocations,
-            reserveAllocation,
-            salt
+            name, symbol, asset, address(this), routers, components, componentAllocations, reserveAllocation, salt
         );
         escrow = IEscrow(address(new Escrow{salt: salt}(address(node))));
+        node.setNodePricer(address(pricer));
+        node.addRebalancer(rebalancer);
+        node.setQuoter(quoter);
         node.initialize(address(escrow));
         Ownable(address(node)).transferOwnership(owner);
     }
@@ -67,23 +61,19 @@ contract NodeFactory is INodeFactory {
         string memory symbol,
         address asset,
         address owner,
-        address rebalancer,
-        address quoter,
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
         ComponentAllocation memory reserveAllocation,
         bytes32 salt
     ) public returns (INode node) {
-        if (asset == address(0) || owner == address(0) || quoter == address(0) || rebalancer == address(0)) {
+        if (asset == address(0) || owner == address(0)) {
             revert ErrorsLib.ZeroAddress();
         }
         if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
         if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
         if (components.length != componentAllocations.length) revert ErrorsLib.LengthMismatch();
 
-        if (!registry.isQuoter(quoter)) revert ErrorsLib.NotRegistered();
-        if (!registry.isRebalancer(rebalancer)) revert ErrorsLib.NotRegistered();
         for (uint256 i = 0; i < routers.length; i++) {
             if (!registry.isRouter(routers[i])) revert ErrorsLib.NotRegistered();
         }
@@ -95,9 +85,7 @@ contract NodeFactory is INodeFactory {
                     name,
                     symbol,
                     asset,
-                    quoter,
                     owner,
-                    rebalancer,
                     routers,
                     components,
                     componentAllocations,
@@ -107,6 +95,6 @@ contract NodeFactory is INodeFactory {
         );
 
         registry.addNode(address(node));
-        emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, rebalancer, salt);
+        emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, salt);
     }
 }

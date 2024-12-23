@@ -19,7 +19,7 @@ contract NodeFactoryTest is BaseTest {
     address public testRouter;
     address public testRebalancer;
     address public testComponent;
-
+    address public testPricer;
     string constant TEST_NAME = "Test Node";
     string constant TEST_SYMBOL = "TNODE";
     bytes32 constant TEST_SALT = bytes32(uint256(1));
@@ -47,13 +47,18 @@ contract NodeFactoryTest is BaseTest {
         testRouter = makeAddr("testRouter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = makeAddr("testComponent");
+        testPricer = makeAddr("testPricer");
 
         testRegistry = new NodeRegistry(owner);
         testFactory = new NodeFactory(address(testRegistry));
 
         vm.startPrank(owner);
         testRegistry.initialize(
-            _toArray(address(testFactory)), _toArray(testRouter), _toArray(testQuoter), _toArray(testRebalancer)
+            _toArray(address(testFactory)),
+            _toArray(testRouter),
+            _toArray(testQuoter),
+            _toArray(testRebalancer),
+            _toArray(testPricer)
         );
         vm.stopPrank();
 
@@ -68,15 +73,13 @@ contract NodeFactoryTest is BaseTest {
 
     function test_createNode() public {
         vm.expectEmit(false, true, true, true);
-        emit EventsLib.CreateNode(address(0), testAsset, TEST_NAME, TEST_SYMBOL, owner, testRebalancer, TEST_SALT);
+        emit EventsLib.CreateNode(address(0), testAsset, TEST_NAME, TEST_SYMBOL, owner, TEST_SALT);
 
         INode node = testFactory.createNode(
             TEST_NAME,
             TEST_SYMBOL,
             testAsset,
             owner,
-            testRebalancer,
-            testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
@@ -95,7 +98,6 @@ contract NodeFactoryTest is BaseTest {
             TEST_NAME,
             TEST_SYMBOL,
             address(testFactory), // owner is factory during creation
-            testRebalancer,
             TEST_SALT
         );
 
@@ -106,6 +108,7 @@ contract NodeFactoryTest is BaseTest {
             owner,
             testRebalancer,
             testQuoter,
+            testPricer,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
@@ -131,8 +134,6 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             address(0),
             owner,
-            testRebalancer,
-            testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
@@ -147,40 +148,6 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             address(0),
-            testRebalancer,
-            testQuoter,
-            _toArray(testRouter),
-            _toArray(testComponent),
-            getTestComponentAllocations(1),
-            getTestReserveAllocation(),
-            TEST_SALT
-        );
-
-        // Test zero quoter address
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testFactory.createNode(
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            address(0),
-            testRebalancer,
-            _toArray(testRouter),
-            _toArray(testComponent),
-            getTestComponentAllocations(1),
-            getTestReserveAllocation(),
-            TEST_SALT
-        );
-
-        // Test zero rebalancer address
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testFactory.createNode(
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            address(0),
-            testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
@@ -196,8 +163,6 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
-            testRebalancer,
-            testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
@@ -213,8 +178,6 @@ contract NodeFactoryTest is BaseTest {
             "", // empty symbol
             testAsset,
             owner,
-            testRebalancer,
-            testQuoter,
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
@@ -234,8 +197,6 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
-            testRebalancer,
-            testQuoter,
             _toArray(testRouter),
             components,
             getTestComponentAllocations(1), // Only 1 allocation for 2 components
@@ -253,43 +214,7 @@ contract NodeFactoryTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
-            testRebalancer,
-            testQuoter,
             _toArray(unregisteredRouter),
-            _toArray(testComponent),
-            getTestComponentAllocations(1),
-            getTestReserveAllocation(),
-            TEST_SALT
-        );
-
-        // Test unregistered quoter
-        address unregisteredQuoter = makeAddr("unregisteredQuoter");
-        vm.expectRevert(ErrorsLib.NotRegistered.selector);
-        testFactory.createNode(
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            testRebalancer,
-            unregisteredQuoter,
-            _toArray(testRouter),
-            _toArray(testComponent),
-            getTestComponentAllocations(1),
-            getTestReserveAllocation(),
-            TEST_SALT
-        );
-
-        // Test unregistered rebalancer
-        address unregisteredRebalancer = makeAddr("unregisteredRebalancer");
-        vm.expectRevert(ErrorsLib.NotRegistered.selector);
-        testFactory.createNode(
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            unregisteredRebalancer,
-            testQuoter,
-            _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
             getTestReserveAllocation(),

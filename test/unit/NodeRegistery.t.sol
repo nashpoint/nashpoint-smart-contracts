@@ -15,6 +15,7 @@ contract NodeRegistryTest is BaseTest {
     address public testQuoter;
     address public testNode;
     address public testRebalancer;
+    address public testPricer;
 
     function setUp() public override {
         super.setUp();
@@ -24,7 +25,7 @@ contract NodeRegistryTest is BaseTest {
         testQuoter = makeAddr("testQuoter");
         testNode = makeAddr("testNode");
         testRebalancer = makeAddr("testRebalancer");
-
+        testPricer = makeAddr("testPricer");
         // Uninitialized NodeRegistry for unit testing
         testRegistry = new NodeRegistry(owner);
     }
@@ -43,6 +44,8 @@ contract NodeRegistryTest is BaseTest {
         quoters[0] = testQuoter;
         address[] memory rebalancers = new address[](1);
         rebalancers[0] = testRebalancer;
+        address[] memory pricers = new address[](1);
+        pricers[0] = testPricer;
 
         vm.startPrank(owner);
         vm.expectEmit(true, false, false, false);
@@ -53,29 +56,34 @@ contract NodeRegistryTest is BaseTest {
         emit EventsLib.QuoterAdded(testQuoter);
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RebalancerAdded(testRebalancer);
-        testRegistry.initialize(factories, routers, quoters, rebalancers);
+        vm.expectEmit(true, false, false, false);
+        emit EventsLib.PricerAdded(testPricer);
+        testRegistry.initialize(factories, routers, quoters, rebalancers, pricers);
         vm.stopPrank();
 
         assertTrue(testRegistry.isFactory(testFactory));
         assertTrue(testRegistry.isRouter(testRouter));
         assertTrue(testRegistry.isQuoter(testQuoter));
         assertTrue(testRegistry.isRebalancer(testRebalancer));
+        assertTrue(testRegistry.isPricer(testPricer));
         assertTrue(testRegistry.isInitialized());
     }
 
     function test_initialize_revert_AlreadyInitialized() public {
         address[] memory empty = new address[](0);
         vm.startPrank(owner);
-        testRegistry.initialize(empty, empty, empty, empty);
+        testRegistry.initialize(empty, empty, empty, empty, empty);
 
         vm.expectRevert(ErrorsLib.AlreadyInitialized.selector);
-        testRegistry.initialize(empty, empty, empty, empty);
+        testRegistry.initialize(empty, empty, empty, empty, empty);
         vm.stopPrank();
     }
 
     function test_addNode() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addFactory(testFactory);
         vm.stopPrank();
 
@@ -89,7 +97,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_addFactory() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.FactoryAdded(testFactory);
@@ -101,7 +111,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_addFactory_revert_AlreadySet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addFactory(testFactory);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
@@ -112,7 +124,11 @@ contract NodeRegistryTest is BaseTest {
     function test_isSystemContract() public {
         vm.startPrank(owner);
         testRegistry.initialize(
-            _toArray(testFactory), _toArray(testRouter), _toArray(testQuoter), _toArray(testRebalancer)
+            _toArray(testFactory),
+            _toArray(testRouter),
+            _toArray(testQuoter),
+            _toArray(testRebalancer),
+            _toArray(testPricer)
         );
         vm.stopPrank();
 
@@ -134,22 +150,22 @@ contract NodeRegistryTest is BaseTest {
 
         vm.startPrank(owner);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testRegistry.initialize(factories, empty, empty, empty);
+        testRegistry.initialize(factories, empty, empty, empty, empty);
 
         address[] memory routers = new address[](1);
         routers[0] = address(0);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testRegistry.initialize(empty, routers, empty, empty);
+        testRegistry.initialize(empty, routers, empty, empty, empty);
 
         address[] memory quoters = new address[](1);
         quoters[0] = address(0);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testRegistry.initialize(empty, empty, quoters, empty);
+        testRegistry.initialize(empty, empty, quoters, empty, empty);
 
         address[] memory rebalancers = new address[](1);
         rebalancers[0] = address(0);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testRegistry.initialize(empty, empty, empty, rebalancers);
+        testRegistry.initialize(empty, empty, empty, rebalancers, empty);
 
         vm.stopPrank();
     }
@@ -162,7 +178,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_addNode_revert_NotFactory() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         vm.stopPrank();
 
         vm.prank(address(1));
@@ -172,7 +190,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_addNode_revert_AlreadySet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addFactory(testFactory);
         vm.stopPrank();
 
@@ -191,7 +211,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_removeFactory() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addFactory(testFactory);
 
         vm.expectEmit(true, false, false, false);
@@ -210,7 +232,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_removeFactory_revert_NotSet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         vm.expectRevert(ErrorsLib.NotSet.selector);
         testRegistry.removeFactory(testFactory);
         vm.stopPrank();
@@ -219,7 +243,9 @@ contract NodeRegistryTest is BaseTest {
     // Router tests
     function test_addRouter() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RouterAdded(testRouter);
@@ -237,7 +263,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_addRouter_revert_AlreadySet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addRouter(testRouter);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
@@ -247,7 +275,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_removeRouter() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addRouter(testRouter);
 
         vm.expectEmit(true, false, false, false);
@@ -266,7 +296,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_removeRouter_revert_NotSet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         vm.expectRevert(ErrorsLib.NotSet.selector);
         testRegistry.removeRouter(testRouter);
         vm.stopPrank();
@@ -275,7 +307,9 @@ contract NodeRegistryTest is BaseTest {
     // Quoter tests
     function test_addQuoter() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.QuoterAdded(testQuoter);
@@ -293,7 +327,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_addQuoter_revert_AlreadySet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addQuoter(testQuoter);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
@@ -303,7 +339,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_removeQuoter() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addQuoter(testQuoter);
 
         vm.expectEmit(true, false, false, false);
@@ -322,7 +360,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_removeQuoter_revert_NotSet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         vm.expectRevert(ErrorsLib.NotSet.selector);
         testRegistry.removeQuoter(testQuoter);
         vm.stopPrank();
@@ -331,7 +371,9 @@ contract NodeRegistryTest is BaseTest {
     // Rebalancer tests
     function test_addRebalancer() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RebalancerAdded(testRebalancer);
         testRegistry.addRebalancer(testRebalancer);
@@ -348,7 +390,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_addRebalancer_revert_AlreadySet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addRebalancer(testRebalancer);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
@@ -358,7 +402,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_removeRebalancer() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         testRegistry.addRebalancer(testRebalancer);
 
         vm.expectEmit(true, false, false, false);
@@ -377,7 +423,9 @@ contract NodeRegistryTest is BaseTest {
 
     function test_removeRebalancer_revert_NotSet() public {
         vm.startPrank(owner);
-        testRegistry.initialize(new address[](0), new address[](0), new address[](0), new address[](0));
+        testRegistry.initialize(
+            new address[](0), new address[](0), new address[](0), new address[](0), new address[](0)
+        );
         vm.expectRevert(ErrorsLib.NotSet.selector);
         testRegistry.removeRebalancer(testRebalancer);
         vm.stopPrank();

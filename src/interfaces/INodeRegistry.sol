@@ -18,7 +18,8 @@ interface INodeRegistry {
         address[] calldata factories_,
         address[] calldata routers_,
         address[] calldata quoters_,
-        address[] calldata rebalancers_
+        address[] calldata rebalancers_,
+        address[] calldata pricers_
     ) external;
 
     /**
@@ -76,6 +77,18 @@ interface INodeRegistry {
     function removeRebalancer(address rebalancer_) external;
 
     /**
+     * @notice Adds a new pricer to the registry
+     * @param pricer_ Address of pricer to add
+     */
+    function addPricer(address pricer_) external;
+
+    /**
+     * @notice Removes a pricer from the registry
+     * @param pricer_ Address of pricer to remove
+     */
+    function removePricer(address pricer_) external;
+
+    /**
      * @notice Returns whether an address is a registered node
      * @param node_ Address to check
      * @return bool True if address is a registered node
@@ -109,6 +122,13 @@ interface INodeRegistry {
      * @return bool True if address is a registered rebalancer
      */
     function isRebalancer(address rebalancer_) external view returns (bool);
+
+    /**
+     * @notice Returns whether an address is a registered pricer
+     * @param pricer_ Address to check
+     * @return bool True if address is a registered pricer
+     */
+    function isPricer(address pricer_) external view returns (bool);
 
     /**
      * @notice Returns whether the registry has been initialized
