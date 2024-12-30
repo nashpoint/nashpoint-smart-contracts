@@ -17,6 +17,9 @@ import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extens
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
+// temp:
+import {console2} from "forge-std/Test.sol";
+
 contract Node is INode, ERC20, Ownable {
     using Address for address;
     using SafeERC20 for IERC20;
@@ -388,6 +391,7 @@ contract Node is INode, ERC20, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
+        console2.log("Node.deposit actual param 'assets' =", assets);
         if (assets > maxDeposit(msg.sender)) {
             revert ErrorsLib.ERC4626ExceededMaxDeposit(msg.sender, assets, maxDeposit(msg.sender));
         }

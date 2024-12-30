@@ -2,9 +2,8 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
-import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 
-import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
