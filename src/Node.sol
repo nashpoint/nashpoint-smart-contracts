@@ -28,8 +28,8 @@ contract Node is INode, ERC20, Ownable {
     address public immutable registry;
     uint256 internal immutable WAD = 1e18;
     uint256 private immutable REQUEST_ID = 0;
+    uint256 public immutable MAX_DEPOSIT = 1e36; // todo: come back to this later, maybe move it to quoter
     uint256 public immutable SECONDS_PER_YEAR = 365 days;
-    uint256 public immutable MAX_DEPOSIT = 1e36;
 
     /* COMPONENTS */
     address[] public components;

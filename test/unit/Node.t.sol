@@ -798,13 +798,15 @@ contract NodeTest is BaseTest {
     }
 
     function test_maxMint() public {
-        assertEq(node.maxMint(user), type(uint256).max);
+        assertEq(node.maxMint(user), maxDeposit);
 
         vm.warp(block.timestamp + 25 hours);
         assertEq(node.maxMint(user), 0);
     }
 
     function test_mint(uint256 assets) public {
+        vm.assume(assets < maxDeposit);
+
         uint256 shares = node.convertToShares(assets);
         uint256 expectedShares = node.previewDeposit(assets);
         assertEq(shares, expectedShares);
