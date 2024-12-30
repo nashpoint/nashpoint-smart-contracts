@@ -138,12 +138,13 @@ contract NodeFuzzTest is BaseTest {
         assertEq(userAssets, 0);
     }
 
-    function test_fuzz_node_payManagementFees(uint256 annualFee, uint256 protocolFee) public {
+    function test_fuzz_node_payManagementFees(uint256 annualFee, uint256 protocolFee, uint256 seedAmount) public {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
         annualFee = bound(annualFee, 0, 1e18);
         protocolFee = bound(protocolFee, 0, 1e18);
+        seedAmount = bound(seedAmount, 1e18, 1e36);
 
         vm.startPrank(owner);
         node.setNodeOwnerFeeAddress(ownerFeesRecipient);
@@ -152,18 +153,19 @@ contract NodeFuzzTest is BaseTest {
         registry.setProtocolFeeAddress(protocolFeesRecipient);
         vm.stopPrank();
 
-        _seedNode(1 ether);
-        assertEq(node.totalAssets(), 1 ether);
+        _seedNode(seedAmount);
+        assertEq(node.totalAssets(), seedAmount);
 
         vm.warp(block.timestamp + 365 days);
 
         vm.prank(owner);
         uint256 feeForPeriod = node.payManagementFees();
+        uint256 expectedFee = annualFee * seedAmount / 1e18;
 
-        assertEq(feeForPeriod, annualFee);
+        assertEq(feeForPeriod, expectedFee);
         assertEq(
-            asset.balanceOf(address(ownerFeesRecipient)) + asset.balanceOf(address(protocolFeesRecipient)), annualFee
+            asset.balanceOf(address(ownerFeesRecipient)) + asset.balanceOf(address(protocolFeesRecipient)), expectedFee
         );
-        assertEq(node.totalAssets(), 1 ether - feeForPeriod);
+        assertEq(node.totalAssets(), seedAmount - feeForPeriod);
     }
 }
