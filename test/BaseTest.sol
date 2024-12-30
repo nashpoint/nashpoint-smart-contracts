@@ -174,6 +174,7 @@ contract BaseTest is Test {
     }
 
     function _seedNode(uint256 amount) public {
+        deal(address(asset), address(vaultSeeder), amount);
         vm.startPrank(vaultSeeder);
         asset.approve(address(node), amount);
         node.deposit(amount, vaultSeeder);
