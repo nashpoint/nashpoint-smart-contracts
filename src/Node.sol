@@ -29,6 +29,7 @@ contract Node is INode, ERC20, Ownable {
     uint256 internal immutable WAD = 1e18;
     uint256 private immutable REQUEST_ID = 0;
     uint256 public immutable SECONDS_PER_YEAR = 365 days;
+    uint256 public immutable MAX_DEPOSIT = 1e36;
 
     /* COMPONENTS */
     address[] public components;
@@ -456,12 +457,12 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function maxDeposit(address /* controller */ ) public view returns (uint256 maxAssets) {
-        maxAssets = isCacheValid() ? type(uint256).max : 0;
+        maxAssets = isCacheValid() ? MAX_DEPOSIT : 0;
         return maxAssets;
     }
 
     function maxMint(address /* controller */ ) public view returns (uint256 maxShares) {
-        maxShares = isCacheValid() ? type(uint256).max : 0;
+        maxShares = isCacheValid() ? convertToShares(MAX_DEPOSIT) : 0;
         return maxShares;
     }
 

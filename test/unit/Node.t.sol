@@ -40,6 +40,8 @@ contract NodeTest is BaseTest {
     string constant TEST_NAME = "Test Node";
     string constant TEST_SYMBOL = "TNODE";
 
+    uint256 public maxDeposit;
+
     function setUp() public override {
         super.setUp();
 
@@ -87,6 +89,9 @@ contract NodeTest is BaseTest {
         vm.label(testComponent, "TestComponent");
         vm.label(address(testRegistry), "TestRegistry");
         vm.label(address(testNode), "TestNode");
+
+        Node nodeImpl = Node(address(node));
+        maxDeposit = nodeImpl.MAX_DEPOSIT();
     }
 
     function test_constructor() public view {
@@ -773,13 +778,14 @@ contract NodeTest is BaseTest {
     }
 
     function test_maxDeposit() public {
-        assertEq(node.maxDeposit(user), type(uint256).max);
+        assertEq(node.maxDeposit(user), maxDeposit);
 
         vm.warp(block.timestamp + 25 hours);
         assertEq(node.maxDeposit(user), 0);
     }
 
     function test_deposit(uint256 assets) public {
+        vm.assume(assets < maxDeposit);
         uint256 shares = node.convertToShares(assets);
 
         deal(address(asset), address(user), assets);
