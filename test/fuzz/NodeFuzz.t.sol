@@ -138,6 +138,17 @@ contract NodeFuzzTest is BaseTest {
         assertEq(userAssets, 0);
     }
 
+    // todo:
+    function test_fuzz_node_fulfillRedeem_invalid_inputs() public {}
+
+    function test_fuzz_node_withdaw_large_amount() public {}
+
+    function test_fuzz_node_withdraw_invalid_input() public {}
+
+    function test_fuzz_node_redeem_large_amount() public {}
+
+    function test_fuzz_node_redeem_invalid_input() public {}
+
     function test_fuzz_node_payManagementFees(uint256 annualFee, uint256 protocolFee, uint256 seedAmount) public {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
@@ -168,4 +179,26 @@ contract NodeFuzzTest is BaseTest {
         );
         assertEq(node.totalAssets(), seedAmount - feeForPeriod);
     }
+
+    // todo: management fees
+
+    function test_fuzz_node_payManagementFees_different_durations() public {}
+
+    // todo: totalAsset & updating cache
+
+    function test_fuzz_node_component_earns_interest() public {}
+
+    function test_fuzz_node_component_loses_values() public {}
+
+    // todo: swing pricing
+
+    function test_fuzz_node_random_swing_price() public {
+        // make sure to check the preview functions here
+    }
+
+    function test_fuzz_node_vault_attack() public {}
+
+    // todo: component management
+
+    // figure out what to test here later
 }
