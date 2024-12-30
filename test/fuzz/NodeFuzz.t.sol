@@ -137,4 +137,33 @@ contract NodeFuzzTest is BaseTest {
         assertEq(userShares, 0);
         assertEq(userAssets, 0);
     }
+
+    function test_fuzz_node_payManagementFees(uint256 annualFee, uint256 protocolFee) public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        annualFee = bound(annualFee, 0, 1e18);
+        protocolFee = bound(protocolFee, 0, 1e18);
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(annualFee);
+        registry.setProtocolManagementFee(protocolFee);
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(1 ether);
+        assertEq(node.totalAssets(), 1 ether);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        uint256 feeForPeriod = node.payManagementFees();
+
+        assertEq(feeForPeriod, annualFee);
+        assertEq(
+            asset.balanceOf(address(ownerFeesRecipient)) + asset.balanceOf(address(protocolFeesRecipient)), annualFee
+        );
+        assertEq(node.totalAssets(), 1 ether - feeForPeriod);
+    }
 }
