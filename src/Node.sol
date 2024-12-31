@@ -432,6 +432,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
+        if (shares == 0) revert ErrorsLib.ZeroAmount();
         _validateController(controller);
         Request storage request = requests[controller];
 
