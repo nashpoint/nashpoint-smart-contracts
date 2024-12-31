@@ -414,6 +414,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
+        if (assets == 0) revert ErrorsLib.ZeroAmount();
         _validateController(controller);
         Request storage request = requests[controller];
 

@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
-import {INode} from "src/interfaces/INode.sol";
+import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
@@ -324,45 +324,51 @@ contract NodeFuzzTest is BaseTest {
                         SWING PRICING
     //////////////////////////////////////////////////////////////*/
 
-    // todo: make sure to check the preview functions here
-    function test_fuzz_node_swing_price_previewDeposit_matches(uint256 targetReserveRatio, uint256 maxDiscount)
-        public
-    {
-        targetReserveRatio = bound(targetReserveRatio, 0, 0.1 ether);
-        maxDiscount = bound(maxDiscount, 0, 0.1 ether);
+    function test_fuzz_node_swing_price_previewDeposit_matches(
+        uint256 targetReserveRatio,
+        uint256 maxDiscount,
+        uint256 seedAmount,
+        uint256 depositAmount,
+        uint256 sharesToRedeem
+    ) public {
+        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.1 ether);
+        maxDiscount = bound(maxDiscount, 100, 0.1 ether);
+        seedAmount = bound(seedAmount, 1e18, 1e36);
+        depositAmount = bound(depositAmount, 1e18, 100e18);
 
-        uint256 seedAmount = 100 ether;
-        uint256 depositAmount = 1 ether;
-
-        // temp use 10%
-        assertEq(node.targetReserveRatio(), 0.1 ether);
-
-        // first deposit and no swing price applied
+        deal(address(asset), address(user), seedAmount);
         _userDeposits(user, seedAmount);
 
-        vm.prank(owner);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
         node.enableSwingPricing(true, maxDiscount);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0.1 ether})
+        );
 
         vm.startPrank(rebalancer);
+        node.startRebalance();
         uint256 investmentAmount = router4626.invest(address(node), address(vault));
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
-
-        // temp use half
-        uint256 sharesToRedeem = node.convertToShares(currentReserve / 2);
-
+        sharesToRedeem = bound(sharesToRedeem, 10, node.convertToShares(currentReserve));
         _userRedeemsAndClaims(user, sharesToRedeem);
 
-        uint256 previewShares = node.previewDeposit(depositAmount);
-        console2.log("previewShares", previewShares);
+        uint256 expectedShares = node.previewDeposit(depositAmount);
+
+        deal(address(asset), address(user), depositAmount);
+        uint256 sharesBefore = node.balanceOf(address(user));
 
         vm.startPrank(user);
         asset.approve(address(node), depositAmount);
         uint256 sharesReceived = node.deposit(depositAmount, user);
         vm.stopPrank();
 
-        assertEq(sharesReceived, previewShares);
+        assertEq(sharesReceived, expectedShares);
+        assertEq(node.balanceOf(address(user)), sharesBefore + sharesReceived);
     }
 
     function test_fuzz_node_swing_price_deposit_never_exceeds_max() public {}
