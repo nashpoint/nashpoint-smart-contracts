@@ -220,7 +220,6 @@ contract VaultTests is BaseTest {
         node.updateTotalAssets();
 
         // get the shares to be minted from a tx with no swing factor
-        // this will break later when you complete 4626 conversion
         uint256 nonAdjustedShares = node.convertToShares(10 ether);
 
         assertEq(node.balanceOf(address(user2)), 0);

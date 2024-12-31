@@ -354,7 +354,7 @@ contract NodeFuzzTest is BaseTest {
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
-        sharesToRedeem = bound(sharesToRedeem, 10, node.convertToShares(currentReserve));
+        sharesToRedeem = bound(sharesToRedeem, 2, node.convertToShares(currentReserve));
         _userRedeemsAndClaims(user, sharesToRedeem);
 
         uint256 expectedShares = node.previewDeposit(depositAmount);
@@ -371,7 +371,50 @@ contract NodeFuzzTest is BaseTest {
         assertEq(node.balanceOf(address(user)), sharesBefore + sharesReceived);
     }
 
-    function test_fuzz_node_swing_price_deposit_never_exceeds_max() public {}
+    // todo: explain both invariants you are testing here
+    function test_fuzz_node_swing_price_deposit_never_exceeds_max(
+        uint256 maxDiscount,
+        uint256 targetReserveRatio,
+        uint256 seedAmount,
+        uint256 depositAmount
+    ) public {
+        maxDiscount = bound(maxDiscount, 0.01 ether, 0.99 ether);
+        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
+        seedAmount = bound(seedAmount, 1 ether, 1e36);
+        depositAmount = bound(depositAmount, 1 ether, 1e36);
+
+        deal(address(asset), address(user), seedAmount);
+        _userDeposits(user, seedAmount);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.enableSwingPricing(true, maxDiscount);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
+        );
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        uint256 currentReserve = seedAmount - investmentAmount;
+        uint256 sharesToRedeem = node.convertToShares(currentReserve) / 10 + 1;
+
+        _userRedeemsAndClaims(user, sharesToRedeem);
+
+        // get the shares to be minted from a tx with no swing factor
+        uint256 nonAdjustedShares = node.convertToShares(depositAmount);
+        uint256 expectedShares = node.previewDeposit(depositAmount);
+        console2.log("nonAdjustedShares :", nonAdjustedShares);
+        console2.log("expectedShares :", expectedShares);
+
+        assertGt(expectedShares, nonAdjustedShares);
+
+        // todo: show the value never execeeds the maxSwingFactor
+    }
 
     function test_fuzz_node_swing_price_redeem_never_exceeds_max() public {}
 
