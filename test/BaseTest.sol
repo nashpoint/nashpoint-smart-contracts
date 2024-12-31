@@ -198,7 +198,7 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
-    function _userRedeemsAndClaims(address user_, uint256 sharesToRedeem_) internal {
+    function _userRedeemsAndClaims(address user_, uint256 sharesToRedeem_) internal returns (uint256 claimableAssets) {
         vm.startPrank(user_);
         node.approve(address(node), sharesToRedeem_);
         node.requestRedeem(sharesToRedeem_, user_, user_);
@@ -208,7 +208,7 @@ contract BaseTest is Test {
         node.fulfillRedeemFromReserve(user_);
         vm.stopPrank();
 
-        uint256 claimableAssets = node.maxWithdraw(user_);
+        claimableAssets = node.maxWithdraw(user_);
 
         vm.prank(user);
         node.withdraw(claimableAssets, user, user);

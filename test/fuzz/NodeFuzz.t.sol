@@ -395,6 +395,7 @@ contract NodeFuzzTest is BaseTest {
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
         );
+        vm.stopPrank();
 
         vm.startPrank(rebalancer);
         node.startRebalance();
@@ -417,7 +418,51 @@ contract NodeFuzzTest is BaseTest {
         assertLt(depositBonus, maxBonus);
     }
 
-    function test_fuzz_node_swing_price_redeem_never_exceeds_max() public {}
+    function test_fuzz_node_swing_price_redeem_never_exceeds_max(
+        uint256 maxDiscount,
+        uint256 targetReserveRatio,
+        uint256 seedAmount,
+        uint256 withdrawalAmount
+    ) public {
+        maxDiscount = bound(maxDiscount, 0.01 ether, 0.99 ether);
+        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
+        seedAmount = bound(seedAmount, 100 ether, 1e36);
+
+        deal(address(asset), address(user), seedAmount);
+        _userDeposits(user, seedAmount);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.enableSwingPricing(true, maxDiscount);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
+        );
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        uint256 currentReserve = seedAmount - investmentAmount;
+        withdrawalAmount = bound(withdrawalAmount, 1 ether, currentReserve);
+
+        uint256 reserveRatio = _getCurrentReserveRatio();
+        assertEq(reserveRatio, targetReserveRatio);
+
+        // invariant 3: returned assets always less than withdrawal amount
+        uint256 sharesToRedeem = node.convertToShares(withdrawalAmount);
+        uint256 returnedAssets = _userRedeemsAndClaims(user, sharesToRedeem);
+        assertLt(returnedAssets, withdrawalAmount);
+
+        // invariant 4: withdrawal penalty never exceeds the value of the maxDiscount
+        uint256 tolerance = 10;
+        uint256 withdrawalPenalty = withdrawalAmount - returnedAssets - tolerance;
+        uint256 maxPenalty = withdrawalAmount * maxDiscount / 1e18;
+        assertLt(withdrawalPenalty, maxPenalty);
+    }
 
     function test_fuzz_node_swing_price_vault_attack() public {}
 
