@@ -18,6 +18,10 @@ contract NodeFuzzTest is BaseTest {
         maxDeposit = nodeImpl.MAX_DEPOSIT();
     }
 
+    /*//////////////////////////////////////////////////////////////
+                        DEPOSITS & WITHDRAWALS
+    //////////////////////////////////////////////////////////////*/
+
     function test_fuzz_node_large_deposit(uint256 depositAmount, uint256 seedAmount) public {
         depositAmount = bound(depositAmount, 1e24, maxDeposit);
         seedAmount = bound(seedAmount, 1, 100);
@@ -138,16 +142,115 @@ contract NodeFuzzTest is BaseTest {
         assertEq(userAssets, 0);
     }
 
-    // todo:
-    function test_fuzz_node_fulfillRedeem_invalid_inputs() public {}
+    function test_fuzz_node_requestRedeem_invalid_inputs(
+        uint256 depositAmount,
+        uint256 seedAmount,
+        uint256 sharesToRedeem
+    ) public {
+        depositAmount = bound(depositAmount, 1e24, maxDeposit);
+        deal(address(asset), address(user), depositAmount);
 
-    function test_fuzz_node_withdaw_large_amount() public {}
+        seedAmount = bound(seedAmount, 1, 100);
+        _seedNode(seedAmount);
 
-    function test_fuzz_node_withdraw_invalid_input() public {}
+        vm.startPrank(user);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        vm.stopPrank();
 
-    function test_fuzz_node_redeem_large_amount() public {}
+        vm.assume(sharesToRedeem > node.balanceOf(address(user)));
 
-    function test_fuzz_node_redeem_invalid_input() public {}
+        vm.startPrank(user);
+        node.approve(address(node), sharesToRedeem);
+        vm.expectRevert(ErrorsLib.InsufficientBalance.selector);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+    }
+
+    function test_fuzz_node_withdaw_large_amount(uint256 depositAmount, uint256 seedAmount) public {
+        depositAmount = bound(depositAmount, 1e24, maxDeposit);
+        seedAmount = bound(seedAmount, 1, 100);
+        _seedNode(seedAmount);
+
+        deal(address(asset), address(user), depositAmount);
+
+        vm.startPrank(user);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        uint256 userAssets = node.convertToAssets(node.balanceOf(address(user)));
+        assertEq(userAssets, depositAmount);
+
+        uint256 sharesToRedeem = node.balanceOf(address(user));
+
+        vm.startPrank(user);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+        vm.stopPrank();
+
+        uint256 claimableAssets = node.maxWithdraw(user);
+
+        vm.prank(user);
+        node.withdraw(claimableAssets, user, user);
+
+        userAssets = asset.balanceOf(address(user));
+        assertEq(userAssets, depositAmount);
+        assertEq(node.balanceOf(address(user)), 0);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(asset.balanceOf(address(node)), seedAmount);
+
+        assertEq(node.pendingRedeemRequest(0, user), 0);
+        assertEq(node.claimableRedeemRequest(0, user), 0);
+    }
+
+    function test_fuzz_node_redeem_large_amount(uint256 depositAmount, uint256 seedAmount) public {
+        depositAmount = bound(depositAmount, 1e24, maxDeposit);
+        deal(address(asset), address(user), depositAmount);
+        seedAmount = bound(seedAmount, 1, 100);
+        _seedNode(seedAmount);
+
+        vm.startPrank(user);
+        asset.approve(address(node), depositAmount);
+        node.mint(node.convertToShares(depositAmount), user);
+        vm.stopPrank();
+
+        uint256 userShares = (node.balanceOf(address(user)));
+        assertEq(userShares, node.convertToShares(depositAmount));
+
+        uint256 sharesToRedeem = node.balanceOf(address(user));
+
+        vm.startPrank(user);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+        vm.stopPrank();
+
+        uint256 claimableShares = node.maxRedeem(user);
+
+        vm.prank(user);
+        node.redeem(claimableShares, user, user);
+
+        uint256 userAssets = asset.balanceOf(address(user));
+        assertEq(userAssets, depositAmount);
+        assertEq(node.balanceOf(address(user)), 0);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(asset.balanceOf(address(node)), seedAmount);
+
+        assertEq(node.pendingRedeemRequest(0, user), 0);
+        assertEq(node.claimableRedeemRequest(0, user), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        FEE PAYMENTS
+    //////////////////////////////////////////////////////////////*/
 
     function test_fuzz_node_payManagementFees(uint256 annualFee, uint256 protocolFee, uint256 seedAmount) public {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
@@ -180,25 +283,109 @@ contract NodeFuzzTest is BaseTest {
         assertEq(node.totalAssets(), seedAmount - feeForPeriod);
     }
 
-    // todo: management fees
+    function test_fuzz_node_payManagementFees_different_durations(
+        uint256 annualFee,
+        uint256 protocolFee,
+        uint256 seedAmount,
+        uint256 duration
+    ) public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
-    function test_fuzz_node_payManagementFees_different_durations() public {}
+        annualFee = bound(annualFee, 0, 1e18);
+        protocolFee = bound(protocolFee, 0, 1e18);
+        seedAmount = bound(seedAmount, 1e18, 1e36);
+        duration = bound(duration, 1 days, 365 days);
 
-    // todo: totalAsset & updating cache
+        vm.startPrank(owner);
+        node.setAnnualManagementFee(annualFee);
+        registry.setProtocolManagementFee(protocolFee);
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(seedAmount);
+        assertEq(node.totalAssets(), seedAmount);
+
+        vm.warp(block.timestamp + duration);
+
+        vm.prank(owner);
+        uint256 feeForPeriod = node.payManagementFees();
+        uint256 expectedFee = (annualFee * seedAmount * duration) / (1e18 * 365 days);
+
+        assertEq(feeForPeriod, expectedFee);
+        assertEq(
+            asset.balanceOf(address(ownerFeesRecipient)) + asset.balanceOf(address(protocolFeesRecipient)), expectedFee
+        );
+        assertEq(node.totalAssets(), seedAmount - feeForPeriod);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        SWING PRICING
+    //////////////////////////////////////////////////////////////*/
+
+    // todo: make sure to check the preview functions here
+    function test_fuzz_node_swing_price_previewDeposit_matches(uint256 targetReserveRatio, uint256 maxDiscount)
+        public
+    {
+        targetReserveRatio = bound(targetReserveRatio, 0, 0.1 ether);
+        maxDiscount = bound(maxDiscount, 0, 0.1 ether);
+
+        uint256 seedAmount = 100 ether;
+        uint256 depositAmount = 1 ether;
+
+        // temp use 10%
+        assertEq(node.targetReserveRatio(), 0.1 ether);
+
+        // first deposit and no swing price applied
+        _userDeposits(user, seedAmount);
+
+        vm.prank(owner);
+        node.enableSwingPricing(true, maxDiscount);
+
+        vm.startPrank(rebalancer);
+        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        uint256 currentReserve = seedAmount - investmentAmount;
+
+        // temp use half
+        uint256 sharesToRedeem = node.convertToShares(currentReserve / 2);
+
+        _userRedeemsAndClaims(user, sharesToRedeem);
+
+        uint256 previewShares = node.previewDeposit(depositAmount);
+        console2.log("previewShares", previewShares);
+
+        vm.startPrank(user);
+        asset.approve(address(node), depositAmount);
+        uint256 sharesReceived = node.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        assertEq(sharesReceived, previewShares);
+    }
+
+    function test_fuzz_node_swing_price_deposit_never_exceeds_max() public {}
+
+    function test_fuzz_node_swing_price_redeem_never_exceeds_max() public {}
+
+    function test_fuzz_node_swing_price_vault_attack() public {}
+
+    /*//////////////////////////////////////////////////////////////
+                        TOTAL ASSET & CACHE
+    //////////////////////////////////////////////////////////////*/
 
     function test_fuzz_node_component_earns_interest() public {}
 
     function test_fuzz_node_component_loses_values() public {}
 
-    // todo: swing pricing
-
-    function test_fuzz_node_random_swing_price() public {
-        // make sure to check the preview functions here
-    }
-
-    function test_fuzz_node_vault_attack() public {}
-
-    // todo: component management
+    /*//////////////////////////////////////////////////////////////
+                        COMPONENT MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
 
     // figure out what to test here later
+
+    /*//////////////////////////////////////////////////////////////
+                            HELPER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 }

@@ -431,21 +431,4 @@ contract VaultTests is BaseTest {
         assertEq(node.claimableRedeemRequest(0, user), 100 ether);
         assertEq(node.claimableRedeemRequest(0, user2), 100 ether);
     }
-
-    /*//////////////////////////////////////////////////////////////
-                            HELPER FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
-
-        return (currentReserveRatio);
-    }
-
-    function _userDeposits(address user, uint256 amount) internal {
-        vm.startPrank(user);
-        asset.approve(address(node), amount);
-        node.deposit(amount, user);
-        vm.stopPrank();
-    }
 }
