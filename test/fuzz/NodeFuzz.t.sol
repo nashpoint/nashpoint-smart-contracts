@@ -367,6 +367,7 @@ contract NodeFuzzTest is BaseTest {
         uint256 sharesReceived = node.deposit(depositAmount, user);
         vm.stopPrank();
 
+        // invariant 0: previewDeposit always returns the same value as shares to be minted after swing pricing applied
         assertEq(sharesReceived, expectedShares);
         assertEq(node.balanceOf(address(user)), sharesBefore + sharesReceived);
     }
@@ -405,15 +406,15 @@ contract NodeFuzzTest is BaseTest {
 
         _userRedeemsAndClaims(user, sharesToRedeem);
 
-        // get the shares to be minted from a tx with no swing factor
+        // invariant 1: shares created always greater than convertToShares when reserve below target
         uint256 nonAdjustedShares = node.convertToShares(depositAmount);
         uint256 expectedShares = node.previewDeposit(depositAmount);
-        console2.log("nonAdjustedShares :", nonAdjustedShares);
-        console2.log("expectedShares :", expectedShares);
-
         assertGt(expectedShares, nonAdjustedShares);
 
-        // todo: show the value never execeeds the maxSwingFactor
+        // invariant 2: deposit bonus never exceeds the value of the maxDiscount
+        uint256 depositBonus = expectedShares - nonAdjustedShares;
+        uint256 maxBonus = depositAmount * maxDiscount / 1e18;
+        assertLt(depositBonus, maxBonus);
     }
 
     function test_fuzz_node_swing_price_redeem_never_exceeds_max() public {}
