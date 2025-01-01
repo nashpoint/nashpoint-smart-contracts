@@ -199,10 +199,10 @@ contract VaultTests is BaseTest {
         _userDeposits(user, 100 ether);
 
         // set max discount for swing pricing
-        uint256 maxDiscount = 2e16;
+        uint256 maxSwingFactor = 2e16;
 
         vm.prank(owner);
-        node.enableSwingPricing(true, maxDiscount);
+        node.enableSwingPricing(true, maxSwingFactor);
 
         vm.startPrank(rebalancer);
         router4626.invest(address(node), address(vault));

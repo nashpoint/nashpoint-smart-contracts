@@ -324,15 +324,21 @@ contract NodeFuzzTest is BaseTest {
                         SWING PRICING
     //////////////////////////////////////////////////////////////*/
 
+    // invariant 1: previewDeposit always returns the same value as shares to be minted after swing pricing applied
+    // invariant 2: shares created always greater than convertToShares when reserve below target
+    // invariant 3: deposit bonus never exceeds the value of the max swing factor
+    // invariant 4: returned assets are always less than withdrawal amount
+    // invariant 5: withdrawal penalty never exceeds the value of the max swing factor
+
     function test_fuzz_node_swing_price_previewDeposit_matches(
         uint256 targetReserveRatio,
-        uint256 maxDiscount,
+        uint256 maxSwingFactor,
         uint256 seedAmount,
         uint256 depositAmount,
         uint256 sharesToRedeem
     ) public {
         targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.1 ether);
-        maxDiscount = bound(maxDiscount, 100, 0.1 ether);
+        maxSwingFactor = bound(maxSwingFactor, 100, 0.1 ether);
         seedAmount = bound(seedAmount, 1e18, 1e36);
         depositAmount = bound(depositAmount, 1e18, 100e18);
 
@@ -342,7 +348,7 @@ contract NodeFuzzTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.enableSwingPricing(true, maxDiscount);
+        node.enableSwingPricing(true, maxSwingFactor);
         node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0.1 ether})
@@ -367,19 +373,18 @@ contract NodeFuzzTest is BaseTest {
         uint256 sharesReceived = node.deposit(depositAmount, user);
         vm.stopPrank();
 
-        // invariant 0: previewDeposit always returns the same value as shares to be minted after swing pricing applied
+        // invariant 1: previewDeposit always returns the same value as shares to be minted after swing pricing applied
         assertEq(sharesReceived, expectedShares);
         assertEq(node.balanceOf(address(user)), sharesBefore + sharesReceived);
     }
 
-    // todo: explain both invariants you are testing here
     function test_fuzz_node_swing_price_deposit_never_exceeds_max(
-        uint256 maxDiscount,
+        uint256 maxSwingFactor,
         uint256 targetReserveRatio,
         uint256 seedAmount,
         uint256 depositAmount
     ) public {
-        maxDiscount = bound(maxDiscount, 0.01 ether, 0.99 ether);
+        maxSwingFactor = bound(maxSwingFactor, 0.01 ether, 0.99 ether);
         targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
         seedAmount = bound(seedAmount, 1 ether, 1e36);
         depositAmount = bound(depositAmount, 1 ether, 1e36);
@@ -390,7 +395,7 @@ contract NodeFuzzTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.enableSwingPricing(true, maxDiscount);
+        node.enableSwingPricing(true, maxSwingFactor);
         node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
@@ -407,24 +412,24 @@ contract NodeFuzzTest is BaseTest {
 
         _userRedeemsAndClaims(user, sharesToRedeem);
 
-        // invariant 1: shares created always greater than convertToShares when reserve below target
+        // invariant 2: shares created always greater than convertToShares when reserve below target
         uint256 nonAdjustedShares = node.convertToShares(depositAmount);
         uint256 expectedShares = node.previewDeposit(depositAmount);
         assertGt(expectedShares, nonAdjustedShares);
 
-        // invariant 2: deposit bonus never exceeds the value of the maxDiscount
+        // invariant 3: deposit bonus never exceeds the value of the max swing factor
         uint256 depositBonus = expectedShares - nonAdjustedShares;
-        uint256 maxBonus = depositAmount * maxDiscount / 1e18;
+        uint256 maxBonus = depositAmount * maxSwingFactor / 1e18;
         assertLt(depositBonus, maxBonus);
     }
 
     function test_fuzz_node_swing_price_redeem_never_exceeds_max(
-        uint256 maxDiscount,
+        uint256 maxSwingFactor,
         uint256 targetReserveRatio,
         uint256 seedAmount,
         uint256 withdrawalAmount
     ) public {
-        maxDiscount = bound(maxDiscount, 0.01 ether, 0.99 ether);
+        maxSwingFactor = bound(maxSwingFactor, 0.01 ether, 0.99 ether);
         targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
         seedAmount = bound(seedAmount, 100 ether, 1e36);
 
@@ -434,7 +439,7 @@ contract NodeFuzzTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.enableSwingPricing(true, maxDiscount);
+        node.enableSwingPricing(true, maxSwingFactor);
         node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
@@ -452,15 +457,15 @@ contract NodeFuzzTest is BaseTest {
         uint256 reserveRatio = _getCurrentReserveRatio();
         assertEq(reserveRatio, targetReserveRatio);
 
-        // invariant 3: returned assets always less than withdrawal amount
+        // invariant 4: returned assets are always less than withdrawal amount
         uint256 sharesToRedeem = node.convertToShares(withdrawalAmount);
         uint256 returnedAssets = _userRedeemsAndClaims(user, sharesToRedeem);
         assertLt(returnedAssets, withdrawalAmount);
 
-        // invariant 4: withdrawal penalty never exceeds the value of the maxDiscount
+        // invariant 5: withdrawal penalty never exceeds the value of the max swing factor
         uint256 tolerance = 10;
         uint256 withdrawalPenalty = withdrawalAmount - returnedAssets - tolerance;
-        uint256 maxPenalty = withdrawalAmount * maxDiscount / 1e18;
+        uint256 maxPenalty = withdrawalAmount * maxSwingFactor / 1e18;
         assertLt(withdrawalPenalty, maxPenalty);
     }
 
