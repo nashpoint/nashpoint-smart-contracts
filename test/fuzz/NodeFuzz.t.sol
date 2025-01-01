@@ -147,7 +147,7 @@ contract NodeFuzzTest is BaseTest {
         uint256 seedAmount,
         uint256 sharesToRedeem
     ) public {
-        depositAmount = bound(depositAmount, 10, maxDeposit);
+        depositAmount = bound(depositAmount, 1, maxDeposit);
         seedAmount = bound(seedAmount, 1, maxDeposit);
 
         deal(address(asset), address(user), depositAmount);
@@ -158,7 +158,7 @@ contract NodeFuzzTest is BaseTest {
         node.deposit(depositAmount, user);
         vm.stopPrank();
 
-        sharesToRedeem = bound(sharesToRedeem, node.balanceOf(address(user)) + 1, maxDeposit);
+        sharesToRedeem = bound(sharesToRedeem, node.balanceOf(address(user)) + 1, type(uint256).max);
 
         vm.startPrank(user);
         node.approve(address(node), sharesToRedeem);
@@ -168,8 +168,8 @@ contract NodeFuzzTest is BaseTest {
     }
 
     function test_fuzz_node_withdaw_large_amount(uint256 depositAmount, uint256 seedAmount) public {
-        depositAmount = bound(depositAmount, 1e24, maxDeposit);
-        seedAmount = bound(seedAmount, 1, 100);
+        depositAmount = bound(depositAmount, 1, maxDeposit);
+        seedAmount = bound(seedAmount, 1, maxDeposit);
         _seedNode(seedAmount);
 
         deal(address(asset), address(user), depositAmount);
@@ -209,9 +209,10 @@ contract NodeFuzzTest is BaseTest {
     }
 
     function test_fuzz_node_redeem_large_amount(uint256 depositAmount, uint256 seedAmount) public {
-        depositAmount = bound(depositAmount, 1e24, maxDeposit);
+        depositAmount = bound(depositAmount, 1, maxDeposit);
+        seedAmount = bound(seedAmount, 1, maxDeposit);
+
         deal(address(asset), address(user), depositAmount);
-        seedAmount = bound(seedAmount, 1, 100);
         _seedNode(seedAmount);
 
         vm.startPrank(user);
