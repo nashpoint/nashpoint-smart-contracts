@@ -338,10 +338,10 @@ contract NodeFuzzTest is BaseTest {
         uint256 depositAmount,
         uint256 sharesToRedeem
     ) public {
-        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.1 ether);
-        maxSwingFactor = bound(maxSwingFactor, 100, 0.1 ether);
-        seedAmount = bound(seedAmount, 1e18, 1e36);
-        depositAmount = bound(depositAmount, 1e18, 100e18);
+        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.1 ether); // todo: extend test or hardcode these values
+        maxSwingFactor = bound(maxSwingFactor, 0, 0.1 ether); // todo: extend test or hardcode these values
+        seedAmount = bound(seedAmount, 1 ether, maxDeposit);
+        depositAmount = bound(depositAmount, 1 ether, maxDeposit);
 
         deal(address(asset), address(user), seedAmount);
         _userDeposits(user, seedAmount);
@@ -387,8 +387,8 @@ contract NodeFuzzTest is BaseTest {
     ) public {
         maxSwingFactor = bound(maxSwingFactor, 0.01 ether, 0.99 ether);
         targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
-        seedAmount = bound(seedAmount, 1 ether, 1e36);
-        depositAmount = bound(depositAmount, 1 ether, 1e36);
+        seedAmount = bound(seedAmount, 1 ether, maxDeposit);
+        depositAmount = bound(depositAmount, 1 ether, maxDeposit);
 
         deal(address(asset), address(user), seedAmount);
         _userDeposits(user, seedAmount);
@@ -410,7 +410,6 @@ contract NodeFuzzTest is BaseTest {
 
         uint256 currentReserve = seedAmount - investmentAmount;
         uint256 sharesToRedeem = node.convertToShares(currentReserve) / 10 + 1;
-
         _userRedeemsAndClaims(user, sharesToRedeem);
 
         // invariant 2: shares created always greater than convertToShares when reserve below target
@@ -480,11 +479,17 @@ contract NodeFuzzTest is BaseTest {
 
     function test_fuzz_node_component_loses_values() public {}
 
+    function test_fuzz_node_total_assets_cache_is_updated() public {}
+
+    //todo: check if cache returns 0
+
     /*//////////////////////////////////////////////////////////////
                         COMPONENT MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
     // figure out what to test here later
+
+    // todo: create a mock token that spits out random stuff and see when it breaks your vault
 
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
