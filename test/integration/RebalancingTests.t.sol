@@ -54,13 +54,12 @@ contract RebalancingTests is BaseTest {
     }
 
     function testRebalance() public {
-        uint256 seedAmount = 1 ether;
+        uint256 seedAmount = 100 ether;
 
         _seedNode(seedAmount);
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-
         router4626.invest(address(node), address(vaultA));
         router4626.invest(address(node), address(vaultB));
         router4626.invest(address(node), address(vaultC));
@@ -75,9 +74,79 @@ contract RebalancingTests is BaseTest {
 
         // assert that the protocol was rebalanced to the correct ratios
         assertEq(totalAssets, seedAmount, "Total assets should equal initial deposit");
-        assertEq(vaultAHoldings, 0.18 ether, "Vault A should hold 18% of total");
-        assertEq(vaultBHoldings, 0.2 ether, "Vault B should hold 20% of total");
-        assertEq(vaultCHoldings, 0.22 ether, "Vault C should hold 22% of total");
-        assertEq(asyncVaultHoldings, 0.3 ether, "Async assets should be 30% of total");
+        assertEq(vaultAHoldings, 18 ether, "Vault A should hold 18% of total");
+        assertEq(vaultBHoldings, 20 ether, "Vault B should hold 20% of total");
+        assertEq(vaultCHoldings, 22 ether, "Vault C should hold 22% of total");
+        assertEq(asyncVaultHoldings, 30 ether, "Async assets should be 30% of total");
+
+        // FIRST DEPOSIT: rebalancer cannot rebalance into asyncVault as lower threshold not breached
+        _userDeposits(address(user), 10 ether);
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vaultA));
+        router4626.invest(address(node), address(vaultB));
+        router4626.invest(address(node), address(vaultC));
+
+        vm.expectRevert();
+        router7540.investInAsyncVault(address(node), address(asyncVault));
+        vm.stopPrank();
+
+        totalAssets = node.totalAssets();
+        vaultAHoldings = vaultA.balanceOf(address(node));
+        vaultBHoldings = vaultB.balanceOf(address(node));
+        vaultCHoldings = vaultC.balanceOf(address(node));
+        asyncVaultHoldings = asyncVault.pendingDepositRequest(0, address(node));
+
+        // assert the liquid assets are all in the correct proportions
+        assertEq(vaultAHoldings * 1 ether / totalAssets, 0.18 ether, "Vault A ratio incorrect");
+        assertEq(vaultBHoldings * 1 ether / totalAssets, 0.2 ether, "Vault B ratio incorrect");
+        assertEq(vaultCHoldings * 1 ether / totalAssets, 0.22 ether, "Vault C ratio incorrect");
+
+        // assert that cash reserve has not been reduced below target by rebalance
+        uint256 currentReserve = asset.balanceOf(address(node));
+        uint256 targetCash = (node.totalAssets() * node.targetReserveRatio()) / 1e18;
+        assertGt(currentReserve, targetCash, "Current reserve below target");
+
+        // SECOND DEPOSIT: rebalancer cannot rebalance small deposit into sync vaults as lower thresholds not breached
+        _userDeposits(user, 1 ether);
+
+        vm.startPrank(rebalancer);
+        vm.expectRevert();
+        router4626.invest(address(node), address(vaultA));
+        vm.expectRevert();
+        router4626.invest(address(node), address(vaultB));
+        vm.expectRevert();
+        router4626.invest(address(node), address(vaultC));
+        vm.expectRevert();
+        router7540.investInAsyncVault(address(node), address(asyncVault));
+        vm.stopPrank();
+
+        // THIRD DEPOSIT: rebalancer can rebalance deposit into sync & async vaults as lower thresholds breached
+        _userDeposits(user, 9 ether);
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vaultA));
+        router4626.invest(address(node), address(vaultB));
+        router4626.invest(address(node), address(vaultC));
+        router7540.investInAsyncVault(address(node), address(asyncVault));
+        vm.stopPrank();
+
+        totalAssets = node.totalAssets();
+        vaultAHoldings = vaultA.balanceOf(address(node));
+        vaultBHoldings = vaultB.balanceOf(address(node));
+        vaultCHoldings = vaultC.balanceOf(address(node));
+        asyncVaultHoldings = asyncVault.pendingDepositRequest(0, address(node));
+
+        // assert that the protocol was rebalanced to the correct ratios
+        // assert that asyncAssets on liquidityPool == target ratio
+        assertEq(asyncVaultHoldings * 1e18 / totalAssets, 30e16, "Async assets ratio incorrect");
+
+        // assert the liquid assets are all in the correct proportions
+        assertEq(vaultAHoldings * 1e18 / totalAssets, 18e16, "Vault A ratio incorrect after rebalance");
+        assertEq(vaultBHoldings * 1e18 / totalAssets, 20e16, "Vault B ratio incorrect after rebalance");
+        assertEq(vaultCHoldings * 1e18 / totalAssets, 22e16, "Vault C ratio incorrect after rebalance");
+
+        // assert that totalAssets = initial value + 3 deposits
+        assertEq(totalAssets, seedAmount + 20 ether, "Total assets incorrect after deposits");
     }
 }
