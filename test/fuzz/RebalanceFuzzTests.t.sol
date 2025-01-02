@@ -14,7 +14,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 
-contract RebalancingTests is BaseTest {
+contract RebalanceFuzzTests is BaseTest {
     uint256 public maxDeposit;
 
     ERC4626Mock public vaultA;
@@ -66,7 +66,8 @@ contract RebalancingTests is BaseTest {
         ];
     }
 
-    function test_fuzz_basic_rebalance(uint256 targetReserveRatio, uint256 seedAmount, uint256 randomNum) public {
+    //invariant: totalAssets should equal seedAmount
+    function test_fuzz_rebalance_basic(uint256 targetReserveRatio, uint256 seedAmount, uint256 randomNum) public {
         targetReserveRatio = bound(targetReserveRatio, 0, 1 ether);
         seedAmount = bound(seedAmount, 1, maxDeposit);
 
@@ -77,6 +78,68 @@ contract RebalancingTests is BaseTest {
         vm.prank(rebalancer);
         node.updateTotalAssets();
         assertEq(node.totalAssets(), seedAmount, "Total assets should equal initial deposit");
+    }
+
+    function test_fuzz_rebalance_with_deposits(
+        uint256 targetReserveRatio,
+        uint256 seedAmount,
+        uint256 randomNum,
+        uint256 runs,
+        uint256 depositAmount
+    ) public {
+        targetReserveRatio = bound(targetReserveRatio, 0, 1 ether);
+
+        seedAmount = bound(seedAmount, 1 ether, maxDeposit);
+
+        _seedNode(seedAmount);
+        _setRandomComponentRatios(targetReserveRatio, randomNum);
+        _tryRebalance();
+
+        deal(address(asset), address(user), type(uint256).max);
+        uint256 depositAssets = 0;
+
+        runs = bound(runs, 1, 100);
+        for (uint256 i = 0; i < runs; i++) {
+            vm.warp(block.timestamp + 1 days);
+            depositAmount = bound(depositAmount, 1 ether, maxDeposit);
+            _userDeposits(user, depositAmount);
+            _tryRebalance();
+            depositAssets += depositAmount;
+        }
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+        assertEq(node.totalAssets(), seedAmount + depositAssets, "Total assets should equal initial deposit + deposit");
+    }
+
+    function test_fuzz_rebalance_with_deposits_no_rebalance(
+        uint256 targetReserveRatio,
+        uint256 seedAmount,
+        uint256 randomNum,
+        uint256 runs,
+        uint256 depositAmount
+    ) public {
+        targetReserveRatio = bound(targetReserveRatio, 0, 1 ether);
+
+        seedAmount = bound(seedAmount, 1 ether, maxDeposit);
+
+        _seedNode(seedAmount);
+        _setRandomComponentRatios(targetReserveRatio, randomNum);
+        _tryRebalance();
+
+        deal(address(asset), address(user), type(uint256).max);
+        uint256 depositAssets = 0;
+
+        runs = bound(runs, 1, 100);
+        for (uint256 i = 0; i < runs; i++) {
+            depositAmount = bound(depositAmount, 1 ether, maxDeposit);
+            _userDeposits(user, depositAmount);
+            depositAssets += depositAmount;
+        }
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+        assertEq(node.totalAssets(), seedAmount + depositAssets, "Total assets should equal initial deposit + deposit");
     }
 
     function _setRandomComponentRatios(uint256 reserveRatio, uint256 randomNum) internal {
