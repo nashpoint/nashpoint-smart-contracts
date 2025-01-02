@@ -103,10 +103,11 @@ contract RebalanceFuzzTests is BaseTest {
         runs = bound(runs, 1, 100);
         for (uint256 i = 0; i < runs; i++) {
             vm.warp(block.timestamp + 1 days);
-            depositAmount = bound(depositAmount, 1 ether, maxDeposit);
-            _userDeposits(user, depositAmount);
+            uint256 depositThisRun = uint256(keccak256(abi.encodePacked(randomNum, i, depositAmount)));
+            depositThisRun = bound(depositThisRun, 1 ether, maxDeposit);
+            _userDeposits(user, depositThisRun);
             _tryRebalance();
-            depositAssets += depositAmount;
+            depositAssets += depositThisRun;
         }
 
         vm.prank(rebalancer);
@@ -134,9 +135,10 @@ contract RebalanceFuzzTests is BaseTest {
 
         runs = bound(runs, 1, 100);
         for (uint256 i = 0; i < runs; i++) {
-            depositAmount = bound(depositAmount, 1 ether, maxDeposit);
-            _userDeposits(user, depositAmount);
-            depositAssets += depositAmount;
+            uint256 depositThisRun = uint256(keccak256(abi.encodePacked(randomNum, i, depositAmount)));
+            depositThisRun = bound(depositThisRun, 1 ether, maxDeposit);
+            _userDeposits(user, depositThisRun);
+            depositAssets += depositThisRun;
         }
 
         vm.prank(rebalancer);
@@ -164,9 +166,10 @@ contract RebalanceFuzzTests is BaseTest {
 
         runs = bound(runs, 1, 100);
         for (uint256 i = 0; i < runs; i++) {
-            withdrawAmount = bound(withdrawAmount, 1 ether, 1e30);
-            _userRedeemsAndClaims(user, withdrawAmount);
-            withdrawAssets += withdrawAmount;
+            uint256 withdrawThisRun = uint256(keccak256(abi.encodePacked(randomNum, i, withdrawAmount)));
+            withdrawThisRun = bound(withdrawThisRun, 1 ether, 1e30);
+            _userRedeemsAndClaims(user, withdrawThisRun);
+            withdrawAssets += withdrawThisRun;
         }
 
         vm.prank(rebalancer);
@@ -179,6 +182,7 @@ contract RebalanceFuzzTests is BaseTest {
     }
 
     // note: all fees are in the range of 0 to 0.1 ether to avoid not having enough reserve to pay fees
+    // fee calculations are tested in the full range elsewhere
     function test_fuzz_rebalance_with_fees(
         uint256 annualManagementFee,
         uint256 protocolManagementFee,
@@ -212,9 +216,10 @@ contract RebalanceFuzzTests is BaseTest {
             node.payManagementFees();
             _tryRebalance();
 
-            depositAmount = bound(depositAmount, 1 ether, maxDeposit);
-            _userDeposits(user, depositAmount);
-            depositAssets += depositAmount;
+            uint256 depositThisRun = uint256(keccak256(abi.encodePacked(randomNum, i, depositAmount)));
+            depositThisRun = bound(depositThisRun, 1, maxDeposit);
+            _userDeposits(user, depositThisRun);
+            depositAssets += depositThisRun;
         }
 
         uint256 totalDeposits = seedAmount + depositAssets;
@@ -233,6 +238,8 @@ contract RebalanceFuzzTests is BaseTest {
     // todo: with interest
 
     // todo: change component ratios
+
+    // todo: liquidations queue
 
     function _setInitialComponentRatios(uint256 reserveRatio, uint256 randomNum) internal {
         vm.startPrank(owner);
