@@ -199,10 +199,10 @@ contract VaultTests is BaseTest {
         _userDeposits(user, 100 ether);
 
         // set max discount for swing pricing
-        uint256 maxDiscount = 2e16;
+        uint256 maxSwingFactor = 2e16;
 
         vm.prank(owner);
-        node.enableSwingPricing(true, maxDiscount);
+        node.enableSwingPricing(true, maxSwingFactor);
 
         vm.startPrank(rebalancer);
         router4626.invest(address(node), address(vault));
@@ -220,7 +220,6 @@ contract VaultTests is BaseTest {
         node.updateTotalAssets();
 
         // get the shares to be minted from a tx with no swing factor
-        // this will break later when you complete 4626 conversion
         uint256 nonAdjustedShares = node.convertToShares(10 ether);
 
         assertEq(node.balanceOf(address(user2)), 0);
@@ -430,22 +429,5 @@ contract VaultTests is BaseTest {
         assertEq(asset.balanceOf(address(escrow)), 200 ether);
         assertEq(node.claimableRedeemRequest(0, user), 100 ether);
         assertEq(node.claimableRedeemRequest(0, user2), 100 ether);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                            HELPER FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
-
-        return (currentReserveRatio);
-    }
-
-    function _userDeposits(address user, uint256 amount) internal {
-        vm.startPrank(user);
-        asset.approve(address(node), amount);
-        node.deposit(amount, user);
-        vm.stopPrank();
     }
 }

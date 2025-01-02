@@ -2,9 +2,8 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
-import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 
-import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
@@ -39,6 +38,8 @@ contract NodeTest is BaseTest {
 
     string constant TEST_NAME = "Test Node";
     string constant TEST_SYMBOL = "TNODE";
+
+    uint256 public maxDeposit;
 
     function setUp() public override {
         super.setUp();
@@ -87,6 +88,9 @@ contract NodeTest is BaseTest {
         vm.label(testComponent, "TestComponent");
         vm.label(address(testRegistry), "TestRegistry");
         vm.label(address(testNode), "TestNode");
+
+        Node nodeImpl = Node(address(node));
+        maxDeposit = nodeImpl.MAX_DEPOSIT();
     }
 
     function test_constructor() public view {
@@ -773,13 +777,14 @@ contract NodeTest is BaseTest {
     }
 
     function test_maxDeposit() public {
-        assertEq(node.maxDeposit(user), type(uint256).max);
+        assertEq(node.maxDeposit(user), maxDeposit);
 
         vm.warp(block.timestamp + 25 hours);
         assertEq(node.maxDeposit(user), 0);
     }
 
     function test_deposit(uint256 assets) public {
+        vm.assume(assets < maxDeposit);
         uint256 shares = node.convertToShares(assets);
 
         deal(address(asset), address(user), assets);
@@ -792,13 +797,15 @@ contract NodeTest is BaseTest {
     }
 
     function test_maxMint() public {
-        assertEq(node.maxMint(user), type(uint256).max);
+        assertEq(node.maxMint(user), maxDeposit);
 
         vm.warp(block.timestamp + 25 hours);
         assertEq(node.maxMint(user), 0);
     }
 
     function test_mint(uint256 assets) public {
+        vm.assume(assets < maxDeposit);
+
         uint256 shares = node.convertToShares(assets);
         uint256 expectedShares = node.previewDeposit(assets);
         assertEq(shares, expectedShares);

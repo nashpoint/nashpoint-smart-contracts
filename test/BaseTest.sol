@@ -173,10 +173,44 @@ contract BaseTest is Test {
         vm.label(vaultSeeder, "vaultSeeder");
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            HELPER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
+        uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
+
+        return (currentReserveRatio);
+    }
+
     function _seedNode(uint256 amount) public {
+        deal(address(asset), address(vaultSeeder), amount);
         vm.startPrank(vaultSeeder);
         asset.approve(address(node), amount);
         node.deposit(amount, vaultSeeder);
         vm.stopPrank();
+    }
+
+    function _userDeposits(address user_, uint256 amount_) internal {
+        vm.startPrank(user_);
+        asset.approve(address(node), amount_);
+        node.deposit(amount_, user_);
+        vm.stopPrank();
+    }
+
+    function _userRedeemsAndClaims(address user_, uint256 sharesToRedeem_) internal returns (uint256 claimableAssets) {
+        vm.startPrank(user_);
+        node.approve(address(node), sharesToRedeem_);
+        node.requestRedeem(sharesToRedeem_, user_, user_);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.fulfillRedeemFromReserve(user_);
+        vm.stopPrank();
+
+        claimableAssets = node.maxWithdraw(user_);
+
+        vm.prank(user);
+        node.withdraw(claimableAssets, user, user);
     }
 }
