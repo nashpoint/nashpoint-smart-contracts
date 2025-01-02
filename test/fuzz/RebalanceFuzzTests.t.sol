@@ -20,7 +20,9 @@ contract RebalancingTests is BaseTest {
     ERC4626Mock public vaultA;
     ERC4626Mock public vaultB;
     ERC4626Mock public vaultC;
-    ERC7540Mock public asyncVault;
+    ERC7540Mock public asyncVaultA;
+    ERC7540Mock public asyncVaultB;
+    ERC7540Mock public asyncVaultC;
     address[] public components;
 
     function setUp() public override {
@@ -31,7 +33,10 @@ contract RebalancingTests is BaseTest {
         vaultA = new ERC4626Mock(address(asset));
         vaultB = new ERC4626Mock(address(asset));
         vaultC = new ERC4626Mock(address(asset));
-        asyncVault = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", testPoolManager);
+        asyncVaultA = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", testPoolManager);
+        asyncVaultB = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", testPoolManager);
+        asyncVaultC = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", testPoolManager);
+
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
@@ -43,14 +48,25 @@ contract RebalancingTests is BaseTest {
         router4626.setWhitelistStatus(address(vaultB), true);
         quoter.setErc4626(address(vaultC), true);
         router4626.setWhitelistStatus(address(vaultC), true);
-        quoter.setErc7540(address(asyncVault), true);
-        router7540.setWhitelistStatus(address(asyncVault), true);
+        quoter.setErc7540(address(asyncVaultA), true);
+        router7540.setWhitelistStatus(address(asyncVaultA), true);
+        quoter.setErc7540(address(asyncVaultB), true);
+        router7540.setWhitelistStatus(address(asyncVaultB), true);
+        quoter.setErc7540(address(asyncVaultC), true);
+        router7540.setWhitelistStatus(address(asyncVaultC), true);
         vm.stopPrank();
 
-        components = [address(vaultA), address(vaultB), address(vaultC), address(asyncVault)];
+        components = [
+            address(vaultA),
+            address(vaultB),
+            address(vaultC),
+            address(asyncVaultA),
+            address(asyncVaultB),
+            address(asyncVaultC)
+        ];
     }
 
-    function test_fuzz_rebalance(uint256 targetReserveRatio, uint256 seedAmount, uint256 randomNum) public {
+    function test_fuzz_basic_rebalance(uint256 targetReserveRatio, uint256 seedAmount, uint256 randomNum) public {
         targetReserveRatio = bound(targetReserveRatio, 0, 1 ether);
         seedAmount = bound(seedAmount, 1, maxDeposit);
 
@@ -60,14 +76,11 @@ contract RebalancingTests is BaseTest {
 
         vm.prank(rebalancer);
         node.updateTotalAssets();
-
-        // assert that the protocol was rebalanced to the correct ratios
         assertEq(node.totalAssets(), seedAmount, "Total assets should equal initial deposit");
     }
 
     function _setRandomComponentRatios(uint256 reserveRatio, uint256 randomNum) internal {
         vm.startPrank(owner);
-
         node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether}));
 
         uint256 availableAllocation = 1 ether - reserveRatio;
@@ -85,7 +98,6 @@ contract RebalancingTests is BaseTest {
                 availableAllocation -= chunk;
             }
         }
-
         vm.stopPrank();
     }
 
