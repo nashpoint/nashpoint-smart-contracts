@@ -25,6 +25,9 @@ contract RebalanceFuzzTests is BaseTest {
     ERC7540Mock public asyncVaultC;
     address[] public components;
 
+    address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+    address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
     function setUp() public override {
         super.setUp();
         Node nodeImpl = Node(address(node));
@@ -66,13 +69,12 @@ contract RebalanceFuzzTests is BaseTest {
         ];
     }
 
-    //invariant: totalAssets should equal seedAmount
     function test_fuzz_rebalance_basic(uint256 targetReserveRatio, uint256 seedAmount, uint256 randomNum) public {
         targetReserveRatio = bound(targetReserveRatio, 0, 1 ether);
         seedAmount = bound(seedAmount, 1, maxDeposit);
 
         _seedNode(seedAmount);
-        _setRandomComponentRatios(targetReserveRatio, randomNum);
+        _setInitialComponentRatios(targetReserveRatio, randomNum);
         _tryRebalance();
 
         vm.prank(rebalancer);
@@ -92,7 +94,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
-        _setRandomComponentRatios(targetReserveRatio, randomNum);
+        _setInitialComponentRatios(targetReserveRatio, randomNum);
         _tryRebalance();
 
         deal(address(asset), address(user), type(uint256).max);
@@ -124,7 +126,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
-        _setRandomComponentRatios(targetReserveRatio, randomNum);
+        _setInitialComponentRatios(targetReserveRatio, randomNum);
         _tryRebalance();
 
         deal(address(asset), address(user), type(uint256).max);
@@ -142,7 +144,101 @@ contract RebalanceFuzzTests is BaseTest {
         assertEq(node.totalAssets(), seedAmount + depositAssets, "Total assets should equal initial deposit + deposit");
     }
 
-    function _setRandomComponentRatios(uint256 reserveRatio, uint256 randomNum) internal {
+    // todo: with withdrawals
+    function test_fuzz_rebalance_with_withdrawals(
+        uint256 targetReserveRatio,
+        uint256 seedAmount,
+        uint256 randomNum,
+        uint256 runs,
+        uint256 withdrawAmount
+    ) public {
+        targetReserveRatio = bound(targetReserveRatio, 0.1 ether, 1 ether);
+        seedAmount = 1e36;
+
+        deal(address(asset), address(user), type(uint256).max);
+        _userDeposits(user, seedAmount);
+        _setInitialComponentRatios(targetReserveRatio, randomNum);
+        _tryRebalance();
+
+        uint256 withdrawAssets = 0;
+
+        runs = bound(runs, 1, 100);
+        for (uint256 i = 0; i < runs; i++) {
+            withdrawAmount = bound(withdrawAmount, 1 ether, 1e30);
+            _userRedeemsAndClaims(user, withdrawAmount);
+            withdrawAssets += withdrawAmount;
+        }
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+        assertEq(
+            node.totalAssets(),
+            seedAmount - withdrawAssets,
+            "Total assets should equal initial deposit - withdraw amount"
+        );
+    }
+
+    function test_fuzz_rebalance_with_fees(
+        uint256 annualManagementFee,
+        uint256 protocolManagementFee,
+        uint256 targetReserveRatio,
+        uint256 seedAmount,
+        uint256 randomNum,
+        uint256 runs,
+        uint256 depositAmount
+    ) public {
+        targetReserveRatio = bound(targetReserveRatio, 0.1 ether, 1 ether);
+        seedAmount = bound(seedAmount, 1 ether, maxDeposit);
+        annualManagementFee = bound(annualManagementFee, 0, 0.1 ether);
+        protocolManagementFee = bound(protocolManagementFee, 0, 0.1 ether);
+
+        _setFees(annualManagementFee, protocolManagementFee);
+
+        _seedNode(seedAmount);
+        _setInitialComponentRatios(targetReserveRatio, randomNum);
+        _tryRebalance();
+
+        deal(address(asset), address(user), type(uint256).max);
+        uint256 depositAssets = 0;
+
+        runs = bound(runs, 1, 100);
+        uint256 rebalanceCount = 0;
+        for (uint256 i = 0; i < runs; i++) {
+            vm.warp(block.timestamp + 1 days);
+
+            vm.prank(rebalancer);
+            node.payManagementFees();
+            _tryRebalance();
+            rebalanceCount++;
+            bool cacheIsValid = node.isCacheValid();
+            console2.log("cacheIsValid: ", cacheIsValid);
+
+            depositAmount = bound(depositAmount, 1 ether, maxDeposit);
+            _userDeposits(user, depositAmount);
+
+            depositAssets += depositAmount;
+        }
+
+        uint256 totalDeposits = seedAmount + depositAssets;
+        uint256 finalBalances =
+            asset.balanceOf(ownerFeesRecipient) + asset.balanceOf(protocolFeesRecipient) + node.totalAssets();
+
+        assertEq(totalDeposits, finalBalances, "Total deposits should equal final balances");
+        if (annualManagementFee > 0) {
+            assertGt(asset.balanceOf(ownerFeesRecipient), 0, "Owner fees recipient should have some balance");
+        }
+        console2.log("rebalanceCount: ", rebalanceCount);
+        console2.log("vaultA.balanceOf(address(node)): ", vaultA.balanceOf(address(node)));
+        if (protocolManagementFee > 0 && rebalanceCount > 0 && vaultA.balanceOf(address(node)) > 0) {
+            assertGt(asset.balanceOf(protocolFeesRecipient), 0, "Protocol fees recipient should have some balance");
+        }
+    }
+
+    // todo: with interest
+
+    // todo: change component ratios
+
+    function _setInitialComponentRatios(uint256 reserveRatio, uint256 randomNum) internal {
         vm.startPrank(owner);
         node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether}));
 
@@ -171,6 +267,15 @@ contract RebalanceFuzzTests is BaseTest {
             try router4626.invest(address(node), address(components[i])) {} catch {}
             try router7540.investInAsyncVault(address(node), address(components[i])) {} catch {}
         }
+        vm.stopPrank();
+    }
+
+    function _setFees(uint256 annualManagementFee, uint256 protocolManagementFee) internal {
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(annualManagementFee);
+        registry.setProtocolManagementFee(protocolManagementFee);
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
         vm.stopPrank();
     }
 }
