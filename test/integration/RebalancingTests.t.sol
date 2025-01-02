@@ -137,7 +137,6 @@ contract RebalancingTests is BaseTest {
         vaultCHoldings = vaultC.balanceOf(address(node));
         asyncVaultHoldings = asyncVault.pendingDepositRequest(0, address(node));
 
-        // assert that the protocol was rebalanced to the correct ratios
         // assert that asyncAssets on liquidityPool == target ratio
         assertEq(asyncVaultHoldings * 1e18 / totalAssets, 30e16, "Async assets ratio incorrect");
 
