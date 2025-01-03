@@ -191,6 +191,22 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
+    function _seedERC4626(address component, uint256 amount) public {
+        deal(address(asset), address(vaultSeeder), type(uint256).max);
+        vm.startPrank(vaultSeeder);
+        asset.approve(component, amount);
+        ERC4626Mock(component).deposit(amount, vaultSeeder);
+        vm.stopPrank();
+    }
+
+    function _seedERC7540(address component, uint256 amount) public {
+        deal(address(asset), address(vaultSeeder), type(uint256).max);
+        vm.startPrank(vaultSeeder);
+        asset.approve(component, amount);
+        ERC7540Mock(component).requestDeposit(amount, vaultSeeder, vaultSeeder);
+        vm.stopPrank();
+    }
+
     function _userDeposits(address user_, uint256 amount_) internal {
         vm.startPrank(user_);
         asset.approve(address(node), amount_);
