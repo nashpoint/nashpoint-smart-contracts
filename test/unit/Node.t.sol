@@ -40,6 +40,7 @@ contract NodeTest is BaseTest {
     string constant TEST_SYMBOL = "TNODE";
 
     uint256 public maxDeposit;
+    uint256 public rebalanceCooldown;
 
     function setUp() public override {
         super.setUp();
@@ -91,6 +92,7 @@ contract NodeTest is BaseTest {
 
         Node nodeImpl = Node(address(node));
         maxDeposit = nodeImpl.MAX_DEPOSIT();
+        rebalanceCooldown = nodeImpl.rebalanceCooldown();
     }
 
     function test_constructor() public view {
@@ -193,6 +195,8 @@ contract NodeTest is BaseTest {
         assertEq(address(testNode.escrow()), testEscrow);
         assertFalse(testNode.swingPricingEnabled());
         assertTrue(testNode.isInitialized());
+        assertEq(testNode.lastRebalance(), block.timestamp - testNode.rebalanceCooldown());
+        assertEq(testNode.lastPayment(), block.timestamp);
     }
 
     function test_initialize_revert_AlreadyInitialized() public {
@@ -575,6 +579,82 @@ contract NodeTest is BaseTest {
         testNode.setLiquidationQueue(components);
     }
 
+    function test_setRebalanceCooldown() public {
+        uint256 newRebalanceCooldown = 1 days;
+        vm.prank(owner);
+        testNode.setRebalanceCooldown(newRebalanceCooldown);
+        assertEq(testNode.rebalanceCooldown(), newRebalanceCooldown);
+    }
+
+    function test_setRebalanceCooldown_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.setRebalanceCooldown(1 days);
+    }
+
+    function test_setRebalanceWindow() public {
+        uint256 newRebalanceWindow = 1 hours;
+        vm.prank(owner);
+        testNode.setRebalanceWindow(newRebalanceWindow);
+        assertEq(testNode.rebalanceWindow(), newRebalanceWindow);
+    }
+
+    function test_setRebalanceWindow_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.setRebalanceWindow(1 hours);
+    }
+
+    function test_RebalanceCooldown() public {
+        _seedNode(100 ether);
+
+        // Cast the interface back to the concrete implementation
+        Node node = Node(address(node));
+
+        assertEq(node.rebalanceCooldown(), 1 days);
+        assertEq(node.rebalanceWindow(), 1 hours);
+        assertEq(node.lastRebalance(), 86401);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        // warp forward 30 mins so still inside rebalance window
+        vm.warp(block.timestamp + 30 minutes);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        // warp forward 30 mins so outside rebalance window
+        vm.warp(block.timestamp + 31 minutes);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        router4626.invest(address(node), address(vault));
+
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        node.startRebalance();
+
+        // warp forward 1 day so cooldown is over
+        vm.warp(block.timestamp + 1 days);
+
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.RebalanceStarted(address(node), block.timestamp, node.rebalanceWindow());
+
+        vm.prank(rebalancer);
+        node.startRebalance();
+    }
+
     function test_enableSwingPricing() public {
         uint256 newMaxSwingFactor = 0.1 ether;
 
@@ -597,6 +677,97 @@ contract NodeTest is BaseTest {
         testNode.enableSwingPricing(false, 0);
         assertFalse(testNode.swingPricingEnabled());
         assertEq(testNode.maxSwingFactor(), 0);
+    }
+
+    function test_enableSwingPricing_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.enableSwingPricing(true, 0.1 ether);
+    }
+
+    function test_setNodeOwnerFeeAddress() public {
+        address newNodeOwnerFeeAddress = makeAddr("newNodeOwnerFeeAddress");
+        vm.prank(owner);
+        testNode.setNodeOwnerFeeAddress(newNodeOwnerFeeAddress);
+        assertEq(testNode.nodeOwnerFeeAddress(), newNodeOwnerFeeAddress);
+    }
+
+    function test_setNodeOwnerFeeAddress_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.setNodeOwnerFeeAddress(makeAddr("newNodeOwnerFeeAddress"));
+    }
+
+    function test_setNodeOwnerFeeAddress_revert_ZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        testNode.setNodeOwnerFeeAddress(address(0));
+    }
+
+    function test_setNodeOwnerFeeAddress_revert_AlreadySet() public {
+        address newNodeOwnerFeeAddress = makeAddr("newNodeOwnerFeeAddress");
+        vm.prank(owner);
+        testNode.setNodeOwnerFeeAddress(newNodeOwnerFeeAddress);
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.AlreadySet.selector);
+        testNode.setNodeOwnerFeeAddress(newNodeOwnerFeeAddress);
+    }
+
+    function test_setAnnualManagementFee() public {
+        uint256 newAnnualManagementFee = 0.01 ether;
+        vm.prank(owner);
+        testNode.setAnnualManagementFee(newAnnualManagementFee);
+        assertEq(testNode.annualManagementFee(), newAnnualManagementFee);
+    }
+
+    function test_setAnnualManagementFee_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.setAnnualManagementFee(0.01 ether);
+    }
+
+    function test_startRebalance() public {
+        _seedNode(100 ether);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        assertEq(node.totalAssets(), 100 ether);
+        assertEq(vault.totalAssets(), 90 ether);
+        assertEq(vault.convertToAssets(vault.balanceOf(address(node))), 90 ether);
+
+        // increase asset holdings of vault to 100 units, node being the only shareholder
+        deal(address(asset), address(vault), 100 ether);
+        assertEq(vault.totalAssets(), 100 ether);
+
+        uint256 lastRebalance = node.lastRebalance();
+        vm.warp(block.timestamp + lastRebalance + 1);
+
+        vm.prank(rebalancer);
+        node.startRebalance();
+
+        // assert that calling startRebalance() has updated the cache correctly
+        assertEq(vault.convertToAssets(vault.balanceOf(address(node))), 100 ether - 1);
+        assertEq(node.totalAssets(), 110 ether - 1);
+    }
+
+    function test_startRebalance_revert_CooldownActive() public {
+        uint256 lastRebalance = node.lastRebalance();
+        assertEq(lastRebalance, block.timestamp);
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.CooldownActive.selector);
+        node.startRebalance();
+    }
+
+    function test_startRebalance_revert_InvalidComponentRatios() public {
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(owner);
+        node.addComponent(testComponent, ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether}));
+
+        vm.startPrank(rebalancer);
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+        node.startRebalance();
     }
 
     function test_execute() public {
@@ -669,7 +840,288 @@ contract NodeTest is BaseTest {
         simpleNode.execute(address(0), 0, "");
     }
 
-    /// @dev I did not write tests for requestRedeem()
+    function test_execute_revert_NotRebalancing() public {
+        // Setup a valid router and target
+        address target = makeAddr("target");
+        bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, address(this), 100);
+
+        // Mock successful call to avoid other reverts
+        vm.mockCall(target, 0, data, abi.encode(true));
+        vm.warp(block.timestamp + 2 hours);
+
+        // Try to execute as router
+        vm.prank(testRouter);
+        vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
+        testNode.execute(target, 0, data);
+    }
+
+    function test_payManagementFees() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // takes 1% of totalAssets
+        registry.setProtocolManagementFee(0.2 ether); // takes 20% of annualManagementFee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+        assertEq(node.totalAssets(), 100 ether);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        uint256 feeForPeriod = node.payManagementFees();
+
+        assertEq(asset.balanceOf(address(ownerFeesRecipient)), 0.8 ether);
+        assertEq(asset.balanceOf(address(protocolFeesRecipient)), 0.2 ether);
+        assertEq(feeForPeriod, 1 ether);
+        assertEq(node.totalAssets(), 100 ether - feeForPeriod);
+    }
+
+    function test_payManagementFees_zeroFees() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0);
+        registry.setProtocolManagementFee(0);
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+        assertEq(node.totalAssets(), 100 ether);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        node.payManagementFees();
+
+        assertEq(asset.balanceOf(address(ownerFeesRecipient)), 0);
+        assertEq(asset.balanceOf(address(protocolFeesRecipient)), 0);
+        assertEq(node.totalAssets(), 100 ether);
+    }
+
+    function test_payManagementFees_1Days() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // takes 1% of totalAssets
+        registry.setProtocolManagementFee(0.2 ether); // takes 20% of annualManagementFee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+        assertEq(node.totalAssets(), 100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(owner);
+        uint256 feeForPeriod = node.payManagementFees();
+
+        assertApproxEqAbs(asset.balanceOf(address(ownerFeesRecipient)) * 365, 0.8 ether, 100);
+        assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether, 100);
+        assertEq(node.totalAssets(), 100 ether - feeForPeriod);
+    }
+
+    function test_payManagementFees_revert_NotEnoughAssets() public {
+        _seedNode(100 ether);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        vm.startPrank(owner);
+        node.setAnnualManagementFee(0.2e18);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.NotEnoughAssetsToPayFees.selector,
+                20 ether, // expected fee amount
+                10 ether // actual balance
+            )
+        );
+
+        node.payManagementFees();
+    }
+
+    function test_payManagementFees_revert_NotOwnerOrRebalancer() public {
+        vm.prank(randomUser);
+        vm.expectRevert(); // Will revert due to onlyOwnerOrRebalancer modifier
+        node.payManagementFees();
+    }
+
+    function test_payManagementFees_revert_DuringRebalance() public {
+        // Start a rebalance
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(rebalancer);
+        node.startRebalance();
+
+        // Try to pay fees during rebalance
+        vm.prank(owner);
+        vm.expectRevert(); // Will revert due to onlyWhenNotRebalancing modifier
+        node.payManagementFees();
+    }
+
+    function test_payManagementFees_NoFeesIfZeroAssets() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // 1% annual fee
+        registry.setProtocolManagementFee(0.2e18); // 20% of management fee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+        // Ensure no assets in node
+        assertEq(node.totalAssets(), 0);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(owner);
+        uint256 feesPaid = node.payManagementFees();
+
+        assertEq(feesPaid, 0);
+    }
+
+    function test_payManagementFees_PartialYear() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // 1% annual fee
+        registry.setProtocolManagementFee(0.2e18); // 20% of management fee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+
+        // Warp 6 months into the future
+        vm.warp(block.timestamp + 182.5 days);
+
+        vm.prank(owner);
+        uint256 feesPaid = node.payManagementFees();
+
+        // Should be approximately 0.5 ether (half of 1% of 100 ether)
+        assertApproxEqAbs(feesPaid, 0.5 ether, 0.01 ether);
+        assertApproxEqAbs(asset.balanceOf(ownerFeesRecipient), 0.4 ether, 0.01 ether); // 80% of fees
+        assertApproxEqAbs(asset.balanceOf(protocolFeesRecipient), 0.1 ether, 0.01 ether); // 20% of fees
+    }
+
+    function test_payManagementFees_MultiplePeriods() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // 1% annual fee
+        registry.setProtocolManagementFee(0.2e18); // 20% of management fee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+
+        // First period - 6 months
+        vm.warp(block.timestamp + 182.5 days);
+        vm.prank(owner);
+        uint256 firstFeesPaid = node.payManagementFees();
+
+        // Second period - 3 months
+        vm.warp(block.timestamp + 91.25 days);
+        vm.prank(owner);
+        uint256 secondFeesPaid = node.payManagementFees();
+
+        // First period should be ~0.5 ether, second should be ~0.25 ether
+        assertApproxEqAbs(firstFeesPaid, 0.5 ether, 0.01 ether);
+        assertApproxEqAbs(secondFeesPaid, 0.25 ether, 0.01 ether);
+    }
+
+    function test_payManagementFees_UpdatesTotalAssets() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // 1% annual fee
+        registry.setProtocolManagementFee(0.2e18); // 20% of management fee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+        uint256 initialTotalAssets = node.totalAssets();
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        uint256 feesPaid = node.payManagementFees();
+
+        assertEq(node.totalAssets(), initialTotalAssets - feesPaid);
+    }
+
+    function test_payManagementFees_revert_NoFeeAddressSet() public {
+        _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        node.payManagementFees();
+    }
+
+    function test_subtractProtocolExecutionFee() public {
+        // Seed the node with initial assets
+        _seedNode(100 ether);
+        uint256 initialTotalAssets = node.totalAssets();
+        uint256 executionFee = 0.1 ether;
+
+        // Mock the protocol fee address
+        address protocolFeeAddress = makeAddr("protocolFeeAddress");
+        vm.prank(owner);
+        registry.setProtocolFeeAddress(protocolFeeAddress);
+
+        // Call subtractProtocolExecutionFee as router
+        vm.prank(address(router4626));
+        node.subtractProtocolExecutionFee(executionFee);
+
+        // Verify fee was transferred and total assets was updated
+        assertEq(asset.balanceOf(protocolFeeAddress), executionFee);
+        assertEq(node.totalAssets(), initialTotalAssets - executionFee);
+    }
+
+    function test_subtractProtocolExecutionFee_revert_NotRouter() public {
+        vm.expectRevert(ErrorsLib.NotRouter.selector);
+        node.subtractProtocolExecutionFee(0.1 ether);
+    }
+
+    function test_updateTotalAssets() public {
+        _seedNode(100 ether);
+
+        // Mock quoter response
+        uint256 expectedTotalAssets = 120 ether;
+        vm.mockCall(
+            address(quoter),
+            abi.encodeWithSelector(IQuoter.getTotalAssets.selector, address(node)),
+            abi.encode(expectedTotalAssets)
+        );
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        assertEq(node.totalAssets(), expectedTotalAssets);
+    }
+
+    function test_updateTotalAssets_revert_NotRebalancer() public {
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.updateTotalAssets();
+    }
 
     function test_pendingRedeemRequest() public {
         vm.startPrank(user);
@@ -819,56 +1271,6 @@ contract NodeTest is BaseTest {
         _verifySuccessfulEntry(user, assets, shares);
     }
 
-    function test_RebalanceCooldown() public {
-        _seedNode(100 ether);
-
-        // Cast the interface back to the concrete implementation
-        Node node = Node(address(node));
-
-        assertEq(node.rebalanceCooldown(), 1 days);
-        assertEq(node.rebalanceWindow(), 1 hours);
-        assertEq(node.lastRebalance(), 86401);
-
-        vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
-
-        // warp forward 30 mins so still inside rebalance window
-        vm.warp(block.timestamp + 30 minutes);
-
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
-        vm.stopPrank();
-
-        vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
-
-        // warp forward 30 mins so outside rebalance window
-        vm.warp(block.timestamp + 31 minutes);
-
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
-        vm.stopPrank();
-
-        vm.prank(rebalancer);
-        vm.expectRevert();
-        router4626.invest(address(node), address(vault));
-
-        vm.prank(rebalancer);
-        vm.expectRevert();
-        node.startRebalance();
-
-        // warp forward 1 day so cooldown is over
-        vm.warp(block.timestamp + 1 days);
-
-        vm.expectEmit(true, true, true, true);
-        emit EventsLib.RebalanceStarted(address(node), block.timestamp, node.rebalanceWindow());
-
-        vm.prank(rebalancer);
-        node.startRebalance();
-    }
-
     function test_isCacheValid() public view {
         assertEq(block.timestamp, node.lastRebalance());
 
@@ -881,36 +1283,11 @@ contract NodeTest is BaseTest {
         assertFalse(node.isCacheValid());
     }
 
-    function test_startRebalance() public {
-        _seedNode(100 ether);
-
-        vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
-
-        assertEq(node.totalAssets(), 100 ether);
-        assertEq(vault.totalAssets(), 90 ether);
-        assertEq(vault.convertToAssets(vault.balanceOf(address(node))), 90 ether);
-
-        // increase asset holdings of vault to 100 units, node being the only shareholder
-        deal(address(asset), address(vault), 100 ether);
-        assertEq(vault.totalAssets(), 100 ether);
-
-        uint256 lastRebalance = node.lastRebalance();
-        vm.warp(block.timestamp + lastRebalance + 1);
-
-        vm.prank(rebalancer);
-        node.startRebalance();
-
-        // assert that calling startRebalance() has updated the cache correctly
-        assertEq(vault.convertToAssets(vault.balanceOf(address(node))), 100 ether - 1);
-        assertEq(node.totalAssets(), 110 ether - 1);
-    }
-
     function test_finalizeRedemption_decrements_cacheTotalAssest() public {
         // todo: write a unit test just for this operation
     }
 
-    function test_validateComponentRatios_revert_InvalidComponentRatios() public {
+    function test_validateComponentRatios_revert_invalidComponentRatios() public {
         ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
         invalidAllocation[0] = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
 
@@ -947,90 +1324,7 @@ contract NodeTest is BaseTest {
         );
     }
 
-    function test_startRebalance_revert_InvalidComponentRatios() public {
-        vm.warp(block.timestamp + 1 days);
-        vm.prank(owner);
-        node.addComponent(testComponent, ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether}));
-
-        vm.startPrank(rebalancer);
-        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
-        node.startRebalance();
-    }
-
     /* FEE TESTS */
-
-    function test_payManagementFees() public {
-        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
-        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
-
-        vm.startPrank(owner);
-        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
-        node.setAnnualManagementFee(0.01e18); // takes 1% of totalAssets
-        registry.setProtocolManagementFee(0.2 ether); // takes 20% of annualManagementFee
-        registry.setProtocolFeeAddress(protocolFeesRecipient);
-        vm.stopPrank();
-
-        _seedNode(100 ether);
-        assertEq(node.totalAssets(), 100 ether);
-
-        vm.warp(block.timestamp + 365 days);
-
-        vm.prank(owner);
-        uint256 feeForPeriod = node.payManagementFees();
-
-        assertEq(asset.balanceOf(address(ownerFeesRecipient)), 0.8 ether);
-        assertEq(asset.balanceOf(address(protocolFeesRecipient)), 0.2 ether);
-        assertEq(feeForPeriod, 1 ether);
-        assertEq(node.totalAssets(), 100 ether - feeForPeriod);
-    }
-
-    function test_payManagementFees_zeroFees() public {
-        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
-        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
-
-        vm.startPrank(owner);
-        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
-        node.setAnnualManagementFee(0);
-        registry.setProtocolManagementFee(0);
-        registry.setProtocolFeeAddress(protocolFeesRecipient);
-        vm.stopPrank();
-
-        _seedNode(100 ether);
-        assertEq(node.totalAssets(), 100 ether);
-
-        vm.warp(block.timestamp + 365 days);
-
-        vm.prank(owner);
-        node.payManagementFees();
-
-        assertEq(asset.balanceOf(address(ownerFeesRecipient)), 0);
-        assertEq(asset.balanceOf(address(protocolFeesRecipient)), 0);
-        assertEq(node.totalAssets(), 100 ether);
-    }
-
-    function test_payManagementFees_1Days() public {
-        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
-        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
-
-        vm.startPrank(owner);
-        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
-        node.setAnnualManagementFee(0.01e18); // takes 1% of totalAssets
-        registry.setProtocolManagementFee(0.2 ether); // takes 20% of annualManagementFee
-        registry.setProtocolFeeAddress(protocolFeesRecipient);
-        vm.stopPrank();
-
-        _seedNode(100 ether);
-        assertEq(node.totalAssets(), 100 ether);
-
-        vm.warp(block.timestamp + 1 days);
-
-        vm.prank(owner);
-        uint256 feeForPeriod = node.payManagementFees();
-
-        assertApproxEqAbs(asset.balanceOf(address(ownerFeesRecipient)) * 365, 0.8 ether, 100);
-        assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether, 100);
-        assertEq(node.totalAssets(), 100 ether - feeForPeriod);
-    }
 
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
