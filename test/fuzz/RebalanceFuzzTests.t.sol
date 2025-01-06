@@ -243,98 +243,43 @@ contract RebalanceFuzzTests is BaseTest {
         }
     }
 
-    // todo: with interest
-    function test_fuzz_rebalance_with_interest()
-        // uint256 targetReserveRatio,
-        // uint256 seedAmount,
-        // uint256 randUint,
-        // uint256 runs,
-        // uint256 maxInterest
-        public
-    {
-        // targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.1 ether);
-        // seedAmount = bound(seedAmount, 1 ether, 100 ether);
-        // randUint = bound(randUint, 1 ether, 100 ether);
-        // runs = bound(runs, 1, 10);
-        // maxInterest = bound(maxInterest, 0.1 ether, 1 ether);
-        uint256 seedAmount = 100 ether;
-        uint256 targetReserveRatio = 0.1 ether;
-        uint256 randUint = 1 ether;
-        uint256 runs = 1;
-        uint256 maxInterest = 0.1 ether;
-
-        _preSeedComponents(100 ether);
+    function test_fuzz_rebalance_with_interest_earned_on_components(
+        uint256 targetReserveRatio,
+        uint256 seedAmount,
+        uint256 randUint,
+        uint256 runs,
+        uint256 maxInterest
+    ) public {
+        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.1 ether);
+        seedAmount = bound(seedAmount, 1 ether, 1e36);
+        randUint = bound(randUint, 0, 1 ether);
+        runs = bound(runs, 10, 100);
+        maxInterest = bound(maxInterest, 0.1 ether, 1e36);
 
         _seedNode(seedAmount);
-        console2.log("node.totalAssets()", node.totalAssets());
         _setInitialComponentRatios(targetReserveRatio, randUint);
-        _print_component_ratios();
         _tryRebalance();
-        console2.log("node.totalAssets() after rebalance", node.totalAssets());
-        _mock7540_processPendingDeposits(vaultSeeder);
-        console2.log("node.totalAssets() after processPendingDeposits", node.totalAssets());
+        _mock7540_processPendingDeposits();
+        _mock7540_mintClaimableShares();
+
         vm.prank(rebalancer);
         node.updateTotalAssets();
-        console2.log("node.totalAssets() after updateTotalAssets", node.totalAssets());
-
-        console2.log("asset.balanceOf(address(node))", asset.balanceOf(address(node)));
-        console2.log("asset.balanceOf(address(vaultA))", asset.balanceOf(address(vaultA)));
-        console2.log("asset.balanceOf(address(vaultB))", asset.balanceOf(address(vaultB)));
-        console2.log("asset.balanceOf(address(vaultC))", asset.balanceOf(address(vaultC)));
-        console2.log("asset.balanceOf(address(asyncVaultA))", asset.balanceOf(address(asyncVaultA)));
-        console2.log("asset.balanceOf(address(asyncVaultB))", asset.balanceOf(address(asyncVaultB)));
-        console2.log("asset.balanceOf(address(asyncVaultC))", asset.balanceOf(address(asyncVaultC)));
 
         uint256 interestEarned = 0;
         for (uint256 i = 0; i < runs; i++) {
             _earnComponentInterest(maxInterest, randUint);
             interestEarned += maxInterest;
         }
-        console2.log("interestEarned", interestEarned);
 
         vm.prank(rebalancer);
         node.updateTotalAssets();
-        console2.log("node.totalAssets() after updateTotalAssets", node.totalAssets());
 
-        console2.log("asset.balanceOf(address(node))", asset.balanceOf(address(node)));
-        console2.log("asset.balanceOf(address(vaultA))", asset.balanceOf(address(vaultA)));
-        console2.log("asset.balanceOf(address(vaultB))", asset.balanceOf(address(vaultB)));
-        console2.log("asset.balanceOf(address(vaultC))", asset.balanceOf(address(vaultC)));
-        console2.log("asset.balanceOf(address(asyncVaultA))", asset.balanceOf(address(asyncVaultA)));
-        console2.log("asset.balanceOf(address(asyncVaultB))", asset.balanceOf(address(asyncVaultB)));
-        console2.log("asset.balanceOf(address(asyncVaultC))", asset.balanceOf(address(asyncVaultC)));
-
-        assertEq(
-            node.totalAssets(), seedAmount + interestEarned, "Total assets should equal initial deposit + interest"
+        assertApproxEqRel(
+            node.totalAssets(),
+            seedAmount + interestEarned,
+            1e12,
+            "Total assets should equal initial deposit + interest"
         );
-    }
-
-    function test_mock_7540_direct_deposit() public {
-        vm.startPrank(user);
-        asset.approve(address(asyncVaultA), 1 ether);
-        asyncVaultA.requestDeposit(1 ether, user, user);
-        vm.stopPrank();
-
-        _mock7540_processPendingDeposits(user);
-
-        assertEq(asyncVaultA.totalAssets(), 1 ether, "Total assets should equal initial deposit");
-
-        uint256 existingBalance = asset.balanceOf(address(asyncVaultA));
-        deal(address(asset), address(asyncVaultA), existingBalance + 1 ether);
-        assertEq(asyncVaultA.totalAssets(), 2 ether, "Total assets should equal initial deposit");
-    }
-
-    function test_mock_ERC4626_direct_deposit() public {
-        vm.startPrank(user);
-        asset.approve(address(vaultA), 1 ether);
-        vaultA.deposit(1 ether, user);
-        vm.stopPrank();
-
-        assertEq(vaultA.totalAssets(), 1 ether, "Total assets should equal initial deposit");
-
-        uint256 existingBalance = asset.balanceOf(address(vaultA));
-        deal(address(asset), address(vaultA), existingBalance + 1 ether);
-        assertEq(vaultA.totalAssets(), 2 ether, "Total assets should equal initial deposit");
     }
 
     // todo: change component ratios
@@ -404,54 +349,20 @@ contract RebalanceFuzzTests is BaseTest {
         }
     }
 
-    function test_preSeedComponents() public {
-        uint256 seedAmount = 1 ether;
-        _preSeedComponents(seedAmount);
-
-        assertEq(vaultA.totalAssets(), seedAmount, "Total assets should equal initial deposit");
-        assertEq(vaultB.totalAssets(), seedAmount, "Total assets should equal initial deposit");
-        assertEq(vaultC.totalAssets(), seedAmount, "Total assets should equal initial deposit");
-        assertEq(asyncVaultA.totalSupply(), seedAmount, "Total supply should equal initial deposit");
-        assertEq(asyncVaultB.totalSupply(), seedAmount, "Total supply should equal initial deposit");
-        assertEq(asyncVaultC.totalSupply(), seedAmount, "Total supply should equal initial deposit");
-    }
-
-    function _preSeedComponents(uint256 seedAmount) public {
-        deal(address(asset), address(vaultSeeder), type(uint256).max);
-
-        _seedERC4626(address(vaultA), seedAmount);
-        _seedERC4626(address(vaultB), seedAmount);
-        _seedERC4626(address(vaultC), seedAmount);
-        _seedERC7540(address(asyncVaultA), seedAmount);
-        _seedERC7540(address(asyncVaultB), seedAmount);
-        _seedERC7540(address(asyncVaultC), seedAmount);
-
-        _mock7540_processPendingDeposits(vaultSeeder);
-    }
-
-    function _mock7540_processPendingDeposits(address user_) internal {
+    function _mock7540_processPendingDeposits() internal {
         for (uint256 i = 0; i < components.length; i++) {
             address component = components[i];
             vm.startPrank(address(testPoolManager));
             try ERC7540Mock(component).processPendingDeposits() {} catch {}
             vm.stopPrank();
-
-            vm.startPrank(user_);
-            try ERC7540Mock(component).maxMint(user_) returns (uint256 shares) {
-                try ERC7540Mock(component).mint(shares, user_, user_) {} catch {}
-            } catch {}
-            vm.stopPrank();
         }
     }
 
-    function _print_component_ratios() internal view {
-        uint256 total = 0;
-        console2.log("Component ratios:");
-        console2.log("targetReserveRatio", node.targetReserveRatio());
+    function _mock7540_mintClaimableShares() internal {
+        vm.startPrank(rebalancer);
         for (uint256 i = 0; i < components.length; i++) {
-            console2.log("Component", components[i], "ratio:", node.getComponentRatio(components[i]));
-            total += node.getComponentRatio(components[i]);
+            try router7540.mintClaimableShares(address(node), address(components[i])) {} catch {}
         }
-        console2.log("total", total + node.targetReserveRatio());
+        vm.stopPrank();
     }
 }

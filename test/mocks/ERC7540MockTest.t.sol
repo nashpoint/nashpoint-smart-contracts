@@ -214,21 +214,21 @@ contract MockERC7540Tests is BaseTest {
         assertApproxEqRel(liquidityPool.convertToAssets(shares), amount + interest, 1e12);
     }
 
-    function testRevertOnZeroDeposit() public {
+    function test_7540Mock_revert_on_zero_deposit() public {
         vm.startPrank(user);
         vm.expectRevert("Cannot request deposit of 0 assets");
         liquidityPool.requestDeposit(0, user, user);
         vm.stopPrank();
     }
 
-    function testRevertOnZeroRedeem() public {
+    function test_7540Mock_revert_on_zero_redeem() public {
         vm.startPrank(user);
         vm.expectRevert("Cannot request redeem of 0 shares");
         liquidityPool.requestRedeem(0, user, user);
         vm.stopPrank();
     }
 
-    function testOnlyManagerCanProcess() public {
+    function test_7540Mock_revert_on_non_manager_process() public {
         vm.startPrank(user);
         vm.expectRevert("only poolManager can execute");
         liquidityPool.processPendingDeposits();
