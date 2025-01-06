@@ -11,7 +11,7 @@ contract MockERC7540Tests is BaseTest {
         liquidityPool = new ERC7540Mock(asset, "Mock", "MOCK", testPoolManager);
     }
 
-    function testBasicDepositFlow() public {
+    function test_7540Mock_basic_deposit_flow() public {
         uint256 amount = 10 ether;
 
         // User requests deposit
@@ -40,7 +40,7 @@ contract MockERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
     }
 
-    function testBasicRedeemFlow() public {
+    function test_7540Mock_basic_redeem_flow() public {
         uint256 amount = 10 ether;
 
         // Setup: User deposits and gets shares first
@@ -83,7 +83,7 @@ contract MockERC7540Tests is BaseTest {
         assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
     }
 
-    function test_multipleDeposits() public {
+    function test_7540Mock_multiple_deposits() public {
         uint256 amount = 10 ether;
         address[3] memory users = [user, user2, user3];
 
@@ -124,7 +124,7 @@ contract MockERC7540Tests is BaseTest {
         }
     }
 
-    function test_multipleRedemptions() public {
+    function test_7540Mock_multiple_redemptions() public {
         uint256 amount = 10 ether;
         address[3] memory users = [user, user2, user3];
 
@@ -176,6 +176,42 @@ contract MockERC7540Tests is BaseTest {
             assertEq(liquidityPool.balanceOf(users[i]), 0);
             assertEq(liquidityPool.convertToAssets(shares), amount);
         }
+    }
+
+    function test_7540Mock_earns_interest(uint256 amount, uint256 interest) public {
+        amount = bound(amount, 1 ether, 1e36);
+        interest = bound(interest, 0, 1e36);
+
+        deal(address(asset), address(user), amount);
+
+        // User requests deposit
+        vm.startPrank(user);
+        asset.approve(address(liquidityPool), amount);
+        liquidityPool.requestDeposit(amount, user, user);
+        vm.stopPrank();
+
+        // Manager processes deposits
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        // User mints shares
+        uint256 sharesClaimable = liquidityPool.maxMint(user);
+
+        vm.prank(user);
+        liquidityPool.mint(sharesClaimable, user, user);
+
+        uint256 shares = liquidityPool.balanceOf(address(user));
+        uint256 assets = asset.balanceOf(address(liquidityPool));
+
+        // Verify final balances
+        assertEq(liquidityPool.balanceOf(user), sharesClaimable);
+        assertEq(liquidityPool.totalSupply(), liquidityPool.totalAssets());
+        assertEq(assets, liquidityPool.totalAssets());
+        assertEq(liquidityPool.convertToAssets(shares), amount);
+
+        // simulate interest earned & user share value increased
+        deal(address(asset), address(liquidityPool), assets + interest);
+        assertApproxEqRel(liquidityPool.convertToAssets(shares), amount + interest, 1e12);
     }
 
     function testRevertOnZeroDeposit() public {
