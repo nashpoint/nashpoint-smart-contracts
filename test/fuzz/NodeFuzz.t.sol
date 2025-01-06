@@ -8,6 +8,7 @@ import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
+import {MathLib} from "src/libraries/MathLib.sol";
 
 contract NodeFuzzTest is BaseTest {
     uint256 public maxDeposit;
@@ -476,6 +477,86 @@ contract NodeFuzzTest is BaseTest {
     //////////////////////////////////////////////////////////////*/
 
     function test_fuzz_node_component_earns_interest() public {}
+
+    function test_fuzz_node_cache_totalAssets_4626_earns_interest(uint256 interestEarned, uint256 userDeposit) public {
+        interestEarned = bound(interestEarned, 1e18, 1e36);
+        userDeposit = bound(userDeposit, 1e18, 1e36);
+
+        deal(address(asset), address(user), userDeposit);
+        _userDeposits(user, userDeposit);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0}));
+        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0}));
+        vm.stopPrank();
+
+        uint256 expectedVaultAssets = MathLib.mulDiv(userDeposit, 0.8 ether, 1 ether);
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        uint256 vaultAssets = router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        // assert that shares are 1:1 assets & vault has the correct assets
+        assertEq(node.convertToAssets(1), 1);
+        assertEq(asset.balanceOf(address(vault)), vaultAssets);
+        assertEq(vaultAssets, expectedVaultAssets);
+
+        // deal assets to the vault to simulate interest earned
+        deal(address(asset), address(vault), vaultAssets + interestEarned);
+        assertEq(asset.balanceOf(address(vault)), vaultAssets + interestEarned);
+
+        // update totalAssets cache
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        // assert that totalAssets cache has been updated (accurate to 0.0001%)
+        assertApproxEqRel(node.totalAssets(), userDeposit + interestEarned, 1e12);
+    }
+
+    function test_fuzz_node_cache_totalAssets_4626_earns_interest_multiple_times(
+        uint256 maxInterest,
+        uint256 randUint,
+        uint256 userDeposit,
+        uint256 runs
+    ) public {
+        maxInterest = bound(maxInterest, 1 ether, maxDeposit);
+        randUint = bound(randUint, 0, 1 ether);
+        userDeposit = bound(userDeposit, 1 ether, maxDeposit);
+        runs = bound(runs, 1, 100);
+
+        deal(address(asset), address(user), userDeposit);
+        _userDeposits(user, userDeposit);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0}));
+        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0}));
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        uint256 vaultAssets = router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        uint256 interestEarned = 0;
+        for (uint256 i = 0; i < runs; i++) {
+            uint256 interestPayment = uint256(keccak256(abi.encodePacked(randUint++, i)));
+            interestPayment = bound(interestPayment, 0, maxInterest);
+            deal(address(asset), address(vault), vaultAssets + interestPayment);
+            vaultAssets = asset.balanceOf(address(vault));
+            interestEarned += interestPayment;
+        }
+
+        // update totalAssets cache
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        assertApproxEqRel(node.totalAssets(), userDeposit + interestEarned, 1e12);
+    }
 
     function test_fuzz_node_component_loses_values() public {}
 
