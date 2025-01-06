@@ -191,6 +191,22 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
+    function _seedERC4626(address component, uint256 amount) public {
+        deal(address(asset), address(vaultSeeder), type(uint256).max);
+        vm.startPrank(vaultSeeder);
+        asset.approve(component, amount);
+        ERC4626Mock(component).deposit(amount, vaultSeeder);
+        vm.stopPrank();
+    }
+
+    function _seedERC7540(address component, uint256 amount) public {
+        deal(address(asset), address(vaultSeeder), type(uint256).max);
+        vm.startPrank(vaultSeeder);
+        asset.approve(component, amount);
+        ERC7540Mock(component).requestDeposit(amount, vaultSeeder, vaultSeeder);
+        vm.stopPrank();
+    }
+
     function _userDeposits(address user_, uint256 amount_) internal {
         vm.startPrank(user_);
         asset.approve(address(node), amount_);
@@ -212,5 +228,17 @@ contract BaseTest is Test {
 
         vm.prank(user);
         node.withdraw(claimableAssets, user, user);
+    }
+
+    function _setAllocationToAsyncVault(address liquidityPool_, uint256 allocation) internal {
+        vm.startPrank(owner);
+        uint256 reserveAllocation = 1 ether - allocation;
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0}));
+        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0}));
+        node.removeComponent(address(vault));
+        node.addComponent(address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0}));
+        quoter.setErc7540(address(liquidityPool_), true);
+        router7540.setWhitelistStatus(address(liquidityPool_), true);
+        vm.stopPrank();
     }
 }
