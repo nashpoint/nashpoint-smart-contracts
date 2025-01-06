@@ -93,7 +93,7 @@ contract Node is INode, ERC20, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyRouter() {
-        if (!isRouter[msg.sender]) revert ErrorsLib.NotRouter();
+        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
@@ -254,6 +254,8 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external onlyOwner {
+        if (newNodeOwnerFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
+        if (newNodeOwnerFeeAddress == nodeOwnerFeeAddress) revert ErrorsLib.AlreadySet();
         nodeOwnerFeeAddress = newNodeOwnerFeeAddress;
         emit EventsLib.NodeOwnerFeeAddressSet(newNodeOwnerFeeAddress);
     }
@@ -268,10 +270,6 @@ contract Node is INode, ERC20, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     function startRebalance() external onlyRebalancer {
-        ComponentAllocation[] memory allocations = new ComponentAllocation[](components.length);
-        for (uint256 i = 0; i < components.length; i++) {
-            allocations[i] = componentAllocations[components[i]];
-        }
         if (!_validateComponentRatios()) {
             revert ErrorsLib.InvalidComponentRatios();
         }
@@ -296,6 +294,8 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function payManagementFees() public onlyOwnerOrRebalancer onlyWhenNotRebalancing returns (uint256 feeForPeriod) {
+        if (nodeOwnerFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
+
         _updateTotalAssets();
 
         uint256 timePeriod = block.timestamp - lastPayment;
@@ -309,8 +309,8 @@ contract Node is INode, ERC20, Ownable {
             if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
                 revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
             }
-            IERC20(asset).transfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
-            IERC20(asset).transfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
+            IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
+            IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
 
             cacheTotalAssets = cacheTotalAssets - feeForPeriod;
             lastPayment = block.timestamp;
@@ -319,7 +319,7 @@ contract Node is INode, ERC20, Ownable {
     }
 
     function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter {
-        IERC20(asset).transfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
+        IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
         cacheTotalAssets -= executionFee;
     }
 
@@ -564,7 +564,7 @@ contract Node is INode, ERC20, Ownable {
             revert ErrorsLib.ExceedsAvailableReserve();
         }
 
-        IERC20(asset).approve(address(this), assetsToReturn); // note: directly calling approve
+        IERC20(asset).approve(address(this), assetsToReturn);
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
 
         _finalizeRedemption(controller, assetsToReturn);

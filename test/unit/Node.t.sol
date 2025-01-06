@@ -5,7 +5,7 @@ import {BaseTest} from "../BaseTest.sol";
 import {stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 
 import {Node} from "src/Node.sol";
-import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
+import {INode, ComponentAllocation, Request} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
@@ -40,6 +40,7 @@ contract NodeTest is BaseTest {
     string constant TEST_SYMBOL = "TNODE";
 
     uint256 public maxDeposit;
+    uint256 public rebalanceCooldown;
 
     function setUp() public override {
         super.setUp();
@@ -91,6 +92,7 @@ contract NodeTest is BaseTest {
 
         Node nodeImpl = Node(address(node));
         maxDeposit = nodeImpl.MAX_DEPOSIT();
+        rebalanceCooldown = nodeImpl.rebalanceCooldown();
     }
 
     function test_constructor() public view {
@@ -193,6 +195,8 @@ contract NodeTest is BaseTest {
         assertEq(address(testNode.escrow()), testEscrow);
         assertFalse(testNode.swingPricingEnabled());
         assertTrue(testNode.isInitialized());
+        assertEq(testNode.lastRebalance(), block.timestamp - testNode.rebalanceCooldown());
+        assertEq(testNode.lastPayment(), block.timestamp);
     }
 
     function test_initialize_revert_AlreadyInitialized() public {
@@ -575,248 +579,30 @@ contract NodeTest is BaseTest {
         testNode.setLiquidationQueue(components);
     }
 
-    function test_enableSwingPricing() public {
-        uint256 newMaxSwingFactor = 0.1 ether;
-
+    function test_setRebalanceCooldown() public {
+        uint256 newRebalanceCooldown = 1 days;
         vm.prank(owner);
-        testNode.enableSwingPricing(true, newMaxSwingFactor);
-
-        assertTrue(testNode.swingPricingEnabled());
-        assertEq(testNode.maxSwingFactor(), newMaxSwingFactor);
+        testNode.setRebalanceCooldown(newRebalanceCooldown);
+        assertEq(testNode.rebalanceCooldown(), newRebalanceCooldown);
     }
 
-    function test_enableSwingPricing_disable() public {
-        uint256 newMaxSwingFactor = 0.1 ether;
+    function test_setRebalanceCooldown_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.setRebalanceCooldown(1 days);
+    }
 
-        // Enable first
+    function test_setRebalanceWindow() public {
+        uint256 newRebalanceWindow = 1 hours;
         vm.prank(owner);
-        testNode.enableSwingPricing(true, newMaxSwingFactor);
-
-        // Then disable
-        vm.prank(owner);
-        testNode.enableSwingPricing(false, 0);
-        assertFalse(testNode.swingPricingEnabled());
-        assertEq(testNode.maxSwingFactor(), 0);
+        testNode.setRebalanceWindow(newRebalanceWindow);
+        assertEq(testNode.rebalanceWindow(), newRebalanceWindow);
     }
 
-    function test_execute() public {
-        // Setup minimal test node with just a router
-        address[] memory routers = new address[](1);
-        routers[0] = testRouter;
-
-        Node simpleNode = new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            routers,
-            new address[](0), // no components
-            new ComponentAllocation[](0), // no allocations
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
-        );
-
-        // Mock the storage slot for lastRebalance to be current timestamp
-        uint256 currentTime = block.timestamp;
-        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
-        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
-        vm.warp(currentTime + 1);
-
-        // Setup simple transfer call
-        bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
-
-        // Mock the transfer call to return true
-        vm.mockCall(testAsset, 0, data, abi.encode(true));
-
-        // Execute as router
-        vm.prank(testRouter);
-        bytes memory result = simpleNode.execute(testAsset, 0, data);
-
-        // Verify the call succeeded
-        assertEq(abi.decode(result, (bool)), true);
-    }
-
-    function test_execute_revert_NotRouter() public {
-        vm.expectRevert(ErrorsLib.NotRouter.selector);
-        testNode.execute(testAsset, 0, "");
-    }
-
-    function test_execute_revert_ZeroAddress() public {
-        address[] memory routers = new address[](1);
-        routers[0] = testRouter;
-
-        Node simpleNode = new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            routers,
-            new address[](0), // no components
-            new ComponentAllocation[](0), // no allocations
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
-        );
-
-        // Mock the storage slot for lastRebalance to be current timestamp
-        uint256 currentTime = block.timestamp;
-        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
-        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
-
-        vm.warp(currentTime + 1);
-
-        vm.prank(testRouter);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        simpleNode.execute(address(0), 0, "");
-    }
-
-    /// @dev I did not write tests for requestRedeem()
-
-    function test_pendingRedeemRequest() public {
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
-        uint256 shares = node.balanceOf(address(user)) / 10;
-        node.approve(address(node), shares);
-        node.requestRedeem(shares, user, user);
-        vm.stopPrank();
-
-        assertEq(node.pendingRedeemRequest(0, user), shares);
-    }
-
-    function test_pendingRedeemRequest_isZero() public view {
-        assertEq(node.pendingRedeemRequest(0, user), 0);
-    }
-
-    function test_claimableRedeemRequest() public {
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
-        uint256 shares = node.balanceOf(address(user)) / 10;
-        node.approve(address(node), shares);
-        node.requestRedeem(shares, user, user);
-        vm.stopPrank();
-
-        vm.prank(rebalancer);
-        node.fulfillRedeemFromReserve(user);
-
-        assertEq(node.claimableRedeemRequest(0, user), shares);
-    }
-
-    function test_claimableRedeemRequest_isZero() public view {
-        assertEq(node.claimableRedeemRequest(0, user), 0);
-    }
-
-    // Set Operator tests
-    function test_setOperator() public {
+    function test_setRebalanceWindow_revert_notOwner() public {
         vm.prank(user);
-        node.setOperator(address(rebalancer), true);
-        assertTrue(node.isOperator(user, address(rebalancer)));
-    }
-
-    function test_setOperator_RevertIf_Self() public {
-        vm.prank(user);
-        vm.expectRevert(ErrorsLib.CannotSetSelfAsOperator.selector);
-        node.setOperator(user, true);
-    }
-
-    function test_setOperator_EmitEvent() public {
-        vm.prank(user);
-        vm.expectEmit(true, true, true, true);
-        emit IERC7540Operator.OperatorSet(user, address(randomUser), true);
-        node.setOperator(address(randomUser), true);
-    }
-
-    // Supports Interface tests
-    function test_supportsInterface() public view {
-        assertTrue(node.supportsInterface(type(IERC7540Redeem).interfaceId));
-        assertTrue(node.supportsInterface(type(IERC7540Operator).interfaceId));
-        assertTrue(node.supportsInterface(type(IERC7575).interfaceId));
-        assertTrue(node.supportsInterface(type(IERC165).interfaceId));
-    }
-
-    function test_supportsInterface_ReturnsFalseForUnsupportedInterface() public view {
-        bytes4 unsupportedInterfaceId = 0xffffffff; // An example of an unsupported interface ID
-        assertFalse(node.supportsInterface(unsupportedInterfaceId));
-    }
-
-    function test_convertToShares() public {
-        assertEq(node.totalAssets(), 0);
-        assertEq(node.totalSupply(), 0);
-        assertEq(node.convertToShares(1e18), 1e18);
-
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
-        vm.stopPrank();
-
-        assertEq(node.convertToShares(1 ether), 1 ether);
-
-        deal(address(asset), address(node), 200 ether);
-
-        vm.prank(rebalancer);
-        node.updateTotalAssets();
-        assertEq(node.convertToShares(2 ether), 1 ether);
-    }
-
-    function test_convertToAssets() public {
-        assertEq(node.totalAssets(), 0);
-        assertEq(node.totalSupply(), 0);
-        assertEq(node.convertToAssets(1e18), 1e18);
-
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
-        vm.stopPrank();
-
-        assertEq(node.convertToAssets(1 ether), 1 ether);
-
-        deal(address(asset), address(node), 200 ether);
-        vm.prank(rebalancer);
-        node.updateTotalAssets();
-        assertEq(node.convertToAssets(1 ether), 2 ether - 1); // minus 1 to account for rounding
-    }
-
-    function test_maxDeposit() public {
-        assertEq(node.maxDeposit(user), maxDeposit);
-
-        vm.warp(block.timestamp + 25 hours);
-        assertEq(node.maxDeposit(user), 0);
-    }
-
-    function test_deposit(uint256 assets) public {
-        vm.assume(assets < maxDeposit);
-        uint256 shares = node.convertToShares(assets);
-
-        deal(address(asset), address(user), assets);
-        vm.startPrank(user);
-        asset.approve(address(node), assets);
-        node.deposit(assets, user);
-        vm.stopPrank();
-
-        _verifySuccessfulEntry(user, assets, shares);
-    }
-
-    function test_maxMint() public {
-        assertEq(node.maxMint(user), maxDeposit);
-
-        vm.warp(block.timestamp + 25 hours);
-        assertEq(node.maxMint(user), 0);
-    }
-
-    function test_mint(uint256 assets) public {
-        vm.assume(assets < maxDeposit);
-
-        uint256 shares = node.convertToShares(assets);
-        uint256 expectedShares = node.previewDeposit(assets);
-        assertEq(shares, expectedShares);
-
-        deal(address(asset), address(user), assets);
-        vm.startPrank(user);
-        asset.approve(address(node), assets);
-        node.mint(shares, user);
-        vm.stopPrank();
-
-        _verifySuccessfulEntry(user, assets, shares);
+        vm.expectRevert();
+        testNode.setRebalanceWindow(1 hours);
     }
 
     function test_RebalanceCooldown() public {
@@ -869,16 +655,76 @@ contract NodeTest is BaseTest {
         node.startRebalance();
     }
 
-    function test_isCacheValid() public view {
-        assertEq(block.timestamp, node.lastRebalance());
+    function test_enableSwingPricing() public {
+        uint256 newMaxSwingFactor = 0.1 ether;
 
-        assertEq(node.isCacheValid(), true);
+        vm.prank(owner);
+        testNode.enableSwingPricing(true, newMaxSwingFactor);
+
+        assertTrue(testNode.swingPricingEnabled());
+        assertEq(testNode.maxSwingFactor(), newMaxSwingFactor);
     }
 
-    function test_isCacheValid_isFalse() public {
-        uint256 lastRebalance = node.lastRebalance();
-        vm.warp(block.timestamp + lastRebalance + 1);
-        assertFalse(node.isCacheValid());
+    function test_enableSwingPricing_disable() public {
+        uint256 newMaxSwingFactor = 0.1 ether;
+
+        // Enable first
+        vm.prank(owner);
+        testNode.enableSwingPricing(true, newMaxSwingFactor);
+
+        // Then disable
+        vm.prank(owner);
+        testNode.enableSwingPricing(false, 0);
+        assertFalse(testNode.swingPricingEnabled());
+        assertEq(testNode.maxSwingFactor(), 0);
+    }
+
+    function test_enableSwingPricing_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.enableSwingPricing(true, 0.1 ether);
+    }
+
+    function test_setNodeOwnerFeeAddress() public {
+        address newNodeOwnerFeeAddress = makeAddr("newNodeOwnerFeeAddress");
+        vm.prank(owner);
+        testNode.setNodeOwnerFeeAddress(newNodeOwnerFeeAddress);
+        assertEq(testNode.nodeOwnerFeeAddress(), newNodeOwnerFeeAddress);
+    }
+
+    function test_setNodeOwnerFeeAddress_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.setNodeOwnerFeeAddress(makeAddr("newNodeOwnerFeeAddress"));
+    }
+
+    function test_setNodeOwnerFeeAddress_revert_ZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        testNode.setNodeOwnerFeeAddress(address(0));
+    }
+
+    function test_setNodeOwnerFeeAddress_revert_AlreadySet() public {
+        address newNodeOwnerFeeAddress = makeAddr("newNodeOwnerFeeAddress");
+        vm.prank(owner);
+        testNode.setNodeOwnerFeeAddress(newNodeOwnerFeeAddress);
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.AlreadySet.selector);
+        testNode.setNodeOwnerFeeAddress(newNodeOwnerFeeAddress);
+    }
+
+    function test_setAnnualManagementFee() public {
+        uint256 newAnnualManagementFee = 0.01 ether;
+        vm.prank(owner);
+        testNode.setAnnualManagementFee(newAnnualManagementFee);
+        assertEq(testNode.annualManagementFee(), newAnnualManagementFee);
+    }
+
+    function test_setAnnualManagementFee_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testNode.setAnnualManagementFee(0.01 ether);
     }
 
     function test_startRebalance() public {
@@ -906,45 +752,12 @@ contract NodeTest is BaseTest {
         assertEq(node.totalAssets(), 110 ether - 1);
     }
 
-    function test_finalizeRedemption_decrements_cacheTotalAssest() public {
-        // todo: write a unit test just for this operation
-    }
-
-    function test_validateComponentRatios_revert_InvalidComponentRatios() public {
-        ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
-        invalidAllocation[0] = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
-
-        address[] memory routers = new address[](1);
-        routers[0] = testRouter;
-
-        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
-
-        new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            routers,
-            _toArray(testComponent),
-            invalidAllocation,
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
-        );
-
-        invalidAllocation[0] = ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether});
-
-        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
-        new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            routers,
-            _toArray(testComponent),
-            invalidAllocation,
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
-        );
+    function test_startRebalance_revert_CooldownActive() public {
+        uint256 lastRebalance = node.lastRebalance();
+        assertEq(lastRebalance, block.timestamp);
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.CooldownActive.selector);
+        node.startRebalance();
     }
 
     function test_startRebalance_revert_InvalidComponentRatios() public {
@@ -957,7 +770,90 @@ contract NodeTest is BaseTest {
         node.startRebalance();
     }
 
-    /* FEE TESTS */
+    function test_execute() public {
+        // Setup minimal test node with just a router
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        Node simpleNode = new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            owner,
+            routers,
+            new address[](0), // no components
+            new ComponentAllocation[](0), // no allocations
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+
+        // Mock the storage slot for lastRebalance to be current timestamp
+        uint256 currentTime = block.timestamp;
+        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
+        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
+        vm.warp(currentTime + 1);
+
+        // Setup simple transfer call
+        bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
+
+        // Mock the transfer call to return true
+        vm.mockCall(testAsset, 0, data, abi.encode(true));
+
+        // Execute as router
+        vm.prank(testRouter);
+        bytes memory result = simpleNode.execute(testAsset, 0, data);
+
+        // Verify the call succeeded
+        assertEq(abi.decode(result, (bool)), true);
+    }
+
+    function test_execute_revert_NotRouter() public {
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        testNode.execute(testAsset, 0, "");
+    }
+
+    function test_execute_revert_ZeroAddress() public {
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        Node simpleNode = new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            owner,
+            routers,
+            new address[](0), // no components
+            new ComponentAllocation[](0), // no allocations
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+
+        // Mock the storage slot for lastRebalance to be current timestamp
+        uint256 currentTime = block.timestamp;
+        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
+        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
+
+        vm.warp(currentTime + 1);
+
+        vm.prank(testRouter);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        simpleNode.execute(address(0), 0, "");
+    }
+
+    function test_execute_revert_NotRebalancing() public {
+        // Setup a valid router and target
+        address target = makeAddr("target");
+        bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, address(this), 100);
+
+        // Mock successful call to avoid other reverts
+        vm.mockCall(target, 0, data, abi.encode(true));
+        vm.warp(block.timestamp + 2 hours);
+
+        // Try to execute as router
+        vm.prank(testRouter);
+        vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
+        testNode.execute(target, 0, data);
+    }
 
     function test_payManagementFees() public {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
@@ -1031,6 +927,675 @@ contract NodeTest is BaseTest {
         assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether, 100);
         assertEq(node.totalAssets(), 100 ether - feeForPeriod);
     }
+
+    function test_payManagementFees_revert_NotEnoughAssets() public {
+        _seedNode(100 ether);
+
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        vm.startPrank(owner);
+        node.setAnnualManagementFee(0.2e18);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.NotEnoughAssetsToPayFees.selector,
+                20 ether, // expected fee amount
+                10 ether // actual balance
+            )
+        );
+
+        node.payManagementFees();
+    }
+
+    function test_payManagementFees_revert_NotOwnerOrRebalancer() public {
+        vm.prank(randomUser);
+        vm.expectRevert(); // Will revert due to onlyOwnerOrRebalancer modifier
+        node.payManagementFees();
+    }
+
+    function test_payManagementFees_revert_DuringRebalance() public {
+        // Start a rebalance
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(rebalancer);
+        node.startRebalance();
+
+        // Try to pay fees during rebalance
+        vm.prank(owner);
+        vm.expectRevert(); // Will revert due to onlyWhenNotRebalancing modifier
+        node.payManagementFees();
+    }
+
+    function test_payManagementFees_NoFeesIfZeroAssets() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // 1% annual fee
+        registry.setProtocolManagementFee(0.2e18); // 20% of management fee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+        // Ensure no assets in node
+        assertEq(node.totalAssets(), 0);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(owner);
+        uint256 feesPaid = node.payManagementFees();
+
+        assertEq(feesPaid, 0);
+    }
+
+    function test_payManagementFees_PartialYear() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // 1% annual fee
+        registry.setProtocolManagementFee(0.2e18); // 20% of management fee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+
+        // Warp 6 months into the future
+        vm.warp(block.timestamp + 182.5 days);
+
+        vm.prank(owner);
+        uint256 feesPaid = node.payManagementFees();
+
+        // Should be approximately 0.5 ether (half of 1% of 100 ether)
+        assertApproxEqAbs(feesPaid, 0.5 ether, 0.01 ether);
+        assertApproxEqAbs(asset.balanceOf(ownerFeesRecipient), 0.4 ether, 0.01 ether); // 80% of fees
+        assertApproxEqAbs(asset.balanceOf(protocolFeesRecipient), 0.1 ether, 0.01 ether); // 20% of fees
+    }
+
+    function test_payManagementFees_MultiplePeriods() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // 1% annual fee
+        registry.setProtocolManagementFee(0.2e18); // 20% of management fee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+
+        // First period - 6 months
+        vm.warp(block.timestamp + 182.5 days);
+        vm.prank(owner);
+        uint256 firstFeesPaid = node.payManagementFees();
+
+        // Second period - 3 months
+        vm.warp(block.timestamp + 91.25 days);
+        vm.prank(owner);
+        uint256 secondFeesPaid = node.payManagementFees();
+
+        // First period should be ~0.5 ether, second should be ~0.25 ether
+        assertApproxEqAbs(firstFeesPaid, 0.5 ether, 0.01 ether);
+        assertApproxEqAbs(secondFeesPaid, 0.25 ether, 0.01 ether);
+    }
+
+    function test_payManagementFees_UpdatesTotalAssets() public {
+        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
+        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
+
+        vm.startPrank(owner);
+        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
+        node.setAnnualManagementFee(0.01e18); // 1% annual fee
+        registry.setProtocolManagementFee(0.2e18); // 20% of management fee
+        registry.setProtocolFeeAddress(protocolFeesRecipient);
+        vm.stopPrank();
+
+        _seedNode(100 ether);
+        uint256 initialTotalAssets = node.totalAssets();
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        uint256 feesPaid = node.payManagementFees();
+
+        assertEq(node.totalAssets(), initialTotalAssets - feesPaid);
+    }
+
+    function test_payManagementFees_revert_NoFeeAddressSet() public {
+        _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        node.payManagementFees();
+    }
+
+    function test_subtractProtocolExecutionFee() public {
+        // Seed the node with initial assets
+        _seedNode(100 ether);
+        uint256 initialTotalAssets = node.totalAssets();
+        uint256 executionFee = 0.1 ether;
+
+        // Mock the protocol fee address
+        address protocolFeeAddress = makeAddr("protocolFeeAddress");
+        vm.prank(owner);
+        registry.setProtocolFeeAddress(protocolFeeAddress);
+
+        // Call subtractProtocolExecutionFee as router
+        vm.prank(address(router4626));
+        node.subtractProtocolExecutionFee(executionFee);
+
+        // Verify fee was transferred and total assets was updated
+        assertEq(asset.balanceOf(protocolFeeAddress), executionFee);
+        assertEq(node.totalAssets(), initialTotalAssets - executionFee);
+    }
+
+    function test_subtractProtocolExecutionFee_revert_NotRouter() public {
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.subtractProtocolExecutionFee(0.1 ether);
+    }
+
+    function test_updateTotalAssets() public {
+        _seedNode(100 ether);
+
+        // Mock quoter response
+        uint256 expectedTotalAssets = 120 ether;
+        vm.mockCall(
+            address(quoter),
+            abi.encodeWithSelector(IQuoter.getTotalAssets.selector, address(node)),
+            abi.encode(expectedTotalAssets)
+        );
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        assertEq(node.totalAssets(), expectedTotalAssets);
+    }
+
+    function test_updateTotalAssets_revert_NotRebalancer() public {
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.updateTotalAssets();
+    }
+
+    function test_fulfillRedeemFromReserve() public {
+        deal(address(asset), address(user), 100 ether);
+        _userDeposits(user, 100 ether);
+
+        vm.prank(user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        assertEq(node.balanceOf(user), 50 ether);
+        assertEq(node.totalAssets(), 50 ether);
+        assertEq(node.totalSupply(), node.convertToShares(50 ether));
+
+        assertEq(asset.balanceOf(address(escrow)), 50 ether);
+        assertEq(node.claimableRedeemRequest(0, user), 50 ether);
+    }
+
+    function test_fulfillRedeemFromReserve_revert_NoPendingRedeemRequest() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.NoPendingRedeemRequest.selector);
+        node.fulfillRedeemFromReserve(user);
+    }
+
+    function test_fulfillRedeemFromReserve_revert_ExceedsAvailableReserve() public {
+        deal(address(asset), address(user), 100 ether);
+        _userDeposits(user, 100 ether);
+
+        vm.prank(rebalancer);
+        uint256 investedAssets = router4626.invest(address(node), address(vault));
+        uint256 remainingReserve = node.totalAssets() - investedAssets;
+
+        assertGt(50 ether, remainingReserve);
+
+        vm.prank(user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.ExceedsAvailableReserve.selector);
+        node.fulfillRedeemFromReserve(user);
+    }
+
+    function test_fulfillRedeemFromReserve_revert_onlyRebalancer() public {
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.fulfillRedeemFromReserve(user);
+    }
+
+    function test_fulfillRedeemFromReserve_revert_onlyWhenRebalancing() public {
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
+        node.fulfillRedeemFromReserve(user);
+    }
+
+    function test_fulfilRedeemBatch_fromReserve() public {
+        _seedNode(1_000_000 ether);
+
+        address[] memory components = node.getComponents();
+        address[] memory users = new address[](2);
+        users[0] = address(user);
+        users[1] = address(user2);
+
+        vm.prank(owner);
+        node.setLiquidationQueue(components);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user2);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        vm.startPrank(user);
+        node.approve(address(node), node.balanceOf(user));
+        node.requestRedeem(node.balanceOf(user), user, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        node.approve(address(node), node.balanceOf(user2));
+        node.requestRedeem(node.balanceOf(user2), user2, user2);
+        vm.stopPrank();
+
+        console2.log(node.pendingRedeemRequest(0, user));
+        console2.log(node.pendingRedeemRequest(0, user2));
+
+        vm.startPrank(rebalancer);
+        node.fulfillRedeemBatch(users);
+
+        assertEq(node.balanceOf(user), 0);
+        assertEq(node.balanceOf(user2), 0);
+
+        assertEq(node.totalAssets(), 1_000_000 ether);
+        assertEq(node.totalSupply(), node.convertToShares(1_000_000 ether));
+
+        assertEq(asset.balanceOf(address(escrow)), 200 ether);
+        assertEq(node.claimableRedeemRequest(0, user), 100 ether);
+        assertEq(node.claimableRedeemRequest(0, user2), 100 ether);
+    }
+
+    function test_fulfilRedeemBatch_fromReserve_revert_onlyRebalancer() public {
+        address[] memory users = new address[](2);
+        users[0] = address(user);
+        users[1] = address(user2);
+
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.fulfillRedeemBatch(users);
+    }
+
+    function test_fulfilRedeemBatch_fromReserve_revert_onlyWhenRebalancing() public {
+        address[] memory users = new address[](2);
+        users[0] = address(user);
+        users[1] = address(user2);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
+        node.fulfillRedeemBatch(users);
+    }
+
+    function test_finalizeRedemption() public {
+        _seedNode(100 ether);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 sharesToRedeem = node.convertToShares(50 ether);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+
+        uint256 totalAssetsBefore = node.totalAssets();
+        uint256 cacheTotalAssetsBefore = Node(address(node)).cacheTotalAssets();
+        uint256 sharesAtEscowBefore = node.balanceOf(address(escrow));
+
+        (uint256 pendingBefore, uint256 claimableBefore, uint256 claimableAssetsBefore, uint256 sharesAdjustedBefore) =
+            node.getRequestState(user);
+
+        vm.prank(address(router4626));
+        node.finalizeRedemption(user, 50 ether);
+
+        (uint256 pendingAfter, uint256 claimableAfter, uint256 claimableAssetsAfter, uint256 sharesAdjustedAfter) =
+            node.getRequestState(user);
+
+        // assert vault state and variables are correctly updated
+        assertEq(node.sharesExiting(), 0);
+        assertEq(node.totalAssets(), totalAssetsBefore - 50 ether);
+        assertEq(Node(address(node)).cacheTotalAssets(), cacheTotalAssetsBefore - 50 ether);
+        assertEq(node.balanceOf(address(escrow)), sharesAtEscowBefore - sharesToRedeem);
+
+        // assert request state is correctly updated
+        assertEq(pendingAfter, pendingBefore - sharesToRedeem);
+        assertEq(claimableAfter, claimableBefore + sharesToRedeem);
+        assertEq(claimableAssetsAfter, claimableAssetsBefore + 50 ether);
+        assertEq(sharesAdjustedAfter, sharesAdjustedBefore - sharesToRedeem);
+    }
+
+    // ERC-7540 FUNCTIONS
+
+    function test_requestRedeem() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 shares = node.balanceOf(address(user)) / 10;
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        assertEq(node.pendingRedeemRequest(0, user), shares);
+    }
+
+    function test_requestRedeem_revert_InsufficientBalance() public {
+        vm.startPrank(user);
+        vm.expectRevert(ErrorsLib.InsufficientBalance.selector);
+        node.requestRedeem(1 ether, user, user);
+        vm.stopPrank();
+    }
+
+    function test_requestRedeem_revert_ZeroAmount() public {
+        vm.startPrank(user);
+        vm.expectRevert(ErrorsLib.ZeroAmount.selector);
+        node.requestRedeem(0, user, user);
+        vm.stopPrank();
+    }
+
+    function test_requestRedeem_updates_requestState() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 shares = node.balanceOf(address(user)) / 10;
+
+        uint256 pending;
+        uint256 claimable;
+        uint256 claimableAssets;
+        uint256 sharesAdjusted;
+
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+
+        assertEq(pending, 0);
+        assertEq(claimable, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, 0);
+
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+
+        assertEq(pending, shares);
+        assertEq(claimable, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, shares); // no swing factor applied
+    }
+
+    function test_pendingRedeemRequest() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 shares = node.balanceOf(address(user)) / 10;
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        assertEq(node.pendingRedeemRequest(0, user), shares);
+    }
+
+    function test_pendingRedeemRequest_isZero() public view {
+        assertEq(node.pendingRedeemRequest(0, user), 0);
+    }
+
+    function test_claimableRedeemRequest() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 shares = node.balanceOf(address(user)) / 10;
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        assertEq(node.claimableRedeemRequest(0, user), shares);
+    }
+
+    function test_claimableRedeemRequest_isZero() public view {
+        assertEq(node.claimableRedeemRequest(0, user), 0);
+    }
+
+    function test_setOperator() public {
+        vm.prank(user);
+        node.setOperator(address(rebalancer), true);
+        assertTrue(node.isOperator(user, address(rebalancer)));
+    }
+
+    function test_setOperator_RevertIf_Self() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.CannotSetSelfAsOperator.selector);
+        node.setOperator(user, true);
+    }
+
+    function test_setOperator_EmitEvent() public {
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit IERC7540Operator.OperatorSet(user, address(randomUser), true);
+        node.setOperator(address(randomUser), true);
+    }
+
+    function test_supportsInterface() public view {
+        assertTrue(node.supportsInterface(type(IERC7540Redeem).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC7540Operator).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC7575).interfaceId));
+        assertTrue(node.supportsInterface(type(IERC165).interfaceId));
+    }
+
+    function test_supportsInterface_ReturnsFalseForUnsupportedInterface() public view {
+        bytes4 unsupportedInterfaceId = 0xffffffff; // An example of an unsupported interface ID
+        assertFalse(node.supportsInterface(unsupportedInterfaceId));
+    }
+
+    // ERC-4626 FUNCTIONS
+
+    function test_deposit(uint256 assets) public {
+        vm.assume(assets < maxDeposit);
+        uint256 shares = node.convertToShares(assets);
+
+        deal(address(asset), address(user), assets);
+        vm.startPrank(user);
+        asset.approve(address(node), assets);
+        node.deposit(assets, user);
+        vm.stopPrank();
+
+        _verifySuccessfulEntry(user, assets, shares);
+    }
+
+    function test_mint(uint256 assets) public {
+        vm.assume(assets < maxDeposit);
+
+        uint256 shares = node.convertToShares(assets);
+        uint256 expectedShares = node.previewDeposit(assets);
+        assertEq(shares, expectedShares);
+
+        deal(address(asset), address(user), assets);
+        vm.startPrank(user);
+        asset.approve(address(node), assets);
+        node.mint(shares, user);
+        vm.stopPrank();
+
+        _verifySuccessfulEntry(user, assets, shares);
+    }
+
+    function test_withdraw() public {}
+
+    function test_redeem() public {}
+
+    function test_totalAssets() public {}
+
+    function test_convertToShares() public {
+        assertEq(node.totalAssets(), 0);
+        assertEq(node.totalSupply(), 0);
+        assertEq(node.convertToShares(1e18), 1e18);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        assertEq(node.convertToShares(1 ether), 1 ether);
+
+        deal(address(asset), address(node), 200 ether);
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+        assertEq(node.convertToShares(2 ether), 1 ether);
+    }
+
+    function test_convertToAssets() public {
+        assertEq(node.totalAssets(), 0);
+        assertEq(node.totalSupply(), 0);
+        assertEq(node.convertToAssets(1e18), 1e18);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        assertEq(node.convertToAssets(1 ether), 1 ether);
+
+        deal(address(asset), address(node), 200 ether);
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+        assertEq(node.convertToAssets(1 ether), 2 ether - 1); // minus 1 to account for rounding
+    }
+
+    function test_maxDeposit() public {
+        assertEq(node.maxDeposit(user), maxDeposit);
+
+        vm.warp(block.timestamp + 25 hours);
+        assertEq(node.maxDeposit(user), 0);
+    }
+
+    function test_maxMint() public {
+        assertEq(node.maxMint(user), maxDeposit);
+
+        vm.warp(block.timestamp + 25 hours);
+        assertEq(node.maxMint(user), 0);
+    }
+
+    function test_previewDeposit() public {}
+
+    function test_previewMint() public {}
+
+    function test_previewWithdraw() public {}
+
+    function test_previewRedeem() public {}
+
+    // VIEW FUNCTIONS
+
+    function test_getRequestState() public {}
+
+    function test_getLiquidationsQueue() public {}
+
+    function test_targetReserveRatio() public {}
+
+    function test_getComponents() public {}
+
+    function test_getComponentRatio() public {}
+
+    function test_isComponent() public {}
+
+    function test_getMaxDelta() public {}
+
+    function test_isCacheValid() public view {
+        assertEq(block.timestamp, node.lastRebalance());
+        assertEq(node.isCacheValid(), true);
+    }
+
+    function test_isCacheValid_isFalse() public {
+        uint256 lastRebalance = node.lastRebalance();
+        vm.warp(block.timestamp + lastRebalance + 1);
+        assertFalse(node.isCacheValid());
+    }
+
+    // INTERNAL FUNCTIONS
+    function test_fulfillRedeemFromReserve_internal() public {}
+
+    function test_finalizeRedemption_internal() public {}
+
+    function test_validateController() public {}
+
+    function test_setReserveAllocation() public {}
+
+    function test_setRouters() public {}
+
+    function test_setInitialComponents() public {}
+
+    function test_setComponentAllocation() public {}
+
+    function test_validateComponentRatios() public {}
+
+    function test_validateComponentRatios_revert_invalidComponentRatios() public {
+        ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
+        invalidAllocation[0] = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
+
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+
+        new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            owner,
+            routers,
+            _toArray(testComponent),
+            invalidAllocation,
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+
+        invalidAllocation[0] = ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether});
+
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+        new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            owner,
+            routers,
+            _toArray(testComponent),
+            invalidAllocation,
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+        );
+    }
+
+    function test_calculateSharesAfterSwingPricing() public {}
+
+    function test_onDepositClaimable() public {}
+
+    function test_onRedeemClaimable() public {}
 
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
