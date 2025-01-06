@@ -1123,6 +1123,20 @@ contract NodeTest is BaseTest {
         node.updateTotalAssets();
     }
 
+    function test_fulfillRedeemFromReserve_internal() public {}
+
+    function test_fulfillRedeemBatch() public {}
+
+    function test_finalizeRedemption_internal() public {}
+
+    function test_finalizeRedemption_decrements_cacheTotalAssest() public {
+        // todo: write a unit test just for this operation
+    }
+
+    // ERC-7540 FUNCTIONS
+
+    function test_requestRedeem() public {}
+
     function test_pendingRedeemRequest() public {
         vm.startPrank(user);
         asset.approve(address(node), 100 ether);
@@ -1158,7 +1172,6 @@ contract NodeTest is BaseTest {
         assertEq(node.claimableRedeemRequest(0, user), 0);
     }
 
-    // Set Operator tests
     function test_setOperator() public {
         vm.prank(user);
         node.setOperator(address(rebalancer), true);
@@ -1178,7 +1191,6 @@ contract NodeTest is BaseTest {
         node.setOperator(address(randomUser), true);
     }
 
-    // Supports Interface tests
     function test_supportsInterface() public view {
         assertTrue(node.supportsInterface(type(IERC7540Redeem).interfaceId));
         assertTrue(node.supportsInterface(type(IERC7540Operator).interfaceId));
@@ -1190,6 +1202,43 @@ contract NodeTest is BaseTest {
         bytes4 unsupportedInterfaceId = 0xffffffff; // An example of an unsupported interface ID
         assertFalse(node.supportsInterface(unsupportedInterfaceId));
     }
+
+    // ERC-4626 FUNCTIONS
+
+    function test_deposit(uint256 assets) public {
+        vm.assume(assets < maxDeposit);
+        uint256 shares = node.convertToShares(assets);
+
+        deal(address(asset), address(user), assets);
+        vm.startPrank(user);
+        asset.approve(address(node), assets);
+        node.deposit(assets, user);
+        vm.stopPrank();
+
+        _verifySuccessfulEntry(user, assets, shares);
+    }
+
+    function test_mint(uint256 assets) public {
+        vm.assume(assets < maxDeposit);
+
+        uint256 shares = node.convertToShares(assets);
+        uint256 expectedShares = node.previewDeposit(assets);
+        assertEq(shares, expectedShares);
+
+        deal(address(asset), address(user), assets);
+        vm.startPrank(user);
+        asset.approve(address(node), assets);
+        node.mint(shares, user);
+        vm.stopPrank();
+
+        _verifySuccessfulEntry(user, assets, shares);
+    }
+
+    function test_withdraw() public {}
+
+    function test_redeem() public {}
+
+    function test_totalAssets() public {}
 
     function test_convertToShares() public {
         assertEq(node.totalAssets(), 0);
@@ -1235,19 +1284,6 @@ contract NodeTest is BaseTest {
         assertEq(node.maxDeposit(user), 0);
     }
 
-    function test_deposit(uint256 assets) public {
-        vm.assume(assets < maxDeposit);
-        uint256 shares = node.convertToShares(assets);
-
-        deal(address(asset), address(user), assets);
-        vm.startPrank(user);
-        asset.approve(address(node), assets);
-        node.deposit(assets, user);
-        vm.stopPrank();
-
-        _verifySuccessfulEntry(user, assets, shares);
-    }
-
     function test_maxMint() public {
         assertEq(node.maxMint(user), maxDeposit);
 
@@ -1255,25 +1291,32 @@ contract NodeTest is BaseTest {
         assertEq(node.maxMint(user), 0);
     }
 
-    function test_mint(uint256 assets) public {
-        vm.assume(assets < maxDeposit);
+    function test_previewDeposit() public {}
 
-        uint256 shares = node.convertToShares(assets);
-        uint256 expectedShares = node.previewDeposit(assets);
-        assertEq(shares, expectedShares);
+    function test_previewMint() public {}
 
-        deal(address(asset), address(user), assets);
-        vm.startPrank(user);
-        asset.approve(address(node), assets);
-        node.mint(shares, user);
-        vm.stopPrank();
+    function test_previewWithdraw() public {}
 
-        _verifySuccessfulEntry(user, assets, shares);
-    }
+    function test_previewRedeem() public {}
+
+    // VIEW FUNCTIONS
+
+    function test_getRequestState() public {}
+
+    function test_getLiquidationsQueue() public {}
+
+    function test_targetReserveRatio() public {}
+
+    function test_getComponents() public {}
+
+    function test_getComponentRatio() public {}
+
+    function test_isComponent() public {}
+
+    function test_getMaxDelta() public {}
 
     function test_isCacheValid() public view {
         assertEq(block.timestamp, node.lastRebalance());
-
         assertEq(node.isCacheValid(), true);
     }
 
@@ -1283,9 +1326,22 @@ contract NodeTest is BaseTest {
         assertFalse(node.isCacheValid());
     }
 
-    function test_finalizeRedemption_decrements_cacheTotalAssest() public {
-        // todo: write a unit test just for this operation
-    }
+    // INTERNAL FUNCTIONS
+    function test_fulfillRedeemFromReserve() public {}
+
+    function test_finalizeRedemption() public {}
+
+    function test_validateController() public {}
+
+    function test_setReserveAllocation() public {}
+
+    function test_setRouters() public {}
+
+    function test_setInitialComponents() public {}
+
+    function test_setComponentAllocation() public {}
+
+    function test_validateComponentRatios() public {}
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {
         ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
@@ -1324,7 +1380,11 @@ contract NodeTest is BaseTest {
         );
     }
 
-    /* FEE TESTS */
+    function test_calculateSharesAfterSwingPricing() public {}
+
+    function test_onDepositClaimable() public {}
+
+    function test_onRedeemClaimable() public {}
 
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
