@@ -260,7 +260,7 @@ contract RebalanceFuzzTests is BaseTest {
         _setInitialComponentRatios(targetReserveRatio, randUint);
         _tryRebalance();
         _mock7540_processPendingDeposits();
-        _mock7540_mintClaimableShares();
+        _mintClaimableShares();
 
         vm.prank(rebalancer);
         node.updateTotalAssets();
@@ -358,7 +358,7 @@ contract RebalanceFuzzTests is BaseTest {
         }
     }
 
-    function _mock7540_mintClaimableShares() internal {
+    function _mintClaimableShares() internal {
         vm.startPrank(rebalancer);
         for (uint256 i = 0; i < components.length; i++) {
             try router7540.mintClaimableShares(address(node), address(components[i])) {} catch {}
