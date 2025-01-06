@@ -558,6 +558,63 @@ contract NodeFuzzTest is BaseTest {
         assertApproxEqRel(node.totalAssets(), userDeposit + interestEarned, 1e12);
     }
 
+    function test_fuzz_node_cache_totalAssets_7540_earns_interest() public {
+        uint256 userDeposit = 100e18;
+        uint256 interestEarned = 10e18;
+        deal(address(asset), address(user), userDeposit);
+
+        _userDeposits(user, userDeposit);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0}));
+        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0}));
+        node.removeComponent(address(vault));
+        node.addComponent(address(liquidityPool), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0}));
+        quoter.setErc7540(address(liquidityPool), true);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        uint256 expectedVaultAssets = MathLib.mulDiv(userDeposit, 0.8 ether, 1 ether);
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        uint256 vaultAssets = router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        assertEq(asset.balanceOf(address(liquidityPool)), expectedVaultAssets);
+        assertEq(expectedVaultAssets, vaultAssets);
+        assertEq(liquidityPool.totalAssets(), 0); // pending deposit not counted in totalAssets of liquidityPool
+        assertEq(liquidityPool.pendingDepositRequest(0, address(node)), vaultAssets);
+
+        assertEq(node.totalAssets(), userDeposit);
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        // does nothing as shares not been issued
+        assertEq(node.totalAssets(), userDeposit);
+        assertEq(liquidityPool.balanceOf(address(node)), 0);
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.startPrank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+        node.updateTotalAssets();
+        vm.stopPrank();
+
+        // the nodes share
+        assertEq(node.totalAssets(), userDeposit);
+
+        // deal assets to the vault to simulate interest earned
+        deal(address(asset), address(liquidityPool), vaultAssets + interestEarned);
+        assertEq(asset.balanceOf(address(liquidityPool)), vaultAssets + interestEarned);
+
+        assertApproxEqRel(node.totalAssets(), userDeposit + interestEarned, 1e12);
+    }
+
     function test_fuzz_node_component_loses_values() public {}
 
     function test_fuzz_node_total_assets_cache_is_updated() public {}
