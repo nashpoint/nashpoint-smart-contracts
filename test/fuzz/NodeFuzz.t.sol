@@ -591,7 +591,44 @@ contract NodeFuzzTest is BaseTest {
         assertApproxEqRel(node.totalAssets(), userDeposit + interestEarned, 1e12);
     }
 
-    function test_fuzz_node_cache_totalAssets_7540_earns_interest_multiple_times() public {}
+    function test_fuzz_node_cache_totalAssets_7540_earns_interest_multiple_times() public {
+        uint256 userDeposit = 100e18;
+        uint256 maxInterest = 10e18;
+        uint256 runs = 10;
+
+        deal(address(asset), address(user), userDeposit);
+        _userDeposits(user, userDeposit);
+
+        vm.warp(block.timestamp + 1 days);
+
+        _setAllocationToAsyncVault(address(liquidityPool), 0.8 ether);
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        uint256 vaultAssets = router7540.investInAsyncVault(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.startPrank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+        node.updateTotalAssets();
+        vm.stopPrank();
+
+        uint256 interestEarned = 0;
+        for (uint256 i = 0; i < runs; i++) {
+            uint256 interestPayment = maxInterest;
+            deal(address(asset), address(liquidityPool), vaultAssets + interestPayment);
+            vaultAssets = asset.balanceOf(address(liquidityPool));
+            interestEarned += interestPayment;
+        }
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        assertApproxEqRel(node.totalAssets(), userDeposit + interestEarned, 1e12);
+    }
 
     function test_fuzz_node_component_loses_values() public {}
 
