@@ -5,7 +5,7 @@ import {BaseTest} from "../BaseTest.sol";
 import {stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 
 import {Node} from "src/Node.sol";
-import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
+import {INode, ComponentAllocation, Request} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
@@ -808,7 +808,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute_revert_NotRouter() public {
-        vm.expectRevert(ErrorsLib.NotRouter.selector);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
         testNode.execute(testAsset, 0, "");
     }
 
@@ -1097,7 +1097,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_subtractProtocolExecutionFee_revert_NotRouter() public {
-        vm.expectRevert(ErrorsLib.NotRouter.selector);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
         node.subtractProtocolExecutionFee(0.1 ether);
     }
 
@@ -1123,19 +1123,230 @@ contract NodeTest is BaseTest {
         node.updateTotalAssets();
     }
 
-    function test_fulfillRedeemFromReserve_internal() public {}
+    function test_fulfillRedeemFromReserve() public {
+        deal(address(asset), address(user), 100 ether);
+        _userDeposits(user, 100 ether);
 
-    function test_fulfillRedeemBatch() public {}
+        vm.prank(user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
 
-    function test_finalizeRedemption_internal() public {}
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
 
-    function test_finalizeRedemption_decrements_cacheTotalAssest() public {
-        // todo: write a unit test just for this operation
+        assertEq(node.balanceOf(user), 50 ether);
+        assertEq(node.totalAssets(), 50 ether);
+        assertEq(node.totalSupply(), node.convertToShares(50 ether));
+
+        assertEq(asset.balanceOf(address(escrow)), 50 ether);
+        assertEq(node.claimableRedeemRequest(0, user), 50 ether);
+    }
+
+    function test_fulfillRedeemFromReserve_revert_NoPendingRedeemRequest() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.NoPendingRedeemRequest.selector);
+        node.fulfillRedeemFromReserve(user);
+    }
+
+    function test_fulfillRedeemFromReserve_revert_ExceedsAvailableReserve() public {
+        deal(address(asset), address(user), 100 ether);
+        _userDeposits(user, 100 ether);
+
+        vm.prank(rebalancer);
+        uint256 investedAssets = router4626.invest(address(node), address(vault));
+        uint256 remainingReserve = node.totalAssets() - investedAssets;
+
+        assertGt(50 ether, remainingReserve);
+
+        vm.prank(user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.ExceedsAvailableReserve.selector);
+        node.fulfillRedeemFromReserve(user);
+    }
+
+    function test_fulfillRedeemFromReserve_revert_onlyRebalancer() public {
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.fulfillRedeemFromReserve(user);
+    }
+
+    function test_fulfillRedeemFromReserve_revert_onlyWhenRebalancing() public {
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
+        node.fulfillRedeemFromReserve(user);
+    }
+
+    function test_fulfilRedeemBatch_fromReserve() public {
+        _seedNode(1_000_000 ether);
+
+        address[] memory components = node.getComponents();
+        address[] memory users = new address[](2);
+        users[0] = address(user);
+        users[1] = address(user2);
+
+        vm.prank(owner);
+        node.setLiquidationQueue(components);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user2);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vault));
+
+        vm.startPrank(user);
+        node.approve(address(node), node.balanceOf(user));
+        node.requestRedeem(node.balanceOf(user), user, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        node.approve(address(node), node.balanceOf(user2));
+        node.requestRedeem(node.balanceOf(user2), user2, user2);
+        vm.stopPrank();
+
+        console2.log(node.pendingRedeemRequest(0, user));
+        console2.log(node.pendingRedeemRequest(0, user2));
+
+        vm.startPrank(rebalancer);
+        node.fulfillRedeemBatch(users);
+
+        assertEq(node.balanceOf(user), 0);
+        assertEq(node.balanceOf(user2), 0);
+
+        assertEq(node.totalAssets(), 1_000_000 ether);
+        assertEq(node.totalSupply(), node.convertToShares(1_000_000 ether));
+
+        assertEq(asset.balanceOf(address(escrow)), 200 ether);
+        assertEq(node.claimableRedeemRequest(0, user), 100 ether);
+        assertEq(node.claimableRedeemRequest(0, user2), 100 ether);
+    }
+
+    function test_fulfilRedeemBatch_fromReserve_revert_onlyRebalancer() public {
+        address[] memory users = new address[](2);
+        users[0] = address(user);
+        users[1] = address(user2);
+
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.fulfillRedeemBatch(users);
+    }
+
+    function test_fulfilRedeemBatch_fromReserve_revert_onlyWhenRebalancing() public {
+        address[] memory users = new address[](2);
+        users[0] = address(user);
+        users[1] = address(user2);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(rebalancer);
+        vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
+        node.fulfillRedeemBatch(users);
+    }
+
+    function test_finalizeRedemption() public {
+        _seedNode(100 ether);
+
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 sharesToRedeem = node.convertToShares(50 ether);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+
+        uint256 totalAssetsBefore = node.totalAssets();
+        uint256 cacheTotalAssetsBefore = Node(address(node)).cacheTotalAssets();
+        uint256 sharesAtEscowBefore = node.balanceOf(address(escrow));
+
+        (uint256 pendingBefore, uint256 claimableBefore, uint256 claimableAssetsBefore, uint256 sharesAdjustedBefore) =
+            node.getRequestState(user);
+
+        vm.prank(address(router4626));
+        node.finalizeRedemption(user, 50 ether);
+
+        (uint256 pendingAfter, uint256 claimableAfter, uint256 claimableAssetsAfter, uint256 sharesAdjustedAfter) =
+            node.getRequestState(user);
+
+        // assert vault state and variables are correctly updated
+        assertEq(node.sharesExiting(), 0);
+        assertEq(node.totalAssets(), totalAssetsBefore - 50 ether);
+        assertEq(Node(address(node)).cacheTotalAssets(), cacheTotalAssetsBefore - 50 ether);
+        assertEq(node.balanceOf(address(escrow)), sharesAtEscowBefore - sharesToRedeem);
+
+        // assert request state is correctly updated
+        assertEq(pendingAfter, pendingBefore - sharesToRedeem);
+        assertEq(claimableAfter, claimableBefore + sharesToRedeem);
+        assertEq(claimableAssetsAfter, claimableAssetsBefore + 50 ether);
+        assertEq(sharesAdjustedAfter, sharesAdjustedBefore - sharesToRedeem);
     }
 
     // ERC-7540 FUNCTIONS
 
-    function test_requestRedeem() public {}
+    function test_requestRedeem() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 shares = node.balanceOf(address(user)) / 10;
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        assertEq(node.pendingRedeemRequest(0, user), shares);
+    }
+
+    function test_requestRedeem_revert_InsufficientBalance() public {
+        vm.startPrank(user);
+        vm.expectRevert(ErrorsLib.InsufficientBalance.selector);
+        node.requestRedeem(1 ether, user, user);
+        vm.stopPrank();
+    }
+
+    function test_requestRedeem_revert_ZeroAmount() public {
+        vm.startPrank(user);
+        vm.expectRevert(ErrorsLib.ZeroAmount.selector);
+        node.requestRedeem(0, user, user);
+        vm.stopPrank();
+    }
+
+    function test_requestRedeem_updates_requestState() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        uint256 shares = node.balanceOf(address(user)) / 10;
+
+        uint256 pending;
+        uint256 claimable;
+        uint256 claimableAssets;
+        uint256 sharesAdjusted;
+
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+
+        assertEq(pending, 0);
+        assertEq(claimable, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, 0);
+
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+
+        assertEq(pending, shares);
+        assertEq(claimable, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, shares); // no swing factor applied
+    }
 
     function test_pendingRedeemRequest() public {
         vm.startPrank(user);
@@ -1327,9 +1538,9 @@ contract NodeTest is BaseTest {
     }
 
     // INTERNAL FUNCTIONS
-    function test_fulfillRedeemFromReserve() public {}
+    function test_fulfillRedeemFromReserve_internal() public {}
 
-    function test_finalizeRedemption() public {}
+    function test_finalizeRedemption_internal() public {}
 
     function test_validateController() public {}
 

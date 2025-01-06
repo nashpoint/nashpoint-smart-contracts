@@ -93,7 +93,7 @@ contract Node is INode, ERC20, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyRouter() {
-        if (!isRouter[msg.sender]) revert ErrorsLib.NotRouter();
+        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
