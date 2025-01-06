@@ -591,10 +591,16 @@ contract NodeFuzzTest is BaseTest {
         assertApproxEqRel(node.totalAssets(), userDeposit + interestEarned, 1e12);
     }
 
-    function test_fuzz_node_cache_totalAssets_7540_earns_interest_multiple_times() public {
-        uint256 userDeposit = 100e18;
-        uint256 maxInterest = 10e18;
-        uint256 runs = 10;
+    function test_fuzz_node_cache_totalAssets_7540_earns_interest_multiple_times(
+        uint256 randUint,
+        uint256 userDeposit,
+        uint256 maxInterest,
+        uint256 runs
+    ) public {
+        randUint = bound(randUint, 0, 1e18);
+        userDeposit = bound(userDeposit, 1e18, 1e36);
+        maxInterest = bound(maxInterest, 0, 1e36);
+        runs = bound(runs, 1, 100);
 
         deal(address(asset), address(user), userDeposit);
         _userDeposits(user, userDeposit);
@@ -618,7 +624,9 @@ contract NodeFuzzTest is BaseTest {
 
         uint256 interestEarned = 0;
         for (uint256 i = 0; i < runs; i++) {
-            uint256 interestPayment = maxInterest;
+            uint256 interestPayment = uint256(keccak256(abi.encodePacked(randUint++, i)));
+            assertTrue(interestPayment > 0);
+            interestPayment = bound(interestPayment, 0, maxInterest);
             deal(address(asset), address(liquidityPool), vaultAssets + interestPayment);
             vaultAssets = asset.balanceOf(address(liquidityPool));
             interestEarned += interestPayment;
