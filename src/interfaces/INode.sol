@@ -159,6 +159,8 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     function getLiquidationsQueue() external view returns (address[] memory);
 
+    function getSharesExiting() external view returns (uint256);
+
     function finalizeRedemption(address controller, uint256 assetsToReturn) external;
 
     function startRebalance() external;

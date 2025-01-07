@@ -1516,6 +1516,8 @@ contract NodeTest is BaseTest {
 
     function test_getLiquidationsQueue() public {}
 
+    function test_getSharesExiting() public {}
+
     function test_targetReserveRatio() public {}
 
     function test_getComponents() public {}

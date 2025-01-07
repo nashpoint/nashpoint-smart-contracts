@@ -45,6 +45,7 @@ contract BaseRouter is IBaseRouter {
         _;
     }
 
+    /// @dev Reverts if the caller is not a valid node
     modifier onlyNode() {
         if (!registry.isNode(msg.sender)) revert ErrorsLib.InvalidNode();
         _;
