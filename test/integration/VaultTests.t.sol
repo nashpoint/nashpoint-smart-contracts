@@ -381,6 +381,11 @@ contract VaultTests is BaseTest {
         assertEq(node.totalSupply(), 100 ether);
         assertEq(asset.balanceOf(address(vault)), 100 ether);
 
+        (uint256 sharesPending,,, uint256 sharesAdjusted) = node.getRequestState(user);
+
+        assertEq(sharesPending, 50 ether);
+        assertEq(sharesAdjusted, 50 ether);
+
         vm.startPrank(rebalancer);
         router4626.fulfillRedeemRequest(address(node), user, address(vault));
         vm.stopPrank();
@@ -392,5 +397,30 @@ contract VaultTests is BaseTest {
         assertEq(asset.balanceOf(address(node)), 0);
         assertEq(node.totalAssets(), 50 ether);
         assertEq(node.totalSupply(), 50 ether);
+
+        (sharesPending,,, sharesAdjusted) = node.getRequestState(user);
+        assertEq(sharesPending, 0);
+        assertEq(sharesAdjusted, 0);
+
+        vm.startPrank(user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        router4626.fulfillRedeemRequest(address(node), user, address(vault));
+        vm.stopPrank();
+
+        assertEq(node.balanceOf(address(escrow)), 0);
+        assertEq(node.claimableRedeemRequest(0, user), 100 ether);
+        assertEq(asset.balanceOf(address(vault)), 0);
+        assertEq(asset.balanceOf(address(escrow)), 100 ether);
+        assertEq(asset.balanceOf(address(node)), 0);
+        assertEq(node.totalAssets(), 0);
+        assertEq(node.totalSupply(), 0);
+
+        (sharesPending,,, sharesAdjusted) = node.getRequestState(user);
+        assertEq(sharesPending, 0);
+        assertEq(sharesAdjusted, 0);
     }
 }
