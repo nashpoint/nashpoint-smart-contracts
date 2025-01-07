@@ -7,6 +7,7 @@ import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
+import {MathLib} from "src/libraries/MathLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -17,6 +18,7 @@ import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 
 contract RebalanceFuzzTests is BaseTest {
+    uint256 public constant WAD = 1e18;
     uint256 public maxDeposit;
 
     ERC4626Mock public vaultA;
@@ -331,10 +333,20 @@ contract RebalanceFuzzTests is BaseTest {
 
     // todo: change component ratios
 
-    function test_fuzz_rebalance_liquidation_queue(uint256 randUint) public {
-        uint256 depositAmount = 1000 ether;
-        uint256 targetReserveRatio = 0.1 ether;
-        uint256 maxRedemption = 1 ether;
+    function test_fuzz_rebalance_liquidation_queue(
+        uint256 depositAmount,
+        uint256 maxRedemption,
+        uint256 targetReserveRatio,
+        uint256 randUint
+    ) public {
+        depositAmount = bound(depositAmount, 1 ether, 1e36);
+        uint256 minRedemption = depositAmount / 1e4;
+        if (minRedemption == 0) {
+            minRedemption = 1;
+        }
+        maxRedemption = bound(maxRedemption, minRedemption, depositAmount);
+        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
+        randUint = bound(randUint, 0, 1 ether);
 
         _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
         deal(address(asset), address(user), depositAmount);
@@ -345,16 +357,17 @@ contract RebalanceFuzzTests is BaseTest {
         node.setLiquidationQueue(synchronousComponents);
         vm.stopPrank();
 
+        // redeem the entire reserve
         uint256 sharesToRedeem = node.convertToShares(asset.balanceOf(address(node)));
         _userRedeemsAndClaims(user, sharesToRedeem);
-
         assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
 
-        uint256 runsStarted = 0;
         while (node.balanceOf(user) > 0) {
-            console2.log("runsStarted", runsStarted);
-            runsStarted++;
-            sharesToRedeem = maxRedemption;
+            sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, maxRedemption)));
+            sharesToRedeem = bound(sharesToRedeem, 1 ether, maxRedemption);
+            if (sharesToRedeem > node.balanceOf(user)) {
+                sharesToRedeem = node.balanceOf(user);
+            }
             vm.startPrank(user);
             node.approve(address(node), sharesToRedeem);
             node.requestRedeem(sharesToRedeem, user, user);
@@ -375,25 +388,24 @@ contract RebalanceFuzzTests is BaseTest {
             } else {
                 break;
             }
-
-            console2.log("node.balanceOf(user)", node.balanceOf(user));
-            console2.log("node.totalAssets()", node.totalAssets());
-            console2.log("node.totalSupply()", node.totalSupply());
-            console2.log("asset.balanceOf(address(node))", asset.balanceOf(address(node)));
-
-            console2.log("asset.balanceOf(address(vaultA))", asset.balanceOf(address(vaultA)));
-            console2.log("asset.balanceOf(address(vaultB))", asset.balanceOf(address(vaultB)));
-            console2.log("asset.balanceOf(address(vaultC))", asset.balanceOf(address(vaultC)));
-
-            // assertEq(node.balanceOf(user), 0, "User should have no balance");
-            // assertEq(node.totalAssets(), 0, "Node should have no assets");
-            // assertEq(node.totalSupply(), 0, "Node should have no supply");
-            // assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
-
-            // assertEq(asset.balanceOf(address(vaultA)), 0, "VaultA should have no assets");
-            // assertEq(asset.balanceOf(address(vaultB)), 0, "VaultB should have no assets");
-            // assertEq(asset.balanceOf(address(vaultC)), 0, "VaultC should have no assets");
         }
+        console2.log("node.balanceOf(user)", node.balanceOf(user));
+        console2.log("node.totalAssets()", node.totalAssets());
+        console2.log("node.totalSupply()", node.totalSupply());
+        console2.log("asset.balanceOf(address(node))", asset.balanceOf(address(node)));
+
+        console2.log("asset.balanceOf(address(vaultA))", asset.balanceOf(address(vaultA)));
+        console2.log("asset.balanceOf(address(vaultB))", asset.balanceOf(address(vaultB)));
+        console2.log("asset.balanceOf(address(vaultC))", asset.balanceOf(address(vaultC)));
+
+        assertApproxEqAbs(node.balanceOf(user), 0, 10, "User should have no balance");
+        assertApproxEqAbs(node.totalAssets(), 0, 10, "Node should have no assets");
+        assertApproxEqAbs(node.totalSupply(), 0, 10, "Node should have no supply");
+        assertApproxEqAbs(asset.balanceOf(address(node)), 0, 10, "Node should have no assets");
+
+        assertApproxEqAbs(asset.balanceOf(address(vaultA)), 0, 10, "VaultA should have no assets");
+        assertApproxEqAbs(asset.balanceOf(address(vaultB)), 0, 10, "VaultB should have no assets");
+        assertApproxEqAbs(asset.balanceOf(address(vaultC)), 0, 10, "VaultC should have no assets");
     }
 
     function _setInitialComponentRatios(uint256 reserveRatio, uint256 randUint, address[] memory newComponents)
