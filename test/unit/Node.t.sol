@@ -1493,7 +1493,6 @@ contract NodeTest is BaseTest {
         uint256 shares = node.deposit(depositAmount, user);
         uint256 sharesToRedeem = node.convertToShares(amountToWithdraw);
         node.approve(address(node), sharesToRedeem);
-        /// @todo why is node approving to itself?
         node.requestRedeem(sharesToRedeem, user, user);
         vm.stopPrank();
 
@@ -1787,7 +1786,6 @@ contract NodeTest is BaseTest {
     }
 
     function test_getMaxDelta(uint256 amount) public {
-        /// @todo is it safe to allow maxDelta == 0 ?
         vm.warp(block.timestamp + 2 days);
 
         ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: amount});
@@ -1822,11 +1820,37 @@ contract NodeTest is BaseTest {
 
     function test_setRouters() public {}
 
-    function test_setInitialComponents() public {}
+    // the test below should cover that
+    //function test_setInitialComponents() public {}
 
-    function test_setComponentAllocation() public {}
+    function test_componentAllocationAndValidation(uint64 comp1, uint64 comp2) public {
+        vm.assume(uint256(comp1) + uint256(comp2) < 1e18);
+        uint256 reserve = 1e18 - uint256(comp1) - uint256(comp2);
+        ComponentAllocation[] memory allocations = new ComponentAllocation[](2);
+        allocations[0] = ComponentAllocation({targetWeight: comp1, maxDelta: 0.01 ether});
+        allocations[1] = ComponentAllocation({targetWeight: comp2, maxDelta: 0.01 ether});
+        ComponentAllocation memory reserveAllocation =
+            ComponentAllocation({targetWeight: reserve, maxDelta: 0.01 ether});
 
-    function test_validateComponentRatios() public {}
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        address[] memory components = new address[](2);
+        components[0] = testComponent;
+        components[1] = testComponent2;
+
+        Node node = new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            owner,
+            routers,
+            components,
+            allocations,
+            reserveAllocation
+        );
+    }
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {
         ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
@@ -1867,9 +1891,23 @@ contract NodeTest is BaseTest {
 
     function test_calculateSharesAfterSwingPricing() public {}
 
-    function test_onDepositClaimable() public {}
+    function test_onDepositClaimable(uint256 depositAmount) public {
+        address controller = makeAddr("controller");
+        uint256 sharesToMint = node.convertToShares(depositAmount);
 
-    function test_onRedeemClaimable() public {}
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.DepositClaimable(controller, 0, depositAmount, sharesToMint);
+        node.onDepositClaimable(controller, depositAmount, sharesToMint);
+    }
+
+    function test_onRedeemClaimable(uint256 redeemAmount) public {
+        address controller = makeAddr("controller");
+        uint256 sharesToRedeem = node.convertToShares(redeemAmount);
+
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.RedeemClaimable(controller, 0, redeemAmount, sharesToRedeem);
+        node.onRedeemClaimable(controller, redeemAmount, sharesToRedeem);
+    }
 
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
