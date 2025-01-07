@@ -10,11 +10,11 @@ remappings = [
 ]
 
 evm_version = "cancun"
+gas_limit = 100000000000
+solc = '0.8.26'
 
 # via-ir = true
-
 # gas_reports = ["Node"]
 
-solc = '0.8.26'
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
