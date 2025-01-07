@@ -344,12 +344,15 @@ contract VaultTests is BaseTest {
     }
 
     function test_fulfilRedeemRequest_4626Router() public {
-        _seedNode(1000 ether);
-
         address[] memory components = node.getComponents();
 
-        vm.prank(owner);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
         node.setLiquidationQueue(components);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0, maxDelta: 0}));
+        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0}));
+        vm.stopPrank();
 
         vm.startPrank(user);
         asset.approve(address(node), 100 ether);
@@ -357,26 +360,37 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
+        node.startRebalance();
         router4626.invest(address(node), address(vault));
         vm.stopPrank();
 
-        uint256 vaultShares = vault.balanceOf(address(node));
-        console2.log("vaultShares: ", vaultShares);
-
-        uint256 vaultAssets = vault.convertToAssets(vaultShares);
-        console2.log("vaultAssets: ", vaultAssets);
-
-        uint256 sharesToRedeem = node.balanceOf(user);
-
-        assertLt(node.convertToAssets(sharesToRedeem), vaultAssets);
+        assertEq(asset.balanceOf(address(node)), 0);
+        assertEq(asset.balanceOf(address(vault)), 100 ether);
+        assertEq(node.balanceOf(user), 100 ether);
+        assertEq(node.totalAssets(), 100 ether);
+        assertEq(node.balanceOf(address(escrow)), 0);
 
         vm.startPrank(user);
-        node.approve(address(node), sharesToRedeem);
-        node.requestRedeem(sharesToRedeem, user, user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
         vm.stopPrank();
+
+        assertEq(node.balanceOf(address(escrow)), 50 ether);
+        assertEq(node.balanceOf(user), 50 ether);
+        assertEq(node.totalAssets(), 100 ether);
+        assertEq(node.totalSupply(), 100 ether);
+        assertEq(asset.balanceOf(address(vault)), 100 ether);
 
         vm.startPrank(rebalancer);
         router4626.fulfillRedeemRequest(address(node), user, address(vault));
         vm.stopPrank();
+
+        assertEq(node.balanceOf(address(escrow)), 0);
+        assertEq(node.claimableRedeemRequest(0, user), 50 ether);
+        assertEq(asset.balanceOf(address(vault)), 50 ether);
+        assertEq(asset.balanceOf(address(escrow)), 50 ether);
+        assertEq(asset.balanceOf(address(node)), 0);
+        assertEq(node.totalAssets(), 50 ether);
+        assertEq(node.totalSupply(), 50 ether);
     }
 }

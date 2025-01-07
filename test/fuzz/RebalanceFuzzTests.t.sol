@@ -26,7 +26,7 @@ contract RebalanceFuzzTests is BaseTest {
     ERC7540Mock public asyncVaultB;
     ERC7540Mock public asyncVaultC;
     address[] public components;
-
+    address[] public synchronousComponents;
     address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
     address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
@@ -76,6 +76,8 @@ contract RebalanceFuzzTests is BaseTest {
             address(asyncVaultB),
             address(asyncVaultC)
         ];
+
+        synchronousComponents = [address(vaultA), address(vaultB), address(vaultC)];
     }
 
     function test_fuzz_rebalance_basic(uint256 targetReserveRatio, uint256 seedAmount, uint256 randUint) public {
@@ -83,7 +85,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
-        _setInitialComponentRatios(targetReserveRatio, randUint);
+        _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
         vm.prank(rebalancer);
@@ -102,7 +104,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
-        _setInitialComponentRatios(targetReserveRatio, randUint);
+        _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
         deal(address(asset), address(user), type(uint256).max);
@@ -135,7 +137,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
-        _setInitialComponentRatios(targetReserveRatio, randUint);
+        _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
         deal(address(asset), address(user), type(uint256).max);
@@ -154,7 +156,6 @@ contract RebalanceFuzzTests is BaseTest {
         assertEq(node.totalAssets(), seedAmount + depositAssets, "Total assets should equal initial deposit + deposit");
     }
 
-    // todo: with withdrawals
     function test_fuzz_rebalance_with_withdrawals(
         uint256 targetReserveRatio,
         uint256 seedAmount,
@@ -167,7 +168,7 @@ contract RebalanceFuzzTests is BaseTest {
 
         deal(address(asset), address(user), type(uint256).max);
         _userDeposits(user, seedAmount);
-        _setInitialComponentRatios(targetReserveRatio, randUint);
+        _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
         uint256 withdrawAssets = 0;
@@ -210,7 +211,7 @@ contract RebalanceFuzzTests is BaseTest {
         _setFees(annualManagementFee, protocolManagementFee, protocolExecutionFee);
 
         _seedNode(seedAmount);
-        _setInitialComponentRatios(targetReserveRatio, randUint);
+        _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
         deal(address(asset), address(user), type(uint256).max);
@@ -257,7 +258,7 @@ contract RebalanceFuzzTests is BaseTest {
         maxInterest = bound(maxInterest, 0.1 ether, 1e36);
 
         _seedNode(seedAmount);
-        _setInitialComponentRatios(targetReserveRatio, randUint);
+        _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
         _mock7540_processPendingDeposits();
         _mintClaimableShares();
@@ -284,11 +285,55 @@ contract RebalanceFuzzTests is BaseTest {
 
     // todo: change component ratios
 
-    // todo: liquidations queue
+    function test_fuzz_rebalance_liquidation_queue(uint256 randUint) public {
+        uint256 depositAmount = 1000 ether;
+        uint256 targetReserveRatio = 0.1 ether;
+        uint256 maxRedemption = 1 ether;
 
-    function _setInitialComponentRatios(uint256 reserveRatio, uint256 randUint) internal {
+        _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
+        deal(address(asset), address(user), depositAmount);
+        _userDeposits(user, depositAmount);
+        _tryRebalance();
+
+        vm.startPrank(owner);
+        node.setLiquidationQueue(synchronousComponents);
+        vm.stopPrank();
+
+        uint256 sharesToRedeem = node.convertToShares(asset.balanceOf(address(node)));
+        _userRedeemsAndClaims(user, sharesToRedeem);
+
+        assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
+
+        uint256 runsStarted = 0;
+        while (node.balanceOf(user) > 0) {
+            console2.log("runsStarted", runsStarted);
+            runsStarted++;
+            sharesToRedeem = maxRedemption;
+            vm.startPrank(user);
+            node.approve(address(node), sharesToRedeem);
+            node.requestRedeem(sharesToRedeem, user, user);
+            vm.stopPrank();
+
+            vm.startPrank(rebalancer);
+            for (uint256 i = 0; i < synchronousComponents.length; i++) {
+                try router4626.fulfillRedeemRequest(address(node), user, synchronousComponents[i]) {} catch {}
+            }
+            vm.stopPrank();
+
+            uint256 claimableAssets = node.maxWithdraw(user);
+            console2.log("claimableAssets", claimableAssets);
+
+            vm.prank(user);
+            node.withdraw(claimableAssets, user, user);
+        }
+    }
+
+    function _setInitialComponentRatios(uint256 reserveRatio, uint256 randUint, address[] memory newComponents)
+        internal
+    {
         vm.startPrank(owner);
         node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether}));
+        components = newComponents;
 
         uint256 availableAllocation = 1 ether - reserveRatio;
         for (uint256 i = 0; i < components.length; i++) {
