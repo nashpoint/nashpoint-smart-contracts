@@ -524,6 +524,10 @@ contract Node is INode, ERC20, Ownable {
         return liquidationsQueue;
     }
 
+    function getSharesExiting() external view returns (uint256) {
+        return sharesExiting;
+    }
+
     function targetReserveRatio() public view returns (uint256) {
         return reserveAllocation.targetWeight;
     }
