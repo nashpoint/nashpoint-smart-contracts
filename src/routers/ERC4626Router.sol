@@ -7,6 +7,7 @@ import {IERC4626Router} from "../interfaces/IERC4626Router.sol";
 
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
@@ -16,6 +17,8 @@ import {MathLib} from "../libraries/MathLib.sol";
  * @dev Router for ERC4626 vaults
  */
 contract ERC4626Router is BaseRouter, IERC4626Router {
+    using SafeERC20 for IERC20;
+
     uint256 internal totalAssets;
     uint256 internal currentCash;
     uint256 internal idealCashReserve;
@@ -108,6 +111,8 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         }
 
         _liquidate(node, component, componentShares);
+        _transferToEscrow(node, assetsToReturn);
+
         INode(node).finalizeRedemption(controller, assetsToReturn);
     }
 
@@ -181,6 +186,12 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         }
 
         return assetsReturned;
+    }
+
+    function _transferToEscrow(address node, uint256 assetsToReturn) internal {
+        bytes memory transferCallData =
+            abi.encodeWithSelector(IERC20.transfer.selector, INode(node).escrow(), assetsToReturn);
+        INode(node).execute(INode(node).asset(), 0, transferCallData);
     }
 
     function _enforceLiquidationQueue(address component, uint256 assetsToReturn, address[] memory liquidationsQueue)
