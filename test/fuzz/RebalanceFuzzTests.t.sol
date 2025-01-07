@@ -92,12 +92,14 @@ contract RebalanceFuzzTests is BaseTest {
         node.updateTotalAssets();
     }
 
-    function test_fuzz_fulfilRedeemRequest_basic(uint256 maxRedemption, uint256 randUint) public {
+    function test_fuzz_fulfilRedeemRequest_basic(uint256 seedAmount, uint256 maxRedemption, uint256 randUint) public {
         components = [address(vaultA)];
-        maxRedemption = bound(maxRedemption, 1 ether, 100 ether);
+        seedAmount = bound(seedAmount, 1 ether, 1000 ether);
+        maxRedemption = bound(maxRedemption, 1e18, 10 ether);
         randUint = bound(randUint, 0, 1 ether);
 
         vm.warp(block.timestamp + 1 days);
+        deal(address(asset), address(user), seedAmount);
 
         vm.startPrank(owner);
         node.updateReserveAllocation(ComponentAllocation({targetWeight: 0, maxDelta: 0}));
@@ -108,7 +110,7 @@ contract RebalanceFuzzTests is BaseTest {
         vm.prank(rebalancer);
         node.startRebalance(); // todo: this is wrong. calling updateTotalAssets should enable deposits
 
-        _userDeposits(user, 1000 ether);
+        _userDeposits(user, seedAmount);
         _tryRebalance();
 
         vm.prank(rebalancer);
