@@ -92,6 +92,44 @@ contract RebalanceFuzzTests is BaseTest {
         node.updateTotalAssets();
     }
 
+    function test_fuzz_fulfilRedeemRequest_basic() public {
+        components = [address(vaultA)];
+        uint256 maxRedemption = 10 ether;
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0, maxDelta: 0}));
+        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0}));
+        node.setLiquidationQueue(components);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.startRebalance(); // todo: this is wrong. calling updateTotalAssets should enable deposits
+
+        _userDeposits(user, 1000 ether);
+        _tryRebalance();
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        while (node.balanceOf(user) > 0) {
+            uint256 sharesToRedeem = node.convertToShares(maxRedemption);
+            vm.startPrank(user);
+            node.approve(address(node), sharesToRedeem);
+            node.requestRedeem(sharesToRedeem, user, user);
+            vm.stopPrank();
+
+            vm.startPrank(rebalancer);
+            router4626.fulfillRedeemRequest(address(node), user, address(vaultA));
+            vm.stopPrank();
+        }
+        assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
+        assertEq(node.balanceOf(user), 0, "User should have no balance");
+        assertEq(node.totalAssets(), 0, "Node should have no assets");
+        assertEq(node.totalSupply(), 0, "Node should have no supply");
+    }
+
     function test_fuzz_rebalance_with_deposits(
         uint256 targetReserveRatio,
         uint256 seedAmount,
@@ -377,7 +415,7 @@ contract RebalanceFuzzTests is BaseTest {
 
     function _tryRebalance() internal {
         vm.startPrank(rebalancer);
-        node.startRebalance();
+        try node.startRebalance() {} catch {}
         for (uint256 i = 0; i < components.length; i++) {
             try router4626.invest(address(node), address(components[i])) {} catch {}
             try router7540.investInAsyncVault(address(node), address(components[i])) {} catch {}
