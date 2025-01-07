@@ -98,29 +98,31 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        returns (uint256 assetsReturned)
     {
         (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
-        uint256 assetsToReturn = INode(node).convertToAssets(sharesAdjusted);
+        uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
 
         address[] memory liquidationsQueue = INode(node).getLiquidationsQueue();
-        _enforceLiquidationQueue(component, assetsToReturn, liquidationsQueue);
+        _enforceLiquidationQueue(component, assetsRequested, liquidationsQueue);
 
-        uint256 componentShares = IERC4626(component).convertToShares(assetsToReturn);
+        uint256 componentShares = IERC4626(component).convertToShares(assetsRequested);
         if (componentShares > IERC20(component).balanceOf(address(node))) {
             componentShares = IERC20(component).balanceOf(address(node));
         }
 
         uint256 percentReturned = WAD;
-        uint256 assetsCanReturn = _liquidate(node, component, componentShares);
-        if (assetsCanReturn < assetsToReturn) {
-            percentReturned = MathLib.mulDiv(assetsCanReturn, WAD, assetsToReturn);
+        assetsReturned = _liquidate(node, component, componentShares);
+        if (assetsReturned < assetsRequested) {
+            percentReturned = MathLib.mulDiv(assetsReturned, WAD, assetsRequested);
             sharesPending = MathLib.mulDiv(sharesPending, percentReturned, WAD);
             sharesAdjusted = MathLib.mulDiv(sharesAdjusted, percentReturned, WAD);
         }
 
-        _transferToEscrow(node, assetsCanReturn);
+        _transferToEscrow(node, assetsReturned);
 
-        INode(node).finalizeRedemption(controller, assetsCanReturn, sharesPending, sharesAdjusted);
+        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
+        return assetsReturned;
     }
 
     /* INTERNAL FUNCTIONS */
