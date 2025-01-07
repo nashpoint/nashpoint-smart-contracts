@@ -92,9 +92,10 @@ contract RebalanceFuzzTests is BaseTest {
         node.updateTotalAssets();
     }
 
-    function test_fuzz_fulfilRedeemRequest_basic() public {
+    function test_fuzz_fulfilRedeemRequest_basic(uint256 maxRedemption, uint256 randUint) public {
         components = [address(vaultA)];
-        uint256 maxRedemption = 10 ether;
+        maxRedemption = bound(maxRedemption, 1 ether, 100 ether);
+        randUint = bound(randUint, 0, 1 ether);
 
         vm.warp(block.timestamp + 1 days);
 
@@ -114,7 +115,12 @@ contract RebalanceFuzzTests is BaseTest {
         node.updateTotalAssets();
 
         while (node.balanceOf(user) > 0) {
-            uint256 sharesToRedeem = node.convertToShares(maxRedemption);
+            uint256 sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, maxRedemption)));
+            sharesToRedeem = bound(sharesToRedeem, 1 ether, maxRedemption);
+            if (sharesToRedeem > node.balanceOf(user)) {
+                sharesToRedeem = node.balanceOf(user);
+            }
+
             vm.startPrank(user);
             node.approve(address(node), sharesToRedeem);
             node.requestRedeem(sharesToRedeem, user, user);

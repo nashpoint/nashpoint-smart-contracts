@@ -1272,7 +1272,7 @@ contract NodeTest is BaseTest {
             node.getRequestState(user);
 
         vm.prank(address(router4626));
-        node.finalizeRedemption(user, 50 ether);
+        node.finalizeRedemption(user, 50 ether, sharesToRedeem, sharesToRedeem);
 
         (uint256 pendingAfter, uint256 claimableAfter, uint256 claimableAssetsAfter, uint256 sharesAdjustedAfter) =
             node.getRequestState(user);
