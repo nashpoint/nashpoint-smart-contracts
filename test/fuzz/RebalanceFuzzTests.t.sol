@@ -323,8 +323,30 @@ contract RebalanceFuzzTests is BaseTest {
             uint256 claimableAssets = node.maxWithdraw(user);
             console2.log("claimableAssets", claimableAssets);
 
-            vm.prank(user);
-            node.withdraw(claimableAssets, user, user);
+            if (claimableAssets > 0) {
+                vm.prank(user);
+                node.withdraw(claimableAssets, user, user);
+            } else {
+                break;
+            }
+
+            console2.log("node.balanceOf(user)", node.balanceOf(user));
+            console2.log("node.totalAssets()", node.totalAssets());
+            console2.log("node.totalSupply()", node.totalSupply());
+            console2.log("asset.balanceOf(address(node))", asset.balanceOf(address(node)));
+
+            console2.log("asset.balanceOf(address(vaultA))", asset.balanceOf(address(vaultA)));
+            console2.log("asset.balanceOf(address(vaultB))", asset.balanceOf(address(vaultB)));
+            console2.log("asset.balanceOf(address(vaultC))", asset.balanceOf(address(vaultC)));
+
+            // assertEq(node.balanceOf(user), 0, "User should have no balance");
+            // assertEq(node.totalAssets(), 0, "Node should have no assets");
+            // assertEq(node.totalSupply(), 0, "Node should have no supply");
+            // assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
+
+            // assertEq(asset.balanceOf(address(vaultA)), 0, "VaultA should have no assets");
+            // assertEq(asset.balanceOf(address(vaultB)), 0, "VaultB should have no assets");
+            // assertEq(asset.balanceOf(address(vaultC)), 0, "VaultC should have no assets");
         }
     }
 
