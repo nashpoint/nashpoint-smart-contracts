@@ -428,6 +428,51 @@ contract ERC4626RouterTest is BaseTest {
         router4626.liquidate(address(node), address(testComponent), shares);
     }
 
+    function test_fulfillRedeemRequest_fullAmount() public {
+        address[] memory components = node.getComponents();
+        _userDeposits(user, 100 ether);
+        deal(address(asset), address(user), 0);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.setLiquidationQueue(components);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0}));
+        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0}));
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router4626.fulfillRedeemRequest(address(node), user, address(vault));
+
+        assertEq(node.balanceOf(address(escrow)), 0);
+        assertEq(node.balanceOf(user), 50 ether);
+        assertEq(node.totalAssets(), 50 ether);
+        assertEq(asset.balanceOf(address(vault)), 0);
+        assertEq(asset.balanceOf(address(escrow)), 50 ether);
+        assertEq(asset.balanceOf(address(node)), 50 ether);
+
+        vm.prank(user);
+        node.withdraw(50 ether, user, user);
+
+        assertEq(node.pendingRedeemRequest(0, user), 0);
+        assertEq(node.claimableRedeemRequest(0, user), 0);
+        assertEq(node.balanceOf(user), 50 ether);
+        assertEq(asset.balanceOf(address(node)), 50 ether);
+        assertEq(asset.balanceOf(address(escrow)), 0);
+        assertEq(asset.balanceOf(address(user)), 50 ether);
+    }
+
+    function test_fulfillRedeemRequest_partialAmount() public {}
+
     function test_subtractExecutionFee_4626() public {
         address feeRecipient = makeAddr("feeRecipient");
 
