@@ -1668,15 +1668,112 @@ contract NodeTest is BaseTest {
 
     // VIEW FUNCTIONS
 
-    function test_getRequestState() public {}
+    function test_getRequestState(uint256 depositAmount, uint256 seedAmount, uint256 sharesToRedeem) public {
+        depositAmount = bound(depositAmount, 1, 1e36);
+        sharesToRedeem = bound(depositAmount, 1, depositAmount);
+        seedAmount = bound(seedAmount, 1, 1e36);
+        _seedNode(depositAmount);
 
-    function test_getLiquidationsQueue() public {}
+        vm.startPrank(user);
+        deal(address(asset), user, depositAmount);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        uint256 shares = node.balanceOf(user);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
 
-    function test_targetReserveRatio() public {}
+        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) =
+            node.getRequestState(user);
+        assertEq(pending, sharesToRedeem);
+        assertEq(claimable, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, sharesToRedeem);
 
-    function test_getComponents() public {}
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
 
-    function test_getComponentRatio() public {}
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        assertEq(pending, 0);
+        assertEq(claimable, sharesToRedeem);
+        assertEq(claimableAssets, node.convertToAssets(sharesToRedeem));
+        assertEq(sharesAdjusted, 0);
+    }
+
+    function test_getLiquidationsQueue() public {
+        vm.warp(block.timestamp + 1 days);
+
+        address component1 = makeAddr("component1");
+        address component2 = makeAddr("component2");
+        address component3 = makeAddr("component3");
+
+        vm.startPrank(owner);
+        node.addComponent(component3, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
+        node.addComponent(component2, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
+        node.addComponent(component1, ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether}));
+        vm.stopPrank();
+
+        // incorrect component order on purpose
+        address[] memory expectedQueue = new address[](3);
+        expectedQueue[0] = component1;
+        expectedQueue[1] = component3;
+        expectedQueue[2] = component2;
+
+        vm.prank(owner);
+        node.setLiquidationQueue(expectedQueue);
+
+        address[] memory liquidationQueue = node.getLiquidationsQueue();
+        assertEq(liquidationQueue.length, expectedQueue.length);
+        for (uint256 i = 0; i < expectedQueue.length; i++) {
+            assertEq(liquidationQueue[i], expectedQueue[i]);
+        }
+    }
+
+    function test_targetReserveRatio(uint256 targetWeight) public {
+        /// @todo I can pass any value as targetWeight, maybe cap it in the smart contract to 0-1e18?
+        targetWeight = bound(targetWeight, 0.01 ether, 0.99 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        uint256 initialReserveRatio = node.targetReserveRatio();
+
+        address component = makeAddr("component");
+        vm.prank(owner);
+        node.addComponent(component, ComponentAllocation({targetWeight: targetWeight, maxDelta: 0.01 ether}));
+
+        uint256 finalReserveRatio = node.targetReserveRatio();
+        assertEq(finalReserveRatio, initialReserveRatio + targetWeight);
+    }
+
+    function test_getComponents() public {
+        vm.warp(block.timestamp + 1 days);
+
+        address component1 = makeAddr("component1");
+        address component2 = makeAddr("component2");
+
+        vm.startPrank(owner);
+        node.addComponent(component1, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        node.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        vm.stopPrank();
+
+        address[] memory components = node.getComponents();
+        assertEq(components.length, 3); // there's an extra component defined in the base test
+        assertEq(components[1], component1);
+        assertEq(components[2], component2);
+    }
+
+    function test_getComponentRatio(uint256 weight) public {
+        vm.warp(block.timestamp + 1 days);
+
+        address component = makeAddr("component");
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: weight, maxDelta: 0.01 ether});
+
+        vm.prank(owner);
+        node.addComponent(component, allocation);
+
+        uint256 componentRatio = node.getComponentRatio(component);
+        assertEq(componentRatio, allocation.targetWeight);
+    }
 
     function test_isComponent() public {
         address randomAddress = makeAddr("random");
