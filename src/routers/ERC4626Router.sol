@@ -99,7 +99,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
     {
-        (,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
+        (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
         uint256 assetsToReturn = INode(node).convertToAssets(sharesAdjusted);
 
         address[] memory liquidationsQueue = INode(node).getLiquidationsQueue();
@@ -107,13 +107,20 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
 
         uint256 componentShares = IERC4626(component).convertToShares(assetsToReturn);
         if (componentShares > IERC20(component).balanceOf(address(node))) {
-            revert ErrorsLib.ExceedsAvailableShares(address(node), component, componentShares);
+            componentShares = IERC20(component).balanceOf(address(node));
         }
 
-        _liquidate(node, component, componentShares);
-        _transferToEscrow(node, assetsToReturn);
+        uint256 percentReturned = WAD;
+        uint256 assetsCanReturn = _liquidate(node, component, componentShares);
+        if (assetsCanReturn < assetsToReturn) {
+            percentReturned = MathLib.mulDiv(assetsCanReturn, WAD, assetsToReturn);
+            sharesPending = MathLib.mulDiv(sharesPending, percentReturned, WAD);
+            sharesAdjusted = MathLib.mulDiv(sharesAdjusted, percentReturned, WAD);
+        }
 
-        INode(node).finalizeRedemption(controller, assetsToReturn);
+        _transferToEscrow(node, assetsCanReturn);
+
+        INode(node).finalizeRedemption(controller, assetsCanReturn, sharesPending, sharesAdjusted);
     }
 
     /* INTERNAL FUNCTIONS */

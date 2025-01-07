@@ -337,8 +337,13 @@ contract Node is INode, ERC20, Ownable {
         }
     }
 
-    function finalizeRedemption(address controller, uint256 assetsToReturn) external onlyRouter {
-        _finalizeRedemption(controller, assetsToReturn);
+    function finalizeRedemption(
+        address controller,
+        uint256 assetsToReturn,
+        uint256 sharesPending,
+        uint256 sharesAdjusted
+    ) external onlyRouter {
+        _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -571,13 +576,16 @@ contract Node is INode, ERC20, Ownable {
         IERC20(asset).approve(address(this), assetsToReturn);
         IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
 
-        _finalizeRedemption(controller, assetsToReturn);
+        _finalizeRedemption(controller, assetsToReturn, request.pendingRedeemRequest, request.sharesAdjusted);
     }
 
-    function _finalizeRedemption(address controller, uint256 assetsToReturn) internal {
+    function _finalizeRedemption(
+        address controller,
+        uint256 assetsToReturn,
+        uint256 sharesPending,
+        uint256 sharesAdjusted
+    ) internal {
         Request storage request = requests[controller];
-        uint256 sharesPending = request.pendingRedeemRequest;
-        uint256 sharesAdjusted = request.sharesAdjusted;
 
         _burn(escrow, sharesPending);
 
