@@ -329,19 +329,19 @@ contract RebalanceFuzzTests is BaseTest {
     }
 
     function test_fuzz_rebalance_liquidation_queue(
-        uint256 depositAmount,
+        uint256 seedAmount,
         uint256 maxRedemption,
         uint256 targetReserveRatio,
         uint256 randUint
     ) public {
-        depositAmount = bound(depositAmount, 1 ether, 1000 ether); // todo: make work for larger amounts
-        maxRedemption = bound(maxRedemption, 1 ether, 10 ether);
+        seedAmount = bound(seedAmount, 1 ether, 1e36); // todo: check if range is appropriate
+        maxRedemption = bound(maxRedemption, seedAmount / 1e4, seedAmount);
         targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
         randUint = bound(randUint, 0, 1 ether);
 
         _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
-        deal(address(asset), address(user), depositAmount);
-        _userDeposits(user, depositAmount);
+        deal(address(asset), address(user), seedAmount);
+        _userDeposits(user, seedAmount);
         _tryRebalance();
 
         vm.startPrank(owner);
@@ -355,14 +355,11 @@ contract RebalanceFuzzTests is BaseTest {
 
         while (node.balanceOf(user) > 0) {
             sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, maxRedemption)));
-            sharesToRedeem = bound(sharesToRedeem, 1 ether, maxRedemption);
+            sharesToRedeem = bound(sharesToRedeem, 1, maxRedemption);
             if (sharesToRedeem > node.balanceOf(user)) {
                 sharesToRedeem = node.balanceOf(user);
             }
-            vm.startPrank(user);
-            node.approve(address(node), sharesToRedeem);
-            node.requestRedeem(sharesToRedeem, user, user);
-            vm.stopPrank();
+            _userRequestsRedeem(user, sharesToRedeem);
 
             vm.startPrank(rebalancer);
             for (uint256 i = 0; i < synchronousComponents.length; i++) {
@@ -378,7 +375,11 @@ contract RebalanceFuzzTests is BaseTest {
                 break;
             }
         }
-        _verifyNodeFullyRedeemed_absolute(10);
+        if (node.totalAssets() < 10) {
+            _verifyNodeFullyRedeemed_absolute(10);
+        } else {
+            _verifyNodeFullyRedeemed_relative(1e12);
+        }
     }
 
     // todo: test changing component ratios and rebalancing towards the new ratios
