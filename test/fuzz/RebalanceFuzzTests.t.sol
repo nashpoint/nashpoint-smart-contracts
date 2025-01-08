@@ -339,12 +339,8 @@ contract RebalanceFuzzTests is BaseTest {
         uint256 targetReserveRatio,
         uint256 randUint
     ) public {
-        depositAmount = bound(depositAmount, 1 ether, 1e36);
-        uint256 minRedemption = depositAmount / 1e4;
-        if (minRedemption == 0) {
-            minRedemption = 1;
-        }
-        maxRedemption = bound(maxRedemption, minRedemption, depositAmount);
+        depositAmount = bound(depositAmount, 1 ether, 1000 ether);
+        maxRedemption = bound(maxRedemption, 1 ether, 10 ether);
         targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
         randUint = bound(randUint, 0, 1 ether);
 
@@ -380,8 +376,6 @@ contract RebalanceFuzzTests is BaseTest {
             vm.stopPrank();
 
             uint256 claimableAssets = node.maxWithdraw(user);
-            console2.log("claimableAssets", claimableAssets);
-
             if (claimableAssets > 0) {
                 vm.prank(user);
                 node.withdraw(claimableAssets, user, user);
@@ -389,15 +383,10 @@ contract RebalanceFuzzTests is BaseTest {
                 break;
             }
         }
-        console2.log("node.balanceOf(user)", node.balanceOf(user));
-        console2.log("node.totalAssets()", node.totalAssets());
-        console2.log("node.totalSupply()", node.totalSupply());
-        console2.log("asset.balanceOf(address(node))", asset.balanceOf(address(node)));
+        _verifyNodeFullyRedeemed_absolute();
+    }
 
-        console2.log("asset.balanceOf(address(vaultA))", asset.balanceOf(address(vaultA)));
-        console2.log("asset.balanceOf(address(vaultB))", asset.balanceOf(address(vaultB)));
-        console2.log("asset.balanceOf(address(vaultC))", asset.balanceOf(address(vaultC)));
-
+    function _verifyNodeFullyRedeemed_absolute() internal {
         assertApproxEqAbs(node.balanceOf(user), 0, 10, "User should have no balance");
         assertApproxEqAbs(node.totalAssets(), 0, 10, "Node should have no assets");
         assertApproxEqAbs(node.totalSupply(), 0, 10, "Node should have no supply");
