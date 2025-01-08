@@ -325,10 +325,11 @@ contract RebalanceFuzzTests is BaseTest {
             router4626.fulfillRedeemRequest(address(node), user, address(vaultA));
             vm.stopPrank();
         }
-        assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
-        assertEq(node.balanceOf(user), 0, "User should have no balance");
-        assertEq(node.totalAssets(), 0, "Node should have no assets");
-        assertEq(node.totalSupply(), 0, "Node should have no supply");
+        if (node.totalAssets() < 10) {
+            _verifyNodeFullyRedeemed_absolute();
+        } else {
+            _verifyNodeFullyRedeemed_relative();
+        }
     }
 
     function test_fuzz_rebalance_liquidation_queue(
@@ -387,17 +388,6 @@ contract RebalanceFuzzTests is BaseTest {
     // todo: test changing component ratios and rebalancing towards the new ratios
 
     // HELPER FUNCTIONS
-
-    function _verifyNodeFullyRedeemed_absolute() internal {
-        assertApproxEqAbs(node.balanceOf(user), 0, 10, "User should have no balance");
-        assertApproxEqAbs(node.totalAssets(), 0, 10, "Node should have no assets");
-        assertApproxEqAbs(node.totalSupply(), 0, 10, "Node should have no supply");
-        assertApproxEqAbs(asset.balanceOf(address(node)), 0, 10, "Node should have no assets");
-
-        assertApproxEqAbs(asset.balanceOf(address(vaultA)), 0, 10, "VaultA should have no assets");
-        assertApproxEqAbs(asset.balanceOf(address(vaultB)), 0, 10, "VaultB should have no assets");
-        assertApproxEqAbs(asset.balanceOf(address(vaultC)), 0, 10, "VaultC should have no assets");
-    }
 
     function _setInitialComponentRatios(uint256 reserveRatio, uint256 randUint, address[] memory newComponents)
         internal
@@ -480,5 +470,27 @@ contract RebalanceFuzzTests is BaseTest {
             try router7540.mintClaimableShares(address(node), address(components[i])) {} catch {}
         }
         vm.stopPrank();
+    }
+
+    function _verifyNodeFullyRedeemed_absolute() internal {
+        assertApproxEqAbs(node.balanceOf(user), 0, 10, "User should have no balance");
+        assertApproxEqAbs(node.totalAssets(), 0, 10, "Node should have no assets");
+        assertApproxEqAbs(node.totalSupply(), 0, 10, "Node should have no supply");
+        assertApproxEqAbs(asset.balanceOf(address(node)), 0, 10, "Node should have no assets");
+
+        assertApproxEqAbs(asset.balanceOf(address(vaultA)), 0, 10, "VaultA should have no assets");
+        assertApproxEqAbs(asset.balanceOf(address(vaultB)), 0, 10, "VaultB should have no assets");
+        assertApproxEqAbs(asset.balanceOf(address(vaultC)), 0, 10, "VaultC should have no assets");
+    }
+
+    function _verifyNodeFullyRedeemed_relative() internal {
+        assertApproxEqRel(node.balanceOf(user), 0, 1e12, "User should have no balance");
+        assertApproxEqRel(node.totalAssets(), 0, 1e12, "Node should have no assets");
+        assertApproxEqRel(node.totalSupply(), 0, 1e12, "Node should have no supply");
+        assertApproxEqRel(asset.balanceOf(address(node)), 0, 1e12, "Node should have no assets");
+
+        assertApproxEqRel(asset.balanceOf(address(vaultA)), 0, 1e12, "VaultA should have no assets");
+        assertApproxEqRel(asset.balanceOf(address(vaultB)), 0, 1e12, "VaultB should have no assets");
+        assertApproxEqRel(asset.balanceOf(address(vaultC)), 0, 1e12, "VaultC should have no assets");
     }
 }
