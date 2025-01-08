@@ -300,7 +300,7 @@ contract RebalanceFuzzTests is BaseTest {
         vm.stopPrank();
 
         vm.prank(rebalancer);
-        node.startRebalance(); // todo: this is wrong. calling updateTotalAssets should enable deposits
+        node.startRebalance(); // note: this is done to update cache or deposits will fail
 
         _userDeposits(user, seedAmount);
         _tryRebalance();
@@ -315,10 +315,7 @@ contract RebalanceFuzzTests is BaseTest {
                 sharesToRedeem = node.balanceOf(user);
             }
 
-            vm.startPrank(user);
-            node.approve(address(node), sharesToRedeem);
-            node.requestRedeem(sharesToRedeem, user, user);
-            vm.stopPrank();
+            _userRequestsRedeem(user, sharesToRedeem);
 
             vm.startPrank(rebalancer);
             router4626.fulfillRedeemRequest(address(node), user, address(vaultA));
