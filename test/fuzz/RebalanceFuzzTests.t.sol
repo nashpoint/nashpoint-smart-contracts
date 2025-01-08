@@ -287,15 +287,14 @@ contract RebalanceFuzzTests is BaseTest {
 
     function test_fuzz_fulfilRedeemRequest_basic(uint256 seedAmount, uint256 maxRedemption, uint256 randUint) public {
         components = [address(vaultA)];
-        seedAmount = bound(seedAmount, 1 ether, 1000 ether); // todo: make work for larger amounts
-        maxRedemption = bound(maxRedemption, 1e18, 10 ether);
+        seedAmount = bound(seedAmount, 1 ether, 1e24); // todo: make work for larger amounts
+        maxRedemption = bound(maxRedemption, seedAmount / 1e4, seedAmount);
         randUint = bound(randUint, 0, 1 ether);
 
         vm.warp(block.timestamp + 1 days);
         deal(address(asset), address(user), seedAmount);
 
         vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0, maxDelta: 0}));
         node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0}));
         node.setLiquidationQueue(components);
         vm.stopPrank();
@@ -311,7 +310,7 @@ contract RebalanceFuzzTests is BaseTest {
 
         while (node.balanceOf(user) > 0) {
             uint256 sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, maxRedemption)));
-            sharesToRedeem = bound(sharesToRedeem, 1 ether, maxRedemption);
+            sharesToRedeem = bound(sharesToRedeem, 1, maxRedemption);
             if (sharesToRedeem > node.balanceOf(user)) {
                 sharesToRedeem = node.balanceOf(user);
             }
@@ -472,7 +471,7 @@ contract RebalanceFuzzTests is BaseTest {
         vm.stopPrank();
     }
 
-    function _verifyNodeFullyRedeemed_absolute() internal {
+    function _verifyNodeFullyRedeemed_absolute() internal view {
         assertApproxEqAbs(node.balanceOf(user), 0, 10, "User should have no balance");
         assertApproxEqAbs(node.totalAssets(), 0, 10, "Node should have no assets");
         assertApproxEqAbs(node.totalSupply(), 0, 10, "Node should have no supply");
@@ -483,7 +482,7 @@ contract RebalanceFuzzTests is BaseTest {
         assertApproxEqAbs(asset.balanceOf(address(vaultC)), 0, 10, "VaultC should have no assets");
     }
 
-    function _verifyNodeFullyRedeemed_relative() internal {
+    function _verifyNodeFullyRedeemed_relative() internal view {
         assertApproxEqRel(node.balanceOf(user), 0, 1e12, "User should have no balance");
         assertApproxEqRel(node.totalAssets(), 0, 1e12, "Node should have no assets");
         assertApproxEqRel(node.totalSupply(), 0, 1e12, "Node should have no supply");
