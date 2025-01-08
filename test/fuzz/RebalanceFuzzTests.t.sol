@@ -94,52 +94,6 @@ contract RebalanceFuzzTests is BaseTest {
         node.updateTotalAssets();
     }
 
-    function test_fuzz_fulfilRedeemRequest_basic(uint256 seedAmount, uint256 maxRedemption, uint256 randUint) public {
-        components = [address(vaultA)];
-        seedAmount = bound(seedAmount, 1 ether, 1000 ether);
-        maxRedemption = bound(maxRedemption, 1e18, 10 ether);
-        randUint = bound(randUint, 0, 1 ether);
-
-        vm.warp(block.timestamp + 1 days);
-        deal(address(asset), address(user), seedAmount);
-
-        vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0, maxDelta: 0}));
-        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0}));
-        node.setLiquidationQueue(components);
-        vm.stopPrank();
-
-        vm.prank(rebalancer);
-        node.startRebalance(); // todo: this is wrong. calling updateTotalAssets should enable deposits
-
-        _userDeposits(user, seedAmount);
-        _tryRebalance();
-
-        vm.prank(rebalancer);
-        node.updateTotalAssets();
-
-        while (node.balanceOf(user) > 0) {
-            uint256 sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, maxRedemption)));
-            sharesToRedeem = bound(sharesToRedeem, 1 ether, maxRedemption);
-            if (sharesToRedeem > node.balanceOf(user)) {
-                sharesToRedeem = node.balanceOf(user);
-            }
-
-            vm.startPrank(user);
-            node.approve(address(node), sharesToRedeem);
-            node.requestRedeem(sharesToRedeem, user, user);
-            vm.stopPrank();
-
-            vm.startPrank(rebalancer);
-            router4626.fulfillRedeemRequest(address(node), user, address(vaultA));
-            vm.stopPrank();
-        }
-        assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
-        assertEq(node.balanceOf(user), 0, "User should have no balance");
-        assertEq(node.totalAssets(), 0, "Node should have no assets");
-        assertEq(node.totalSupply(), 0, "Node should have no supply");
-    }
-
     function test_fuzz_rebalance_with_deposits(
         uint256 targetReserveRatio,
         uint256 seedAmount,
@@ -331,26 +285,58 @@ contract RebalanceFuzzTests is BaseTest {
         );
     }
 
-    // todo: change component ratios
+    function test_fuzz_fulfilRedeemRequest(uint256 seedAmount, uint256 randUint) public {
+        components = [address(vaultA)];
+        seedAmount = bound(seedAmount, 1 ether, 1e36);
+        randUint = bound(randUint, 0, 1 ether);
 
-    function test_fuzz_rebalance_liquidation_queue(
-        uint256 depositAmount,
-        uint256 maxRedemption,
-        uint256 targetReserveRatio,
-        uint256 randUint
-    ) public {
-        depositAmount = bound(depositAmount, 1 ether, 1e36);
-        uint256 minRedemption = depositAmount / 1e4;
-        if (minRedemption == 0) {
-            minRedemption = 1;
+        vm.warp(block.timestamp + 1 days);
+        deal(address(asset), address(user), seedAmount);
+
+        vm.startPrank(owner);
+        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0}));
+        node.setLiquidationQueue(components);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.startRebalance(); // note: this is done to update cache or deposits will fail
+
+        _userDeposits(user, seedAmount);
+        _tryRebalance();
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        while (node.balanceOf(user) > 0) {
+            uint256 sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, seedAmount)));
+            sharesToRedeem = bound(sharesToRedeem, 1, seedAmount);
+            if (sharesToRedeem > node.balanceOf(user)) {
+                sharesToRedeem = node.balanceOf(user);
+            }
+
+            _userRequestsRedeem(user, sharesToRedeem);
+
+            vm.startPrank(rebalancer);
+            router4626.fulfillRedeemRequest(address(node), user, address(vaultA));
+            vm.stopPrank();
         }
-        maxRedemption = bound(maxRedemption, minRedemption, depositAmount);
+        if (node.totalAssets() < 10) {
+            _verifyNodeFullyRedeemed_absolute(10);
+        } else {
+            _verifyNodeFullyRedeemed_relative(1e12);
+        }
+    }
+
+    function test_fuzz_rebalance_liquidation_queue(uint256 seedAmount, uint256 targetReserveRatio, uint256 randUint)
+        public
+    {
+        seedAmount = bound(seedAmount, 1 ether, 1e36); // todo: check if range is appropriate
         targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
         randUint = bound(randUint, 0, 1 ether);
 
         _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
-        deal(address(asset), address(user), depositAmount);
-        _userDeposits(user, depositAmount);
+        deal(address(asset), address(user), seedAmount);
+        _userDeposits(user, seedAmount);
         _tryRebalance();
 
         vm.startPrank(owner);
@@ -363,15 +349,12 @@ contract RebalanceFuzzTests is BaseTest {
         assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
 
         while (node.balanceOf(user) > 0) {
-            sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, maxRedemption)));
-            sharesToRedeem = bound(sharesToRedeem, 1 ether, maxRedemption);
+            sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, seedAmount)));
+            sharesToRedeem = bound(sharesToRedeem, 1, seedAmount);
             if (sharesToRedeem > node.balanceOf(user)) {
                 sharesToRedeem = node.balanceOf(user);
             }
-            vm.startPrank(user);
-            node.approve(address(node), sharesToRedeem);
-            node.requestRedeem(sharesToRedeem, user, user);
-            vm.stopPrank();
+            _userRequestsRedeem(user, sharesToRedeem);
 
             vm.startPrank(rebalancer);
             for (uint256 i = 0; i < synchronousComponents.length; i++) {
@@ -380,8 +363,6 @@ contract RebalanceFuzzTests is BaseTest {
             vm.stopPrank();
 
             uint256 claimableAssets = node.maxWithdraw(user);
-            console2.log("claimableAssets", claimableAssets);
-
             if (claimableAssets > 0) {
                 vm.prank(user);
                 node.withdraw(claimableAssets, user, user);
@@ -389,24 +370,16 @@ contract RebalanceFuzzTests is BaseTest {
                 break;
             }
         }
-        console2.log("node.balanceOf(user)", node.balanceOf(user));
-        console2.log("node.totalAssets()", node.totalAssets());
-        console2.log("node.totalSupply()", node.totalSupply());
-        console2.log("asset.balanceOf(address(node))", asset.balanceOf(address(node)));
-
-        console2.log("asset.balanceOf(address(vaultA))", asset.balanceOf(address(vaultA)));
-        console2.log("asset.balanceOf(address(vaultB))", asset.balanceOf(address(vaultB)));
-        console2.log("asset.balanceOf(address(vaultC))", asset.balanceOf(address(vaultC)));
-
-        assertApproxEqAbs(node.balanceOf(user), 0, 10, "User should have no balance");
-        assertApproxEqAbs(node.totalAssets(), 0, 10, "Node should have no assets");
-        assertApproxEqAbs(node.totalSupply(), 0, 10, "Node should have no supply");
-        assertApproxEqAbs(asset.balanceOf(address(node)), 0, 10, "Node should have no assets");
-
-        assertApproxEqAbs(asset.balanceOf(address(vaultA)), 0, 10, "VaultA should have no assets");
-        assertApproxEqAbs(asset.balanceOf(address(vaultB)), 0, 10, "VaultB should have no assets");
-        assertApproxEqAbs(asset.balanceOf(address(vaultC)), 0, 10, "VaultC should have no assets");
+        if (node.totalAssets() < 10) {
+            _verifyNodeFullyRedeemed_absolute(10);
+        } else {
+            _verifyNodeFullyRedeemed_relative(1e12);
+        }
     }
+
+    // todo: test changing component ratios and rebalancing towards the new ratios
+
+    // HELPER FUNCTIONS
 
     function _setInitialComponentRatios(uint256 reserveRatio, uint256 randUint, address[] memory newComponents)
         internal
@@ -489,5 +462,27 @@ contract RebalanceFuzzTests is BaseTest {
             try router7540.mintClaimableShares(address(node), address(components[i])) {} catch {}
         }
         vm.stopPrank();
+    }
+
+    function _verifyNodeFullyRedeemed_absolute(uint256 tolerance) internal view {
+        assertApproxEqAbs(node.balanceOf(user), 0, tolerance, "User should have no balance");
+        assertApproxEqAbs(node.totalAssets(), 0, tolerance, "Node should have no assets");
+        assertApproxEqAbs(node.totalSupply(), 0, tolerance, "Node should have no supply");
+        assertApproxEqAbs(asset.balanceOf(address(node)), 0, tolerance, "Node should have no assets");
+
+        assertApproxEqAbs(asset.balanceOf(address(vaultA)), 0, tolerance, "VaultA should have no assets");
+        assertApproxEqAbs(asset.balanceOf(address(vaultB)), 0, tolerance, "VaultB should have no assets");
+        assertApproxEqAbs(asset.balanceOf(address(vaultC)), 0, tolerance, "VaultC should have no assets");
+    }
+
+    function _verifyNodeFullyRedeemed_relative(uint256 tolerance) internal view {
+        assertApproxEqRel(node.balanceOf(user), 0, tolerance, "User should have no balance");
+        assertApproxEqRel(node.totalAssets(), 0, tolerance, "Node should have no assets");
+        assertApproxEqRel(node.totalSupply(), 0, tolerance, "Node should have no supply");
+        assertApproxEqRel(asset.balanceOf(address(node)), 0, tolerance, "Node should have no assets");
+
+        assertApproxEqRel(asset.balanceOf(address(vaultA)), 0, tolerance, "VaultA should have no assets");
+        assertApproxEqRel(asset.balanceOf(address(vaultB)), 0, tolerance, "VaultB should have no assets");
+        assertApproxEqRel(asset.balanceOf(address(vaultC)), 0, tolerance, "VaultC should have no assets");
     }
 }
