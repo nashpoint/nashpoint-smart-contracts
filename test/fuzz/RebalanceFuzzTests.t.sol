@@ -285,10 +285,9 @@ contract RebalanceFuzzTests is BaseTest {
         );
     }
 
-    function test_fuzz_fulfilRedeemRequest(uint256 seedAmount, uint256 maxRedemption, uint256 randUint) public {
+    function test_fuzz_fulfilRedeemRequest(uint256 seedAmount, uint256 randUint) public {
         components = [address(vaultA)];
-        seedAmount = bound(seedAmount, 1 ether, 1e36); // todo: check these values are appropriate
-        maxRedemption = bound(maxRedemption, seedAmount / 1e4, seedAmount);
+        seedAmount = bound(seedAmount, 1 ether, 1e36);
         randUint = bound(randUint, 0, 1 ether);
 
         vm.warp(block.timestamp + 1 days);
@@ -309,8 +308,8 @@ contract RebalanceFuzzTests is BaseTest {
         node.updateTotalAssets();
 
         while (node.balanceOf(user) > 0) {
-            uint256 sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, maxRedemption)));
-            sharesToRedeem = bound(sharesToRedeem, 1, maxRedemption);
+            uint256 sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, seedAmount)));
+            sharesToRedeem = bound(sharesToRedeem, 1, seedAmount);
             if (sharesToRedeem > node.balanceOf(user)) {
                 sharesToRedeem = node.balanceOf(user);
             }
@@ -328,14 +327,10 @@ contract RebalanceFuzzTests is BaseTest {
         }
     }
 
-    function test_fuzz_rebalance_liquidation_queue(
-        uint256 seedAmount,
-        uint256 maxRedemption,
-        uint256 targetReserveRatio,
-        uint256 randUint
-    ) public {
+    function test_fuzz_rebalance_liquidation_queue(uint256 seedAmount, uint256 targetReserveRatio, uint256 randUint)
+        public
+    {
         seedAmount = bound(seedAmount, 1 ether, 1e36); // todo: check if range is appropriate
-        maxRedemption = bound(maxRedemption, seedAmount / 1e4, seedAmount);
         targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
         randUint = bound(randUint, 0, 1 ether);
 
@@ -354,8 +349,8 @@ contract RebalanceFuzzTests is BaseTest {
         assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
 
         while (node.balanceOf(user) > 0) {
-            sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, maxRedemption)));
-            sharesToRedeem = bound(sharesToRedeem, 1, maxRedemption);
+            sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, seedAmount)));
+            sharesToRedeem = bound(sharesToRedeem, 1, seedAmount);
             if (sharesToRedeem > node.balanceOf(user)) {
                 sharesToRedeem = node.balanceOf(user);
             }
