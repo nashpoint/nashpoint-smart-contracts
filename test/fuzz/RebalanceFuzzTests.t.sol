@@ -285,9 +285,9 @@ contract RebalanceFuzzTests is BaseTest {
         );
     }
 
-    function test_fuzz_fulfilRedeemRequest_basic(uint256 seedAmount, uint256 maxRedemption, uint256 randUint) public {
+    function test_fuzz_fulfilRedeemRequest(uint256 seedAmount, uint256 maxRedemption, uint256 randUint) public {
         components = [address(vaultA)];
-        seedAmount = bound(seedAmount, 1 ether, 1e24); // todo: make work for larger amounts
+        seedAmount = bound(seedAmount, 1 ether, 1e36); // todo: check these values are appropriate
         maxRedemption = bound(maxRedemption, seedAmount / 1e4, seedAmount);
         randUint = bound(randUint, 0, 1 ether);
 
