@@ -82,8 +82,8 @@ contract RebalanceFuzzTests is BaseTest {
         synchronousComponents = [address(vaultA), address(vaultB), address(vaultC)];
     }
 
-    function test_fuzz_rebalance_basic(uint256 targetReserveRatio, uint256 seedAmount, uint256 randUint) public {
-        targetReserveRatio = bound(targetReserveRatio, 0, 1 ether);
+    function test_fuzz_rebalance_basic(uint64 targetReserveRatio, uint256 seedAmount, uint64 randUint) public {
+        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0, 1 ether));
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
@@ -95,13 +95,13 @@ contract RebalanceFuzzTests is BaseTest {
     }
 
     function test_fuzz_rebalance_with_deposits(
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint256 seedAmount,
-        uint256 randUint,
-        uint256 runs,
+        uint64 randUint,
+        uint8 runs,
         uint256 depositAmount
     ) public {
-        targetReserveRatio = bound(targetReserveRatio, 0, 1 ether);
+        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0, 1 ether));
 
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
@@ -112,7 +112,7 @@ contract RebalanceFuzzTests is BaseTest {
         deal(address(asset), address(user), type(uint256).max);
         uint256 depositAssets = 0;
 
-        runs = bound(runs, 1, 100);
+        runs = uint8(bound(uint256(runs), 1, 100));
         for (uint256 i = 0; i < runs; i++) {
             vm.warp(block.timestamp + 1 days);
             uint256 depositThisRun = uint256(keccak256(abi.encodePacked(randUint, i, depositAmount)));
@@ -128,13 +128,13 @@ contract RebalanceFuzzTests is BaseTest {
     }
 
     function test_fuzz_rebalance_with_deposits_no_rebalance(
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint256 seedAmount,
-        uint256 randUint,
-        uint256 runs,
+        uint64 randUint,
+        uint8 runs,
         uint256 depositAmount
     ) public {
-        targetReserveRatio = bound(targetReserveRatio, 0, 1 ether);
+        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0, 1 ether));
 
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
@@ -145,7 +145,7 @@ contract RebalanceFuzzTests is BaseTest {
         deal(address(asset), address(user), type(uint256).max);
         uint256 depositAssets = 0;
 
-        runs = bound(runs, 1, 100);
+        runs = uint8(bound(uint256(runs), 1, 100));
         for (uint256 i = 0; i < runs; i++) {
             uint256 depositThisRun = uint256(keccak256(abi.encodePacked(randUint, i, depositAmount)));
             depositThisRun = bound(depositThisRun, 1 ether, maxDeposit);
@@ -159,13 +159,13 @@ contract RebalanceFuzzTests is BaseTest {
     }
 
     function test_fuzz_rebalance_with_withdrawals(
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint256 seedAmount,
-        uint256 randUint,
-        uint256 runs,
+        uint64 randUint,
+        uint8 runs,
         uint256 withdrawAmount
     ) public {
-        targetReserveRatio = bound(targetReserveRatio, 0.1 ether, 1 ether);
+        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.1 ether, 1 ether));
         seedAmount = 1e36;
 
         deal(address(asset), address(user), type(uint256).max);
@@ -175,7 +175,7 @@ contract RebalanceFuzzTests is BaseTest {
 
         uint256 withdrawAssets = 0;
 
-        runs = bound(runs, 1, 100);
+        runs = uint8(bound(uint256(runs), 1, 100));
         for (uint256 i = 0; i < runs; i++) {
             uint256 withdrawThisRun = uint256(keccak256(abi.encodePacked(randUint, i, withdrawAmount)));
             withdrawThisRun = bound(withdrawThisRun, 1 ether, 1e30);
@@ -194,6 +194,7 @@ contract RebalanceFuzzTests is BaseTest {
 
     // note: all fees are in the range of 0 to 0.1 ether to avoid not having enough reserve to pay fees
     // fee calculations are tested in the full range elsewhere
+
     function test_fuzz_rebalance_with_fees(
         uint256 annualManagementFee,
         uint256 protocolManagementFee,
@@ -247,16 +248,16 @@ contract RebalanceFuzzTests is BaseTest {
     }
 
     function test_fuzz_rebalance_with_interest_earned_on_components(
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint256 seedAmount,
         uint256 randUint,
-        uint256 runs,
+        uint8 runs,
         uint256 maxInterest
     ) public {
-        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.1 ether);
+        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.01 ether, 0.1 ether));
         seedAmount = bound(seedAmount, 1 ether, 1e36);
         randUint = bound(randUint, 0, 1 ether);
-        runs = bound(runs, 10, 100);
+        runs = uint8(bound(uint256(runs), 10, 100));
         maxInterest = bound(maxInterest, 0.1 ether, 1e36);
 
         _seedNode(seedAmount);
@@ -285,10 +286,10 @@ contract RebalanceFuzzTests is BaseTest {
         );
     }
 
-    function test_fuzz_fulfilRedeemRequest(uint256 seedAmount, uint256 randUint) public {
+    function test_fuzz_fulfilRedeemRequest(uint256 seedAmount, uint64 randUint) public {
         components = [address(vaultA)];
         seedAmount = bound(seedAmount, 1 ether, 1e36);
-        randUint = bound(randUint, 0, 1 ether);
+        randUint = uint64(bound(uint256(randUint), 0, 1 ether));
 
         vm.warp(block.timestamp + 1 days);
         deal(address(asset), address(user), seedAmount);
@@ -327,12 +328,12 @@ contract RebalanceFuzzTests is BaseTest {
         }
     }
 
-    function test_fuzz_rebalance_liquidation_queue(uint256 seedAmount, uint256 targetReserveRatio, uint256 randUint)
+    function test_fuzz_rebalance_liquidation_queue(uint256 seedAmount, uint64 targetReserveRatio, uint64 randUint)
         public
     {
         seedAmount = bound(seedAmount, 1 ether, 1e36); // todo: check if range is appropriate
-        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
-        randUint = bound(randUint, 0, 1 ether);
+        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.01 ether, 0.99 ether));
+        randUint = uint64(bound(uint256(randUint), 0, 1 ether));
 
         _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
         deal(address(asset), address(user), seedAmount);
