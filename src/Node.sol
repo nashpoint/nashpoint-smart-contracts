@@ -616,11 +616,12 @@ contract Node is INode, ERC20, Ownable {
                 if (components_[i] == address(0)) revert ErrorsLib.ZeroAddress();
                 components.push(components_[i]);
                 componentAllocations[components_[i]] = allocations[i];
-                if (!_validateComponentRatios()) {
-                    revert ErrorsLib.InvalidComponentRatios();
-                }
+
                 emit EventsLib.ComponentAdded(address(this), components_[i], allocations[i]);
             }
+        }
+        if (!_validateComponentRatios()) {
+            revert ErrorsLib.InvalidComponentRatios();
         }
     }
 

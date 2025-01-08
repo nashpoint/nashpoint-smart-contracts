@@ -781,10 +781,10 @@ contract NodeTest is BaseTest {
             "TNODE",
             testAsset,
             owner,
-            routers,
-            new address[](0), // no components
-            new ComponentAllocation[](0), // no allocations
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+            _toArray(testRouter),
+            _toArray(testComponent), // no components
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation()
         );
 
         // Mock the storage slot for lastRebalance to be current timestamp
@@ -822,10 +822,10 @@ contract NodeTest is BaseTest {
             "TNODE",
             testAsset,
             owner,
-            routers,
-            new address[](0), // no components
-            new ComponentAllocation[](0), // no allocations
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+            _toArray(testRouter),
+            _toArray(testComponent), // no components
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation()
         );
 
         // Mock the storage slot for lastRebalance to be current timestamp
