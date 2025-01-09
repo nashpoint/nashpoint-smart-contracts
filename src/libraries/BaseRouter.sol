@@ -110,7 +110,8 @@ contract BaseRouter is IBaseRouter {
     function _validateReserveAboveTargetRatio(address node) internal view {
         uint256 totalAssets_ = INode(node).totalAssets();
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node));
+        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
+            - INode(node).convertToAssets(INode(node).sharesExiting());
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {

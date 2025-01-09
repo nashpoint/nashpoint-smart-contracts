@@ -410,7 +410,6 @@ contract Node is INode, ERC20, Ownable {
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ERC4626ExceededMaxMint(receiver, shares, maxMint(receiver));
         }
-
         uint256 assetsToDeposit = convertToAssets(shares);
         _deposit(_msgSender(), receiver, assetsToDeposit, shares);
         cacheTotalAssets += assetsToDeposit;
