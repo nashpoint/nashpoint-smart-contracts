@@ -781,10 +781,10 @@ contract NodeTest is BaseTest {
             "TNODE",
             testAsset,
             owner,
-            routers,
-            new address[](0), // no components
-            new ComponentAllocation[](0), // no allocations
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+            _toArray(testRouter),
+            _toArray(testComponent), // no components
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation()
         );
 
         // Mock the storage slot for lastRebalance to be current timestamp
@@ -822,10 +822,10 @@ contract NodeTest is BaseTest {
             "TNODE",
             testAsset,
             owner,
-            routers,
-            new address[](0), // no components
-            new ComponentAllocation[](0), // no allocations
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+            _toArray(testRouter),
+            _toArray(testComponent), // no components
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation()
         );
 
         // Mock the storage slot for lastRebalance to be current timestamp
@@ -1445,11 +1445,156 @@ contract NodeTest is BaseTest {
         _verifySuccessfulEntry(user, assets, shares);
     }
 
-    function test_withdraw() public {}
+    function test_withdraw_base(uint256 depositAmount, uint256 seedAmount) public {
+        depositAmount = bound(depositAmount, 1, 1e36);
+        seedAmount = bound(seedAmount, 1, 1e36);
+        _seedNode(seedAmount);
 
-    function test_redeem() public {}
+        vm.startPrank(user);
+        deal(address(asset), user, depositAmount);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        uint256 shares = node.balanceOf(user);
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
 
-    function test_totalAssets() public {}
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        uint256 maxWithdraw = node.maxWithdraw(user);
+        uint256 maxRedeem = node.maxRedeem(user);
+
+        vm.prank(user);
+        uint256 withdrawShares = node.withdraw(maxWithdraw, user, user);
+
+        assertEq(withdrawShares, maxRedeem);
+        assertEq(asset.balanceOf(user), maxWithdraw);
+        assertEq(node.maxWithdraw(user), 0);
+        assertEq(node.maxRedeem(user), 0);
+
+        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) =
+            node.getRequestState(user);
+        assertEq(pending, 0);
+        assertEq(claimable, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, 0);
+    }
+
+    function test_withdraw(uint256 depositAmount, uint256 seedAmount, uint256 amountToWithdraw) public {
+        depositAmount = bound(depositAmount, 1, 1e36);
+        amountToWithdraw = bound(amountToWithdraw, 1, depositAmount);
+        seedAmount = bound(seedAmount, 1, 1e36);
+        _seedNode(seedAmount);
+
+        vm.startPrank(user);
+        deal(address(asset), user, depositAmount);
+        asset.approve(address(node), depositAmount);
+        uint256 shares = node.deposit(depositAmount, user);
+        uint256 sharesToRedeem = node.convertToShares(amountToWithdraw);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        vm.prank(user);
+        uint256 assetsReceived = node.withdraw(amountToWithdraw, user, user);
+
+        assertEq(assetsReceived, amountToWithdraw);
+        assertEq(node.balanceOf(user), shares - sharesToRedeem);
+        assertEq(asset.balanceOf(user), amountToWithdraw);
+    }
+
+    function test_withdraw_edge_cases() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.ZeroAmount.selector);
+        node.withdraw(0, user, user);
+
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.InvalidController.selector);
+        node.withdraw(1 ether, user, randomUser);
+
+        uint256 depositAmount = 1 ether;
+        _seedNode(depositAmount);
+
+        vm.startPrank(user);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        uint256 shares = node.balanceOf(user);
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        uint256 maxWithdraw = node.maxWithdraw(user);
+
+        // try to withdraw more than available
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.ExceedsMaxWithdraw.selector);
+        node.withdraw(maxWithdraw + 1, user, user);
+    }
+
+    function test_redeem(uint256 depositAmount, uint256 sharesToRedeem, uint256 seedAmount) public {
+        depositAmount = bound(depositAmount, 1, 1e36);
+        sharesToRedeem = bound(sharesToRedeem, 1, depositAmount);
+        seedAmount = bound(seedAmount, 1, 1e36);
+        _seedNode(seedAmount);
+
+        vm.startPrank(user);
+        deal(address(asset), user, depositAmount);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        uint256 shares = node.balanceOf(user);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+
+        uint256 expectedAssets = node.convertToAssets(sharesToRedeem);
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        vm.prank(user);
+        uint256 assetsReceived = node.redeem(sharesToRedeem, user, user);
+
+        assertEq(assetsReceived, expectedAssets);
+        assertEq(node.balanceOf(user), shares - sharesToRedeem);
+        assertEq(asset.balanceOf(user), expectedAssets);
+    }
+
+    function test_totalAssets(uint256 depositAmount, uint256 seedAmount, uint256 additionalDeposit) public {
+        depositAmount = bound(depositAmount, 1, 1e30);
+        additionalDeposit = bound(additionalDeposit, 1, 1e36 - depositAmount);
+        seedAmount = bound(seedAmount, 1, 1e36);
+
+        assertEq(node.totalAssets(), 0);
+
+        _seedNode(seedAmount);
+
+        assertEq(node.totalAssets(), seedAmount);
+
+        vm.startPrank(user);
+        deal(address(asset), user, depositAmount + additionalDeposit);
+        asset.approve(address(node), type(uint256).max);
+        node.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        assertEq(node.totalAssets(), depositAmount + seedAmount);
+
+        vm.prank(rebalancer);
+        node.updateTotalAssets();
+
+        assertEq(node.totalAssets(), depositAmount + seedAmount);
+
+        vm.prank(user);
+        node.deposit(additionalDeposit, user);
+
+        assertEq(node.totalAssets(), depositAmount + seedAmount + additionalDeposit);
+    }
 
     function test_convertToShares() public {
         assertEq(node.totalAssets(), 0);
@@ -1502,31 +1647,165 @@ contract NodeTest is BaseTest {
         assertEq(node.maxMint(user), 0);
     }
 
-    function test_previewDeposit() public {}
+    function test_previewDeposit(uint256 amount) public {
+        assertEq(node.convertToShares(amount), node.previewDeposit(amount));
+    }
 
-    function test_previewMint() public {}
+    function test_previewMint(uint256 amount) public {
+        assertEq(node.convertToAssets(amount), node.previewMint(amount));
+    }
 
-    function test_previewWithdraw() public {}
+    function test_previewWithdraw() public {
+        vm.expectRevert();
+        node.previewWithdraw(1);
+    }
 
-    function test_previewRedeem() public {}
+    function test_previewRedeem() public {
+        vm.expectRevert();
+        node.previewRedeem(1);
+    }
 
     // VIEW FUNCTIONS
 
-    function test_getRequestState() public {}
+    function test_getRequestState(uint256 depositAmount, uint256 seedAmount, uint256 sharesToRedeem) public {
+        depositAmount = bound(depositAmount, 1, 1e36);
+        sharesToRedeem = bound(depositAmount, 1, depositAmount);
+        seedAmount = bound(seedAmount, 1, 1e36);
+        _seedNode(depositAmount);
 
-    function test_getLiquidationsQueue() public {}
+        vm.startPrank(user);
+        deal(address(asset), user, depositAmount);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        uint256 shares = node.balanceOf(user);
+        node.approve(address(node), sharesToRedeem);
+        node.requestRedeem(sharesToRedeem, user, user);
+        vm.stopPrank();
+
+        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) =
+            node.getRequestState(user);
+        assertEq(pending, sharesToRedeem);
+        assertEq(claimable, 0);
+        assertEq(claimableAssets, 0);
+        assertEq(sharesAdjusted, sharesToRedeem);
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        assertEq(pending, 0);
+        assertEq(claimable, sharesToRedeem);
+        assertEq(claimableAssets, node.convertToAssets(sharesToRedeem));
+        assertEq(sharesAdjusted, 0);
+    }
+
+    function test_getLiquidationsQueue() public {
+        vm.warp(block.timestamp + 1 days);
+
+        address component1 = makeAddr("component1");
+        address component2 = makeAddr("component2");
+        address component3 = makeAddr("component3");
+
+        vm.startPrank(owner);
+        node.addComponent(component3, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
+        node.addComponent(component2, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
+        node.addComponent(component1, ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether}));
+        vm.stopPrank();
+
+        // incorrect component order on purpose
+        address[] memory expectedQueue = new address[](3);
+        expectedQueue[0] = component1;
+        expectedQueue[1] = component3;
+        expectedQueue[2] = component2;
+
+        vm.prank(owner);
+        node.setLiquidationQueue(expectedQueue);
+
+        address[] memory liquidationQueue = node.getLiquidationsQueue();
+        assertEq(liquidationQueue.length, expectedQueue.length);
+        for (uint256 i = 0; i < expectedQueue.length; i++) {
+            assertEq(liquidationQueue[i], expectedQueue[i]);
+        }
+    }
+
+    function test_targetReserveRatio(uint256 targetWeight) public {
+        /// @todo I can pass any value as targetWeight, maybe cap it in the smart contract to 0-1e18?
+        targetWeight = bound(targetWeight, 0.01 ether, 0.99 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetWeight, maxDelta: 0.01 ether}));
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 1e18 - targetWeight, maxDelta: 0.01 ether})
+        );
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.startRebalance(); // if this runs ratios are validated
+
+        uint256 reserveRatio = node.targetReserveRatio();
+        assertEq(reserveRatio, targetWeight);
+    }
 
     function test_getSharesExiting() public {}
 
     function test_targetReserveRatio() public {}
+    
+    function test_getComponents() public {
+        vm.warp(block.timestamp + 1 days);
 
-    function test_getComponents() public {}
+        address component1 = makeAddr("component1");
+        address component2 = makeAddr("component2");
 
-    function test_getComponentRatio() public {}
+        vm.startPrank(owner);
+        node.addComponent(component1, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        node.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        vm.stopPrank();
 
-    function test_isComponent() public {}
+        address[] memory components = node.getComponents();
+        assertEq(components.length, 3); // there's an extra component defined in the base test
+        assertEq(components[1], component1);
+        assertEq(components[2], component2);
+    }    
+    
+    function test_getComponentRatio(uint256 weight) public {
+        vm.warp(block.timestamp + 1 days);    
 
-    function test_getMaxDelta() public {}
+
+        address component = makeAddr("component");
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: weight, maxDelta: 0.01 ether});
+
+        vm.prank(owner);
+        node.addComponent(component, allocation);
+
+        uint256 componentRatio = node.getComponentRatio(component);
+        assertEq(componentRatio, allocation.targetWeight);
+    }
+
+    function test_isComponent() public {
+        address randomAddress = makeAddr("random");
+        assertFalse(node.isComponent(randomAddress));
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(owner);
+        node.addComponent(testComponent, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        assertTrue(node.isComponent(testComponent));
+    }
+
+    function test_getMaxDelta(uint256 amount) public {
+        vm.warp(block.timestamp + 2 days);
+
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: amount});
+
+        vm.prank(owner);
+        node.addComponent(testComponent, allocation);
+
+        uint256 maxDelta = node.getMaxDelta(testComponent);
+        assertEq(maxDelta, amount);
+        assertEq(maxDelta, allocation.maxDelta);
+    }
 
     function test_isCacheValid() public view {
         assertEq(block.timestamp, node.lastRebalance());
@@ -1550,11 +1829,37 @@ contract NodeTest is BaseTest {
 
     function test_setRouters() public {}
 
-    function test_setInitialComponents() public {}
+    // the test below should cover that
+    //function test_setInitialComponents() public {}
 
-    function test_setComponentAllocation() public {}
+    function test_componentAllocationAndValidation(uint64 comp1, uint64 comp2) public {
+        vm.assume(uint256(comp1) + uint256(comp2) < 1e18);
+        uint256 reserve = 1e18 - uint256(comp1) - uint256(comp2);
+        ComponentAllocation[] memory allocations = new ComponentAllocation[](2);
+        allocations[0] = ComponentAllocation({targetWeight: comp1, maxDelta: 0.01 ether});
+        allocations[1] = ComponentAllocation({targetWeight: comp2, maxDelta: 0.01 ether});
+        ComponentAllocation memory reserveAllocation =
+            ComponentAllocation({targetWeight: reserve, maxDelta: 0.01 ether});
 
-    function test_validateComponentRatios() public {}
+        address[] memory routers = new address[](1);
+        routers[0] = testRouter;
+
+        address[] memory components = new address[](2);
+        components[0] = testComponent;
+        components[1] = testComponent2;
+
+        Node node = new Node(
+            address(testRegistry),
+            "Test Node",
+            "TNODE",
+            testAsset,
+            owner,
+            routers,
+            components,
+            allocations,
+            reserveAllocation
+        );
+    }
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {
         ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
@@ -1595,9 +1900,23 @@ contract NodeTest is BaseTest {
 
     function test_calculateSharesAfterSwingPricing() public {}
 
-    function test_onDepositClaimable() public {}
+    function test_onDepositClaimable(uint256 depositAmount) public {
+        address controller = makeAddr("controller");
+        uint256 sharesToMint = node.convertToShares(depositAmount);
 
-    function test_onRedeemClaimable() public {}
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.DepositClaimable(controller, 0, depositAmount, sharesToMint);
+        node.onDepositClaimable(controller, depositAmount, sharesToMint);
+    }
+
+    function test_onRedeemClaimable(uint256 redeemAmount) public {
+        address controller = makeAddr("controller");
+        uint256 sharesToRedeem = node.convertToShares(redeemAmount);
+
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.RedeemClaimable(controller, 0, redeemAmount, sharesToRedeem);
+        node.onRedeemClaimable(controller, redeemAmount, sharesToRedeem);
+    }
 
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
