@@ -1748,6 +1748,10 @@ contract NodeTest is BaseTest {
         assertEq(reserveRatio, targetWeight);
     }
 
+    function test_getSharesExiting() public {}
+
+    function test_targetReserveRatio() public {}
+    
     function test_getComponents() public {
         vm.warp(block.timestamp + 1 days);
 
@@ -1763,10 +1767,11 @@ contract NodeTest is BaseTest {
         assertEq(components.length, 3); // there's an extra component defined in the base test
         assertEq(components[1], component1);
         assertEq(components[2], component2);
-    }
-
+    }    
+    
     function test_getComponentRatio(uint256 weight) public {
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(block.timestamp + 1 days);    
+
 
         address component = makeAddr("component");
         ComponentAllocation memory allocation = ComponentAllocation({targetWeight: weight, maxDelta: 0.01 ether});

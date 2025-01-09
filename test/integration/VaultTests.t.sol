@@ -504,5 +504,6 @@ contract VaultTests is BaseTest {
         // Assert shares received are greater than expected due to swing bonus
         sharesReceived = node.balanceOf(address(user3));
         assertGt(sharesReceived, nonAdjustedShares);
+
     }
 }
