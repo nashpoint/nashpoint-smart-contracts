@@ -781,10 +781,10 @@ contract NodeTest is BaseTest {
             "TNODE",
             testAsset,
             owner,
-            routers,
-            new address[](0), // no components
-            new ComponentAllocation[](0), // no allocations
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+            _toArray(testRouter),
+            _toArray(testComponent), // no components
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation()
         );
 
         // Mock the storage slot for lastRebalance to be current timestamp
@@ -822,10 +822,10 @@ contract NodeTest is BaseTest {
             "TNODE",
             testAsset,
             owner,
-            routers,
-            new address[](0), // no components
-            new ComponentAllocation[](0), // no allocations
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+            _toArray(testRouter),
+            _toArray(testComponent), // no components
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation()
         );
 
         // Mock the storage slot for lastRebalance to be current timestamp
@@ -1734,14 +1734,18 @@ contract NodeTest is BaseTest {
 
         vm.warp(block.timestamp + 1 days);
 
-        uint256 initialReserveRatio = node.targetReserveRatio();
+        vm.startPrank(owner);
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetWeight, maxDelta: 0.01 ether}));
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 1e18 - targetWeight, maxDelta: 0.01 ether})
+        );
+        vm.stopPrank();
 
-        address component = makeAddr("component");
-        vm.prank(owner);
-        node.addComponent(component, ComponentAllocation({targetWeight: targetWeight, maxDelta: 0.01 ether}));
+        vm.prank(rebalancer);
+        node.startRebalance(); // if this runs ratios are validated
 
-        uint256 finalReserveRatio = node.targetReserveRatio();
-        assertEq(finalReserveRatio, initialReserveRatio + targetWeight);
+        uint256 reserveRatio = node.targetReserveRatio();
+        assertEq(reserveRatio, targetWeight);
     }
 
     function test_getComponents() public {
