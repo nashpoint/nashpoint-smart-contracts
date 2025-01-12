@@ -1290,6 +1290,11 @@ contract NodeTest is BaseTest {
         assertEq(sharesAdjustedAfter, sharesAdjustedBefore - sharesToRedeem);
     }
 
+    function test_finalizeRedemption_revert_onlyRouter() public {
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.finalizeRedemption(user, 50 ether, 100, 100);
+    }
+
     // ERC-7540 FUNCTIONS
 
     function test_requestRedeem() public {
@@ -1647,11 +1652,11 @@ contract NodeTest is BaseTest {
         assertEq(node.maxMint(user), 0);
     }
 
-    function test_previewDeposit(uint256 amount) public {
+    function test_previewDeposit(uint256 amount) public view {
         assertEq(node.convertToShares(amount), node.previewDeposit(amount));
     }
 
-    function test_previewMint(uint256 amount) public {
+    function test_previewMint(uint256 amount) public view {
         assertEq(node.convertToAssets(amount), node.previewMint(amount));
     }
 
@@ -1677,7 +1682,6 @@ contract NodeTest is BaseTest {
         deal(address(asset), user, depositAmount);
         asset.approve(address(node), depositAmount);
         node.deposit(depositAmount, user);
-        uint256 shares = node.balanceOf(user);
         node.approve(address(node), sharesToRedeem);
         node.requestRedeem(sharesToRedeem, user, user);
         vm.stopPrank();
@@ -1728,8 +1732,25 @@ contract NodeTest is BaseTest {
         }
     }
 
+    function test_getSharesExiting(uint256 depositAmount, uint256 redeemAmount) public {
+        deal(address(asset), user, depositAmount);
+        depositAmount = bound(depositAmount, 1, 1e36);
+        redeemAmount = bound(redeemAmount, 1, depositAmount);
+        _userDeposits(user, depositAmount);
+
+        uint256 sharesExiting = node.getSharesExiting();
+        assertEq(sharesExiting, 0);
+
+        vm.startPrank(user);
+        node.approve(address(node), redeemAmount);
+        node.requestRedeem(redeemAmount, user, user);
+        vm.stopPrank();
+
+        sharesExiting = node.getSharesExiting();
+        assertEq(sharesExiting, redeemAmount);
+    }
+
     function test_targetReserveRatio(uint256 targetWeight) public {
-        /// @todo I can pass any value as targetWeight, maybe cap it in the smart contract to 0-1e18?
         targetWeight = bound(targetWeight, 0.01 ether, 0.99 ether);
 
         vm.warp(block.timestamp + 1 days);
@@ -1747,10 +1768,6 @@ contract NodeTest is BaseTest {
         uint256 reserveRatio = node.targetReserveRatio();
         assertEq(reserveRatio, targetWeight);
     }
-
-    function test_getSharesExiting() public {}
-
-    function test_targetReserveRatio() public {}
 
     function test_getComponents() public {
         vm.warp(block.timestamp + 1 days);
@@ -1818,10 +1835,7 @@ contract NodeTest is BaseTest {
     }
 
     // INTERNAL FUNCTIONS
-    function test_fulfillRedeemFromReserve_internal() public {}
-
-    function test_finalizeRedemption_internal() public {}
-
+    // todo: test this function afer you finalize controller, operator, msg.sender functionality
     function test_validateController() public {}
 
     function test_setReserveAllocation() public {}

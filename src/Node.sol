@@ -275,7 +275,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             revert ErrorsLib.InvalidComponentRatios();
         }
         if (block.timestamp < lastRebalance + rebalanceCooldown) revert ErrorsLib.CooldownActive();
-
         lastRebalance = block.timestamp;
         _updateTotalAssets();
 
