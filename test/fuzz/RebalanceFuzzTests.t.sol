@@ -179,7 +179,7 @@ contract RebalanceFuzzTests is BaseTest {
         for (uint256 i = 0; i < runs; i++) {
             uint256 withdrawThisRun = uint256(keccak256(abi.encodePacked(randUint, i, withdrawAmount)));
             withdrawThisRun = bound(withdrawThisRun, 1 ether, 1e30);
-            _userRedeemsAndClaims(user, withdrawThisRun);
+            _userRedeemsAndClaims(user, withdrawThisRun, address(node));
             withdrawAssets += withdrawThisRun;
         }
 
@@ -346,7 +346,7 @@ contract RebalanceFuzzTests is BaseTest {
 
         // redeem the entire reserve
         uint256 sharesToRedeem = node.convertToShares(asset.balanceOf(address(node)));
-        _userRedeemsAndClaims(user, sharesToRedeem);
+        _userRedeemsAndClaims(user, sharesToRedeem, address(node));
         assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
 
         while (node.balanceOf(user) > 0) {

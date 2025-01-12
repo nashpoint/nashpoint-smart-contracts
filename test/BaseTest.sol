@@ -221,20 +221,23 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
-    function _userRedeemsAndClaims(address user_, uint256 sharesToRedeem_) internal returns (uint256 claimableAssets) {
+    function _userRedeemsAndClaims(address user_, uint256 sharesToRedeem_, address node_)
+        internal
+        returns (uint256 claimableAssets)
+    {
         vm.startPrank(user_);
-        node.approve(address(node), sharesToRedeem_);
-        node.requestRedeem(sharesToRedeem_, user_, user_);
+        INode(node_).approve(node_, sharesToRedeem_);
+        INode(node_).requestRedeem(sharesToRedeem_, user_, user_);
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        node.fulfillRedeemFromReserve(user_);
+        INode(node_).fulfillRedeemFromReserve(user_);
         vm.stopPrank();
 
-        claimableAssets = node.maxWithdraw(user_);
+        claimableAssets = INode(node_).maxWithdraw(user_);
 
         vm.prank(user);
-        node.withdraw(claimableAssets, user, user);
+        INode(node_).withdraw(claimableAssets, user, user);
     }
 
     function _setAllocationToAsyncVault(address liquidityPool_, uint256 allocation) internal {

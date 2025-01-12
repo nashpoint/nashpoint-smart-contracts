@@ -363,7 +363,7 @@ contract NodeFuzzTest is BaseTest {
 
         uint256 currentReserve = seedAmount - investmentAmount;
         sharesToRedeem = bound(sharesToRedeem, 2, node.convertToShares(currentReserve));
-        _userRedeemsAndClaims(user, sharesToRedeem);
+        _userRedeemsAndClaims(user, sharesToRedeem, address(node));
 
         uint256 expectedShares = node.previewDeposit(depositAmount);
 
@@ -411,7 +411,7 @@ contract NodeFuzzTest is BaseTest {
 
         uint256 currentReserve = seedAmount - investmentAmount;
         uint256 sharesToRedeem = node.convertToShares(currentReserve) / 10 + 1;
-        _userRedeemsAndClaims(user, sharesToRedeem);
+        _userRedeemsAndClaims(user, sharesToRedeem, address(node));
 
         // invariant 2: shares created always greater than convertToShares when reserve below target
         uint256 nonAdjustedShares = node.convertToShares(depositAmount);
@@ -460,7 +460,7 @@ contract NodeFuzzTest is BaseTest {
 
         // invariant 4: returned assets are always less than withdrawal amount
         uint256 sharesToRedeem = node.convertToShares(withdrawalAmount);
-        uint256 returnedAssets = _userRedeemsAndClaims(user, sharesToRedeem);
+        uint256 returnedAssets = _userRedeemsAndClaims(user, sharesToRedeem, address(node));
         assertLt(returnedAssets, withdrawalAmount);
 
         // invariant 5: withdrawal penalty never exceeds the value of the max swing factor
