@@ -829,31 +829,13 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute_revert_ZeroAddress() public {
-        address[] memory routers = new address[](1);
-        routers[0] = testRouter;
+        deal(address(asset), address(node), 100 ether);
 
-        Node simpleNode = new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            _toArray(testRouter),
-            _toArray(testComponent), // no components
-            _defaultComponentAllocations(1),
-            _defaultReserveAllocation()
-        );
+        bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
 
-        // Mock the storage slot for lastRebalance to be current timestamp
-        uint256 currentTime = block.timestamp;
-        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
-        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
-
-        vm.warp(currentTime + 1);
-
-        vm.prank(testRouter);
+        vm.prank(address(router4626));
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        simpleNode.execute(address(0), 0, "");
+        bytes memory result = node.execute(address(0), 0, data);
     }
 
     function test_execute_revert_NotRebalancing() public {
