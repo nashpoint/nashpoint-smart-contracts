@@ -323,6 +323,7 @@ contract Node is INode, ERC20, Ownable {
         cacheTotalAssets -= executionFee;
     }
 
+    // todo: remove this function after audit
     function updateTotalAssets() external onlyOwnerOrRebalancer {
         _updateTotalAssets();
     }

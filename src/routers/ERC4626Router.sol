@@ -80,11 +80,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         return sharesReturned;
     }
 
-    /// @notice Liquidates a component on behalf of the Node.
-    /// @param node The address of the node.
-    /// @param component The address of the component.
-    /// @param shares The amount of shares to liquidate.
-    /// @return assetsReturned The amount of assets returned.
+    // todo: remove this function after audit
     function liquidate(address node, address component, uint256 shares)
         external
         onlyNodeRebalancer(node)
