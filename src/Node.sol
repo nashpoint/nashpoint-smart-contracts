@@ -352,6 +352,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     function requestRedeem(uint256 shares, address controller, address owner) public nonReentrant returns (uint256) {
+        _validateOwner(owner);
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
@@ -608,7 +609,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _validateController(address controller) internal view {
+        if (controller == address(0)) revert ErrorsLib.ZeroAddress();
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
+    }
+
+    function _validateOwner(address owner) internal view {
+        if (owner == address(0)) revert ErrorsLib.ZeroAddress();
+        if (owner != msg.sender && !isOperator[owner][msg.sender]) {
+            revert ErrorsLib.InvalidOwner();
+        }
     }
 
     function _setReserveAllocation(ComponentAllocation memory allocation) internal {

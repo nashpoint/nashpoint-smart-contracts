@@ -1155,9 +1155,7 @@ contract NodeTest is BaseTest {
         deal(address(asset), address(user), 100 ether);
         _userDeposits(user, 100 ether);
 
-        vm.prank(user);
-        node.approve(address(node), 50 ether);
-        node.requestRedeem(50 ether, user, user);
+        _userRequestsRedeem(user, 50 ether);
 
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user);
@@ -1186,9 +1184,7 @@ contract NodeTest is BaseTest {
 
         assertGt(50 ether, remainingReserve);
 
-        vm.prank(user);
-        node.approve(address(node), 50 ether);
-        node.requestRedeem(50 ether, user, user);
+        _userRequestsRedeem(user, 50 ether);
 
         vm.prank(rebalancer);
         vm.expectRevert(ErrorsLib.ExceedsAvailableReserve.selector);
@@ -1941,8 +1937,6 @@ contract NodeTest is BaseTest {
             ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
         );
     }
-
-    function test_calculateSharesAfterSwingPricing() public {}
 
     function test_onDepositClaimable(uint256 depositAmount) public {
         address controller = makeAddr("controller");
