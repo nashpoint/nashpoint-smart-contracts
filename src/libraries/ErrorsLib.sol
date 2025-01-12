@@ -61,6 +61,9 @@ library ErrorsLib {
     /// @notice Thrown when the max deposit is exceeded.
     error ExceedsMaxDeposit();
 
+    /// @notice Thrown when the max mint is exceeded.
+    error ExceedsMaxMint();
+
     /// @notice Thrown when the max redeem is exceeded.
     error ExceedsMaxRedeem();
 
@@ -105,12 +108,6 @@ library ErrorsLib {
 
     /// @notice Thrown when the target node is invalid
     error InvalidNode();
-
-    /// @notice Thrown when the ERC4626 deposit exceeds max deposit.
-    error ERC4626ExceededMaxDeposit(address receiver, uint256 assets, uint256 maxAssets);
-
-    /// @notice Thrown when the ERC4626 mint exceeds max mint.
-    error ERC4626ExceededMaxMint(address receiver, uint256 shares, uint256 maxShares);
 
     /// @notice Thrown when the input to getSwingFactoris invalid.
     error InvalidInput(int256 reserveImpact);

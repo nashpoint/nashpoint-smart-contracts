@@ -399,7 +399,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
         if (assets > maxDeposit(msg.sender)) {
-            revert ErrorsLib.ERC4626ExceededMaxDeposit(msg.sender, assets, maxDeposit(msg.sender));
+            revert ErrorsLib.ExceedsMaxDeposit();
         }
         sharesToMint = _calculateSharesAfterSwingPricing(assets);
         _deposit(_msgSender(), receiver, assets, sharesToMint);
@@ -410,7 +410,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
-            revert ErrorsLib.ERC4626ExceededMaxMint(receiver, shares, maxMint(receiver));
+            revert ErrorsLib.ExceedsMaxMint();
         }
         uint256 assetsToDeposit = convertToAssets(shares);
         _deposit(_msgSender(), receiver, assetsToDeposit, shares);

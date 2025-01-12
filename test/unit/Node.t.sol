@@ -431,14 +431,19 @@ contract NodeTest is BaseTest {
 
     function test_addRouter() public {
         address newRouter = makeAddr("newRouter");
-
         vm.mockCall(
             address(testRegistry), abi.encodeWithSelector(INodeRegistry.isRouter.selector, newRouter), abi.encode(true)
         );
-
         vm.prank(owner);
         testNode.addRouter(newRouter);
         assertTrue(testNode.isRouter(newRouter));
+    }
+
+    function test_addRouter_revert_NotWhitelisted() public {
+        address newRouter = makeAddr("notWhitelistedRouter");
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.addRouter(newRouter);
     }
 
     function test_addRouter_revert_ZeroAddress() public {
@@ -478,6 +483,12 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         testNode.addRebalancer(newRebalancer);
         assertTrue(testNode.isRebalancer(newRebalancer));
+    }
+
+    function test_addRebalancer_revert_not_whitelisted() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.addRebalancer(makeAddr("notWhitelisted"));
     }
 
     function test_addRebalancer_revert_ZeroAddress() public {
@@ -1333,6 +1344,24 @@ contract NodeTest is BaseTest {
         assertEq(node.pendingRedeemRequest(0, user), shares);
     }
 
+    function test_requestRedeem_revert_InvalidOwner() public {
+        vm.startPrank(user);
+        vm.expectRevert(ErrorsLib.InvalidOwner.selector);
+        node.requestRedeem(1 ether, user, randomUser);
+        vm.stopPrank();
+    }
+
+    function test_requestRedeem_revert_ZeroAddress() public {
+        _seedNode(100 ether);
+        _userDeposits(user, 1 ether);
+
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        node.requestRedeem(1 ether, user, address(0));
+        vm.stopPrank();
+    }
+
     function test_requestRedeem_revert_InsufficientBalance() public {
         vm.startPrank(user);
         vm.expectRevert(ErrorsLib.InsufficientBalance.selector);
@@ -1458,6 +1487,15 @@ contract NodeTest is BaseTest {
         _verifySuccessfulEntry(user, assets, shares);
     }
 
+    function test_deposit_revert_ExceedsMaxDeposit() public {
+        deal(address(asset), address(user), maxDeposit + 1);
+        vm.startPrank(user);
+        asset.approve(address(node), maxDeposit + 1);
+        vm.expectRevert(ErrorsLib.ExceedsMaxDeposit.selector);
+        node.deposit(maxDeposit + 1, user);
+        vm.stopPrank();
+    }
+
     function test_mint(uint256 assets) public {
         vm.assume(assets < maxDeposit);
 
@@ -1472,6 +1510,15 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         _verifySuccessfulEntry(user, assets, shares);
+    }
+
+    function test_mint_revert_ExceedsMaxMint() public {
+        deal(address(asset), address(user), maxDeposit + 1);
+        vm.startPrank(user);
+        asset.approve(address(node), maxDeposit + 1);
+        vm.expectRevert(ErrorsLib.ExceedsMaxMint.selector);
+        node.mint(maxDeposit + 1, user);
+        vm.stopPrank();
     }
 
     function test_withdraw_base(uint256 depositAmount, uint256 seedAmount) public {
@@ -1593,6 +1640,37 @@ contract NodeTest is BaseTest {
         assertEq(assetsReceived, expectedAssets);
         assertEq(node.balanceOf(user), shares - sharesToRedeem);
         assertEq(asset.balanceOf(user), expectedAssets);
+    }
+
+    function test_redeem_edge_cases() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.ZeroAmount.selector);
+        node.redeem(0, user, user);
+
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.InvalidController.selector);
+        node.redeem(1 ether, user, randomUser);
+
+        uint256 depositAmount = 1 ether;
+        _seedNode(depositAmount);
+
+        vm.startPrank(user);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        uint256 shares = node.balanceOf(user);
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        uint256 maxRedeem = node.maxRedeem(user);
+
+        // try to redeem more than available
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.ExceedsMaxRedeem.selector);
+        node.redeem(maxRedeem + 1, user, user);
     }
 
     function test_totalAssets(uint256 depositAmount, uint256 seedAmount, uint256 additionalDeposit) public {
@@ -1865,12 +1943,35 @@ contract NodeTest is BaseTest {
     }
 
     // INTERNAL FUNCTIONS
-    // todo: test this function afer you finalize controller, operator, msg.sender functionality
-    function test_validateController() public {}
 
-    function test_setReserveAllocation() public {}
+    function test_validateController_RevertIfNotController() public {
+        _seedNode(100 ether);
+        _userDeposits(user, 100 ether);
 
-    function test_setRouters() public {}
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        node.requestRedeem(1 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidController.selector);
+        node.redeem(1 ether, randomUser, user);
+    }
+
+    function test_validateOwner_withOperator() public {
+        _seedNode(100 ether);
+        _userDeposits(user, 100 ether);
+
+        address operator = makeAddr("operator");
+
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        node.setOperator(operator, true);
+        vm.stopPrank();
+
+        vm.prank(operator);
+        node.requestRedeem(1 ether, user, user);
+    }
 
     function test_componentAllocationAndValidation(uint64 comp1, uint64 comp2) public {
         vm.assume(uint256(comp1) + uint256(comp2) < 1e18);
