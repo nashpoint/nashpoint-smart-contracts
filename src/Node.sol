@@ -643,7 +643,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     function _validateComponentRatios() internal view returns (bool) {
         uint256 totalWeight = reserveAllocation.targetWeight;
-        for (uint256 i = 0; i < components.length; i++) {
+        uint256 length = components.length;
+        for (uint256 i; i < length; ++i) {
             totalWeight += componentAllocations[components[i]].targetWeight;
         }
         return totalWeight == WAD;
