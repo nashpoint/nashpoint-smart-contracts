@@ -619,7 +619,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_setRebalanceCooldown() public {
-        uint256 newRebalanceCooldown = 1 days;
+        uint64 newRebalanceCooldown = 1 days;
         vm.prank(owner);
         testNode.setRebalanceCooldown(newRebalanceCooldown);
         assertEq(testNode.rebalanceCooldown(), newRebalanceCooldown);
@@ -632,7 +632,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_setRebalanceWindow() public {
-        uint256 newRebalanceWindow = 1 hours;
+        uint64 newRebalanceWindow = 1 hours;
         vm.prank(owner);
         testNode.setRebalanceWindow(newRebalanceWindow);
         assertEq(testNode.rebalanceWindow(), newRebalanceWindow);
@@ -810,40 +810,17 @@ contract NodeTest is BaseTest {
     }
 
     function test_execute() public {
-        // Setup minimal test node with just a router
-        address[] memory routers = new address[](1);
-        routers[0] = testRouter;
+        deal(address(asset), address(node), 100 ether);
 
-        Node simpleNode = new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            _toArray(testRouter),
-            _toArray(testComponent), // no components
-            _defaultComponentAllocations(1),
-            _defaultReserveAllocation()
-        );
-
-        // Mock the storage slot for lastRebalance to be current timestamp
-        uint256 currentTime = block.timestamp;
-        uint256 slot = stdstore.target(address(simpleNode)).sig("lastRebalance()").find();
-        vm.store(address(simpleNode), bytes32(slot), bytes32(currentTime));
-        vm.warp(currentTime + 1);
-
-        // Setup simple transfer call
         bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
 
-        // Mock the transfer call to return true
-        vm.mockCall(testAsset, 0, data, abi.encode(true));
+        vm.prank(address(router4626));
+        bytes memory result = node.execute(address(asset), 0, data);
 
-        // Execute as router
-        vm.prank(testRouter);
-        bytes memory result = simpleNode.execute(testAsset, 0, data);
+        bool success = abi.decode(result, (bool));
+        assertTrue(success, "ERC20 transfer should succeed");
 
-        // Verify the call succeeded
-        assertEq(abi.decode(result, (bool)), true);
+        assertEq(asset.balanceOf(makeAddr("recipient")), 100);
     }
 
     function test_execute_revert_NotRouter() public {

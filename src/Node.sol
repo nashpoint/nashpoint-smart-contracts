@@ -49,9 +49,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     mapping(address => mapping(address => bool)) public isOperator;
 
     /* REBALANCE COOLDOWN */
-    uint256 public rebalanceCooldown = 1 days; // all these can be smaller
-    uint256 public rebalanceWindow = 1 hours;
-    uint256 public lastRebalance;
+    uint64 public rebalanceCooldown = 1 days;
+    uint64 public rebalanceWindow = 1 hours;
+    uint64 public lastRebalance;
 
     /* FEES & ACCOUNTING */
     uint64 public annualManagementFee;
@@ -131,8 +131,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
-        lastRebalance = block.timestamp - rebalanceCooldown;
-        lastPayment = block.timestamp;
+        lastRebalance = uint64(block.timestamp - rebalanceCooldown);
+        lastPayment = uint64(block.timestamp);
 
         // todo: add setLiquidationQueue to initialize
 
@@ -238,12 +238,12 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.LiquidationQueueUpdated(newQueue);
     }
 
-    function setRebalanceCooldown(uint256 newRebalanceCooldown) external onlyOwner {
+    function setRebalanceCooldown(uint64 newRebalanceCooldown) external onlyOwner {
         rebalanceCooldown = newRebalanceCooldown;
         emit EventsLib.CooldownDurationUpdated(newRebalanceCooldown);
     }
 
-    function setRebalanceWindow(uint256 newRebalanceWindow) external onlyOwner {
+    function setRebalanceWindow(uint64 newRebalanceWindow) external onlyOwner {
         rebalanceWindow = newRebalanceWindow;
         emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
     }
@@ -275,7 +275,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             revert ErrorsLib.InvalidComponentRatios();
         }
         if (block.timestamp < lastRebalance + rebalanceCooldown) revert ErrorsLib.CooldownActive();
-        lastRebalance = block.timestamp;
+        lastRebalance = uint64(block.timestamp);
         _updateTotalAssets();
 
         emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);

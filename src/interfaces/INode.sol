@@ -174,7 +174,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     function isCacheValid() external view returns (bool);
 
-    function lastRebalance() external view returns (uint256);
+    function lastRebalance() external view returns (uint64);
 
     function payManagementFees() external returns (uint256);
 
