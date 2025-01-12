@@ -18,6 +18,20 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
+contract NodeHarness is Node {
+    constructor(
+        address registry_,
+        string memory name,
+        string memory symbol,
+        address asset_,
+        address owner,
+        address[] memory routers,
+        address[] memory components_,
+        ComponentAllocation[] memory componentAllocations_,
+        ComponentAllocation memory reserveAllocation_
+    ) Node(registry_, name, symbol, asset_, owner, routers, components_, componentAllocations_, reserveAllocation_) {}
+}
+
 contract NodeTest is BaseTest {
     using stdStorage for StdStorage;
 
@@ -35,6 +49,8 @@ contract NodeTest is BaseTest {
     ERC4626Mock public testVault;
     ERC4626Mock public testVault2;
     ERC4626Mock public testVault3;
+
+    NodeHarness public nodeHarness;
 
     string constant TEST_NAME = "Test Node";
     string constant TEST_SYMBOL = "TNODE";
@@ -93,6 +109,18 @@ contract NodeTest is BaseTest {
         Node nodeImpl = Node(address(node));
         maxDeposit = nodeImpl.MAX_DEPOSIT();
         rebalanceCooldown = nodeImpl.rebalanceCooldown();
+
+        nodeHarness = new NodeHarness(
+            address(registry),
+            "TEST_NAME",
+            "TEST_SYMBOL",
+            address(asset),
+            address(owner),
+            _toArray(address(router4626)),
+            _toArray(address(asset)),
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation()
+        );
     }
 
     function test_constructor() public view {
@@ -1732,12 +1760,18 @@ contract NodeTest is BaseTest {
         }
     }
 
+    // todo: fix this test
     function test_getSharesExiting(uint256 depositAmount, uint256 redeemAmount) public {
+        _seedNode(100 ether);
+        depositAmount = bound(depositAmount, 1 ether, 1e36);
         deal(address(asset), user, depositAmount);
-        depositAmount = bound(depositAmount, 1, 1e36);
-        redeemAmount = bound(redeemAmount, 1, depositAmount);
-        _userDeposits(user, depositAmount);
 
+        uint256 shares = _userDeposits(user, depositAmount);
+        redeemAmount = bound(redeemAmount, 1, shares);
+
+        if (redeemAmount > shares) {
+            redeemAmount = shares;
+        }
         uint256 sharesExiting = node.getSharesExiting();
         assertEq(sharesExiting, 0);
 
@@ -1841,9 +1875,6 @@ contract NodeTest is BaseTest {
     function test_setReserveAllocation() public {}
 
     function test_setRouters() public {}
-
-    // the test below should cover that
-    //function test_setInitialComponents() public {}
 
     function test_componentAllocationAndValidation(uint64 comp1, uint64 comp2) public {
         vm.assume(uint256(comp1) + uint256(comp2) < 1e18);

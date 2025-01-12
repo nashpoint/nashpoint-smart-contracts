@@ -207,10 +207,10 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
-    function _userDeposits(address user_, uint256 amount_) internal {
+    function _userDeposits(address user_, uint256 amount_) internal returns (uint256 shares) {
         vm.startPrank(user_);
         asset.approve(address(node), amount_);
-        node.deposit(amount_, user_);
+        shares = node.deposit(amount_, user_);
         vm.stopPrank();
     }
 
