@@ -54,7 +54,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     uint256 public lastRebalance;
 
     /* FEES & ACCOUNTING */
-    uint64 public annualManagementFee; // max = 1e18
+    uint64 public annualManagementFee;
     address public nodeOwnerFeeAddress;
     uint256 public lastPayment;
     uint256 public sharesExiting;
@@ -62,7 +62,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     mapping(address => Request) public requests;
 
     /* SWING PRICING */
-    uint256 public maxSwingFactor; // max = 1e18
+    uint64 public maxSwingFactor; // max = 1e18
     bool public swingPricingEnabled;
     bool public isInitialized;
 
@@ -248,7 +248,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
     }
 
-    function enableSwingPricing(bool status_, uint256 maxSwingFactor_) public onlyOwner {
+    function enableSwingPricing(bool status_, uint64 maxSwingFactor_) public onlyOwner {
         swingPricingEnabled = status_;
         maxSwingFactor = maxSwingFactor_;
         emit EventsLib.SwingPricingStatusUpdated(status_);
