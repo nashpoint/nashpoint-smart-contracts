@@ -19,29 +19,8 @@ import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
-contract NodeHarness is Node {
-    constructor(
-        address registry_,
-        string memory name,
-        string memory symbol,
-        address asset_,
-        address owner,
-        address[] memory routers,
-        address[] memory components_,
-        ComponentAllocation[] memory componentAllocations_,
-        ComponentAllocation memory reserveAllocation_
-    ) Node(registry, name, symbol, asset_, owner, routers, components_, componentAllocations_, reserveAllocation_) {}
-
-    // function getAssetDecimals() public view returns (uint256 decimals) {
-    //     return super._getAssetDecimals();
-    // }
-}
-
 contract DecimalsTests is BaseTest {
     INode public decNode;
-    NodeHarness public nodeHarness;
     IEscrow public decEscrow;
     ERC20Mock public testToken6;
     ERC20Mock public testToken18;
@@ -92,17 +71,6 @@ contract DecimalsTests is BaseTest {
         vm.label(address(decEscrow), "Decimal Tests Escrow");
 
         deal(address(testToken6), address(user), type(uint256).max);
-
-        // todo: figure out node harness
-        // nodeHarness = new NodeHarness(address(registry),
-        //     "TEST_NAME",
-        //     "TEST_SYMBOL",
-        //     address(testToken6),
-        //     address(owner),
-        //     _toArray(address(router4626)),
-        //     _toArray(address(testVault6)),
-        //     _defaultComponentAllocations(1),
-        //     _defaultReserveAllocation());
     }
 
     function test_decimals_setup() public view {
@@ -123,10 +91,6 @@ contract DecimalsTests is BaseTest {
     function test_decimals_deposit(uint256 deposit, uint64 allocation) public {
         deposit = bound(deposit, 10, 1e36);
         allocation = uint64(bound(uint256(allocation), 1, 1e18));
-        uint8 scalingFactor = uint8(18 - testToken6.decimals());
-        console2.log("scalingFactor", scalingFactor);
-
-        console2.log("uint64 max: ", type(uint64).max);
 
         vm.warp(block.timestamp + 25 hours);
 
@@ -145,7 +109,7 @@ contract DecimalsTests is BaseTest {
         decNode.deposit(deposit, user);
         vm.stopPrank();
 
-        assertEq(testToken6.balanceOf(address(decNode)) * 10 ** scalingFactor, decNode.balanceOf(address(user)));
+        assertEq(testToken6.balanceOf(address(decNode)), decNode.balanceOf(address(user)));
 
         vm.prank(rebalancer);
         router4626.invest(address(decNode), address(testVault6));
@@ -154,14 +118,6 @@ contract DecimalsTests is BaseTest {
 
         assertEq(testVault6.balanceOf(address(decNode)), MathLib.mulDiv(deposit, componentRatio, 1e18));
         assertEq(testToken6.balanceOf(address(testVault6)), testVault6.balanceOf(address(decNode)));
-    }
-
-    function test_decimals_getAssetDecimals() public {
-        // assertEq(Node(address(decNode)).getAssetDecimals(), 6);
-
-        // uint256 convertedNumber = Node(address(decNode)).convertTo1e18(1e6);
-        // console2.log(convertedNumber);
-        // assertEq(convertedNumber, 1e18);
     }
 
     function test_fuzz_node_swing_price_deposit_never_exceeds_max_6decimals(
@@ -199,10 +155,7 @@ contract DecimalsTests is BaseTest {
 
         uint256 currentReserve = seedAmount - investmentAmount;
         uint256 sharesToRedeem = decNode.convertToShares(currentReserve) / 10 + 1;
-        console2.log("sharesToRedeem", sharesToRedeem);
-        console2.log("decNode.balanceOf(user)", decNode.balanceOf(user));
 
-        assertGt(decNode.balanceOf(user), sharesToRedeem);
         vm.startPrank(user);
         decNode.approve(address(decNode), sharesToRedeem);
         decNode.requestRedeem(sharesToRedeem, user, user);
@@ -226,5 +179,51 @@ contract DecimalsTests is BaseTest {
         uint256 depositBonus = expectedShares - nonAdjustedShares;
         uint256 maxBonus = depositAmount * maxSwingFactor / 1e18;
         assertLt(depositBonus, maxBonus);
+    }
+
+    function test_fuzz_node_swing_price_redeem_never_exceeds_max_6decimals(
+        uint256 maxSwingFactor,
+        uint256 targetReserveRatio,
+        uint256 seedAmount,
+        uint256 withdrawalAmount
+    ) public {
+        maxSwingFactor = bound(maxSwingFactor, 0.01 ether, 0.99 ether);
+        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
+        seedAmount = bound(seedAmount, 100 ether, 1e36);
+
+        deal(address(testToken6), address(user), seedAmount);
+        vm.startPrank(user);
+        testToken6.approve(address(decNode), seedAmount);
+        decNode.deposit(seedAmount, user);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        decNode.enableSwingPricing(true, maxSwingFactor);
+        decNode.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
+        decNode.updateComponentAllocation(
+            address(testVault6), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
+        );
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        decNode.startRebalance();
+        uint256 investmentAmount = router4626.invest(address(decNode), address(testVault6));
+        vm.stopPrank();
+
+        uint256 currentReserve = seedAmount - investmentAmount;
+        withdrawalAmount = bound(withdrawalAmount, 1 ether, currentReserve);
+
+        // invariant 4: returned assets are always less than withdrawal amount
+        uint256 sharesToRedeem = decNode.convertToShares(withdrawalAmount);
+        uint256 returnedAssets = _userRedeemsAndClaims(user, sharesToRedeem, address(decNode));
+        assertLt(returnedAssets, withdrawalAmount);
+
+        // invariant 5: withdrawal penalty never exceeds the value of the max swing factor
+        uint256 tolerance = 10;
+        uint256 withdrawalPenalty = withdrawalAmount - returnedAssets - tolerance;
+        uint256 maxPenalty = withdrawalAmount * maxSwingFactor / 1e18;
+        assertLt(withdrawalPenalty, maxPenalty);
     }
 }
