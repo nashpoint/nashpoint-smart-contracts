@@ -138,6 +138,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
 
     /// @inheritdoc INodeRegistry
     function setProtocolFeeAddress(address newProtocolFeeAddress) external onlyOwner {
+        if (newProtocolFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
         protocolFeeAddress = newProtocolFeeAddress;
         emit EventsLib.ProtocolFeeAddressSet(newProtocolFeeAddress);
     }
