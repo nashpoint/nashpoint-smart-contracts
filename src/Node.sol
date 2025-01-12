@@ -14,13 +14,14 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
 // temp:
 import {console2} from "forge-std/Test.sol";
 
-contract Node is INode, ERC20, Ownable {
+contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     using Address for address;
     using SafeERC20 for IERC20;
     using MathLib for uint256;
@@ -309,18 +310,18 @@ contract Node is INode, ERC20, Ownable {
             if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
                 revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
             }
-            IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
-            IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
 
             cacheTotalAssets = cacheTotalAssets - feeForPeriod;
             lastPayment = block.timestamp;
+            IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
+            IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
             return feeForPeriod;
         }
     }
 
     function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter {
-        IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
         cacheTotalAssets -= executionFee;
+        IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
     }
 
     // todo: remove this function after audit
@@ -351,7 +352,7 @@ contract Node is INode, ERC20, Ownable {
                             ERC-7540 FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function requestRedeem(uint256 shares, address controller, address owner) public returns (uint256) {
+    function requestRedeem(uint256 shares, address controller, address owner) public nonReentrant returns (uint256) {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
@@ -577,10 +578,9 @@ contract Node is INode, ERC20, Ownable {
             revert ErrorsLib.ExceedsAvailableReserve();
         }
 
-        IERC20(asset).approve(address(this), assetsToReturn);
-        IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
-
         _finalizeRedemption(controller, assetsToReturn, request.pendingRedeemRequest, request.sharesAdjusted);
+        IERC20(asset).safeIncreaseAllowance(address(this), assetsToReturn);
+        IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
     }
 
     function _finalizeRedemption(
@@ -643,7 +643,8 @@ contract Node is INode, ERC20, Ownable {
 
     function _validateComponentRatios() internal view returns (bool) {
         uint256 totalWeight = reserveAllocation.targetWeight;
-        for (uint256 i = 0; i < components.length; i++) {
+        uint256 length = components.length;
+        for (uint256 i; i < length; ++i) {
             totalWeight += componentAllocations[components[i]].targetWeight;
         }
         return totalWeight == WAD;

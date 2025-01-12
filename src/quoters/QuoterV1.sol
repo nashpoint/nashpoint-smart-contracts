@@ -86,7 +86,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     function _getErc7540Assets(address node, address component) internal view returns (uint256) {
-        uint256 assets;
+        uint256 assets = 0;
         address shareToken = IERC7575(component).share();
         uint256 shareBalance = IERC20(shareToken).balanceOf(node);
 
@@ -105,7 +105,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     function _getTotalAssets(address node) internal view returns (uint256) {
         uint256 reserveAssets = IERC20(INode(node).asset()).balanceOf(node);
 
-        uint256 componentAssets;
+        uint256 componentAssets = 0;
         address[] memory components = INode(node).getComponents();
         uint256 componentsLength = components.length;
 
