@@ -1989,7 +1989,7 @@ contract NodeTest is BaseTest {
         components[0] = testComponent;
         components[1] = testComponent2;
 
-        Node node = new Node(
+        Node dummyNode = new Node(
             address(testRegistry),
             "Test Node",
             "TNODE",
@@ -2000,6 +2000,10 @@ contract NodeTest is BaseTest {
             allocations,
             reserveAllocation
         );
+
+        assertEq(INode(dummyNode).getComponentRatio(testComponent), comp1);
+        assertEq(INode(dummyNode).getComponentRatio(testComponent2), comp2);
+        assertEq(INode(dummyNode).targetReserveRatio(), reserve);
     }
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {
