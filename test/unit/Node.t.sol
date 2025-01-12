@@ -18,6 +18,20 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
+contract NodeHarness is Node {
+    constructor(
+        address registry_,
+        string memory name,
+        string memory symbol,
+        address asset_,
+        address owner,
+        address[] memory routers,
+        address[] memory components_,
+        ComponentAllocation[] memory componentAllocations_,
+        ComponentAllocation memory reserveAllocation_
+    ) Node(registry_, name, symbol, asset_, owner, routers, components_, componentAllocations_, reserveAllocation_) {}
+}
+
 contract NodeTest is BaseTest {
     using stdStorage for StdStorage;
 
@@ -35,6 +49,8 @@ contract NodeTest is BaseTest {
     ERC4626Mock public testVault;
     ERC4626Mock public testVault2;
     ERC4626Mock public testVault3;
+
+    NodeHarness public nodeHarness;
 
     string constant TEST_NAME = "Test Node";
     string constant TEST_SYMBOL = "TNODE";
@@ -93,6 +109,18 @@ contract NodeTest is BaseTest {
         Node nodeImpl = Node(address(node));
         maxDeposit = nodeImpl.MAX_DEPOSIT();
         rebalanceCooldown = nodeImpl.rebalanceCooldown();
+
+        nodeHarness = new NodeHarness(
+            address(registry),
+            "TEST_NAME",
+            "TEST_SYMBOL",
+            address(asset),
+            address(owner),
+            _toArray(address(router4626)),
+            _toArray(address(asset)),
+            _defaultComponentAllocations(1),
+            _defaultReserveAllocation()
+        );
     }
 
     function test_constructor() public view {
@@ -403,14 +431,19 @@ contract NodeTest is BaseTest {
 
     function test_addRouter() public {
         address newRouter = makeAddr("newRouter");
-
         vm.mockCall(
             address(testRegistry), abi.encodeWithSelector(INodeRegistry.isRouter.selector, newRouter), abi.encode(true)
         );
-
         vm.prank(owner);
         testNode.addRouter(newRouter);
         assertTrue(testNode.isRouter(newRouter));
+    }
+
+    function test_addRouter_revert_NotWhitelisted() public {
+        address newRouter = makeAddr("notWhitelistedRouter");
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.addRouter(newRouter);
     }
 
     function test_addRouter_revert_ZeroAddress() public {
@@ -450,6 +483,12 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         testNode.addRebalancer(newRebalancer);
         assertTrue(testNode.isRebalancer(newRebalancer));
+    }
+
+    function test_addRebalancer_revert_not_whitelisted() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.addRebalancer(makeAddr("notWhitelisted"));
     }
 
     function test_addRebalancer_revert_ZeroAddress() public {
@@ -1127,9 +1166,7 @@ contract NodeTest is BaseTest {
         deal(address(asset), address(user), 100 ether);
         _userDeposits(user, 100 ether);
 
-        vm.prank(user);
-        node.approve(address(node), 50 ether);
-        node.requestRedeem(50 ether, user, user);
+        _userRequestsRedeem(user, 50 ether);
 
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user);
@@ -1158,9 +1195,7 @@ contract NodeTest is BaseTest {
 
         assertGt(50 ether, remainingReserve);
 
-        vm.prank(user);
-        node.approve(address(node), 50 ether);
-        node.requestRedeem(50 ether, user, user);
+        _userRequestsRedeem(user, 50 ether);
 
         vm.prank(rebalancer);
         vm.expectRevert(ErrorsLib.ExceedsAvailableReserve.selector);
@@ -1290,6 +1325,11 @@ contract NodeTest is BaseTest {
         assertEq(sharesAdjustedAfter, sharesAdjustedBefore - sharesToRedeem);
     }
 
+    function test_finalizeRedemption_revert_onlyRouter() public {
+        vm.expectRevert(ErrorsLib.InvalidSender.selector);
+        node.finalizeRedemption(user, 50 ether, 100, 100);
+    }
+
     // ERC-7540 FUNCTIONS
 
     function test_requestRedeem() public {
@@ -1302,6 +1342,24 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         assertEq(node.pendingRedeemRequest(0, user), shares);
+    }
+
+    function test_requestRedeem_revert_InvalidOwner() public {
+        vm.startPrank(user);
+        vm.expectRevert(ErrorsLib.InvalidOwner.selector);
+        node.requestRedeem(1 ether, user, randomUser);
+        vm.stopPrank();
+    }
+
+    function test_requestRedeem_revert_ZeroAddress() public {
+        _seedNode(100 ether);
+        _userDeposits(user, 1 ether);
+
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        node.requestRedeem(1 ether, user, address(0));
+        vm.stopPrank();
     }
 
     function test_requestRedeem_revert_InsufficientBalance() public {
@@ -1429,6 +1487,15 @@ contract NodeTest is BaseTest {
         _verifySuccessfulEntry(user, assets, shares);
     }
 
+    function test_deposit_revert_ExceedsMaxDeposit() public {
+        deal(address(asset), address(user), maxDeposit + 1);
+        vm.startPrank(user);
+        asset.approve(address(node), maxDeposit + 1);
+        vm.expectRevert(ErrorsLib.ExceedsMaxDeposit.selector);
+        node.deposit(maxDeposit + 1, user);
+        vm.stopPrank();
+    }
+
     function test_mint(uint256 assets) public {
         vm.assume(assets < maxDeposit);
 
@@ -1443,6 +1510,15 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         _verifySuccessfulEntry(user, assets, shares);
+    }
+
+    function test_mint_revert_ExceedsMaxMint() public {
+        deal(address(asset), address(user), maxDeposit + 1);
+        vm.startPrank(user);
+        asset.approve(address(node), maxDeposit + 1);
+        vm.expectRevert(ErrorsLib.ExceedsMaxMint.selector);
+        node.mint(maxDeposit + 1, user);
+        vm.stopPrank();
     }
 
     function test_withdraw_base(uint256 depositAmount, uint256 seedAmount) public {
@@ -1566,6 +1642,37 @@ contract NodeTest is BaseTest {
         assertEq(asset.balanceOf(user), expectedAssets);
     }
 
+    function test_redeem_edge_cases() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.ZeroAmount.selector);
+        node.redeem(0, user, user);
+
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.InvalidController.selector);
+        node.redeem(1 ether, user, randomUser);
+
+        uint256 depositAmount = 1 ether;
+        _seedNode(depositAmount);
+
+        vm.startPrank(user);
+        asset.approve(address(node), depositAmount);
+        node.deposit(depositAmount, user);
+        uint256 shares = node.balanceOf(user);
+        node.approve(address(node), shares);
+        node.requestRedeem(shares, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user);
+
+        uint256 maxRedeem = node.maxRedeem(user);
+
+        // try to redeem more than available
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.ExceedsMaxRedeem.selector);
+        node.redeem(maxRedeem + 1, user, user);
+    }
+
     function test_totalAssets(uint256 depositAmount, uint256 seedAmount, uint256 additionalDeposit) public {
         depositAmount = bound(depositAmount, 1, 1e30);
         additionalDeposit = bound(additionalDeposit, 1, 1e36 - depositAmount);
@@ -1647,11 +1754,11 @@ contract NodeTest is BaseTest {
         assertEq(node.maxMint(user), 0);
     }
 
-    function test_previewDeposit(uint256 amount) public {
+    function test_previewDeposit(uint256 amount) public view {
         assertEq(node.convertToShares(amount), node.previewDeposit(amount));
     }
 
-    function test_previewMint(uint256 amount) public {
+    function test_previewMint(uint256 amount) public view {
         assertEq(node.convertToAssets(amount), node.previewMint(amount));
     }
 
@@ -1677,7 +1784,6 @@ contract NodeTest is BaseTest {
         deal(address(asset), user, depositAmount);
         asset.approve(address(node), depositAmount);
         node.deposit(depositAmount, user);
-        uint256 shares = node.balanceOf(user);
         node.approve(address(node), sharesToRedeem);
         node.requestRedeem(sharesToRedeem, user, user);
         vm.stopPrank();
@@ -1728,8 +1834,31 @@ contract NodeTest is BaseTest {
         }
     }
 
+    // todo: fix this test
+    function test_getSharesExiting(uint256 depositAmount, uint256 redeemAmount) public {
+        _seedNode(100 ether);
+        depositAmount = bound(depositAmount, 1 ether, 1e36);
+        deal(address(asset), user, depositAmount);
+
+        uint256 shares = _userDeposits(user, depositAmount);
+        redeemAmount = bound(redeemAmount, 1, shares);
+
+        if (redeemAmount > shares) {
+            redeemAmount = shares;
+        }
+        uint256 sharesExiting = node.getSharesExiting();
+        assertEq(sharesExiting, 0);
+
+        vm.startPrank(user);
+        node.approve(address(node), redeemAmount);
+        node.requestRedeem(redeemAmount, user, user);
+        vm.stopPrank();
+
+        sharesExiting = node.getSharesExiting();
+        assertEq(sharesExiting, redeemAmount);
+    }
+
     function test_targetReserveRatio(uint256 targetWeight) public {
-        /// @todo I can pass any value as targetWeight, maybe cap it in the smart contract to 0-1e18?
         targetWeight = bound(targetWeight, 0.01 ether, 0.99 ether);
 
         vm.warp(block.timestamp + 1 days);
@@ -1747,10 +1876,6 @@ contract NodeTest is BaseTest {
         uint256 reserveRatio = node.targetReserveRatio();
         assertEq(reserveRatio, targetWeight);
     }
-
-    function test_getSharesExiting() public {}
-
-    function test_targetReserveRatio() public {}
 
     function test_getComponents() public {
         vm.warp(block.timestamp + 1 days);
@@ -1818,18 +1943,35 @@ contract NodeTest is BaseTest {
     }
 
     // INTERNAL FUNCTIONS
-    function test_fulfillRedeemFromReserve_internal() public {}
 
-    function test_finalizeRedemption_internal() public {}
+    function test_validateController_RevertIfNotController() public {
+        _seedNode(100 ether);
+        _userDeposits(user, 100 ether);
 
-    function test_validateController() public {}
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        node.requestRedeem(1 ether, user, user);
+        vm.stopPrank();
 
-    function test_setReserveAllocation() public {}
+        vm.prank(randomUser);
+        vm.expectRevert(ErrorsLib.InvalidController.selector);
+        node.redeem(1 ether, randomUser, user);
+    }
 
-    function test_setRouters() public {}
+    function test_validateOwner_withOperator() public {
+        _seedNode(100 ether);
+        _userDeposits(user, 100 ether);
 
-    // the test below should cover that
-    //function test_setInitialComponents() public {}
+        address operator = makeAddr("operator");
+
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        node.setOperator(operator, true);
+        vm.stopPrank();
+
+        vm.prank(operator);
+        node.requestRedeem(1 ether, user, user);
+    }
 
     function test_componentAllocationAndValidation(uint64 comp1, uint64 comp2) public {
         vm.assume(uint256(comp1) + uint256(comp2) < 1e18);
@@ -1847,7 +1989,7 @@ contract NodeTest is BaseTest {
         components[0] = testComponent;
         components[1] = testComponent2;
 
-        Node node = new Node(
+        Node dummyNode = new Node(
             address(testRegistry),
             "Test Node",
             "TNODE",
@@ -1858,6 +2000,10 @@ contract NodeTest is BaseTest {
             allocations,
             reserveAllocation
         );
+
+        assertEq(INode(dummyNode).getComponentRatio(testComponent), comp1);
+        assertEq(INode(dummyNode).getComponentRatio(testComponent2), comp2);
+        assertEq(INode(dummyNode).targetReserveRatio(), reserve);
     }
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {
@@ -1896,8 +2042,6 @@ contract NodeTest is BaseTest {
             ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
         );
     }
-
-    function test_calculateSharesAfterSwingPricing() public {}
 
     function test_onDepositClaimable(uint256 depositAmount) public {
         address controller = makeAddr("controller");

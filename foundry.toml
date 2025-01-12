@@ -13,6 +13,8 @@ evm_version = "cancun"
 gas_limit = 100000000000
 solc = '0.8.26'
 
+[fuzz]
+runs = 10
 # via-ir = true
 # gas_reports = ["Node"]
 

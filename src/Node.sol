@@ -275,7 +275,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             revert ErrorsLib.InvalidComponentRatios();
         }
         if (block.timestamp < lastRebalance + rebalanceCooldown) revert ErrorsLib.CooldownActive();
-
         lastRebalance = block.timestamp;
         _updateTotalAssets();
 
@@ -353,6 +352,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     function requestRedeem(uint256 shares, address controller, address owner) public nonReentrant returns (uint256) {
+        _validateOwner(owner);
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
@@ -399,7 +399,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
         if (assets > maxDeposit(msg.sender)) {
-            revert ErrorsLib.ERC4626ExceededMaxDeposit(msg.sender, assets, maxDeposit(msg.sender));
+            revert ErrorsLib.ExceedsMaxDeposit();
         }
         sharesToMint = _calculateSharesAfterSwingPricing(assets);
         _deposit(_msgSender(), receiver, assets, sharesToMint);
@@ -410,7 +410,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     function mint(uint256 shares, address receiver) public returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
-            revert ErrorsLib.ERC4626ExceededMaxMint(receiver, shares, maxMint(receiver));
+            revert ErrorsLib.ExceedsMaxMint();
         }
         uint256 assetsToDeposit = convertToAssets(shares);
         _deposit(_msgSender(), receiver, assetsToDeposit, shares);
@@ -609,7 +609,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _validateController(address controller) internal view {
+        if (controller == address(0)) revert ErrorsLib.ZeroAddress();
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
+    }
+
+    function _validateOwner(address owner) internal view {
+        if (owner == address(0)) revert ErrorsLib.ZeroAddress();
+        if (owner != msg.sender && !isOperator[owner][msg.sender]) {
+            revert ErrorsLib.InvalidOwner();
+        }
     }
 
     function _setReserveAllocation(ComponentAllocation memory allocation) internal {
