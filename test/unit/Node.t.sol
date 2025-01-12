@@ -835,7 +835,7 @@ contract NodeTest is BaseTest {
 
         vm.prank(address(router4626));
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        bytes memory result = node.execute(address(0), 0, data);
+        node.execute(address(0), 0, data);
     }
 
     function test_execute_revert_NotRebalancing() public {
