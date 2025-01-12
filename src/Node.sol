@@ -55,10 +55,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /* FEES & ACCOUNTING */
     uint64 public annualManagementFee;
-    address public nodeOwnerFeeAddress;
-    uint256 public lastPayment;
+    uint64 public lastPayment;
     uint256 public sharesExiting;
     uint256 public cacheTotalAssets;
+    address public nodeOwnerFeeAddress;
     mapping(address => Request) public requests;
 
     /* SWING PRICING */
@@ -311,7 +311,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             }
 
             cacheTotalAssets = cacheTotalAssets - feeForPeriod;
-            lastPayment = block.timestamp;
+            lastPayment = uint64(block.timestamp);
             IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
             IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
             return feeForPeriod;
@@ -538,7 +538,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return sharesExiting;
     }
 
-    function targetReserveRatio() public view returns (uint256) {
+    function targetReserveRatio() public view returns (uint64) {
         return reserveAllocation.targetWeight;
     }
 
@@ -546,7 +546,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return components;
     }
 
-    function getComponentRatio(address component) external view returns (uint256 ratio) {
+    function getComponentRatio(address component) external view returns (uint64 ratio) {
         return componentAllocations[component].targetWeight;
     }
 
@@ -554,7 +554,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return _isComponent(component);
     }
 
-    function getMaxDelta(address component) external view returns (uint256) {
+    function getMaxDelta(address component) external view returns (uint64) {
         return componentAllocations[component].maxDelta;
     }
 

@@ -199,13 +199,13 @@ contract RebalanceFuzzTests is BaseTest {
         uint64 annualManagementFee,
         uint256 protocolManagementFee,
         uint256 protocolExecutionFee,
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint256 seedAmount,
         uint256 randUint,
         uint256 runs,
         uint256 depositAmount
     ) public {
-        targetReserveRatio = bound(targetReserveRatio, 0.1 ether, 1 ether);
+        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.1 ether, 1 ether));
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
         annualManagementFee = uint64(bound(annualManagementFee, 0, 0.1 ether));
         protocolManagementFee = bound(protocolManagementFee, 100, 0.1 ether); // todo: figure out why zero is not working
@@ -382,14 +382,14 @@ contract RebalanceFuzzTests is BaseTest {
 
     // HELPER FUNCTIONS
 
-    function _setInitialComponentRatios(uint256 reserveRatio, uint256 randUint, address[] memory newComponents)
+    function _setInitialComponentRatios(uint64 reserveRatio, uint256 randUint, address[] memory newComponents)
         internal
     {
         vm.startPrank(owner);
         node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether}));
         components = newComponents;
 
-        uint256 availableAllocation = 1 ether - reserveRatio;
+        uint64 availableAllocation = 1 ether - reserveRatio;
         for (uint256 i = 0; i < components.length; i++) {
             if (i == components.length - 1) {
                 if (availableAllocation > 0) {
@@ -398,8 +398,12 @@ contract RebalanceFuzzTests is BaseTest {
                     );
                 }
             } else {
-                uint256 chunk = uint256(keccak256(abi.encodePacked(randUint, i)));
-                chunk = bound(chunk, 0, availableAllocation);
+                uint256 hashVal = uint256(keccak256(abi.encodePacked(randUint, i)));
+                uint256 bounded = bound(hashVal, 0, availableAllocation);
+                uint64 chunk = uint64(bounded);
+
+                // uint64 chunk = uint64(keccak256(abi.encodePacked(randUint, i)));
+                // chunk = bound(chunk, 0, availableAllocation);
                 node.addComponent(components[i], ComponentAllocation({targetWeight: chunk, maxDelta: 0}));
                 availableAllocation -= chunk;
             }

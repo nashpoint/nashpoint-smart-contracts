@@ -1817,8 +1817,8 @@ contract NodeTest is BaseTest {
         assertEq(sharesExiting, redeemAmount);
     }
 
-    function test_targetReserveRatio(uint256 targetWeight) public {
-        targetWeight = bound(targetWeight, 0.01 ether, 0.99 ether);
+    function test_targetReserveRatio(uint64 targetWeight) public {
+        targetWeight = uint64(bound(targetWeight, 0.01 ether, 0.99 ether));
 
         vm.warp(block.timestamp + 1 days);
 
@@ -1853,11 +1853,11 @@ contract NodeTest is BaseTest {
         assertEq(components[2], component2);
     }
 
-    function test_getComponentRatio(uint256 weight) public {
+    function test_getComponentRatio(uint64 ratio) public {
         vm.warp(block.timestamp + 1 days);
 
         address component = makeAddr("component");
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: weight, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: ratio, maxDelta: 0.01 ether});
 
         vm.prank(owner);
         node.addComponent(component, allocation);
@@ -1877,16 +1877,16 @@ contract NodeTest is BaseTest {
         assertTrue(node.isComponent(testComponent));
     }
 
-    function test_getMaxDelta(uint256 amount) public {
+    function test_getMaxDelta(uint64 delta) public {
         vm.warp(block.timestamp + 2 days);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: amount});
+        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: delta});
 
         vm.prank(owner);
         node.addComponent(testComponent, allocation);
 
-        uint256 maxDelta = node.getMaxDelta(testComponent);
-        assertEq(maxDelta, amount);
+        uint64 maxDelta = node.getMaxDelta(testComponent);
+        assertEq(maxDelta, delta);
         assertEq(maxDelta, allocation.maxDelta);
     }
 
@@ -1934,7 +1934,7 @@ contract NodeTest is BaseTest {
 
     function test_componentAllocationAndValidation(uint64 comp1, uint64 comp2) public {
         vm.assume(uint256(comp1) + uint256(comp2) < 1e18);
-        uint256 reserve = 1e18 - uint256(comp1) - uint256(comp2);
+        uint64 reserve = uint64(1e18 - uint256(comp1) - uint256(comp2));
         ComponentAllocation[] memory allocations = new ComponentAllocation[](2);
         allocations[0] = ComponentAllocation({targetWeight: comp1, maxDelta: 0.01 ether});
         allocations[1] = ComponentAllocation({targetWeight: comp2, maxDelta: 0.01 ether});

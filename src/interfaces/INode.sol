@@ -7,8 +7,8 @@ import {IERC7540Redeem} from "./IERC7540.sol";
 import {IQuoter} from "./IQuoter.sol";
 
 struct ComponentAllocation {
-    uint256 targetWeight;
-    uint256 maxDelta;
+    uint64 targetWeight;
+    uint64 maxDelta;
 }
 
 struct Request {
@@ -115,7 +115,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Returns the target ratio of a component
     /// @param component The address of the component
     /// @return uint256 The target ratio of the component
-    function getComponentRatio(address component) external view returns (uint256);
+    function getComponentRatio(address component) external view returns (uint64);
 
     /// @notice Fulfill a redeem request from the reserve
     /// @param user The address of the user to redeem for
@@ -134,10 +134,10 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function enableSwingPricing(bool enabled, uint64 maxSwingFactor) external;
 
     /// @notice Returns the target reserve ratio
-    function targetReserveRatio() external view returns (uint256);
+    function targetReserveRatio() external view returns (uint64);
 
     /// @notice Returns the max delta for the component
-    function getMaxDelta(address component) external view returns (uint256);
+    function getMaxDelta(address component) external view returns (uint64);
 
     /// @notice Converts assets to shares
     /// @param assets The amount of assets to convert

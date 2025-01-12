@@ -333,13 +333,13 @@ contract NodeFuzzTest is BaseTest {
     // invariant 5: withdrawal penalty never exceeds the value of the max swing factor
 
     function test_fuzz_node_swing_price_previewDeposit_matches(
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint64 maxSwingFactor,
         uint256 seedAmount,
         uint256 depositAmount,
         uint256 sharesToRedeem
     ) public {
-        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.1 ether); // todo: extend test or hardcode these values
+        targetReserveRatio = uint64(bound(targetReserveRatio, 0.01 ether, 0.1 ether)); // todo: extend test or hardcode these values
         maxSwingFactor = uint64(bound(maxSwingFactor, 0, 0.1 ether)); // todo: extend test or hardcode these values
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
         depositAmount = bound(depositAmount, 1 ether, maxDeposit);
@@ -382,12 +382,12 @@ contract NodeFuzzTest is BaseTest {
 
     function test_fuzz_node_swing_price_deposit_never_exceeds_max(
         uint64 maxSwingFactor,
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint256 seedAmount,
         uint256 depositAmount
     ) public {
         maxSwingFactor = uint64(bound(maxSwingFactor, 0.01 ether, 0.99 ether));
-        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
+        targetReserveRatio = uint64(bound(targetReserveRatio, 0.01 ether, 0.99 ether));
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
         depositAmount = bound(depositAmount, 1 ether, maxDeposit);
 
@@ -426,12 +426,12 @@ contract NodeFuzzTest is BaseTest {
 
     function test_fuzz_node_swing_price_redeem_never_exceeds_max(
         uint64 maxSwingFactor,
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint256 seedAmount,
         uint256 withdrawalAmount
     ) public {
         maxSwingFactor = uint64(bound(maxSwingFactor, 0.01 ether, 0.99 ether));
-        targetReserveRatio = bound(targetReserveRatio, 0.01 ether, 0.99 ether);
+        targetReserveRatio = uint64(bound(targetReserveRatio, 0.01 ether, 0.99 ether));
         seedAmount = bound(seedAmount, 100 ether, 1e36);
 
         deal(address(asset), address(user), seedAmount);
