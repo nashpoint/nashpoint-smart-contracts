@@ -32,7 +32,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address public immutable registry;
     uint256 internal immutable WAD = 1e18;
     uint256 private immutable REQUEST_ID = 0;
-    uint256 public immutable MAX_DEPOSIT = 1e36; // todo: come back to this later, maybe move it to quoter
+    uint256 public immutable MAX_DEPOSIT = 1e36;
     uint256 public immutable SECONDS_PER_YEAR = 365 days;
 
     /* COMPONENTS */
@@ -49,12 +49,12 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     mapping(address => mapping(address => bool)) public isOperator;
 
     /* REBALANCE COOLDOWN */
-    uint256 public rebalanceCooldown = 1 days;
+    uint256 public rebalanceCooldown = 1 days; // all these can be smaller
     uint256 public rebalanceWindow = 1 hours;
     uint256 public lastRebalance;
 
     /* FEES & ACCOUNTING */
-    uint256 public annualManagementFee;
+    uint64 public annualManagementFee; // max = 1e18
     address public nodeOwnerFeeAddress;
     uint256 public lastPayment;
     uint256 public sharesExiting;
@@ -62,7 +62,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     mapping(address => Request) public requests;
 
     /* SWING PRICING */
-    uint256 public maxSwingFactor;
+    uint256 public maxSwingFactor; // max = 1e18
     bool public swingPricingEnabled;
     bool public isInitialized;
 
@@ -261,7 +261,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.NodeOwnerFeeAddressSet(newNodeOwnerFeeAddress);
     }
 
-    function setAnnualManagementFee(uint256 newAnnualManagementFee) external onlyOwner {
+    function setAnnualManagementFee(uint64 newAnnualManagementFee) external onlyOwner {
         annualManagementFee = newAnnualManagementFee;
         emit EventsLib.ProtocolManagementFeeSet(newAnnualManagementFee);
     }

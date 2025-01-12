@@ -254,11 +254,11 @@ contract NodeFuzzTest is BaseTest {
                         FEE PAYMENTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_fuzz_node_payManagementFees(uint256 annualFee, uint256 protocolFee, uint256 seedAmount) public {
+    function test_fuzz_node_payManagementFees(uint64 annualFee, uint256 protocolFee, uint256 seedAmount) public {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
-        annualFee = bound(annualFee, 0, 1e18);
+        annualFee = uint64(bound(annualFee, 0, 1e18));
         protocolFee = bound(protocolFee, 0, 1e18);
         seedAmount = bound(seedAmount, 1e18, 1e36);
 
@@ -286,7 +286,7 @@ contract NodeFuzzTest is BaseTest {
     }
 
     function test_fuzz_node_payManagementFees_different_durations(
-        uint256 annualFee,
+        uint64 annualFee,
         uint256 protocolFee,
         uint256 seedAmount,
         uint256 duration
@@ -294,7 +294,7 @@ contract NodeFuzzTest is BaseTest {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
-        annualFee = bound(annualFee, 0, 1e18);
+        annualFee = uint64(bound(annualFee, 0, 1e18));
         protocolFee = bound(protocolFee, 0, 1e18);
         seedAmount = bound(seedAmount, 1e18, 1e36);
         duration = bound(duration, 1 days, 365 days);

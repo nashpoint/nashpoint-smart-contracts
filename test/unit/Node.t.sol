@@ -754,7 +754,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_setAnnualManagementFee() public {
-        uint256 newAnnualManagementFee = 0.01 ether;
+        uint64 newAnnualManagementFee = 0.01 ether;
         vm.prank(owner);
         testNode.setAnnualManagementFee(newAnnualManagementFee);
         assertEq(testNode.annualManagementFee(), newAnnualManagementFee);
