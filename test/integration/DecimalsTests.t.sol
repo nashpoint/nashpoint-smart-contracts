@@ -78,14 +78,14 @@ contract DecimalsTests is BaseTest {
         assertEq(testVault18.decimals(), 18);
 
         assertEq(testToken6.decimals(), 6);
-        assertEq(testVault6.decimals(), 6);
 
-        // Node is 6 dec by inheritance
-        // Adding 6 dec share token does not affect this
+        // Node with 6 decimals asset
         assertEq(address(testToken6), decNode.asset());
-        assertEq(ERC20(decNode.asset()).decimals(), 6);
-        assertFalse(decNode.decimals() == 6);
-        assertTrue(decNode.decimals() == 18);
+        assertEq(decNode.decimals(), testToken6.decimals());
+
+        // Node with 18 decimals asset
+        assertEq(node.decimals(), 18);
+        assertEq(node.decimals(), ERC20(address(asset)).decimals());
     }
 
     function test_decimals_deposit(uint256 deposit, uint64 allocation) public {

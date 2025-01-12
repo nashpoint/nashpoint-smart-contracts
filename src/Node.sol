@@ -501,6 +501,10 @@ contract Node is INode, ERC20, Ownable {
         revert();
     }
 
+    function decimals() public view override(ERC20, IERC20Metadata) returns (uint8) {
+        return IERC20Metadata(asset).decimals();
+    }
+
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
