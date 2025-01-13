@@ -155,7 +155,7 @@ contract ERC4626Router is BaseRouter {
     /// @param assets The amount of assets to deposit.
     function _deposit(address node, address vault, uint256 assets) internal returns (uint256) {
         address underlying = IERC4626(vault).asset();
-        INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, vault, assets));
+        _approve(node, underlying, vault, assets);
 
         bytes memory result =
             INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
