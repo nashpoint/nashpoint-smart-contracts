@@ -96,6 +96,9 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
     }
 
     /// @notice Fulfills a redeem request on behalf of the Node.
+    /// @dev Called by a rebalancer to liquidate a component in order to make assets available for user withdrawal
+    /// Transfers the assets to Escrow and updates the Requst for the user
+    /// Enforces liquidation queue to ensure asset liquidated is according to order set by the Node Owner
     /// @param node The address of the node.
     /// @param controller The address of the controller.
     /// @param component The address of the component.
@@ -119,6 +122,7 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
             IERC4626(component).convertToShares(assetsRequested), IERC20(component).balanceOf(address(node))
         );
 
+        // execute the liquidation
         assetsReturned = _liquidate(node, component, componentShares);
 
         // if the assets returned are less than the assets requested, adjust the shares pending and shares adjusted
