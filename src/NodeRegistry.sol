@@ -39,8 +39,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
     // todo: add arbitry module mapping
 
     address public protocolFeeAddress;
-    uint256 public protocolManagementFee;
-    uint256 public protocolExecutionFee;
+    uint64 public protocolManagementFee;
+    uint64 public protocolExecutionFee;
 
     /* CONSTRUCTOR */
     constructor(address owner_) Ownable(owner_) {}
@@ -144,13 +144,13 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     /// @inheritdoc INodeRegistry
-    function setProtocolManagementFee(uint256 newProtocolManagementFee) external onlyOwner {
+    function setProtocolManagementFee(uint64 newProtocolManagementFee) external onlyOwner {
         protocolManagementFee = newProtocolManagementFee;
         emit EventsLib.ProtocolManagementFeeSet(newProtocolManagementFee);
     }
 
     /// @inheritdoc INodeRegistry
-    function setProtocolExecutionFee(uint256 newProtocolExecutionFee) external onlyOwner {
+    function setProtocolExecutionFee(uint64 newProtocolExecutionFee) external onlyOwner {
         protocolExecutionFee = newProtocolExecutionFee;
         emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
     }

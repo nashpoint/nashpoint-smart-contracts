@@ -167,30 +167,32 @@ contract VaultTests is BaseTest {
     }
 
     function test_VaultTests_getSwingFactor() public {
-        uint256 maxDiscount = 2e16;
-        uint256 targetReserveRatio = 10e16;
+        uint64 maxSwingFactor = 2e16;
+        uint64 targetReserveRatio = 10e16;
 
-        vm.assertGt(mockQuoter.getSwingFactor(1e16, maxDiscount, targetReserveRatio), 0);
+        vm.assertGt(mockQuoter.getSwingFactor(1e16, maxSwingFactor, targetReserveRatio), 0);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidInput.selector, -1e16));
-        mockQuoter.getSwingFactor(-1e16, maxDiscount, targetReserveRatio);
+        mockQuoter.getSwingFactor(-1e16, maxSwingFactor, targetReserveRatio);
 
         // assert swing factor is zero if reserve target is met
-        uint256 swingFactor = mockQuoter.getSwingFactor(int256(targetReserveRatio), maxDiscount, targetReserveRatio);
+        uint256 swingFactor =
+            mockQuoter.getSwingFactor(int256(uint256(targetReserveRatio)), maxSwingFactor, targetReserveRatio);
         assertEq(swingFactor, 0);
 
         // assert swing factor is zero if reserve target is exceeded
-        swingFactor = mockQuoter.getSwingFactor(int256(targetReserveRatio) + 1e16, maxDiscount, targetReserveRatio);
+        swingFactor =
+            mockQuoter.getSwingFactor(int256(uint256(targetReserveRatio)) + 1e16, maxSwingFactor, targetReserveRatio);
         assertEq(swingFactor, 0);
 
-        // assert that swing factor approaches maxDiscount when reserve approaches zero
+        // assert that swing factor approaches maxSwingFactor when reserve approaches zero
         int256 minReservePossible = 1;
-        swingFactor = mockQuoter.getSwingFactor(minReservePossible, maxDiscount, targetReserveRatio);
-        assertEq(swingFactor, maxDiscount - 1);
+        swingFactor = mockQuoter.getSwingFactor(minReservePossible, maxSwingFactor, targetReserveRatio);
+        assertEq(swingFactor, maxSwingFactor - 1);
 
         // assert that swing factor is very small when reserve approaches target
-        int256 maxReservePossible = int256(targetReserveRatio) - 1;
-        swingFactor = mockQuoter.getSwingFactor(maxReservePossible, maxDiscount, targetReserveRatio);
+        int256 maxReservePossible = int256(uint256(targetReserveRatio)) - 1;
+        swingFactor = mockQuoter.getSwingFactor(maxReservePossible, maxSwingFactor, targetReserveRatio);
         assertGt(swingFactor, 0);
         assertLt(swingFactor, 1e15); // 0.1%
     }
@@ -199,7 +201,7 @@ contract VaultTests is BaseTest {
         _userDeposits(user, 100 ether);
 
         // set max discount for swing pricing
-        uint256 maxSwingFactor = 2e16;
+        uint64 maxSwingFactor = 2e16;
 
         vm.prank(owner);
         node.enableSwingPricing(true, maxSwingFactor);
@@ -299,11 +301,11 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         // set max discount for swing pricing
-        uint256 maxDiscount = 2e16;
+        uint64 maxSwingFactor = 2e16;
 
         // enable swing pricing
         vm.prank(owner);
-        node.enableSwingPricing(true, maxDiscount);
+        node.enableSwingPricing(true, maxSwingFactor);
 
         // assert user2 has zero usdc balance
         assertEq(asset.balanceOf(user2), 0);

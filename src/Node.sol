@@ -18,9 +18,6 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
-// temp:
-import {console2} from "forge-std/Test.sol";
-
 contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     using Address for address;
     using SafeERC20 for IERC20;
@@ -32,7 +29,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address public immutable registry;
     uint256 internal immutable WAD = 1e18;
     uint256 private immutable REQUEST_ID = 0;
-    uint256 public immutable MAX_DEPOSIT = 1e36; // todo: come back to this later, maybe move it to quoter
+    uint256 public immutable MAX_DEPOSIT = 1e36;
     uint256 public immutable SECONDS_PER_YEAR = 365 days;
 
     /* COMPONENTS */
@@ -49,20 +46,20 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     mapping(address => mapping(address => bool)) public isOperator;
 
     /* REBALANCE COOLDOWN */
-    uint256 public rebalanceCooldown = 1 days;
-    uint256 public rebalanceWindow = 1 hours;
-    uint256 public lastRebalance;
+    uint64 public rebalanceCooldown = 1 days;
+    uint64 public rebalanceWindow = 1 hours;
+    uint64 public lastRebalance;
 
     /* FEES & ACCOUNTING */
-    uint256 public annualManagementFee;
-    address public nodeOwnerFeeAddress;
-    uint256 public lastPayment;
+    uint64 public annualManagementFee;
+    uint64 public lastPayment;
     uint256 public sharesExiting;
     uint256 public cacheTotalAssets;
+    address public nodeOwnerFeeAddress;
     mapping(address => Request) public requests;
 
     /* SWING PRICING */
-    uint256 public maxSwingFactor;
+    uint64 public maxSwingFactor;
     bool public swingPricingEnabled;
     bool public isInitialized;
 
@@ -131,8 +128,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
-        lastRebalance = block.timestamp - rebalanceCooldown;
-        lastPayment = block.timestamp;
+        lastRebalance = uint64(block.timestamp - rebalanceCooldown);
+        lastPayment = uint64(block.timestamp);
 
         // todo: add setLiquidationQueue to initialize
 
@@ -238,17 +235,17 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.LiquidationQueueUpdated(newQueue);
     }
 
-    function setRebalanceCooldown(uint256 newRebalanceCooldown) external onlyOwner {
+    function setRebalanceCooldown(uint64 newRebalanceCooldown) external onlyOwner {
         rebalanceCooldown = newRebalanceCooldown;
         emit EventsLib.CooldownDurationUpdated(newRebalanceCooldown);
     }
 
-    function setRebalanceWindow(uint256 newRebalanceWindow) external onlyOwner {
+    function setRebalanceWindow(uint64 newRebalanceWindow) external onlyOwner {
         rebalanceWindow = newRebalanceWindow;
         emit EventsLib.RebalanceWindowUpdated(newRebalanceWindow);
     }
 
-    function enableSwingPricing(bool status_, uint256 maxSwingFactor_) public onlyOwner {
+    function enableSwingPricing(bool status_, uint64 maxSwingFactor_) public onlyOwner {
         swingPricingEnabled = status_;
         maxSwingFactor = maxSwingFactor_;
         emit EventsLib.SwingPricingStatusUpdated(status_);
@@ -261,7 +258,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.NodeOwnerFeeAddressSet(newNodeOwnerFeeAddress);
     }
 
-    function setAnnualManagementFee(uint256 newAnnualManagementFee) external onlyOwner {
+    function setAnnualManagementFee(uint64 newAnnualManagementFee) external onlyOwner {
         annualManagementFee = newAnnualManagementFee;
         emit EventsLib.ProtocolManagementFeeSet(newAnnualManagementFee);
     }
@@ -275,7 +272,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             revert ErrorsLib.InvalidComponentRatios();
         }
         if (block.timestamp < lastRebalance + rebalanceCooldown) revert ErrorsLib.CooldownActive();
-        lastRebalance = block.timestamp;
+        lastRebalance = uint64(block.timestamp);
         _updateTotalAssets();
 
         emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
@@ -311,7 +308,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             }
 
             cacheTotalAssets = cacheTotalAssets - feeForPeriod;
-            lastPayment = block.timestamp;
+            lastPayment = uint64(block.timestamp);
             IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
             IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
             return feeForPeriod;
@@ -356,15 +353,18 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        uint256 adjustedAssets = quoter.getAdjustedAssets(
-            asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight, swingPricingEnabled
-        );
-
-        uint256 sharesToBurn = convertToShares(adjustedAssets);
+        uint256 adjustedShares = 0;
+        if (swingPricingEnabled) {
+            uint256 adjustedAssets =
+                quoter.getAdjustedAssets(asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight);
+            adjustedShares = convertToShares(adjustedAssets);
+        } else {
+            adjustedShares = shares;
+        }
 
         Request storage request = requests[controller];
         request.pendingRedeemRequest = request.pendingRedeemRequest + shares;
-        request.sharesAdjusted = request.sharesAdjusted + sharesToBurn;
+        request.sharesAdjusted = request.sharesAdjusted + adjustedShares;
         sharesExiting += shares;
 
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
@@ -538,7 +538,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return sharesExiting;
     }
 
-    function targetReserveRatio() public view returns (uint256) {
+    function targetReserveRatio() public view returns (uint64) {
         return reserveAllocation.targetWeight;
     }
 
@@ -546,7 +546,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return components;
     }
 
-    function getComponentRatio(address component) external view returns (uint256 ratio) {
+    function getComponentRatio(address component) external view returns (uint64 ratio) {
         return componentAllocations[component].targetWeight;
     }
 
@@ -554,12 +554,16 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return _isComponent(component);
     }
 
-    function getMaxDelta(address component) external view returns (uint256) {
+    function getMaxDelta(address component) external view returns (uint64) {
         return componentAllocations[component].maxDelta;
     }
 
     function isCacheValid() public view returns (bool) {
         return (block.timestamp <= lastRebalance + rebalanceCooldown);
+    }
+
+    function validateComponentRatios() public view returns (bool) {
+        return _validateComponentRatios();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -579,8 +583,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
 
         _finalizeRedemption(controller, assetsToReturn, request.pendingRedeemRequest, request.sharesAdjusted);
-        IERC20(asset).safeIncreaseAllowance(address(this), assetsToReturn);
-        IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
+        IERC20(asset).safeTransfer(escrow, assetsToReturn);
     }
 
     function _finalizeRedemption(
@@ -601,11 +604,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         sharesExiting -= sharesPending;
         cacheTotalAssets -= assetsToReturn;
 
-        onRedeemClaimable(controller, assetsToReturn, sharesPending);
+        emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assetsToReturn, sharesPending);
     }
 
     function _updateTotalAssets() internal {
-        cacheTotalAssets = quoter.getTotalAssets(address(this));
+        cacheTotalAssets = quoter.getTotalAssets();
     }
 
     function _validateController(address controller) internal view {
@@ -621,6 +624,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _setReserveAllocation(ComponentAllocation memory allocation) internal {
+        if (allocation.targetWeight >= WAD) revert ErrorsLib.InvalidComponentRatios();
         reserveAllocation = allocation;
         emit EventsLib.ReserveAllocationUpdated(address(this), allocation);
     }
@@ -698,17 +702,5 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         _mint(receiver, shares);
 
         emit Deposit(caller, receiver, assets, shares);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                            EVENT EMITTERS
-    //////////////////////////////////////////////////////////////*/
-
-    function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {
-        emit EventsLib.DepositClaimable(controller, REQUEST_ID, assets, shares);
-    }
-
-    function onRedeemClaimable(address controller, uint256 assets, uint256 shares) public {
-        emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assets, shares);
     }
 }

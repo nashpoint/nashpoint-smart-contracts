@@ -529,7 +529,7 @@ contract ERC4626RouterTest is BaseTest {
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        uint256 expectedDeposit = 100 ether * node.getComponentRatio(address(testComponent)) / 1 ether;
+        uint256 expectedDeposit = 100 ether * uint256(node.getComponentRatio(address(testComponent))) / 1 ether;
 
         vm.startPrank(rebalancer);
         node.startRebalance();

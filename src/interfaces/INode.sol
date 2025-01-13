@@ -7,8 +7,8 @@ import {IERC7540Redeem} from "./IERC7540.sol";
 import {IQuoter} from "./IQuoter.sol";
 
 struct ComponentAllocation {
-    uint256 targetWeight;
-    uint256 maxDelta;
+    uint64 targetWeight;
+    uint64 maxDelta;
 }
 
 struct Request {
@@ -27,9 +27,6 @@ struct Request {
  * @author ODND Studios
  */
 interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
-    event DepositClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
-    event RedeemClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
-
     /// @notice The address of the node registry
     function registry() external view returns (address);
 
@@ -68,12 +65,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Allows routers to execute external calls
     function execute(address target, uint256 value, bytes calldata data) external returns (bytes memory);
-
-    /// @notice Callback when a deposit request becomes claimable
-    function onDepositClaimable(address controller, uint256 assets, uint256 shares) external;
-
-    /// @notice Callback when a redeem request becomes claimable
-    function onRedeemClaimable(address controller, uint256 assets, uint256 shares) external;
 
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
@@ -115,7 +106,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Returns the target ratio of a component
     /// @param component The address of the component
     /// @return uint256 The target ratio of the component
-    function getComponentRatio(address component) external view returns (uint256);
+    function getComponentRatio(address component) external view returns (uint64);
 
     /// @notice Fulfill a redeem request from the reserve
     /// @param user The address of the user to redeem for
@@ -131,13 +122,13 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function pendingRedeemRequest(uint256, address user) external view returns (uint256);
 
     /// @notice Enables swing pricing
-    function enableSwingPricing(bool enabled, uint256 maxDiscount) external;
+    function enableSwingPricing(bool enabled, uint64 maxSwingFactor) external;
 
     /// @notice Returns the target reserve ratio
-    function targetReserveRatio() external view returns (uint256);
+    function targetReserveRatio() external view returns (uint64);
 
     /// @notice Returns the max delta for the component
-    function getMaxDelta(address component) external view returns (uint256);
+    function getMaxDelta(address component) external view returns (uint64);
 
     /// @notice Converts assets to shares
     /// @param assets The amount of assets to convert
@@ -174,13 +165,13 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     function isCacheValid() external view returns (bool);
 
-    function lastRebalance() external view returns (uint256);
+    function lastRebalance() external view returns (uint64);
 
     function payManagementFees() external returns (uint256);
 
     function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external;
 
-    function setAnnualManagementFee(uint256 newAnnualManagementFee) external;
+    function setAnnualManagementFee(uint64 newAnnualManagementFee) external;
 
     function subtractProtocolExecutionFee(uint256 executionFee) external;
 }

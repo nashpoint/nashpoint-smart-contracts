@@ -240,9 +240,9 @@ contract BaseTest is Test {
         INode(node_).withdraw(claimableAssets, user, user);
     }
 
-    function _setAllocationToAsyncVault(address liquidityPool_, uint256 allocation) internal {
+    function _setAllocationToAsyncVault(address liquidityPool_, uint64 allocation) internal {
         vm.startPrank(owner);
-        uint256 reserveAllocation = 1 ether - allocation;
+        uint64 reserveAllocation = 1 ether - allocation;
         node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0}));
         node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0}));
         node.removeComponent(address(vault));
