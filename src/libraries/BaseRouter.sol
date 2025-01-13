@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IBaseRouter} from "../interfaces/IBaseRouter.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {INode} from "../interfaces/INode.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
 import {MathLib} from "./MathLib.sol";
@@ -150,5 +151,29 @@ contract BaseRouter is IBaseRouter {
         INode(node).subtractProtocolExecutionFee(executionFee);
 
         return transactionAfterFee;
+    }
+
+    function _transferToEscrow(address node, uint256 assetsToReturn) internal {
+        bytes memory transferCallData =
+            abi.encodeWithSelector(IERC20.transfer.selector, INode(node).escrow(), assetsToReturn);
+        INode(node).execute(INode(node).asset(), 0, transferCallData);
+    }
+
+    function _enforceLiquidationQueue(address component, uint256 assetsToReturn, address[] memory liquidationsQueue)
+        internal
+        view
+    {
+        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
+            address candidate = liquidationsQueue[i];
+            uint256 candidateShares = IERC20(candidate).balanceOf(address(this));
+            uint256 candidateAssets = IERC4626(candidate).convertToAssets(candidateShares);
+
+            if (candidateAssets >= assetsToReturn) {
+                if (candidate != component) {
+                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
+                }
+                break;
+            }
+        }
     }
 }
