@@ -135,29 +135,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /*//////////////////////////////////////////////////////////////
                          PUBLIC: HELPER FUNCTION
     //////////////////////////////////////////////////////////////*/
-    function _getSwingFactor(int256 reserveImpact, uint64 maxSwingFactor, uint64 targetReserveRatio)
-        internal
-        pure
-        returns (uint256 swingFactor)
-    {
-        // checks if a negative number
-        if (reserveImpact < 0) {
-            revert ErrorsLib.InvalidInput(reserveImpact);
-
-            // else if reserve exceeds target after deposit no swing factor is applied
-        } else if (uint256(reserveImpact) >= targetReserveRatio) {
-            return 0;
-
-            // else swing factor is applied
-        } else {
-            SD59x18 reserveImpactSd = sd(int256(reserveImpact));
-
-            SD59x18 result = sd(int256(uint256(maxSwingFactor)))
-                * exp(sd(SCALING_FACTOR).mul(reserveImpactSd).div(sd(int256(uint256(targetReserveRatio)))));
-
-            return uint256(result.unwrap());
-        }
-    }
 
     /*//////////////////////////////////////////////////////////////
                          INTERNAL: CORE LOGIC
@@ -199,6 +176,30 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         // It is multiplied by the targetReserveRatio to cancel out this in the denominator in the swing factor equation
         uint256 reserveImpact = MathLib.mulDiv(WAD - deltaClosedPct, targetReserveRatio, WAD);
         return int256(reserveImpact);
+    }
+
+    function _getSwingFactor(int256 reserveImpact, uint64 maxSwingFactor, uint64 targetReserveRatio)
+        internal
+        pure
+        returns (uint256 swingFactor)
+    {
+        // checks if a negative number
+        if (reserveImpact < 0) {
+            revert ErrorsLib.InvalidInput(reserveImpact);
+
+            // else if reserve exceeds target after deposit no swing factor is applied
+        } else if (uint256(reserveImpact) >= targetReserveRatio) {
+            return 0;
+
+            // else swing factor is applied
+        } else {
+            SD59x18 reserveImpactSd = sd(int256(reserveImpact));
+
+            SD59x18 result = sd(int256(uint256(maxSwingFactor)))
+                * exp(sd(SCALING_FACTOR).mul(reserveImpactSd).div(sd(int256(uint256(targetReserveRatio)))));
+
+            return uint256(result.unwrap());
+        }
     }
 
     function _getErc4626Assets(address node, address component) internal view returns (uint256) {
