@@ -21,14 +21,19 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 contract QuoterV1 is IQuoterV1, BaseQuoter {
     using MathLib for uint256;
 
-    int256 public constant SCALING_FACTOR = -5e18;
-    uint256 public constant WAD = 1e18;
+    /* IMMUTABLES */
+    int256 public immutable SCALING_FACTOR = -5e18;
+    uint256 public immutable WAD = 1e18;
 
+    /* STATE */
     mapping(address => bool) public isErc4626;
     mapping(address => bool) public isErc7540;
     bool public isInitialized;
 
+    /* CONSTRUCTOR */
     constructor(address registry_) BaseQuoter(registry_) {}
+
+    /* EXTERNAL */
 
     /// @inheritdoc IQuoterV1
     function initialize(address[] memory erc4626Components_, address[] memory erc7540Components_)
@@ -60,14 +65,14 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         isErc7540[component] = value;
     }
 
-    /// @inheritdoc IQuoter
-    function getTotalAssets() external view onlyValidNode(msg.sender) returns (uint256) {
-        return _getTotalAssets(msg.sender);
-    }
-
     /// @inheritdoc IQuoterV1
     function getErc7540Assets(address node, address component) external view returns (uint256) {
         return _getErc7540Assets(node, component);
+    }
+
+    /// @inheritdoc IQuoter
+    function getTotalAssets() external view onlyValidNode(msg.sender) returns (uint256) {
+        return _getTotalAssets(msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -102,6 +107,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /// @dev Called by Node Contract to calculate the withdrawal penalty for redeem requests
+    /// reserveImpact is the cash balance of the node after the redeem request is processed
     /// adjustedAssets is the value of the redeem request with withdrawal penalty applied based on impact on cash reserve
     /// Uses sharesExiting to track redeem request currently pending for redemption and subtracts them from cash balance
     /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penatly is being applied
