@@ -139,23 +139,23 @@ interface INodeRegistry {
      * @notice Returns the protocol management fee
      * @return uint256 Protocol management fee
      */
-    function protocolManagementFee() external view returns (uint256);
+    function protocolManagementFee() external view returns (uint64);
 
     /**
      * @notice Sets the protocol management fee
      * @param newProtocolManagementFee Protocol management fee
      */
-    function setProtocolManagementFee(uint256 newProtocolManagementFee) external;
+    function setProtocolManagementFee(uint64 newProtocolManagementFee) external;
 
     /**
      * @notice Returns the protocol execution fee
      * @return uint256 Protocol execution fee
      */
-    function protocolExecutionFee() external view returns (uint256);
+    function protocolExecutionFee() external view returns (uint64);
 
     /**
      * @notice Sets the protocol execution fee
      * @param newProtocolExecutionFee Protocol execution fee
      */
-    function setProtocolExecutionFee(uint256 newProtocolExecutionFee) external;
+    function setProtocolExecutionFee(uint64 newProtocolExecutionFee) external;
 }

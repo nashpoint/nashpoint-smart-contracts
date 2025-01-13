@@ -197,8 +197,8 @@ contract RebalanceFuzzTests is BaseTest {
 
     function test_fuzz_rebalance_with_fees(
         uint64 annualManagementFee,
-        uint256 protocolManagementFee,
-        uint256 protocolExecutionFee,
+        uint64 protocolManagementFee,
+        uint64 protocolExecutionFee,
         uint64 targetReserveRatio,
         uint256 seedAmount,
         uint256 randUint,
@@ -208,8 +208,8 @@ contract RebalanceFuzzTests is BaseTest {
         targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.1 ether, 1 ether));
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
         annualManagementFee = uint64(bound(annualManagementFee, 0, 0.1 ether));
-        protocolManagementFee = bound(protocolManagementFee, 100, 0.1 ether); // todo: figure out why zero is not working
-        protocolExecutionFee = bound(protocolExecutionFee, 100, 0.1 ether); // todo: figure out why zero is not working
+        protocolManagementFee = uint64(bound(protocolManagementFee, 100, 0.1 ether)); // todo: figure out why zero is not working
+        protocolExecutionFee = uint64(bound(protocolExecutionFee, 100, 0.1 ether)); // todo: figure out why zero is not working
 
         _setFees(annualManagementFee, protocolManagementFee, protocolExecutionFee);
 
@@ -421,9 +421,7 @@ contract RebalanceFuzzTests is BaseTest {
         vm.stopPrank();
     }
 
-    function _setFees(uint64 annualManagementFee, uint256 protocolManagementFee, uint256 protocolExecutionFee)
-        internal
-    {
+    function _setFees(uint64 annualManagementFee, uint64 protocolManagementFee, uint64 protocolExecutionFee) internal {
         vm.startPrank(owner);
         node.setNodeOwnerFeeAddress(ownerFeesRecipient);
         node.setAnnualManagementFee(annualManagementFee);
