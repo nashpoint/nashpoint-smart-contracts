@@ -122,7 +122,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return reserveAssets + componentAssets;
     }
 
-    function calculateDeposit(address asset, uint256 assets, uint256 targetReserveRatio, uint256 maxSwingFactor)
+    function calculateDeposit(address asset, uint256 assets, uint64 targetReserveRatio, uint64 maxSwingFactor)
         external
         view
         onlyValidNode(msg.sender)
@@ -145,8 +145,8 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         address asset,
         uint256 sharesExiting,
         uint256 shares,
-        uint256 maxSwingFactor,
-        uint256 targetReserveRatio,
+        uint64 maxSwingFactor,
+        uint64 targetReserveRatio,
         bool swingPricingEnabled
     ) external view onlyValidNode(msg.sender) returns (uint256 adjustedAssets) {
         // get the cash balance of the node and pending redemptions
@@ -186,7 +186,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     function calculateReserveImpact(
-        uint256 targetReserveRatio,
+        uint64 targetReserveRatio,
         uint256 reserveCash,
         uint256 totalAssets,
         uint256 deposit
@@ -257,7 +257,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return int256(reserveImpact);
     }
 
-    function getSwingFactor(int256 reserveImpact, uint256 maxSwingFactor, uint256 targetReserveRatio)
+    function getSwingFactor(int256 reserveImpact, uint64 maxSwingFactor, uint64 targetReserveRatio)
         public
         pure
         returns (uint256 swingFactor)
@@ -274,8 +274,8 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         } else {
             SD59x18 reserveImpactSd = sd(int256(reserveImpact));
 
-            SD59x18 result = sd(int256(maxSwingFactor))
-                * exp(sd(SCALING_FACTOR).mul(reserveImpactSd).div(sd(int256(targetReserveRatio))));
+            SD59x18 result = sd(int256(uint256(maxSwingFactor)))
+                * exp(sd(SCALING_FACTOR).mul(reserveImpactSd).div(sd(int256(uint256(targetReserveRatio)))));
 
             return uint256(result.unwrap());
         }

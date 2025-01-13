@@ -167,8 +167,8 @@ contract VaultTests is BaseTest {
     }
 
     function test_VaultTests_getSwingFactor() public {
-        uint256 maxSwingFactor = 2e16;
-        uint256 targetReserveRatio = 10e16;
+        uint64 maxSwingFactor = 2e16;
+        uint64 targetReserveRatio = 10e16;
 
         vm.assertGt(mockQuoter.getSwingFactor(1e16, maxSwingFactor, targetReserveRatio), 0);
 
@@ -176,11 +176,13 @@ contract VaultTests is BaseTest {
         mockQuoter.getSwingFactor(-1e16, maxSwingFactor, targetReserveRatio);
 
         // assert swing factor is zero if reserve target is met
-        uint256 swingFactor = mockQuoter.getSwingFactor(int256(targetReserveRatio), maxSwingFactor, targetReserveRatio);
+        uint256 swingFactor =
+            mockQuoter.getSwingFactor(int256(uint256(targetReserveRatio)), maxSwingFactor, targetReserveRatio);
         assertEq(swingFactor, 0);
 
         // assert swing factor is zero if reserve target is exceeded
-        swingFactor = mockQuoter.getSwingFactor(int256(targetReserveRatio) + 1e16, maxSwingFactor, targetReserveRatio);
+        swingFactor =
+            mockQuoter.getSwingFactor(int256(uint256(targetReserveRatio)) + 1e16, maxSwingFactor, targetReserveRatio);
         assertEq(swingFactor, 0);
 
         // assert that swing factor approaches maxSwingFactor when reserve approaches zero
@@ -189,7 +191,7 @@ contract VaultTests is BaseTest {
         assertEq(swingFactor, maxSwingFactor - 1);
 
         // assert that swing factor is very small when reserve approaches target
-        int256 maxReservePossible = int256(targetReserveRatio) - 1;
+        int256 maxReservePossible = int256(uint256(targetReserveRatio)) - 1;
         swingFactor = mockQuoter.getSwingFactor(maxReservePossible, maxSwingFactor, targetReserveRatio);
         assertGt(swingFactor, 0);
         assertLt(swingFactor, 1e15); // 0.1%
