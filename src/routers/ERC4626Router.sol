@@ -14,7 +14,7 @@ import {MathLib} from "../libraries/MathLib.sol";
 
 /**
  * @title ERC4626Router
- * @dev Router for ERC4626 vaults
+ * @author ODND Studios
  */
 contract ERC4626Router is BaseRouter, IERC4626Router {
     using SafeERC20 for IERC20;
@@ -26,6 +26,10 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
+
+    /*//////////////////////////////////////////////////////////////
+                            EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Invests in a component on behalf of the Node.
     /// @dev call by a valid node rebalancer to invest excess reserve into components

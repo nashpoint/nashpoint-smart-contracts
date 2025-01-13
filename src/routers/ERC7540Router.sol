@@ -15,7 +15,7 @@ import {MathLib} from "../libraries/MathLib.sol";
 
 /**
  * @title ERC7540Router
- * @dev Router for ERC7540 vaults
+ * @author ODND Studios
  */
 contract ERC7540Router is BaseRouter {
     uint256 internal totalAssets;
@@ -25,7 +25,9 @@ contract ERC7540Router is BaseRouter {
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
 
-    /* EXTERNAL FUNCTIONS */
+    /*//////////////////////////////////////////////////////////////
+                            EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Invests in a component on behalf of the Node.
     /// @dev call by a valid node rebalancer to invest excess reserve into components
@@ -78,7 +80,7 @@ contract ERC7540Router is BaseRouter {
     /// @param component The address of the component.
     /// @return sharesReceived The amount of shares received.
     function mintClaimableShares(address node, address component)
-        public
+        external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         returns (uint256)
@@ -102,7 +104,7 @@ contract ERC7540Router is BaseRouter {
     /// @param component The address of the component.
     /// @param shares The amount of shares to redeem.
     function requestAsyncWithdrawal(address node, address component, uint256 shares)
-        public
+        external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
     {
@@ -127,7 +129,7 @@ contract ERC7540Router is BaseRouter {
     /// @param assets The amount of assets to withdraw.
     /// @return assetsReceived The amount of assets received.
     function executeAsyncWithdrawal(address node, address component, uint256 assets)
-        public
+        external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         returns (uint256 assetsReceived)
