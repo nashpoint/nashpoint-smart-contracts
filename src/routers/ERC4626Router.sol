@@ -3,12 +3,9 @@ pragma solidity 0.8.26;
 
 import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {INode} from "../interfaces/INode.sol";
-import {IERC4626Router} from "../interfaces/IERC4626Router.sol";
-
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 
@@ -16,7 +13,7 @@ import {MathLib} from "../libraries/MathLib.sol";
  * @title ERC4626Router
  * @author ODND Studios
  */
-contract ERC4626Router is BaseRouter, IERC4626Router {
+contract ERC4626Router is BaseRouter {
     using SafeERC20 for IERC20;
 
     /* STATE */

@@ -2,7 +2,6 @@
 pragma solidity 0.8.26;
 
 import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {IBaseRouter} from "../interfaces/IBaseRouter.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {INode} from "../interfaces/INode.sol";
@@ -14,7 +13,7 @@ import {ErrorsLib} from "./ErrorsLib.sol";
  * @title BaseRouter
  * @author ODND Studios
  */
-contract BaseRouter is IBaseRouter {
+contract BaseRouter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
@@ -87,19 +86,6 @@ contract BaseRouter is IBaseRouter {
                 ++i;
             }
         }
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                              APPROVALS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IBaseRouter
-    function approve(address node, address token, address spender, uint256 amount)
-        external
-        onlyNodeRebalancer(node)
-        onlyWhitelisted(spender)
-    {
-        INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -211,5 +197,9 @@ contract BaseRouter is IBaseRouter {
                 break;
             }
         }
+    }
+
+    function _approve(address node, address token, address spender, uint256 amount) internal {
+        INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
 }
