@@ -179,49 +179,34 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return adjustedAssets;
     }
 
+    // Reserve Impact relates solely to deposits.
+    // reserveImpact is the inverse of the percentage of the reserve delta closed by the deposit
+    // As deltaClosedPct increases to 100% this number reaches zero
+    // It is multiplied by the targetReserveRatio to cancel out this in the denominator in the swing factor equation
     function calculateReserveImpact(
         uint64 targetReserveRatio,
         uint256 reserveCash,
         uint256 totalAssets,
         uint256 deposit
     ) public pure returns (int256) {
-        console2.log("targetReserveRatio: ", targetReserveRatio / 1e16);
-        console2.log("reserveCash: ", reserveCash / 1e18);
-        console2.log("totalAssets: ", totalAssets / 1e18);
-        console2.log("deposit: ", deposit / 1e18);
-
         // get current reserve ratio
         uint256 currentReserveRatio = MathLib.mulDiv(reserveCash, WAD, totalAssets);
-        console2.log("currentReserveRatio: ", currentReserveRatio / 1e16);
 
         // returns zero if targetReserveRatio is already reached
         if (currentReserveRatio >= targetReserveRatio) {
             return 0;
         }
 
-        // get delta between current and target in percentage terms
-        // note might not need this one
-        // uint256 reserveDeltaPct = targetReserveRatio - currentReserveRatio;
-        // console2.log("reserveDelta: ", reserveDeltaPct / 1e16);
-
         // get investedAssets by subtracting reserve cash balance
         uint256 investedAssets = totalAssets - reserveCash;
-        console2.log("investedAssets: ", investedAssets / 1e18);
 
-        // get targetTotalAssets (investedAssets + 100% reserve)
-        uint256 targetTotalAssets = MathLib.mulDiv(investedAssets, WAD, WAD - targetReserveRatio);
-        console2.log("targetTotalAssets: ", targetTotalAssets / 1e18);
-
-        // get target reserve holdings where reserve ratio = 100%
-        uint256 targetReserve = targetTotalAssets - investedAssets;
-        console2.log("maxPossibleDelta: ", targetReserve / 1e18);
+        uint256 targetReserve = MathLib.mulDiv(investedAssets, targetReserveRatio, WAD - targetReserveRatio);
 
         // get delta between current and ideal reserve in unit terms
         uint256 reserveDelta = 0;
         if (reserveCash < targetReserve) {
             reserveDelta = targetReserve - reserveCash;
         }
-        console2.log("reserveDelta: ", reserveDelta / 1e18);
 
         // get what the reserve delta will be after the deposit
         // if deposit will exceed the delta this returns 0
@@ -229,25 +214,14 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         if (reserveDelta > deposit) {
             deltaAfter = reserveDelta - deposit;
         }
-        console2.log("deltaAfter: ", deltaAfter / 1e18);
 
         // get the units of the delta closed by by subtracting delta after deposit from delta before deposit
         uint256 deltaClosed = reserveDelta - deltaAfter;
-        console2.log("deltaClosed :", deltaClosed / 1e18);
 
         // get this is percentage terms by dividing delta closed (units) by the target reserve (units)
         uint256 deltaClosedPct = MathLib.mulDiv(deltaClosed, WAD, targetReserve);
-        console2.log("deltaClosdPct :", deltaClosedPct / 1e16, "%");
-
-        // Reserve Impact
-        // reserveImpact is the inverse of the percentage of the reserve delta closed by the deposit
-        // As deltaClosedPct increases to 100% this number reaches zero
-        // It is multiplied by the targetReserveRatio to cancel out this in the denominator in the swing factor equation
-        // todo: find a way to create the same number in less steps and simpler
 
         uint256 reserveImpact = MathLib.mulDiv(WAD - deltaClosedPct, targetReserveRatio, WAD);
-        console2.log("reserveImpact : ", reserveImpact / 1e16);
-
         return int256(reserveImpact);
     }
 
