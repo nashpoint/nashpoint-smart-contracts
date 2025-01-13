@@ -114,7 +114,7 @@ contract BaseRouter {
         uint256 totalAssets_ = INode(node).totalAssets();
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
         uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
-            - INode(node).convertToAssets(INode(node).sharesExiting());
+            - INode(node).convertToAssets(INode(node).getSharesExiting());
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
@@ -142,7 +142,7 @@ contract BaseRouter {
     {
         totalAssets = INode(node).totalAssets();
         currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
-            - INode(node).convertToAssets(INode(node).sharesExiting());
+            - INode(node).convertToAssets(INode(node).getSharesExiting());
         idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
     }
 

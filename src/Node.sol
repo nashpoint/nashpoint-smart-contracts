@@ -90,26 +90,31 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                             MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Reverts if the sender is not a router
     modifier onlyRouter() {
         if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
+    /// @notice Reverts if the sender is not a rebalancer
     modifier onlyRebalancer() {
         if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
+    /// @notice Reverts if the sender is not the owner or a rebalancer
     modifier onlyOwnerOrRebalancer() {
         if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
+    /// @notice Reverts if the current block timestamp is outside the rebalance window
     modifier onlyWhenRebalancing() {
         if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
         _;
     }
 
+    /// @notice Reverts if the current block timestamp is within the rebalance window
     modifier onlyWhenNotRebalancing() {
         if (block.timestamp >= lastRebalance && block.timestamp <= lastRebalance + rebalanceWindow) {
             revert ErrorsLib.RebalanceWindowOpen();
@@ -537,6 +542,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     function getSharesExiting() external view returns (uint256) {
         return sharesExiting;
+    }
+
+    function getLastRebalance() external view returns (uint64) {
+        return lastRebalance;
     }
 
     function targetReserveRatio() public view returns (uint64) {
