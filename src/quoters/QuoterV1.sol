@@ -122,7 +122,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return reserveAssets + componentAssets;
     }
 
-    function calculateDeposit(address asset, uint256 assets, uint64 targetReserveRatio, uint64 maxSwingFactor)
+    function calculateDepositBonus(address asset, uint256 assets, uint64 targetReserveRatio, uint64 maxSwingFactor)
         external
         view
         onlyValidNode(msg.sender)
@@ -130,7 +130,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     {
         uint256 reserveCash = IERC20(asset).balanceOf(address(msg.sender));
         int256 reserveImpact =
-            int256(calculateReserveImpact(targetReserveRatio, reserveCash, IERC7575(msg.sender).totalAssets(), assets));
+            int256(_calculateReserveImpact(targetReserveRatio, reserveCash, IERC7575(msg.sender).totalAssets(), assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets =
@@ -141,7 +141,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return (sharesToMint);
     }
 
-    function getAdjustedAssets(
+    function calculateRedeemPenalty(
         address asset,
         uint256 sharesExiting,
         uint256 shares,
@@ -182,12 +182,12 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     // Reserve Impact is used to calculate the swing factor (bonus) for deposits
     // It is the inverse of the percentage of the reserve assets shortfall closed by the deposit
     // The inverse is used because the lower the value returned here, the greater the applied bonus
-    function calculateReserveImpact(
+    function _calculateReserveImpact(
         uint64 targetReserveRatio,
         uint256 reserveCash,
         uint256 totalAssets,
         uint256 deposit
-    ) public pure returns (int256) {
+    ) internal pure returns (int256) {
         // get current reserve ratio and return 0 if targetReserveRatio is already reached
         uint256 currentReserveRatio = MathLib.mulDiv(reserveCash, WAD, totalAssets);
         if (currentReserveRatio >= targetReserveRatio) {

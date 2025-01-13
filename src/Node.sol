@@ -355,8 +355,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
         uint256 adjustedShares = 0;
         if (swingPricingEnabled) {
-            uint256 adjustedAssets =
-                quoter.getAdjustedAssets(asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight);
+            uint256 adjustedAssets = quoter.calculateRedeemPenalty(
+                asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight
+            );
             adjustedShares = convertToShares(adjustedAssets);
         } else {
             adjustedShares = shares;
@@ -676,7 +677,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (totalAssets() == 0 && totalSupply() == 0 || !swingPricingEnabled) {
             shares = convertToShares(assets);
         } else {
-            return quoter.calculateDeposit(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
+            return quoter.calculateDepositBonus(asset, assets, reserveAllocation.targetWeight, maxSwingFactor);
         }
     }
 
