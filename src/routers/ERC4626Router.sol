@@ -19,6 +19,7 @@ import {MathLib} from "../libraries/MathLib.sol";
 contract ERC4626Router is BaseRouter, IERC4626Router {
     using SafeERC20 for IERC20;
 
+    /* STATE */
     uint256 internal totalAssets;
     uint256 internal currentCash;
     uint256 internal idealCashReserve;
@@ -80,7 +81,11 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         return sharesReturned;
     }
 
-    // todo: remove this function after audit
+    /// @notice Liquidates a component on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param shares The amount of shares to liquidate.
+    /// @return assetsReturned The amount of assets returned.
     function liquidate(address node, address component, uint256 shares)
         external
         onlyNodeRebalancer(node)
@@ -90,6 +95,11 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         assetsReturned = _liquidate(node, component, shares);
     }
 
+    /// @notice Fulfills a redeem request on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param controller The address of the controller.
+    /// @param component The address of the component.
+    /// @return assetsReturned The amount of assets returned.
     function fulfillRedeemRequest(address node, address controller, address component)
         external
         onlyNodeRebalancer(node)
@@ -99,24 +109,30 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
         uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
 
+        // Validate that the component is top of the liquidation queue
         address[] memory liquidationsQueue = INode(node).getLiquidationsQueue();
         _enforceLiquidationQueue(component, assetsRequested, liquidationsQueue);
 
-        uint256 componentShares = IERC4626(component).convertToShares(assetsRequested);
-        if (componentShares > IERC20(component).balanceOf(address(node))) {
-            componentShares = IERC20(component).balanceOf(address(node));
-        }
+        // liquidate either the requested amount or the balance of the component
+        // if the requested amount is greater than the balance of the component
+        uint256 componentShares = MathLib.min(
+            IERC4626(component).convertToShares(assetsRequested), IERC20(component).balanceOf(address(node))
+        );
 
-        uint256 percentReturned = WAD;
         assetsReturned = _liquidate(node, component, componentShares);
+
+        // if the assets returned are less than the assets requested, adjust the shares pending and shares adjusted
+        // to reflect the percentage of the requested assets that were returned
         if (assetsReturned < assetsRequested) {
-            percentReturned = MathLib.mulDiv(assetsReturned, WAD, assetsRequested);
+            uint256 percentReturned = MathLib.mulDiv(assetsReturned, WAD, assetsRequested);
             sharesPending = MathLib.mulDiv(sharesPending, percentReturned, WAD);
             sharesAdjusted = MathLib.mulDiv(sharesAdjusted, percentReturned, WAD);
         }
 
+        // transfer the assets to the escrow
         _transferToEscrow(node, assetsReturned);
 
+        // update the redemption request state on the node
         INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
         return assetsReturned;
     }
