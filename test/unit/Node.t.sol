@@ -780,7 +780,7 @@ contract NodeTest is BaseTest {
         deal(address(asset), address(vault), 100 ether);
         assertEq(vault.totalAssets(), 100 ether);
 
-        uint256 lastRebalance = node.lastRebalance();
+        uint256 lastRebalance = node.getLastRebalance();
         vm.warp(block.timestamp + lastRebalance + 1);
 
         vm.prank(rebalancer);
@@ -792,7 +792,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_startRebalance_revert_CooldownActive() public {
-        uint256 lastRebalance = node.lastRebalance();
+        uint256 lastRebalance = node.getLastRebalance();
         assertEq(lastRebalance, block.timestamp);
         vm.prank(rebalancer);
         vm.expectRevert(ErrorsLib.CooldownActive.selector);
@@ -1270,7 +1270,7 @@ contract NodeTest is BaseTest {
             node.getRequestState(user);
 
         // assert vault state and variables are correctly updated
-        assertEq(node.sharesExiting(), 0);
+        assertEq(node.getSharesExiting(), 0);
         assertEq(node.totalAssets(), totalAssetsBefore - 50 ether);
         assertEq(Node(address(node)).cacheTotalAssets(), cacheTotalAssetsBefore - 50 ether);
         assertEq(node.balanceOf(address(escrow)), sharesAtEscowBefore - sharesToRedeem);
@@ -1889,12 +1889,12 @@ contract NodeTest is BaseTest {
     }
 
     function test_isCacheValid() public view {
-        assertEq(block.timestamp, node.lastRebalance());
+        assertEq(block.timestamp, node.getLastRebalance());
         assertEq(node.isCacheValid(), true);
     }
 
     function test_isCacheValid_isFalse() public {
-        uint256 lastRebalance = node.lastRebalance();
+        uint256 lastRebalance = node.getLastRebalance();
         vm.warp(block.timestamp + lastRebalance + 1);
         assertFalse(node.isCacheValid());
     }

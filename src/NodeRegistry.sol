@@ -36,8 +36,6 @@ contract NodeRegistry is INodeRegistry, Ownable {
     /// @inheritdoc INodeRegistry
     bool public isInitialized;
 
-    // todo: add arbitry module mapping
-
     address public protocolFeeAddress;
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
