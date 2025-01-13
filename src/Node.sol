@@ -562,6 +562,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return (block.timestamp <= lastRebalance + rebalanceCooldown);
     }
 
+    function validateComponentRatios() public view returns (bool) {
+        return _validateComponentRatios();
+    }
+
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -621,6 +625,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _setReserveAllocation(ComponentAllocation memory allocation) internal {
+        if (allocation.targetWeight >= WAD) revert ErrorsLib.InvalidComponentRatios();
         reserveAllocation = allocation;
         emit EventsLib.ReserveAllocationUpdated(address(this), allocation);
     }
