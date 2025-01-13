@@ -81,6 +81,12 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Sets the liquidation queue
     function setLiquidationQueue(address[] calldata newQueue) external;
 
+    /// @notice Sets the rebalance cooldown
+    function setRebalanceCooldown(uint64 newRebalanceCooldown) external;
+
+    /// @notice Sets the rebalance window
+    function setRebalanceWindow(uint64 newRebalanceWindow) external;
+
     /// @notice Enables swing pricing
     function enableSwingPricing(bool enabled, uint64 maxSwingFactor) external;
 
@@ -133,15 +139,116 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
         uint256 sharesAdjusted
     ) external;
 
+    /// @notice Requests a redemption
+    /// @param shares The amount of shares to redeem
+    /// @param controller The address of the controller to redeem for
+    /// @param owner The address of the owner to redeem for
+    /// @return uint256 The amount of shares redeemed
+    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256);
+
     /// @notice Returns the pending redeem request for a user
     /// @param user The address of the user to check
     /// @return uint256 The pending redeem request
     function pendingRedeemRequest(uint256, address user) external view returns (uint256);
 
+    /// @notice Returns the claimable redeem request for a user
+    /// @param user The address of the user to check
+    /// @return uint256 The claimable redeem request
+    function claimableRedeemRequest(uint256, address user) external view returns (uint256);
+
+    /// @notice Sets an operator
+    /// @param operator The address of the operator to set
+    /// @param approved The approval status
+    /// @return bool True if the operator was set, false otherwise
+    function setOperator(address operator, bool approved) external returns (bool);
+
+    /// @notice Returns the operator status
+    /// @param operator The address of the operator to check
+    /// @return bool True if the operator is approved, false otherwise
+    function isOperator(address operator, address user) external view returns (bool);
+
+    /// @notice Supports an interface
+    /// @param interfaceId The interface ID to check
+    /// @return bool True if the interface is supported, false otherwise
+    function supportsInterface(bytes4 interfaceId) external view returns (bool);
+
+    /// @notice Deposits assets into the node
+    /// @param assets The amount of assets to deposit
+    /// @return shares The amount of shares received
+    function deposit(uint256 assets, address receiver) external returns (uint256);
+
+    /// @notice Mints shares into the node
+    /// @param shares The amount of shares to mint
+    /// @return assets The amount of assets received
+    function mint(uint256 shares, address receiver) external returns (uint256);
+
+    /// @notice Withdraws assets from the node
+    /// @param assets The amount of assets to withdraw
+    /// @param receiver The address of the receiver
+    /// @param controller The address of the controller
+    /// @return shares The amount of shares received
+    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256);
+
+    /// @notice Redeems shares from the node
+    /// @param shares The amount of shares to redeem
+    /// @param receiver The address of the receiver
+    /// @param controller The address of the controller
+    /// @return assets The amount of assets received
+    function redeem(uint256 shares, address receiver, address controller) external returns (uint256);
+
+    /// @notice Returns the total assets
+    /// @return uint256 The total assets
+    function totalAssets() external view returns (uint256);
+
     /// @notice Converts assets to shares
     /// @param assets The amount of assets to convert
     /// @return shares The amount of shares received
     function convertToShares(uint256 assets) external view returns (uint256);
+
+    /// @notice Converts shares to assets
+    /// @param shares The amount of shares to convert
+    /// @return assets The amount of assets received
+    function convertToAssets(uint256 shares) external view returns (uint256);
+
+    /// @notice Returns the maximum deposit amount
+    /// @param controller The address of the controller to check
+    /// @return uint256 The maximum deposit amount
+    function maxDeposit(address controller) external view returns (uint256);
+
+    /// @notice Returns the maximum mint amount
+    /// @param controller The address of the controller to check
+    /// @return uint256 The maximum mint amount
+    function maxMint(address controller) external view returns (uint256);
+
+    /// @notice Returns the maximum withdraw amount
+    /// @param controller The address of the controller to check
+    /// @return uint256 The maximum withdraw amount
+    function maxWithdraw(address controller) external view returns (uint256);
+
+    /// @notice Returns the maximum redeem amount
+    /// @param controller The address of the controller to check
+    /// @return uint256 The maximum redeem amount
+    function maxRedeem(address controller) external view returns (uint256);
+
+    /// @notice Returns the preview deposit amount
+    /// @param assets The amount of assets to deposit
+    /// @return uint256 The preview deposit amount
+    function previewDeposit(uint256 assets) external view returns (uint256);
+
+    /// @notice Returns the preview mint amount
+    /// @param shares The amount of shares to mint
+    /// @return uint256 The preview mint amount
+    function previewMint(uint256 shares) external view returns (uint256);
+
+    /// @notice Returns the preview withdraw amount
+    /// @param assets The amount of assets to withdraw
+    /// @dev Reverts per ERC7540
+    function previewWithdraw(uint256 assets) external view returns (uint256);
+
+    /// @notice Returns the preview redeem amount
+    /// @param shares The amount of shares to redeem
+    /// @dev Reverts per ERC7540
+    function previewRedeem(uint256 shares) external view returns (uint256);
 
     /// @notice Returns the state of a request
     /// @param controller The address of the controller to check
@@ -193,6 +300,10 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Checks if the cache is valid
     /// @return bool True if the cache is valid, false otherwise
     function isCacheValid() external view returns (bool);
+
+    /// @notice Validates the component ratios
+    /// @return bool True if the component ratios are valid, false otherwise
+    function validateComponentRatios() external view returns (bool);
 
     /// @notice The address of the node registry
     function registry() external view returns (address);
