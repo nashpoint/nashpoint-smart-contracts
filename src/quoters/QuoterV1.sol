@@ -65,6 +65,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return _getTotalAssets(msg.sender);
     }
 
+    /// @inheritdoc IQuoterV1
     function getErc7540Assets(address node, address component) external view returns (uint256) {
         return _getErc7540Assets(node, component);
     }
