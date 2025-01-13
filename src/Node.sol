@@ -137,8 +137,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         lastRebalance = uint64(block.timestamp - rebalanceCooldown);
         lastPayment = uint64(block.timestamp);
 
-        // todo: add setLiquidationQueue to initialize
-
         emit EventsLib.Initialize(escrow_, address(this));
     }
 
@@ -346,7 +344,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
     }
 
-    // todo: remove this function after audit
     function updateTotalAssets() external onlyOwnerOrRebalancer {
         _updateTotalAssets();
     }
