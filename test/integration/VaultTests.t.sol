@@ -12,14 +12,28 @@ import {Node, ComponentAllocation} from "src/Node.sol";
 
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
+contract QuoterHarness is QuoterV1 {
+    constructor(address _node) QuoterV1(_node) {}
+
+    function getSwingFactor(int256 reserveImpact, uint64 maxSwingFactor, uint64 targetReserveRatio)
+        public
+        pure
+        returns (uint256)
+    {
+        return super._getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio);
+    }
+}
+
 contract VaultTests is BaseTest {
     QuoterV1 mockQuoter;
     ERC20Mock internal mockAsset;
+    QuoterHarness mockQuoterHarness;
 
     function setUp() public override {
         super.setUp();
         mockAsset = ERC20Mock(address(asset));
         mockQuoter = new QuoterV1(address(1));
+        mockQuoterHarness = new QuoterHarness(address(1));
     }
 
     function test_VaultTests_depositAndWithdraw() public {
@@ -170,29 +184,30 @@ contract VaultTests is BaseTest {
         uint64 maxSwingFactor = 2e16;
         uint64 targetReserveRatio = 10e16;
 
-        vm.assertGt(mockQuoter.getSwingFactor(1e16, maxSwingFactor, targetReserveRatio), 0);
+        vm.assertGt(mockQuoterHarness.getSwingFactor(1e16, maxSwingFactor, targetReserveRatio), 0);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidInput.selector, -1e16));
-        mockQuoter.getSwingFactor(-1e16, maxSwingFactor, targetReserveRatio);
+        mockQuoterHarness.getSwingFactor(-1e16, maxSwingFactor, targetReserveRatio);
 
         // assert swing factor is zero if reserve target is met
         uint256 swingFactor =
-            mockQuoter.getSwingFactor(int256(uint256(targetReserveRatio)), maxSwingFactor, targetReserveRatio);
+            mockQuoterHarness.getSwingFactor(int256(uint256(targetReserveRatio)), maxSwingFactor, targetReserveRatio);
         assertEq(swingFactor, 0);
 
         // assert swing factor is zero if reserve target is exceeded
-        swingFactor =
-            mockQuoter.getSwingFactor(int256(uint256(targetReserveRatio)) + 1e16, maxSwingFactor, targetReserveRatio);
+        swingFactor = mockQuoterHarness.getSwingFactor(
+            int256(uint256(targetReserveRatio)) + 1e16, maxSwingFactor, targetReserveRatio
+        );
         assertEq(swingFactor, 0);
 
         // assert that swing factor approaches maxSwingFactor when reserve approaches zero
         int256 minReservePossible = 1;
-        swingFactor = mockQuoter.getSwingFactor(minReservePossible, maxSwingFactor, targetReserveRatio);
+        swingFactor = mockQuoterHarness.getSwingFactor(minReservePossible, maxSwingFactor, targetReserveRatio);
         assertEq(swingFactor, maxSwingFactor - 1);
 
         // assert that swing factor is very small when reserve approaches target
         int256 maxReservePossible = int256(uint256(targetReserveRatio)) - 1;
-        swingFactor = mockQuoter.getSwingFactor(maxReservePossible, maxSwingFactor, targetReserveRatio);
+        swingFactor = mockQuoterHarness.getSwingFactor(maxReservePossible, maxSwingFactor, targetReserveRatio);
         assertGt(swingFactor, 0);
         assertLt(swingFactor, 1e15); // 0.1%
     }

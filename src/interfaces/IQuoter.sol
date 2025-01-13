@@ -17,9 +17,4 @@ interface IQuoter {
         uint64 maxSwingFactor,
         uint64 targetReserveRatio
     ) external returns (uint256);
-
-    function getSwingFactor(int256 reserveImpact, uint64 maxSwingFactor, uint64 targetReserveRatio)
-        external
-        pure
-        returns (uint256);
 }

@@ -84,7 +84,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets =
-            MathLib.mulDiv(assets, (WAD + getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
+            MathLib.mulDiv(assets, (WAD + _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
         uint256 sharesToMint = IERC7575(msg.sender).convertToShares(adjustedAssets);
@@ -124,8 +124,9 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
                 int256(MathLib.mulDiv(balance - assets, WAD, IERC7575(msg.sender).totalAssets() - assets));
         }
 
-        adjustedAssets =
-            MathLib.mulDiv(assets, (WAD - getSwingFactor(reserveRatioAfterTX, maxSwingFactor, targetReserveRatio)), WAD);
+        adjustedAssets = MathLib.mulDiv(
+            assets, (WAD - _getSwingFactor(reserveRatioAfterTX, maxSwingFactor, targetReserveRatio)), WAD
+        );
 
         return adjustedAssets;
     }
@@ -133,8 +134,8 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /*//////////////////////////////////////////////////////////////
                          PUBLIC: HELPER FUNCTION
     //////////////////////////////////////////////////////////////*/
-    function getSwingFactor(int256 reserveImpact, uint64 maxSwingFactor, uint64 targetReserveRatio)
-        public
+    function _getSwingFactor(int256 reserveImpact, uint64 maxSwingFactor, uint64 targetReserveRatio)
+        internal
         pure
         returns (uint256 swingFactor)
     {
