@@ -228,12 +228,20 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         }
     }
 
+    /// @dev Called by Node Contract to get the total assets of a node
+    /// @param node The node to get the assets of
+    /// @param component The component to get the assets of
+    /// @return assets The total assets of the node
     function _getErc4626Assets(address node, address component) internal view returns (uint256) {
         uint256 balance = IERC4626(component).balanceOf(node);
         if (balance == 0) return 0;
         return IERC4626(component).convertToAssets(balance);
     }
 
+    /// @dev Called by Node Contract to get the total assets of a node
+    /// @param node The node to get the assets of
+    /// @param component The component to get the assets of
+    /// @return assets The total assets of the node
     function _getErc7540Assets(address node, address component) internal view returns (uint256) {
         uint256 assets = 0;
         address shareToken = IERC7575(component).share();
@@ -251,6 +259,9 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return assets;
     }
 
+    /// @dev Called by Node Contract to get the total assets of a node
+    /// @param node The node to get the assets of
+    /// @return assets The total assets of the node
     function _getTotalAssets(address node) internal view returns (uint256) {
         uint256 reserveAssets = IERC20(INode(node).asset()).balanceOf(node);
 
