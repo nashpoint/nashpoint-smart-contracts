@@ -583,8 +583,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
 
         _finalizeRedemption(controller, assetsToReturn, request.pendingRedeemRequest, request.sharesAdjusted);
-        IERC20(asset).safeIncreaseAllowance(address(this), assetsToReturn);
-        IERC20(asset).safeTransferFrom(address(this), escrow, assetsToReturn);
+        IERC20(asset).safeTransfer(escrow, assetsToReturn);
     }
 
     function _finalizeRedemption(
