@@ -71,8 +71,16 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /*//////////////////////////////////////////////////////////////
-                     EXTERNAL: SWING PRICING FUNCTIONS
+                        SWING PRICING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @dev Called by Node Contract to alculates the deposit bonus
+    /// reserveImpact is the inverse of the percentage of the reserve assets shortfall closed by the deposit
+    /// The majority of logic is in _calculateReserveImpact and _getSwingFactor
+    /// @param asset The asset being deposited
+    /// @param assets The amount of assets being deposited
+    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
+    /// @param maxSwingFactor The maximum swing factor to apply
+    /// @return depositBonus The deposit bonus to apply
     function calculateDepositBonus(address asset, uint256 assets, uint64 targetReserveRatio, uint64 maxSwingFactor)
         external
         view
@@ -92,6 +100,17 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return (sharesToMint);
     }
 
+    /// @dev Called by Node Contract to calculate the withdrawal penalty for redeem requests
+    /// adjustedAssets is the value of the redeem request with withdrawal penalty applied based on impact on cash reserve
+    /// Uses sharesExiting to track redeem request currently pending for redemption and subtracts them from cash balance
+    /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penatly is being applied
+    /// to new requests
+    /// @param asset The asset being redeemed
+    /// @param sharesExiting The total number of shares exiting the node
+    /// @param shares The shares being redeemed
+    /// @param maxSwingFactor The maximum swing factor to apply
+    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
+    /// @return adjustedAssets The adjusted assets for the redeem request
     function calculateRedeemPenalty(
         address asset,
         uint256 sharesExiting,
@@ -117,17 +136,15 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         // gets the expected reserve ratio after tx
         // check redemption (assets) exceed current cash balance
         // if not get reserve ratio
-        int256 reserveRatioAfterTX;
+        int256 reserveImpact;
         if (assets > balance) {
-            reserveRatioAfterTX = 0;
+            reserveImpact = 0;
         } else {
-            reserveRatioAfterTX =
-                int256(MathLib.mulDiv(balance - assets, WAD, IERC7575(msg.sender).totalAssets() - assets));
+            reserveImpact = int256(MathLib.mulDiv(balance - assets, WAD, IERC7575(msg.sender).totalAssets() - assets));
         }
 
-        adjustedAssets = MathLib.mulDiv(
-            assets, (WAD - _getSwingFactor(reserveRatioAfterTX, maxSwingFactor, targetReserveRatio)), WAD
-        );
+        adjustedAssets =
+            MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
 
         return adjustedAssets;
     }
