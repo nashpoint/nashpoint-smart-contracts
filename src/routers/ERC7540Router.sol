@@ -15,7 +15,7 @@ import {MathLib} from "../libraries/MathLib.sol";
 
 /**
  * @title ERC7540Router
- * @dev Router for ERC7540 vaults
+ * @author ODND Studios
  */
 contract ERC7540Router is BaseRouter {
     uint256 internal totalAssets;
@@ -25,9 +25,17 @@ contract ERC7540Router is BaseRouter {
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
 
-    /* EXTERNAL FUNCTIONS */
+    /*//////////////////////////////////////////////////////////////
+                            EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
-    // todo need to deal with cases where shares pending, claimable etc
+    /// @notice Invests in a component on behalf of the Node.
+    /// @dev call by a valid node rebalancer to invest excess reserve into components
+    /// enforces the strategy set by the Node Owner
+    /// will revert if there is not sufficient excess reserve or if the target component is within maxDelta
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @return cashInvested The amount of cash invested.
     function investInAsyncVault(address node, address component)
         external
         onlyNodeRebalancer(node)
@@ -65,8 +73,14 @@ contract ERC7540Router is BaseRouter {
         return (depositAmount);
     }
 
+    /// @notice Mints claimable shares for a component on behalf of the Node.
+    /// @dev call by a valid node rebalancer to mint shares for a component
+    /// will revert if there is not sufficient shares available to mint
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @return sharesReceived The amount of shares received.
     function mintClaimableShares(address node, address component)
-        public
+        external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         returns (uint256)
@@ -83,8 +97,14 @@ contract ERC7540Router is BaseRouter {
         return sharesReceived;
     }
 
+    /// @notice Requests an async withdrawal for a component on behalf of the Node.
+    /// @dev call by a valid node rebalancer to request an async withdrawal for a component
+    /// will revert if there is not sufficient shares available to redeem
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param shares The amount of shares to redeem.
     function requestAsyncWithdrawal(address node, address component, uint256 shares)
-        public
+        external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
     {
@@ -101,9 +121,15 @@ contract ERC7540Router is BaseRouter {
         require(requestId == 0, "No requestId returned");
     }
 
-    // withdraws claimable assets from async vault
+    /// @notice Withdraws claimable assets from async vault
+    /// @dev call by a valid node rebalancer to withdraw claimable assets from a component
+    /// will revert if there is not sufficient assets available to withdraw
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param assets The amount of assets to withdraw.
+    /// @return assetsReceived The amount of assets received.
     function executeAsyncWithdrawal(address node, address component, uint256 assets)
-        public
+        external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         returns (uint256 assetsReceived)
@@ -125,21 +151,23 @@ contract ERC7540Router is BaseRouter {
     }
 
     /*//////////////////////////////////////////////////////////////
-                                VIEW FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    function getAsyncAssets(address node, address component) public view returns (uint256) {
-        return _getErc7540Assets(node, component);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @dev Internal functions for ERC7540Router
+     * Each function maps directly to a function defined in the ERC-7540 spec
+     * link: https://eips.ethereum.org/EIPS/eip-7540
+     */
+
+    /// @notice Requests a deposit for a component on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param assets The amount of assets to deposit.
+    /// @return requestId The request ID.
     function _requestDeposit(address node, address component, uint256 assets) internal returns (uint256) {
         address underlying = IERC4626(component).asset();
-
-        INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, component, assets));
+        _approve(node, underlying, component, assets);
 
         bytes memory result = INode(node).execute(
             component, 0, abi.encodeWithSelector(IERC7540Deposit.requestDeposit.selector, assets, node, node)
@@ -147,9 +175,14 @@ contract ERC7540Router is BaseRouter {
         return abi.decode(result, (uint256));
     }
 
+    /// @notice Mints claimable shares for a component on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param claimableShares The amount of shares to mint.
+    /// @return sharesReceived The amount of shares received.
     function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
         address shareToken = IERC7575(component).share();
-        INode(node).execute(shareToken, 0, abi.encodeWithSelector(IERC20.approve.selector, component, claimableShares));
+        _approve(node, shareToken, component, claimableShares);
 
         bytes memory result = INode(node).execute(
             component, 0, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
@@ -158,6 +191,11 @@ contract ERC7540Router is BaseRouter {
         return abi.decode(result, (uint256));
     }
 
+    /// @notice Requests a redemption for a component on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param shares The amount of shares to redeem.
+    /// @return requestId The request ID.
     function _requestRedeem(address node, address component, uint256 shares) internal returns (uint256) {
         bytes memory result = INode(node).execute(
             component, 0, abi.encodeWithSelector(IERC7540Redeem.requestRedeem.selector, shares, node, node)
@@ -165,12 +203,22 @@ contract ERC7540Router is BaseRouter {
         return abi.decode(result, (uint256));
     }
 
+    /// @notice Withdraws assets from a component on behalf of the Node.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @param assets The amount of assets to withdraw.
+    /// @return assetsReceived The amount of assets received.
     function _withdraw(address node, address component, uint256 assets) internal returns (uint256) {
         bytes memory result =
             INode(node).execute(component, 0, abi.encodeWithSelector(IERC7575.withdraw.selector, assets, node, node));
         return abi.decode(result, (uint256));
     }
 
+    /// @notice Returns the investment size for a component.
+    /// @dev calculates the amount of assets to deposit to set the component to the target ratio
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @return depositAssets The amount of assets to deposit.
     function _getInvestmentSize(address node, address component)
         internal
         view
@@ -186,6 +234,10 @@ contract ERC7540Router is BaseRouter {
         return delta;
     }
 
+    /// @notice Returns the amount of assets in a component.
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @return assets The amount of assets.
     function _getErc7540Assets(address node, address component) internal view returns (uint256) {
         address quoter = address(INode(node).quoter());
         return IQuoterV1(quoter).getErc7540Assets(node, component);

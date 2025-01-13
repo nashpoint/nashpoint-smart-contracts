@@ -2,8 +2,8 @@
 pragma solidity 0.8.26;
 
 import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {IBaseRouter} from "../interfaces/IBaseRouter.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {INode} from "../interfaces/INode.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
 import {MathLib} from "./MathLib.sol";
@@ -13,7 +13,7 @@ import {ErrorsLib} from "./ErrorsLib.sol";
  * @title BaseRouter
  * @author ODND Studios
  */
-contract BaseRouter is IBaseRouter {
+contract BaseRouter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
@@ -26,12 +26,7 @@ contract BaseRouter is IBaseRouter {
     /* EVENTS */
     event TargetWhitelisted(address indexed target, bool status);
 
-    /* ERRORS */
-
     /* CONSTRUCTOR */
-    /// @dev Initializes the contract
-    /// @param registry_ The address of the NodeRegistry
-
     constructor(address registry_) {
         if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
         registry = INodeRegistry(registry_);
@@ -63,7 +58,10 @@ contract BaseRouter is IBaseRouter {
         _;
     }
 
-    /* REGISTRY OWNER FUNCTIONS */
+    /*//////////////////////////////////////////////////////////////
+                         REGISTRY OWNER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /// @notice Updates the whitelist status of a target
     /// @param target The address to update
     /// @param status The new whitelist status
@@ -90,16 +88,15 @@ contract BaseRouter is IBaseRouter {
         }
     }
 
-    /* APPROVALS */
-    /// @inheritdoc IBaseRouter
-    function approve(address node, address token, address spender, uint256 amount)
-        external
-        onlyNodeRebalancer(node)
-        onlyWhitelisted(spender)
-    {
-        INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
-    }
+    /*//////////////////////////////////////////////////////////////
+                    VIRTUAL / OVERRIDABLE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
+    /// @notice Returns the investment size for a component.
+    /// @dev This function is virtual and should be overridden by the router implementation
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @return depositAssets The amount of assets to deposit.
     function _getInvestmentSize(address node, address component)
         internal
         view
@@ -107,6 +104,12 @@ contract BaseRouter is IBaseRouter {
         returns (uint256 depositAssets)
     {}
 
+    /*//////////////////////////////////////////////////////////////
+                         INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Validates that the reserve is above the target ratio.
+    /// @param node The address of the node.
     function _validateReserveAboveTargetRatio(address node) internal view {
         uint256 totalAssets_ = INode(node).totalAssets();
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
@@ -119,12 +122,19 @@ contract BaseRouter is IBaseRouter {
         }
     }
 
+    /// @notice Validates that the node accepts the router.
+    /// @param node The address of the node.
     function _validateNodeAcceptsRouter(address node) internal view {
         if (!INode(node).isRouter(address(this))) {
             revert ErrorsLib.NotRouter();
         }
     }
 
+    /// @notice Returns the node's cash status.
+    /// @param node The address of the node.
+    /// @return totalAssets The total assets of the node.
+    /// @return currentCash The current cash of the node.
+    /// @return idealCashReserve The ideal cash reserve of the node.
     function _getNodeCashStatus(address node)
         internal
         view
@@ -136,6 +146,12 @@ contract BaseRouter is IBaseRouter {
         idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
     }
 
+    /// @notice Subtracts the execution fee from the transaction amount.
+    /// @dev This calls transfer function on the node's asset to subtract the fee
+    ///      and send to protocol fee recipient address
+    /// @param transactionAmount The amount of the transaction.
+    /// @param node The address of the node.
+    /// @return transactionAfterFee The amount of the transaction after the fee is subtracted.
     function _subtractExecutionFee(uint256 transactionAmount, address node) internal returns (uint256) {
         uint256 executionFee = transactionAmount * registry.protocolExecutionFee() / WAD;
         if (executionFee == 0) {
@@ -150,5 +166,40 @@ contract BaseRouter is IBaseRouter {
         INode(node).subtractProtocolExecutionFee(executionFee);
 
         return transactionAfterFee;
+    }
+
+    /// @dev Transfers assets to the escrow.
+    /// @param node The address of the node.
+    /// @param assetsToReturn The amount of assets to return.
+    function _transferToEscrow(address node, uint256 assetsToReturn) internal {
+        bytes memory transferCallData =
+            abi.encodeWithSelector(IERC20.transfer.selector, INode(node).escrow(), assetsToReturn);
+        INode(node).execute(INode(node).asset(), 0, transferCallData);
+    }
+
+    /// @dev Enforces the liquidation queue.
+    /// @param component The address of the component.
+    /// @param assetsToReturn The amount of assets to return.
+    /// @param liquidationsQueue The liquidation queue.
+    function _enforceLiquidationQueue(address component, uint256 assetsToReturn, address[] memory liquidationsQueue)
+        internal
+        view
+    {
+        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
+            address candidate = liquidationsQueue[i];
+            uint256 candidateShares = IERC20(candidate).balanceOf(address(this));
+            uint256 candidateAssets = IERC4626(candidate).convertToAssets(candidateShares);
+
+            if (candidateAssets >= assetsToReturn) {
+                if (candidate != component) {
+                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
+                }
+                break;
+            }
+        }
+    }
+
+    function _approve(address node, address token, address spender, uint256 amount) internal {
+        INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
 }
