@@ -28,6 +28,9 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
     constructor(address registry_) BaseRouter(registry_) {}
 
     /// @notice Invests in a component on behalf of the Node.
+    /// @dev call by a valid node rebalancer to invest excess reserve into components
+    /// enforces the strategy set by the Node Owner
+    /// will revert if there is not sufficient excess reserve or if the target component is within maxDelta
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return depositAmount The amount of assets invested.
