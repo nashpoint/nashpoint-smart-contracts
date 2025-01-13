@@ -18,9 +18,6 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
-// temp:
-import {console2} from "forge-std/Test.sol";
-
 contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     using Address for address;
     using SafeERC20 for IERC20;
@@ -62,7 +59,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     mapping(address => Request) public requests;
 
     /* SWING PRICING */
-    uint64 public maxSwingFactor; // max = 1e18
+    uint64 public maxSwingFactor;
     bool public swingPricingEnabled;
     bool public isInitialized;
 
@@ -604,7 +601,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         sharesExiting -= sharesPending;
         cacheTotalAssets -= assetsToReturn;
 
-        onRedeemClaimable(controller, assetsToReturn, sharesPending);
+        emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assetsToReturn, sharesPending);
     }
 
     function _updateTotalAssets() internal {
@@ -701,17 +698,5 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         _mint(receiver, shares);
 
         emit Deposit(caller, receiver, assets, shares);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                            EVENT EMITTERS
-    //////////////////////////////////////////////////////////////*/
-
-    function onDepositClaimable(address controller, uint256 assets, uint256 shares) public {
-        emit EventsLib.DepositClaimable(controller, REQUEST_ID, assets, shares);
-    }
-
-    function onRedeemClaimable(address controller, uint256 assets, uint256 shares) public {
-        emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assets, shares);
     }
 }

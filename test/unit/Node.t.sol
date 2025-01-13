@@ -2000,23 +2000,23 @@ contract NodeTest is BaseTest {
         );
     }
 
-    function test_onDepositClaimable(uint256 depositAmount) public {
-        address controller = makeAddr("controller");
-        uint256 sharesToMint = node.convertToShares(depositAmount);
+    // function test_onDepositClaimable(uint256 depositAmount) public {
+    //     address controller = makeAddr("controller");
+    //     uint256 sharesToMint = node.convertToShares(depositAmount);
 
-        vm.expectEmit(true, true, true, true);
-        emit EventsLib.DepositClaimable(controller, 0, depositAmount, sharesToMint);
-        node.onDepositClaimable(controller, depositAmount, sharesToMint);
-    }
+    //     vm.expectEmit(true, true, true, true);
+    //     emit EventsLib.DepositClaimable(controller, 0, depositAmount, sharesToMint);
+    //     node.onDepositClaimable(controller, depositAmount, sharesToMint);
+    // }
 
-    function test_onRedeemClaimable(uint256 redeemAmount) public {
-        address controller = makeAddr("controller");
-        uint256 sharesToRedeem = node.convertToShares(redeemAmount);
+    // function test_onRedeemClaimable(uint256 redeemAmount) public {
+    //     address controller = makeAddr("controller");
+    //     uint256 sharesToRedeem = node.convertToShares(redeemAmount);
 
-        vm.expectEmit(true, true, true, true);
-        emit EventsLib.RedeemClaimable(controller, 0, redeemAmount, sharesToRedeem);
-        node.onRedeemClaimable(controller, redeemAmount, sharesToRedeem);
-    }
+    //     vm.expectEmit(true, true, true, true);
+    //     emit EventsLib.RedeemClaimable(controller, 0, redeemAmount, sharesToRedeem);
+    //     node.onRedeemClaimable(controller, redeemAmount, sharesToRedeem);
+    // }
 
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {

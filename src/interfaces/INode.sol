@@ -27,9 +27,6 @@ struct Request {
  * @author ODND Studios
  */
 interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
-    event DepositClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
-    event RedeemClaimable(address indexed controller, uint256 indexed requestId, uint256 assets, uint256 shares);
-
     /// @notice The address of the node registry
     function registry() external view returns (address);
 
@@ -68,12 +65,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Allows routers to execute external calls
     function execute(address target, uint256 value, bytes calldata data) external returns (bytes memory);
-
-    /// @notice Callback when a deposit request becomes claimable
-    function onDepositClaimable(address controller, uint256 assets, uint256 shares) external;
-
-    /// @notice Callback when a redeem request becomes claimable
-    function onRedeemClaimable(address controller, uint256 assets, uint256 shares) external;
 
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
