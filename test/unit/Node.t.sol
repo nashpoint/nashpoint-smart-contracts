@@ -1939,6 +1939,10 @@ contract NodeTest is BaseTest {
         ComponentAllocation memory reserveAllocation =
             ComponentAllocation({targetWeight: reserve, maxDelta: 0.01 ether});
 
+        if (comp1 + comp2 == 0) {
+            return;
+        }
+
         address[] memory routers = new address[](1);
         routers[0] = testRouter;
 
@@ -1999,24 +2003,6 @@ contract NodeTest is BaseTest {
             ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
         );
     }
-
-    // function test_onDepositClaimable(uint256 depositAmount) public {
-    //     address controller = makeAddr("controller");
-    //     uint256 sharesToMint = node.convertToShares(depositAmount);
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit EventsLib.DepositClaimable(controller, 0, depositAmount, sharesToMint);
-    //     node.onDepositClaimable(controller, depositAmount, sharesToMint);
-    // }
-
-    // function test_onRedeemClaimable(uint256 redeemAmount) public {
-    //     address controller = makeAddr("controller");
-    //     uint256 sharesToRedeem = node.convertToShares(redeemAmount);
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit EventsLib.RedeemClaimable(controller, 0, redeemAmount, sharesToRedeem);
-    //     node.onRedeemClaimable(controller, redeemAmount, sharesToRedeem);
-    // }
 
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
