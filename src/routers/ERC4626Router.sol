@@ -148,7 +148,9 @@ contract ERC4626Router is BaseRouter, IERC4626Router {
         return assetsReturned;
     }
 
-    /* INTERNAL FUNCTIONS */
+    /*//////////////////////////////////////////////////////////////
+                            INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Deposits assets into an ERC4626 vault on behalf of the Node.
     /// @param node The address of the node.

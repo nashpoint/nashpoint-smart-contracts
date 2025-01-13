@@ -27,12 +27,7 @@ contract BaseRouter is IBaseRouter {
     /* EVENTS */
     event TargetWhitelisted(address indexed target, bool status);
 
-    /* ERRORS */
-
     /* CONSTRUCTOR */
-    /// @dev Initializes the contract
-    /// @param registry_ The address of the NodeRegistry
-
     constructor(address registry_) {
         if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
         registry = INodeRegistry(registry_);
@@ -64,7 +59,10 @@ contract BaseRouter is IBaseRouter {
         _;
     }
 
-    /* REGISTRY OWNER FUNCTIONS */
+    /*//////////////////////////////////////////////////////////////
+                         REGISTRY OWNER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /// @notice Updates the whitelist status of a target
     /// @param target The address to update
     /// @param status The new whitelist status
@@ -91,7 +89,10 @@ contract BaseRouter is IBaseRouter {
         }
     }
 
-    /* APPROVALS */
+    /*//////////////////////////////////////////////////////////////
+                              APPROVALS
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IBaseRouter
     function approve(address node, address token, address spender, uint256 amount)
         external
@@ -100,6 +101,10 @@ contract BaseRouter is IBaseRouter {
     {
         INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    VIRTUAL / OVERRIDABLE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the investment size for a component.
     /// @dev This function is virtual and should be overridden by the router implementation
@@ -112,6 +117,10 @@ contract BaseRouter is IBaseRouter {
         virtual
         returns (uint256 depositAssets)
     {}
+
+    /*//////////////////////////////////////////////////////////////
+                         INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Validates that the reserve is above the target ratio.
     /// @param node The address of the node.
@@ -152,7 +161,8 @@ contract BaseRouter is IBaseRouter {
     }
 
     /// @notice Subtracts the execution fee from the transaction amount.
-    /// @dev This calls transfer function on the node's asset to subtract the fee and send to protocol fee recipient address
+    /// @dev This calls transfer function on the node's asset to subtract the fee
+    ///      and send to protocol fee recipient address
     /// @param transactionAmount The amount of the transaction.
     /// @param node The address of the node.
     /// @return transactionAfterFee The amount of the transaction after the fee is subtracted.

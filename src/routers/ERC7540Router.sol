@@ -167,7 +167,6 @@ contract ERC7540Router is BaseRouter {
     /// @return requestId The request ID.
     function _requestDeposit(address node, address component, uint256 assets) internal returns (uint256) {
         address underlying = IERC4626(component).asset();
-
         INode(node).execute(underlying, 0, abi.encodeWithSelector(IERC20.approve.selector, component, assets));
 
         bytes memory result = INode(node).execute(
