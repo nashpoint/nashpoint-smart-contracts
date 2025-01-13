@@ -101,6 +101,11 @@ contract BaseRouter is IBaseRouter {
         INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
 
+    /// @notice Returns the investment size for a component.
+    /// @dev This function is virtual and should be overridden by the router implementation
+    /// @param node The address of the node.
+    /// @param component The address of the component.
+    /// @return depositAssets The amount of assets to deposit.
     function _getInvestmentSize(address node, address component)
         internal
         view
@@ -108,6 +113,8 @@ contract BaseRouter is IBaseRouter {
         returns (uint256 depositAssets)
     {}
 
+    /// @notice Validates that the reserve is above the target ratio.
+    /// @param node The address of the node.
     function _validateReserveAboveTargetRatio(address node) internal view {
         uint256 totalAssets_ = INode(node).totalAssets();
         uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
@@ -120,12 +127,19 @@ contract BaseRouter is IBaseRouter {
         }
     }
 
+    /// @notice Validates that the node accepts the router.
+    /// @param node The address of the node.
     function _validateNodeAcceptsRouter(address node) internal view {
         if (!INode(node).isRouter(address(this))) {
             revert ErrorsLib.NotRouter();
         }
     }
 
+    /// @notice Returns the node's cash status.
+    /// @param node The address of the node.
+    /// @return totalAssets The total assets of the node.
+    /// @return currentCash The current cash of the node.
+    /// @return idealCashReserve The ideal cash reserve of the node.
     function _getNodeCashStatus(address node)
         internal
         view
@@ -137,6 +151,11 @@ contract BaseRouter is IBaseRouter {
         idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
     }
 
+    /// @notice Subtracts the execution fee from the transaction amount.
+    /// @dev This calls transfer function on the node's asset to subtract the fee and send to protocol fee recipient address
+    /// @param transactionAmount The amount of the transaction.
+    /// @param node The address of the node.
+    /// @return transactionAfterFee The amount of the transaction after the fee is subtracted.
     function _subtractExecutionFee(uint256 transactionAmount, address node) internal returns (uint256) {
         uint256 executionFee = transactionAmount * registry.protocolExecutionFee() / WAD;
         if (executionFee == 0) {
@@ -153,12 +172,19 @@ contract BaseRouter is IBaseRouter {
         return transactionAfterFee;
     }
 
+    /// @dev Transfers assets to the escrow.
+    /// @param node The address of the node.
+    /// @param assetsToReturn The amount of assets to return.
     function _transferToEscrow(address node, uint256 assetsToReturn) internal {
         bytes memory transferCallData =
             abi.encodeWithSelector(IERC20.transfer.selector, INode(node).escrow(), assetsToReturn);
         INode(node).execute(INode(node).asset(), 0, transferCallData);
     }
 
+    /// @dev Enforces the liquidation queue.
+    /// @param component The address of the component.
+    /// @param assetsToReturn The amount of assets to return.
+    /// @param liquidationsQueue The liquidation queue.
     function _enforceLiquidationQueue(address component, uint256 assetsToReturn, address[] memory liquidationsQueue)
         internal
         view
