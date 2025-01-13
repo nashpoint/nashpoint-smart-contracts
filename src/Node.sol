@@ -356,15 +356,18 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        uint256 adjustedAssets = quoter.getAdjustedAssets(
-            asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight, swingPricingEnabled
-        );
-
-        uint256 sharesToBurn = convertToShares(adjustedAssets);
+        uint256 adjustedShares = 0;
+        if (swingPricingEnabled) {
+            uint256 adjustedAssets =
+                quoter.getAdjustedAssets(asset, sharesExiting, shares, maxSwingFactor, reserveAllocation.targetWeight);
+            adjustedShares = convertToShares(adjustedAssets);
+        } else {
+            adjustedShares = shares;
+        }
 
         Request storage request = requests[controller];
         request.pendingRedeemRequest = request.pendingRedeemRequest + shares;
-        request.sharesAdjusted = request.sharesAdjusted + sharesToBurn;
+        request.sharesAdjusted = request.sharesAdjusted + adjustedShares;
         sharesExiting += shares;
 
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);

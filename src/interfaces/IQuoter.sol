@@ -27,7 +27,6 @@ interface IQuoter {
         uint256 sharesExiting,
         uint256 shares,
         uint64 maxSwingFactor,
-        uint64 targetReserveRatio,
-        bool swingPricingEnabled
+        uint64 targetReserveRatio
     ) external returns (uint256);
 }
