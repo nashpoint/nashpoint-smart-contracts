@@ -605,7 +605,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _updateTotalAssets() internal {
-        cacheTotalAssets = quoter.getTotalAssets(address(this));
+        cacheTotalAssets = quoter.getTotalAssets();
     }
 
     function _validateController(address controller) internal view {

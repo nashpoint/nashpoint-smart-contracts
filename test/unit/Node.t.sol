@@ -1105,9 +1105,7 @@ contract NodeTest is BaseTest {
         // Mock quoter response
         uint256 expectedTotalAssets = 120 ether;
         vm.mockCall(
-            address(quoter),
-            abi.encodeWithSelector(IQuoter.getTotalAssets.selector, address(node)),
-            abi.encode(expectedTotalAssets)
+            address(quoter), abi.encodeWithSelector(IQuoter.getTotalAssets.selector), abi.encode(expectedTotalAssets)
         );
 
         vm.prank(rebalancer);

@@ -70,8 +70,8 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /// @inheritdoc IQuoter
-    function getTotalAssets(address node) external view onlyValidNode(node) returns (uint256) {
-        return _getTotalAssets(node);
+    function getTotalAssets() external view onlyValidNode(msg.sender) returns (uint256) {
+        return _getTotalAssets(msg.sender);
     }
 
     function getErc7540Assets(address node, address component) external view returns (uint256) {

@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 interface IQuoter {
     /// @notice Returns the total assets in the Node based on valuation of the underlying components
-    function getTotalAssets(address node) external view returns (uint256);
+    function getTotalAssets() external view returns (uint256);
 
     function calculateDeposit(address asset, uint256 assets, uint256 maxSwingFactor, uint256 targetReserveRatio)
         external
