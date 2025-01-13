@@ -133,15 +133,17 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /*//////////////////////////////////////////////////////////////
-                         PUBLIC: HELPER FUNCTION
-    //////////////////////////////////////////////////////////////*/
-
-    /*//////////////////////////////////////////////////////////////
                          INTERNAL: CORE LOGIC
     //////////////////////////////////////////////////////////////*/
-    // Reserve Impact is used to calculate the swing factor (bonus) for deposits
-    // It is the inverse of the percentage of the reserve assets shortfall closed by the deposit
-    // The inverse is used because the lower the value returned here, the greater the applied bonus
+
+    /// @dev Reserve Impact is used to calculate the swing factor (bonus) for deposits
+    /// It is the inverse of the percentage of the reserve assets shortfall closed by the deposit
+    /// The inverse is used because the lower the value returned here, the greater the applied bonus
+    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
+    /// @param reserveCash The current cash balance of the node
+    /// @param totalAssets The total assets of the node
+    /// @param deposit The amount of assets being deposited
+    /// @return reserveImpact The reserve impact of the deposit
     function _calculateReserveImpact(
         uint64 targetReserveRatio,
         uint256 reserveCash,
@@ -178,6 +180,13 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         return int256(reserveImpact);
     }
 
+    /// @dev Calculates the swing factor based on the reserve impact, max swing factor, and target reserve ratio
+    /// uses PRB Math to calculate the swing factor
+    /// Equation: swingFactor = maxSwingFactor * exp(SCALING_FACTOR * reserveImpact / targetReserveRatio)
+    /// @param reserveImpact The reserve impact of the deposit
+    /// @param maxSwingFactor The maximum swing factor to apply
+    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
+    /// @return swingFactor The swing factor to apply
     function _getSwingFactor(int256 reserveImpact, uint64 maxSwingFactor, uint64 targetReserveRatio)
         internal
         pure
