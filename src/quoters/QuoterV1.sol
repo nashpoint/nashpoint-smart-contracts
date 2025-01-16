@@ -79,7 +79,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
                         SWING PRICING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Called by Node Contract to alculates the deposit bonus
+    /// @dev Called by Node Contract to calculate the deposit bonus
     /// reserveImpact is the inverse of the percentage of the reserve assets shortfall closed by the deposit
     /// The majority of logic is in _calculateReserveImpact and _getSwingFactor
     /// @param asset The asset being deposited
