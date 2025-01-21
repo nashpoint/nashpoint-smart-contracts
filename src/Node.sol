@@ -212,8 +212,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function addRebalancer(address newRebalancer) external onlyOwner {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
         if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
-        isRebalancer[newRebalancer] = true;
         if (!INodeRegistry(registry).isRebalancer(newRebalancer)) revert ErrorsLib.NotWhitelisted();
+        isRebalancer[newRebalancer] = true;
         emit EventsLib.RebalancerAdded(newRebalancer);
     }
 
