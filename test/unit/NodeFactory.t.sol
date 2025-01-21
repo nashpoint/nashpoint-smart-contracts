@@ -10,12 +10,13 @@ import {EventsLib} from "src/libraries/EventsLib.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {DeployParams} from "src/interfaces/INodeFactory.sol";
+import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
 contract NodeFactoryTest is BaseTest {
     NodeRegistry public testRegistry;
     NodeFactory public testFactory;
 
-    address public testAsset;
+    ERC20Mock public testAsset;
     address public testQuoter;
     address public testRouter;
     address public testRebalancer;
@@ -42,7 +43,7 @@ contract NodeFactoryTest is BaseTest {
     function setUp() public override {
         super.setUp();
 
-        testAsset = makeAddr("testAsset");
+        testAsset = new ERC20Mock("Test Asset", "TASSET");
         testQuoter = makeAddr("testQuoter");
         testRouter = makeAddr("testRouter");
         testRebalancer = makeAddr("testRebalancer");
@@ -57,7 +58,7 @@ contract NodeFactoryTest is BaseTest {
         );
         vm.stopPrank();
 
-        vm.label(testAsset, "TestAsset");
+        vm.label(address(testAsset), "TestAsset");
         vm.label(testQuoter, "TestQuoter");
         vm.label(testRouter, "TestRouter");
         vm.label(testRebalancer, "TestRebalancer");
@@ -68,12 +69,12 @@ contract NodeFactoryTest is BaseTest {
 
     function test_createNode() public {
         vm.expectEmit(false, true, true, true);
-        emit EventsLib.CreateNode(address(0), testAsset, TEST_NAME, TEST_SYMBOL, owner, TEST_SALT);
+        emit EventsLib.CreateNode(address(0), address(testAsset), TEST_NAME, TEST_SYMBOL, owner, TEST_SALT);
 
         INode node = testFactory.createNode(
             TEST_NAME,
             TEST_SYMBOL,
-            testAsset,
+            address(testAsset),
             owner,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -89,7 +90,7 @@ contract NodeFactoryTest is BaseTest {
         vm.expectEmit(false, true, true, true);
         emit EventsLib.CreateNode(
             address(0),
-            testAsset,
+            address(testAsset),
             TEST_NAME,
             TEST_SYMBOL,
             address(testFactory), // owner is factory during creation
@@ -99,7 +100,7 @@ contract NodeFactoryTest is BaseTest {
         DeployParams memory params = DeployParams({
             name: TEST_NAME,
             symbol: TEST_SYMBOL,
-            asset: testAsset,
+            asset: address(testAsset),
             owner: owner,
             rebalancer: testRebalancer,
             quoter: testQuoter,
@@ -142,7 +143,7 @@ contract NodeFactoryTest is BaseTest {
         testFactory.createNode(
             TEST_NAME,
             TEST_SYMBOL,
-            testAsset,
+            address(testAsset),
             address(0),
             _toArray(testRouter),
             _toArray(testComponent),
@@ -157,7 +158,7 @@ contract NodeFactoryTest is BaseTest {
         testFactory.createNode(
             "", // empty name
             TEST_SYMBOL,
-            testAsset,
+            address(testAsset),
             owner,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -172,7 +173,7 @@ contract NodeFactoryTest is BaseTest {
         testFactory.createNode(
             TEST_NAME,
             "", // empty symbol
-            testAsset,
+            address(testAsset),
             owner,
             _toArray(testRouter),
             _toArray(testComponent),
@@ -191,7 +192,7 @@ contract NodeFactoryTest is BaseTest {
         testFactory.createNode(
             TEST_NAME,
             TEST_SYMBOL,
-            testAsset,
+            address(testAsset),
             owner,
             _toArray(testRouter),
             components,
@@ -208,7 +209,7 @@ contract NodeFactoryTest is BaseTest {
         testFactory.createNode(
             TEST_NAME,
             TEST_SYMBOL,
-            testAsset,
+            address(testAsset),
             owner,
             _toArray(unregisteredRouter),
             _toArray(testComponent),

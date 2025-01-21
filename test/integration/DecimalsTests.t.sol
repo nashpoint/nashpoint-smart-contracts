@@ -57,6 +57,8 @@ contract DecimalsTests is BaseTest {
 
         (decNode, decEscrow) = factory.deployFullNode(params);
 
+        decNode.setMaxDepositSize(1e36);
+
         quoter.setErc4626(address(testVault6), true);
         router4626.setWhitelistStatus(address(testVault6), true);
 

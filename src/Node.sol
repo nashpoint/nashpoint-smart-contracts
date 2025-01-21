@@ -136,6 +136,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         isInitialized = true;
         lastRebalance = uint64(block.timestamp - rebalanceCooldown);
         lastPayment = uint64(block.timestamp);
+        maxDepositSize = 10_000_000 * 10 ** decimals();
 
         emit EventsLib.Initialize(escrow_, address(this));
     }
@@ -281,6 +282,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function setAnnualManagementFee(uint64 newAnnualManagementFee) external onlyOwner {
         annualManagementFee = newAnnualManagementFee;
         emit EventsLib.ProtocolManagementFeeSet(newAnnualManagementFee);
+    }
+
+    /// @inheritdoc INode
+    function setMaxDepositSize(uint256 newMaxDepositSize) external onlyOwner {
+        if (newMaxDepositSize > 1e36) revert ErrorsLib.ExceedsMaxDepositLimit();
+        maxDepositSize = newMaxDepositSize;
+        emit EventsLib.MaxDepositSizeSet(newMaxDepositSize);
     }
 
     /*//////////////////////////////////////////////////////////////

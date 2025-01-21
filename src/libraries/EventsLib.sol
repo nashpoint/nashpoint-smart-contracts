@@ -125,4 +125,7 @@ library EventsLib {
 
     /// @notice Emitted when node owner fee address is set
     event NodeOwnerFeeAddressSet(address nodeOwnerFeeAddress);
+
+    /// @notice Emitted when max deposit size is set
+    event MaxDepositSizeSet(uint256 maxDepositSize);
 }

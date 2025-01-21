@@ -114,6 +114,7 @@ contract BaseTest is Test {
         (node, escrow) = factory.deployFullNode(params);
 
         escrow.approveMax(address(asset), address(node));
+        node.setMaxDepositSize(1e36);
         vm.stopPrank();
 
         deal(address(asset), user, INITIAL_BALANCE);
