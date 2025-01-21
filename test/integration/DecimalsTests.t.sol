@@ -38,7 +38,7 @@ contract DecimalsTests is BaseTest {
         testVault6 = new ERC4626Mock(address(testToken6));
 
         Node nodeImpl = Node(address(node));
-        maxDeposit = nodeImpl.MAX_DEPOSIT();
+        maxDeposit = nodeImpl.maxDepositSize();
 
         vm.startPrank(owner);
         DeployParams memory params = DeployParams({

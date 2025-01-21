@@ -35,7 +35,7 @@ contract RebalanceFuzzTests is BaseTest {
     function setUp() public override {
         super.setUp();
         Node nodeImpl = Node(address(node));
-        maxDeposit = nodeImpl.MAX_DEPOSIT();
+        maxDeposit = nodeImpl.maxDepositSize();
 
         vaultA = new ERC4626Mock(address(asset));
         vaultB = new ERC4626Mock(address(asset));

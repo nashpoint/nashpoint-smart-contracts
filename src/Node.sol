@@ -27,9 +27,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address public immutable asset;
     address public immutable share;
     address public immutable registry;
+    uint256 public maxDepositSize = 1e36;
     uint256 internal immutable WAD = 1e18;
     uint256 private immutable REQUEST_ID = 0;
-    uint256 public immutable MAX_DEPOSIT = 1e36;
     uint256 public immutable SECONDS_PER_YEAR = 365 days;
 
     /* COMPONENTS */
@@ -431,7 +431,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
-        if (assets > maxDeposit(msg.sender)) {
+        if (assets > maxDepositSize) {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
         sharesToMint = _calculateSharesAfterSwingPricing(assets);
@@ -507,13 +507,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function maxDeposit(address /* controller */ ) public view returns (uint256 maxAssets) {
-        maxAssets = isCacheValid() ? MAX_DEPOSIT : 0;
+        maxAssets = isCacheValid() ? maxDepositSize : 0;
         return maxAssets;
     }
 
     /// @inheritdoc INode
     function maxMint(address /* controller */ ) public view returns (uint256 maxShares) {
-        maxShares = isCacheValid() ? convertToShares(MAX_DEPOSIT) : 0;
+        maxShares = isCacheValid() ? convertToShares(maxDepositSize) : 0;
         return maxShares;
     }
 

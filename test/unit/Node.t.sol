@@ -107,7 +107,7 @@ contract NodeTest is BaseTest {
         vm.label(address(testNode), "TestNode");
 
         Node nodeImpl = Node(address(node));
-        maxDeposit = nodeImpl.MAX_DEPOSIT();
+        maxDeposit = nodeImpl.maxDepositSize();
         rebalanceCooldown = nodeImpl.rebalanceCooldown();
 
         nodeHarness = new NodeHarness(
