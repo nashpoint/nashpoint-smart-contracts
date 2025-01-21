@@ -27,7 +27,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address public immutable asset;
     address public immutable share;
     address public immutable registry;
-    uint256 public maxDepositSize = 1e36;
     uint256 internal immutable WAD = 1e18;
     uint256 private immutable REQUEST_ID = 0;
     uint256 public immutable SECONDS_PER_YEAR = 365 days;
@@ -53,6 +52,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /* FEES & ACCOUNTING */
     uint64 public annualManagementFee;
     uint64 public lastPayment;
+    uint256 public maxDepositSize;
     uint256 public sharesExiting;
     uint256 public cacheTotalAssets;
     address public nodeOwnerFeeAddress;
