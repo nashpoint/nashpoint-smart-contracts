@@ -110,7 +110,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// reserveImpact is the cash balance of the node after the redeem request is processed
     /// adjustedAssets is the value of the redeem request with withdrawal penalty applied based on impact on cash reserve
     /// Uses sharesExiting to track redeem request currently pending for redemption and subtracts them from cash balance
-    /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penatly is being applied
+    /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penalty is being applied
     /// to new requests
     /// @param asset The asset being redeemed
     /// @param sharesExiting The total number of shares exiting the node
