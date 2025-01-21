@@ -70,6 +70,9 @@ library ErrorsLib {
     /// @notice Thrown when the max withdraw is exceeded.
     error ExceedsMaxWithdraw();
 
+    /// @notice Thrown when the max deposit limit is exceeded.
+    error ExceedsMaxDepositLimit();
+
     /// @notice Thrown when the component is invalid.
     error InvalidComponent();
 

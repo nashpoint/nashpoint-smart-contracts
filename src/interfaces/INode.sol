@@ -98,6 +98,10 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param newAnnualManagementFee The new annual management fee
     function setAnnualManagementFee(uint64 newAnnualManagementFee) external;
 
+    /// @notice Sets the max deposit size
+    /// @param newMaxDepositSize The new max deposit size
+    function setMaxDepositSize(uint256 newMaxDepositSize) external;
+
     /// @notice Starts a rebalance
     function startRebalance() external;
 

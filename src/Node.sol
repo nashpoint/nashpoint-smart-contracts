@@ -23,14 +23,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using MathLib for uint256;
 
-    /* IMMUTABLES */
+    /* IMMUTABLES & CONSTANTS */
     address public immutable asset;
     address public immutable share;
     address public immutable registry;
-    uint256 internal immutable WAD = 1e18;
-    uint256 private immutable REQUEST_ID = 0;
-    uint256 public immutable MAX_DEPOSIT = 1e36;
-    uint256 public immutable SECONDS_PER_YEAR = 365 days;
+    uint256 internal constant WAD = 1e18;
+    uint256 private constant REQUEST_ID = 0;
+    uint256 public constant SECONDS_PER_YEAR = 365 days;
 
     /* COMPONENTS */
     address[] public components;
@@ -53,6 +52,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /* FEES & ACCOUNTING */
     uint64 public annualManagementFee;
     uint64 public lastPayment;
+    uint256 public maxDepositSize;
     uint256 public sharesExiting;
     uint256 public cacheTotalAssets;
     address public nodeOwnerFeeAddress;
@@ -136,6 +136,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         isInitialized = true;
         lastRebalance = uint64(block.timestamp - rebalanceCooldown);
         lastPayment = uint64(block.timestamp);
+        maxDepositSize = 10_000_000 * 10 ** decimals();
 
         emit EventsLib.Initialize(escrow_, address(this));
     }
@@ -211,8 +212,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function addRebalancer(address newRebalancer) external onlyOwner {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
         if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
-        isRebalancer[newRebalancer] = true;
         if (!INodeRegistry(registry).isRebalancer(newRebalancer)) revert ErrorsLib.NotWhitelisted();
+        isRebalancer[newRebalancer] = true;
         emit EventsLib.RebalancerAdded(newRebalancer);
     }
 
@@ -281,6 +282,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function setAnnualManagementFee(uint64 newAnnualManagementFee) external onlyOwner {
         annualManagementFee = newAnnualManagementFee;
         emit EventsLib.ProtocolManagementFeeSet(newAnnualManagementFee);
+    }
+
+    /// @inheritdoc INode
+    function setMaxDepositSize(uint256 newMaxDepositSize) external onlyOwner {
+        if (newMaxDepositSize > 1e36) revert ErrorsLib.ExceedsMaxDepositLimit();
+        maxDepositSize = newMaxDepositSize;
+        emit EventsLib.MaxDepositSizeSet(newMaxDepositSize);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -431,7 +439,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
-        if (assets > maxDeposit(msg.sender)) {
+        if (assets > maxDepositSize) {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
         sharesToMint = _calculateSharesAfterSwingPricing(assets);
@@ -507,13 +515,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function maxDeposit(address /* controller */ ) public view returns (uint256 maxAssets) {
-        maxAssets = isCacheValid() ? MAX_DEPOSIT : 0;
+        maxAssets = isCacheValid() ? maxDepositSize : 0;
         return maxAssets;
     }
 
     /// @inheritdoc INode
     function maxMint(address /* controller */ ) public view returns (uint256 maxShares) {
-        maxShares = isCacheValid() ? convertToShares(MAX_DEPOSIT) : 0;
+        maxShares = isCacheValid() ? convertToShares(maxDepositSize) : 0;
         return maxShares;
     }
 

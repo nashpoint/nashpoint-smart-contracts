@@ -107,7 +107,7 @@ contract NodeTest is BaseTest {
         vm.label(address(testNode), "TestNode");
 
         Node nodeImpl = Node(address(node));
-        maxDeposit = nodeImpl.MAX_DEPOSIT();
+        maxDeposit = nodeImpl.maxDepositSize();
         rebalanceCooldown = nodeImpl.rebalanceCooldown();
 
         nodeHarness = new NodeHarness(
@@ -764,6 +764,25 @@ contract NodeTest is BaseTest {
         vm.prank(user);
         vm.expectRevert();
         testNode.setAnnualManagementFee(0.01 ether);
+    }
+
+    function test_setMaxDepositSize() public {
+        uint256 newMaxDepositSize = 100 ether;
+        vm.prank(owner);
+        node.setMaxDepositSize(newMaxDepositSize);
+        assertEq(node.maxDeposit(user), newMaxDepositSize);
+    }
+
+    function test_setMaxDepositSize_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        node.setMaxDepositSize(1);
+    }
+
+    function test_setMaxDepositSize_revert_ExceedsMaxDepositLimit() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.ExceedsMaxDepositLimit.selector);
+        node.setMaxDepositSize(1e36 + 1);
     }
 
     function test_startRebalance() public {

@@ -16,7 +16,7 @@ contract NodeFuzzTest is BaseTest {
     function setUp() public override {
         super.setUp();
         Node nodeImpl = Node(address(node));
-        maxDeposit = nodeImpl.MAX_DEPOSIT();
+        maxDeposit = nodeImpl.maxDepositSize();
     }
 
     /*//////////////////////////////////////////////////////////////
