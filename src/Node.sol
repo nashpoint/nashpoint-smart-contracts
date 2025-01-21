@@ -23,13 +23,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using MathLib for uint256;
 
-    /* IMMUTABLES */
+    /* IMMUTABLES & CONSTANTS */
     address public immutable asset;
     address public immutable share;
     address public immutable registry;
-    uint256 internal immutable WAD = 1e18;
-    uint256 private immutable REQUEST_ID = 0;
-    uint256 public immutable SECONDS_PER_YEAR = 365 days;
+    uint256 internal constant WAD = 1e18;
+    uint256 private constant REQUEST_ID = 0;
+    uint256 public constant SECONDS_PER_YEAR = 365 days;
 
     /* COMPONENTS */
     address[] public components;
@@ -212,8 +212,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function addRebalancer(address newRebalancer) external onlyOwner {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
         if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
-        isRebalancer[newRebalancer] = true;
         if (!INodeRegistry(registry).isRebalancer(newRebalancer)) revert ErrorsLib.NotWhitelisted();
+        isRebalancer[newRebalancer] = true;
         emit EventsLib.RebalancerAdded(newRebalancer);
     }
 
