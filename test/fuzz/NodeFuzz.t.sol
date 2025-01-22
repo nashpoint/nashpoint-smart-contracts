@@ -272,7 +272,7 @@ contract NodeFuzzTest is BaseTest {
         _seedNode(seedAmount);
         assertEq(node.totalAssets(), seedAmount);
 
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + 364 days);
 
         vm.prank(owner);
         uint256 feeForPeriod = node.payManagementFees();
