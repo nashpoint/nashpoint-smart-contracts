@@ -270,7 +270,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function enableSwingPricing(bool status_, uint64 maxSwingFactor_) public onlyOwner {
         swingPricingEnabled = status_;
         maxSwingFactor = maxSwingFactor_;
-        emit EventsLib.SwingPricingStatusUpdated(status_);
+        emit EventsLib.SwingPricingStatusUpdated(status_, maxSwingFactor_);
     }
 
     /// @inheritdoc INode
