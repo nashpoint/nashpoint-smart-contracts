@@ -55,6 +55,7 @@ contract BaseTest is Test {
     address constant usdcEthereum = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     function setUp() public virtual {
+        // warp forward one day to avoid underflow in initialize() setting lastRebalance
         vm.warp(block.timestamp + 1 days);
 
         owner = makeAddr("owner");
@@ -125,6 +126,9 @@ contract BaseTest is Test {
 
         _labelAddresses();
         vm.label(address(vault), "Vault");
+
+        // warp forward one day to pass rebalance window & cooldown
+        vm.warp(block.timestamp + 1 days);
 
         vm.prank(rebalancer);
         node.startRebalance();

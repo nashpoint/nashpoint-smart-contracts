@@ -46,7 +46,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     mapping(address => mapping(address => bool)) public isOperator;
 
     /* REBALANCE COOLDOWN */
-    uint64 public rebalanceCooldown = 1 days;
+    uint64 public rebalanceCooldown = 23 hours;
     uint64 public rebalanceWindow = 1 hours;
     uint64 public lastRebalance;
 
@@ -303,7 +303,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (!_validateComponentRatios()) {
             revert ErrorsLib.InvalidComponentRatios();
         }
-        if (block.timestamp < lastRebalance + rebalanceCooldown) revert ErrorsLib.CooldownActive();
+        if (block.timestamp < lastRebalance + rebalanceWindow + rebalanceCooldown) revert ErrorsLib.CooldownActive();
         lastRebalance = uint64(block.timestamp);
         _updateTotalAssets();
 
@@ -630,7 +630,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function isCacheValid() public view returns (bool) {
-        return (block.timestamp <= lastRebalance + rebalanceCooldown);
+        return (block.timestamp <= lastRebalance + rebalanceWindow);
     }
 
     /// @inheritdoc INode
