@@ -205,11 +205,12 @@ contract RebalanceFuzzTests is BaseTest {
         uint256 runs,
         uint256 depositAmount
     ) public {
+        uint256 minFee = 100;
         targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.1 ether, 1 ether));
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
         annualManagementFee = uint64(bound(annualManagementFee, 0, 0.1 ether));
-        protocolManagementFee = uint64(bound(protocolManagementFee, 100, 0.1 ether)); // todo: figure out why zero is not working
-        protocolExecutionFee = uint64(bound(protocolExecutionFee, 100, 0.1 ether)); // todo: figure out why zero is not working
+        protocolManagementFee = uint64(bound(protocolManagementFee, minFee, 0.1 ether));
+        protocolExecutionFee = uint64(bound(protocolExecutionFee, minFee, 0.1 ether));
 
         _setFees(annualManagementFee, protocolManagementFee, protocolExecutionFee);
 
@@ -239,9 +240,9 @@ contract RebalanceFuzzTests is BaseTest {
             asset.balanceOf(ownerFeesRecipient) + asset.balanceOf(protocolFeesRecipient) + node.totalAssets();
 
         assertEq(totalDeposits, finalBalances, "Total deposits should equal final balances");
-        if (annualManagementFee > 0) {
+        if (annualManagementFee > minFee) {
             assertGt(asset.balanceOf(ownerFeesRecipient), 0, "Owner fees recipient should have some balance");
-            if (protocolManagementFee > 0) {
+            if (protocolManagementFee > minFee) {
                 assertGt(asset.balanceOf(protocolFeesRecipient), 0, "Protocol fees recipient should have some balance");
             }
         }
