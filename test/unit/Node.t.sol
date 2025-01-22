@@ -223,7 +223,7 @@ contract NodeTest is BaseTest {
         assertEq(address(testNode.escrow()), testEscrow);
         assertFalse(testNode.swingPricingEnabled());
         assertTrue(testNode.isInitialized());
-        assertEq(testNode.lastRebalance(), block.timestamp - testNode.rebalanceCooldown());
+        assertEq(testNode.lastRebalance(), block.timestamp - testNode.rebalanceWindow());
         assertEq(testNode.lastPayment(), block.timestamp);
     }
 

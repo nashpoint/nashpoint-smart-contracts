@@ -117,7 +117,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @notice Reverts if the current block timestamp is within the rebalance window
     modifier onlyWhenNotRebalancing() {
-        if (block.timestamp >= lastRebalance && block.timestamp <= lastRebalance + rebalanceWindow) {
+        if (block.timestamp < lastRebalance + rebalanceWindow) {
             revert ErrorsLib.RebalanceWindowOpen();
         }
         _;
@@ -135,7 +135,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         escrow = escrow_;
         swingPricingEnabled = false;
         isInitialized = true;
-        lastRebalance = uint64(block.timestamp - rebalanceCooldown);
+        lastRebalance = uint64(block.timestamp - rebalanceWindow);
         lastPayment = uint64(block.timestamp);
         maxDepositSize = 10_000_000 * 10 ** decimals();
 
