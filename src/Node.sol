@@ -345,7 +345,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             lastPayment = uint64(block.timestamp);
             IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
             IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
-            return feeForPeriod;
         }
     }
 
