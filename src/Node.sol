@@ -350,6 +350,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter {
+        if (executionFee > IERC20(asset).balanceOf(address(this))) {
+            revert ErrorsLib.NotEnoughAssetsToPayFees(executionFee, IERC20(asset).balanceOf(address(this)));
+        }
         cacheTotalAssets -= executionFee;
         IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
     }
