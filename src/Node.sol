@@ -723,6 +723,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (!_validateComponentRatios()) {
             revert ErrorsLib.InvalidComponentRatios();
         }
+        _validateNoDuplicateComponents(components_);
     }
 
     function _validateNoDuplicateComponents(address[] memory componentArray) internal pure {
