@@ -142,6 +142,9 @@ library ErrorsLib {
     /// @notice Thrown when the shares returned are insufficient.
     error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
 
+    /// @notice Thrown when the component is already in the queue.
+    error DuplicateComponent();
+
     /// @notice Thrown when the liquidation order is incorrect.
     error IncorrectLiquidationOrder(address component, uint256 assetsToReturn);
 

@@ -243,6 +243,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
+        _validateNoDuplicateComponents(newQueue);
+
         for (uint256 i = 0; i < newQueue.length; i++) {
             address component = newQueue[i];
             if (component == address(0)) revert ErrorsLib.ZeroAddress();
@@ -720,6 +722,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
         if (!_validateComponentRatios()) {
             revert ErrorsLib.InvalidComponentRatios();
+        }
+    }
+
+    function _validateNoDuplicateComponents(address[] memory componentArray) internal pure {
+        Arrays.sort(componentArray);
+        for (uint256 i = 0; i < componentArray.length - 1; i++) {
+            if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
         }
     }
 
