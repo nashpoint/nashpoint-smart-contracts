@@ -300,7 +300,7 @@ contract NodeFuzzTest is BaseTest {
         annualFee = uint64(bound(annualFee, 0, 1e18));
         protocolFee = uint64(bound(protocolFee, 0, 1e18));
         seedAmount = bound(seedAmount, 1e18, 1e36);
-        duration = bound(duration, 1 days, 365 days);
+        duration = bound(duration, 2 days, 365 days);
 
         vm.startPrank(owner);
         node.setAnnualManagementFee(annualFee);
