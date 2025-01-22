@@ -443,15 +443,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INode
-    function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
+    function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
         if (assets > maxDepositSize) {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
-        sharesToMint = _calculateSharesAfterSwingPricing(assets);
-        _deposit(_msgSender(), receiver, assets, sharesToMint);
+        shares = _calculateSharesAfterSwingPricing(assets);
+        _deposit(_msgSender(), receiver, assets, shares);
         cacheTotalAssets += assets;
-        emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
-        return sharesToMint;
+        emit IERC7575.Deposit(receiver, receiver, assets, shares);
+        return shares;
     }
 
     /// @inheritdoc INode
