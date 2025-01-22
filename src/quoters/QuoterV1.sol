@@ -134,7 +134,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         if (pendingRedemptions > balance) {
             balance = 0;
         } else {
-            balance = balance - pendingRedemptions;
+            balance -= pendingRedemptions;
         }
 
         // get the asset value of the redeem request

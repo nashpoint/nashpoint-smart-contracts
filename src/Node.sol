@@ -341,7 +341,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                 revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
             }
 
-            cacheTotalAssets = cacheTotalAssets - feeForPeriod;
+            cacheTotalAssets -= feeForPeriod;
             lastPayment = uint64(block.timestamp);
             IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
             IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
