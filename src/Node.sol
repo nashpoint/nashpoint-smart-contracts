@@ -630,7 +630,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function isCacheValid() public view returns (bool) {
-        return (block.timestamp <= lastRebalance + rebalanceWindow);
+        return (block.timestamp < lastRebalance + rebalanceWindow + rebalanceCooldown);
     }
 
     /// @inheritdoc INode
