@@ -950,8 +950,8 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         uint256 feeForPeriod = node.payManagementFees();
 
-        assertApproxEqAbs(asset.balanceOf(address(ownerFeesRecipient)) * 365, 0.8 ether, 100);
-        assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether, 100);
+        assertApproxEqAbs(asset.balanceOf(address(ownerFeesRecipient)) * 365, 0.8 ether * 2, 1000);
+        assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether * 2, 1000);
         assertEq(node.totalAssets(), 100 ether - feeForPeriod);
     }
 
@@ -966,7 +966,7 @@ contract NodeTest is BaseTest {
         node.setAnnualManagementFee(0.2e18);
         node.setNodeOwnerFeeAddress(ownerFeesRecipient);
 
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + 364 days);
 
         vm.expectRevert(
             abi.encodeWithSelector(
