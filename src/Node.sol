@@ -459,11 +459,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ExceedsMaxMint();
         }
-        uint256 assetsToDeposit = convertToAssets(shares);
-        _deposit(_msgSender(), receiver, assetsToDeposit, shares);
-        cacheTotalAssets += assetsToDeposit;
-        emit IERC7575.Deposit(receiver, receiver, assetsToDeposit, shares);
-        return assetsToDeposit;
+        assets = convertToAssets(shares);
+        _deposit(_msgSender(), receiver, assets, shares);
+        cacheTotalAssets += assets;
+        emit IERC7575.Deposit(receiver, receiver, assets, shares);
+        return assets;
     }
 
     function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
