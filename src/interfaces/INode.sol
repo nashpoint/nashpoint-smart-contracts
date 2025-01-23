@@ -309,6 +309,11 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return bool True if the component ratios are valid, false otherwise
     function validateComponentRatios() external view returns (bool);
 
+    /// @notice Returns the current cash of the node
+    /// @return uint256 The current cash of the node
+    /// subtracts the asset value of shares exiting from the reserve balance
+    function getCurrentCash() external view returns (uint256);
+
     /// @notice The address of the node registry
     function registry() external view returns (address);
 

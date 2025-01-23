@@ -2051,6 +2051,18 @@ contract NodeTest is BaseTest {
         );
     }
 
+    function test_getCurrentCash() public {
+        _userDeposits(user, 100 ether);
+        assertEq(node.getCurrentCash(), 100 ether);
+
+        vm.startPrank(user);
+        node.approve(address(node), 1 ether);
+        node.requestRedeem(1 ether, user, user);
+        vm.stopPrank();
+
+        assertEq(node.getCurrentCash(), 99 ether);
+    }
+
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
         assertEq(asset.balanceOf(address(node)), assets);
