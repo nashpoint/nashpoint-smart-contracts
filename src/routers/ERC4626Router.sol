@@ -109,13 +109,10 @@ contract ERC4626Router is BaseRouter {
         // execute the liquidation
         assetsReturned = _liquidate(node, component, componentShares);
 
+        // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
         if (assetsReturned < assetsRequested) {
-            sharesPending = MathLib.min(
-                sharesPending, MathLib.mulDiv(sharesPending, assetsReturned, assetsRequested, MathLib.Rounding.Up)
-            );
-            sharesAdjusted = MathLib.min(
-                sharesAdjusted, MathLib.mulDiv(sharesAdjusted, assetsReturned, assetsRequested, MathLib.Rounding.Up)
-            );
+            (sharesPending, sharesAdjusted) =
+                _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested, sharesAdjusted);
         }
 
         // transfer the assets to the escrow
