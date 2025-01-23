@@ -230,7 +230,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (newEscrow == escrow) revert ErrorsLib.AlreadySet();
         if (newEscrow == address(0)) revert ErrorsLib.ZeroAddress();
         escrow = newEscrow;
-        emit EventsLib.SetEscrow(newEscrow);
+        emit EventsLib.EscrowSet(newEscrow);
     }
 
     /// @inheritdoc INode
@@ -238,7 +238,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
         if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
         quoter = IQuoter(newQuoter);
-        emit EventsLib.SetQuoter(newQuoter);
+        emit EventsLib.QuoterSet(newQuoter);
     }
 
     /// @inheritdoc INode
