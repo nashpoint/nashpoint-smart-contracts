@@ -13,7 +13,7 @@ import {ErrorsLib} from "./ErrorsLib.sol";
  * @title BaseRouter
  * @author ODND Studios
  */
-contract BaseRouter {
+abstract contract BaseRouter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
