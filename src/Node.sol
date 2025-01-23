@@ -284,7 +284,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /// @inheritdoc INode
     function setAnnualManagementFee(uint64 newAnnualManagementFee) external onlyOwner {
         annualManagementFee = newAnnualManagementFee;
-        emit EventsLib.ProtocolManagementFeeSet(newAnnualManagementFee);
+        emit EventsLib.AnnualManagementFeeSet(newAnnualManagementFee);
     }
 
     /// @inheritdoc INode

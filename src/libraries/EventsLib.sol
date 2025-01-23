@@ -16,6 +16,15 @@ library EventsLib {
     /// @notice Emitted when a role is set on the registry
     event RoleSet(address indexed addr, RegistryType role, bool status);
 
+    /// @notice Emitted when protocol fee address is set on the registry
+    event ProtocolFeeAddressSet(address protocolFeeAddress);
+
+    /// @notice Emitted when protocol management fee is set on the registry
+    event ProtocolManagementFeeSet(uint256 protocolManagementFee);
+
+    /// @notice Emitted when protocol execution fee is set on the registry
+    event ProtocolExecutionFeeSet(uint256 protocolExecutionFee);
+
     /// @notice Emitted when `escrow` is updated on the node.
     event EscrowSet(address indexed newEscrow);
 
@@ -76,18 +85,12 @@ library EventsLib {
     /// @notice Emitted when a redeem is claimable on the node
     event RedeemClaimable(address indexed controller, uint256 requestId, uint256 assets, uint256 shares);
 
-    /// @notice Emitted when protocol fee address is set on the registry
-    event ProtocolFeeAddressSet(address protocolFeeAddress);
+    /// @notice Emitted when max deposit size is set on the node
+    event MaxDepositSizeSet(uint256 maxDepositSize);
 
-    /// @notice Emitted when protocol management fee is set on the registry
-    event ProtocolManagementFeeSet(uint256 protocolManagementFee);
-
-    /// @notice Emitted when protocol execution fee is set on the registry
-    event ProtocolExecutionFeeSet(uint256 protocolExecutionFee);
+    /// @notice Emitted when annual management fee is set on the node
+    event AnnualManagementFeeSet(uint256 annualManagementFee);
 
     /// @notice Emitted when node owner fee address is set on the node
     event NodeOwnerFeeAddressSet(address nodeOwnerFeeAddress);
-
-    /// @notice Emitted when max deposit size is set on the node
-    event MaxDepositSizeSet(uint256 maxDepositSize);
 }
