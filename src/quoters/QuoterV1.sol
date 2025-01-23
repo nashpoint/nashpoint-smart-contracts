@@ -22,8 +22,10 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     using MathLib for uint256;
 
     /* IMMUTABLES */
+    // todo: should not be immutable
     int256 public immutable SCALING_FACTOR = -5e18;
     uint256 public immutable WAD = 1e18;
+    uint256 internal constant REQUEST_ID = 0;
 
     /* STATE */
     mapping(address => bool) public isErc4626;
@@ -258,10 +260,10 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
             assets = IERC4626(component).convertToAssets(shareBalance);
         }
         /// @dev in ERC7540 deposits are denominated in assets and redeems are in shares
-        assets += IERC7540(component).pendingDepositRequest(0, node);
-        assets += IERC7540(component).claimableDepositRequest(0, node);
-        assets += IERC4626(component).convertToAssets(IERC7540(component).pendingRedeemRequest(0, node));
-        assets += IERC4626(component).convertToAssets(IERC7540(component).claimableRedeemRequest(0, node));
+        assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
+        assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
+        assets += IERC4626(component).convertToAssets(IERC7540(component).pendingRedeemRequest(REQUEST_ID, node));
+        assets += IERC4626(component).convertToAssets(IERC7540(component).claimableRedeemRequest(REQUEST_ID, node));
 
         return assets;
     }
