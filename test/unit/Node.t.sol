@@ -2053,14 +2053,14 @@ contract NodeTest is BaseTest {
 
     function test_getCashAfterRedemptions() public {
         _userDeposits(user, 100 ether);
-        assertEq(node.getCurrentCash(), 100 ether);
+        assertEq(node.getCashAfterRedemptions(), 100 ether);
 
         vm.startPrank(user);
         node.approve(address(node), 1 ether);
         node.requestRedeem(1 ether, user, user);
         vm.stopPrank();
 
-        assertEq(node.getCurrentCash(), 99 ether);
+        assertEq(node.getCashAfterRedemptions(), 99 ether);
 
         vm.warp(block.timestamp + 1 days);
 
@@ -2074,7 +2074,7 @@ contract NodeTest is BaseTest {
         node.requestRedeem(90 ether, user, user);
         vm.stopPrank();
 
-        assertEq(node.getCurrentCash(), 0);
+        assertEq(node.getCashAfterRedemptions(), 0);
     }
 
     // HELPER FUNCTIONS
