@@ -21,6 +21,7 @@ contract ERC7540Router is BaseRouter {
     uint256 internal totalAssets;
     uint256 internal currentCash;
     uint256 internal idealCashReserve;
+    uint256 internal constant REQUEST_ID = 0;
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
@@ -49,7 +50,7 @@ contract ERC7540Router is BaseRouter {
         depositAmount = _computeDepositAmount(node, component);
 
         uint256 requestId = _requestDeposit(node, component, depositAmount);
-        if (requestId != 0) {
+        if (requestId != REQUEST_ID) {
             revert ErrorsLib.IncorrectRequestId(requestId);
         }
         return (depositAmount);
@@ -102,7 +103,7 @@ contract ERC7540Router is BaseRouter {
         }
 
         uint256 requestId = _requestRedeem(node, component, shares);
-        if (requestId != 0) {
+        if (requestId != REQUEST_ID) {
             revert ErrorsLib.IncorrectRequestId(requestId);
         }
     }
