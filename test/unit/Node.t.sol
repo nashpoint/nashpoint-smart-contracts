@@ -2061,6 +2061,20 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         assertEq(node.getCurrentCash(), 99 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        node.approve(address(node), 90 ether);
+        node.requestRedeem(90 ether, user, user);
+        vm.stopPrank();
+
+        assertEq(node.getCurrentCash(), 0);
     }
 
     // HELPER FUNCTIONS
