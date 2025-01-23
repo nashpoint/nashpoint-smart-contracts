@@ -2051,7 +2051,7 @@ contract NodeTest is BaseTest {
         );
     }
 
-    function test_getCurrentCash() public {
+    function test_getCashAfterRedemptions() public {
         _userDeposits(user, 100 ether);
         assertEq(node.getCurrentCash(), 100 ether);
 

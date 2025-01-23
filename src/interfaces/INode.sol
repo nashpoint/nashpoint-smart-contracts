@@ -312,7 +312,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Returns the current cash of the node
     /// @return uint256 The current cash of the node
     /// subtracts the asset value of shares exiting from the reserve balance
-    function getCurrentCash() external view returns (uint256);
+    function getCashAfterRedemptions() external view returns (uint256);
 
     /// @notice The address of the node registry
     function registry() external view returns (address);

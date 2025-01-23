@@ -641,7 +641,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function getCurrentCash() public view returns (uint256 currentCash) {
+    function getCashAfterRedemptions() public view returns (uint256 currentCash) {
         uint256 balance = IERC20(asset).balanceOf(address(this));
         uint256 exitingAssets = convertToAssets(sharesExiting);
 
