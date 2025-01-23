@@ -46,27 +46,7 @@ contract ERC4626Router is BaseRouter {
             revert ErrorsLib.InvalidComponent();
         }
 
-        // checks if excess reserve is available to invest
-        _validateReserveAboveTargetRatio(node);
-
-        (totalAssets, currentCash, idealCashReserve) = _getNodeCashStatus(node);
-
-        // gets units of asset required to set component to target ratio
-        depositAmount = _getInvestmentSize(node, component);
-
-        // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
-            revert ErrorsLib.ComponentWithinTargetRange(node, component);
-        }
-
-        // limit deposit by reserve ratio requirements
-        uint256 availableReserve = currentCash - idealCashReserve;
-        if (depositAmount > availableReserve) {
-            depositAmount = availableReserve;
-        }
-
-        // subtract execution fee for protocol
-        depositAmount = _subtractExecutionFee(depositAmount, node);
+        depositAmount = _computeDepositAmount(node, component);
 
         // Check vault deposit limits
         if (depositAmount > IERC4626(component).maxDeposit(address(node))) {

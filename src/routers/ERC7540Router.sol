@@ -35,38 +35,18 @@ contract ERC7540Router is BaseRouter {
     /// will revert if there is not sufficient excess reserve or if the target component is within maxDelta
     /// @param node The address of the node.
     /// @param component The address of the component.
-    /// @return cashInvested The amount of cash invested.
+    /// @return depositAmount The amount of cash invested.
     function investInAsyncVault(address node, address component)
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
-        returns (uint256 cashInvested)
+        returns (uint256 depositAmount)
     {
         if (!INode(node).isComponent(component)) {
             revert ErrorsLib.InvalidComponent();
         }
 
-        // checks if excess reserve is available to invest
-        _validateReserveAboveTargetRatio(node);
-
-        (totalAssets, currentCash, idealCashReserve) = _getNodeCashStatus(node);
-
-        // gets units of asset required to set component to target ratio
-        uint256 depositAmount = _getInvestmentSize(node, component);
-
-        // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
-            revert ErrorsLib.ComponentWithinTargetRange(node, component);
-        }
-
-        // limits the depositAmount to this transaction size
-        uint256 availableReserve = currentCash - idealCashReserve;
-        if (depositAmount > availableReserve) {
-            depositAmount = availableReserve;
-        }
-
-        // subtract execution fee for protocol
-        depositAmount = _subtractExecutionFee(depositAmount, node);
+        depositAmount = _computeDepositAmount(node, component);
 
         uint256 requestId = _requestDeposit(node, component, depositAmount);
         require(requestId == 0, "No requestId returned");

@@ -108,6 +108,30 @@ abstract contract BaseRouter {
                          INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    function _computeDepositAmount(address node, address component) internal returns (uint256 depositAmount) {
+        // checks if excess reserve is available to invest
+        _validateReserveAboveTargetRatio(node);
+
+        (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
+
+        // gets units of asset required to set component to target ratio
+        depositAmount = _getInvestmentSize(node, component);
+
+        // Validate deposit amount exceeds minimum threshold
+        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
+            revert ErrorsLib.ComponentWithinTargetRange(node, component);
+        }
+
+        // limit deposit by reserve ratio requirements
+        uint256 availableReserve = currentCash - idealCashReserve;
+        if (depositAmount > availableReserve) {
+            depositAmount = availableReserve;
+        }
+
+        // subtract execution fee for protocol
+        depositAmount = _subtractExecutionFee(depositAmount, node);
+    }
+
     /// @notice Validates that the reserve is above the target ratio.
     /// @param node The address of the node.
     function _validateReserveAboveTargetRatio(address node) internal view {
