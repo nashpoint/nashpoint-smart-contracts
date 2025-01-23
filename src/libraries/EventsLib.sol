@@ -7,58 +7,31 @@ import {RegistryType} from "../interfaces/INodeRegistry.sol";
 /// @title EventsLib
 /// @author ODND Studios
 library EventsLib {
-    /// @notice Emitted when `escrow` is set to `newEscrow`.
+    /// @notice Emitted when `escrow` is updated on the node.
     event SetEscrow(address indexed newEscrow);
 
-    /// @notice Emitted when `newRouter` is added to the routers.
-    event AddRouter(address indexed newRouter);
+    /// @notice Emitted when `newRouter` is added to the node.
+    event RouterAdded(address indexed newRouter);
 
-    /// @notice Emitted when `oldRouter` is removed from the routers.
-    event RemoveRouter(address indexed oldRouter);
+    /// @notice Emitted when `oldRouter` is removed from the node.
+    event RouterRemoved(address indexed oldRouter);
 
-    /// @notice Emitted when a node is created
+    /// @notice Emitted when a node is created by the factory.
     event CreateNode(address indexed node, address asset, string name, string symbol, address owner, bytes32 salt);
 
-    /// @notice Emitted when a Rebalancer executes an external call.
-    event Execute(address indexed target, uint256 value, bytes data, bytes result);
-
-    /// @notice Emitted when `operator` is added.
-    event AddOperator(address indexed operator);
-
-    /// @notice Emitted when `operator` is removed.
-    event RemoveOperator(address indexed operator);
-
-    /// @notice Emitted when `factory` is added.
-    event FactoryAdded(address indexed factory);
-
-    /// @notice Emitted when `factory` is removed.
-    event FactoryRemoved(address indexed factory);
-
-    /// @notice Emitted when `router` is added.
-    event RouterAdded(address indexed router);
-
-    /// @notice Emitted when `router` is removed.
-    event RouterRemoved(address indexed router);
-
-    /// @notice Emitted when `quoter` is added.
-    event QuoterAdded(address indexed quoter);
-
-    /// @notice Emitted when `quoter` is removed.
-    event QuoterRemoved(address indexed quoter);
-
-    /// @notice Emitted when `node` is added.
+    /// @notice Emitted when `node` is added to the registry.
     event NodeAdded(address indexed node);
 
-    /// @notice Emitted when `node` is removed.
-    event NodeRemoved(address indexed node);
+    /// @notice Emitted when a Rebalancer executes an external call on behalf of the node.
+    event Execute(address indexed target, uint256 value, bytes data, bytes result);
 
-    /// @notice Emitted when a rebalancer is added to node registry
+    /// @notice Emitted when a rebalancer is added to the node.
     event RebalancerAdded(address indexed rebalancer);
 
-    /// @notice Emitted when a rebalancer is removed from node registry
+    /// @notice Emitted when a rebalancer is removed from the node.
     event RebalancerRemoved(address indexed rebalancer);
 
-    /// @notice Emitted when a quoter is set.
+    /// @notice Emitted when a quoter is set for the node.
     event SetQuoter(address indexed quoter);
 
     /// @notice Emitted when a node is initialized.
@@ -70,54 +43,51 @@ library EventsLib {
     /// @notice Emitted when a component is removed from a node
     event ComponentRemoved(address indexed node, address indexed component);
 
-    /// @notice Emitted when a component's allocation is updated
+    /// @notice Emitted when a component's allocation is updated on the node
     event ComponentAllocationUpdated(address indexed node, address indexed component, ComponentAllocation allocation);
 
     /// @notice Emitted when node liquidation queue is updated
     event LiquidationQueueUpdated(address[] newQueue);
 
-    /// @notice Emitted when the reserve allocation is updated
+    /// @notice Emitted when the reserve allocation is updated on the node
     event ReserveAllocationUpdated(address indexed node, ComponentAllocation allocation);
 
-    /// @notice Emitted when a target is whitelisted
+    /// @notice Emitted when a target is whitelisted on the router
     event TargetWhitelisted(address indexed target, bool status);
 
     /// @notice Emitted when approval is granted on the escrow
     event Approve(address token, address spender, uint256 amount);
 
-    /// @notice Emitted when a deposit is claimable
-    event DepositClaimable(address indexed controller, uint256 requestId, uint256 assets, uint256 shares);
-
-    /// @notice Emitted when a redeem is claimable
+    /// @notice Emitted when a redeem is claimable on the node
     event RedeemClaimable(address indexed controller, uint256 requestId, uint256 assets, uint256 shares);
 
-    /// @notice Emitted when swing pricing is enabled or disabled
+    /// @notice Emitted when swing pricing is enabled or disabled on the node
     event SwingPricingStatusUpdated(bool status, uint256 newSwingPricing);
 
-    /// @notice Emitted when rebalance is started
+    /// @notice Emitted when rebalance is started on the node
     event RebalanceStarted(address node, uint256 blockStarted, uint256 duration);
 
-    /// @notice Emitted when cooldown duration is updated
+    /// @notice Emitted when cooldown duration is updated on the node
     event CooldownDurationUpdated(uint256 newCooldownDuration);
 
-    /// @notice Emitted when rebalance window is updated
+    /// @notice Emitted when rebalance window is updated on the node
     event RebalanceWindowUpdated(uint256 newRebalanceWindow);
 
-    /// @notice Emitted when protocol fee address is set
+    /// @notice Emitted when protocol fee address is set on the registry
     event ProtocolFeeAddressSet(address protocolFeeAddress);
 
-    /// @notice Emitted when protocol management fee is set
+    /// @notice Emitted when protocol management fee is set on the registry
     event ProtocolManagementFeeSet(uint256 protocolManagementFee);
 
-    /// @notice Emitted when protocol execution fee is set
+    /// @notice Emitted when protocol execution fee is set on the registry
     event ProtocolExecutionFeeSet(uint256 protocolExecutionFee);
 
-    /// @notice Emitted when node owner fee address is set
+    /// @notice Emitted when node owner fee address is set on the node
     event NodeOwnerFeeAddressSet(address nodeOwnerFeeAddress);
 
-    /// @notice Emitted when max deposit size is set
+    /// @notice Emitted when max deposit size is set on the node
     event MaxDepositSizeSet(uint256 maxDepositSize);
 
-    /// @notice Emitted when a role is set
+    /// @notice Emitted when a role is set on the registry
     event RoleSet(address indexed addr, RegistryType role, bool status);
 }

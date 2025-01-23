@@ -199,14 +199,14 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (newRouter == address(0)) revert ErrorsLib.ZeroAddress();
         if (!INodeRegistry(registry).isRouter(newRouter)) revert ErrorsLib.NotWhitelisted();
         isRouter[newRouter] = true;
-        emit EventsLib.AddRouter(newRouter);
+        emit EventsLib.RouterAdded(newRouter);
     }
 
     /// @inheritdoc INode
     function removeRouter(address oldRouter) external onlyOwner {
         if (!isRouter[oldRouter]) revert ErrorsLib.NotSet();
         isRouter[oldRouter] = false;
-        emit EventsLib.RemoveRouter(oldRouter);
+        emit EventsLib.RouterRemoved(oldRouter);
     }
 
     /// @inheritdoc INode
@@ -707,7 +707,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         unchecked {
             for (uint256 i; i < routers.length; ++i) {
                 isRouter[routers[i]] = true;
-                emit EventsLib.AddRouter(routers[i]);
+                emit EventsLib.RouterAdded(routers[i]);
             }
         }
     }
