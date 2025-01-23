@@ -109,24 +109,6 @@ contract NodeRegistryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function test_isSystemContract() public {
-        vm.startPrank(owner);
-        testRegistry.initialize(
-            _toArray(testFactory), _toArray(testRouter), _toArray(testQuoter), _toArray(testRebalancer)
-        );
-        vm.stopPrank();
-
-        vm.prank(testFactory);
-        testRegistry.addNode(testNode);
-
-        assertTrue(testRegistry.isSystemContract(testNode));
-        assertTrue(testRegistry.isSystemContract(testFactory));
-        assertTrue(testRegistry.isSystemContract(testRouter));
-        assertTrue(testRegistry.isSystemContract(testQuoter));
-        assertTrue(testRegistry.isSystemContract(address(testRegistry)));
-        assertFalse(testRegistry.isSystemContract(address(1)));
-    }
-
     function test_initialize_revert_ZeroAddress() public {
         address[] memory factories = new address[](1);
         factories[0] = address(0);

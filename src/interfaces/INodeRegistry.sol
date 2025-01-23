@@ -85,13 +85,6 @@ interface INodeRegistry {
     function isInitialized() external view returns (bool);
 
     /**
-     * @notice Returns whether an address is a system contract
-     * @param contract_ Address to check
-     * @return bool True if address is a system contract
-     */
-    function isSystemContract(address contract_) external view returns (bool);
-
-    /**
      * @notice Returns the address of the protocol fee address
      * @return address Address of the protocol fee address
      */

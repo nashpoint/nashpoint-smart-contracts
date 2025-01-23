@@ -11,6 +11,16 @@ import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
  * @author ODND Studios
  */
 contract NodeRegistry is INodeRegistry, Ownable {
+    /* STATE */
+    bool public isInitialized;
+    address public protocolFeeAddress;
+    uint64 public protocolManagementFee;
+    uint64 public protocolExecutionFee;
+    mapping(address => mapping(RegistryType => bool)) public roles;
+
+    /* CONSTRUCTOR */
+    constructor(address owner_) Ownable(owner_) {}
+
     /* MODIFIERS */
     modifier onlyFactory() {
         if (!roles[msg.sender][RegistryType.FACTORY]) revert ErrorsLib.NotFactory();
@@ -22,16 +32,6 @@ contract NodeRegistry is INodeRegistry, Ownable {
         _;
     }
 
-    mapping(address => mapping(RegistryType => bool)) public roles;
-
-    bool public isInitialized;
-    address public protocolFeeAddress;
-    uint64 public protocolManagementFee;
-    uint64 public protocolExecutionFee;
-
-    /* CONSTRUCTOR */
-    constructor(address owner_) Ownable(owner_) {}
-
     /* EXTERNAL */
     /// @inheritdoc INodeRegistry
     function initialize(
@@ -41,14 +41,14 @@ contract NodeRegistry is INodeRegistry, Ownable {
         address[] calldata rebalancers_
     ) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
-
-        _initalizeFactories(factories_);
-        _initalizeRouters(routers_);
-        _initalizeQuoters(quoters_);
-        _initalizeRebalancers(rebalancers_);
+        _initializeRoles(factories_, RegistryType.FACTORY);
+        _initializeRoles(routers_, RegistryType.ROUTER);
+        _initializeRoles(quoters_, RegistryType.QUOTER);
+        _initializeRoles(rebalancers_, RegistryType.REBALANCER);
         isInitialized = true;
     }
 
+    /// @inheritdoc INodeRegistry
     function setRole(address addr, RegistryType role, bool status) external onlyInitialized onlyOwner {
         if (role == RegistryType.NODE) revert ErrorsLib.NotFactory();
         if (roles[addr][role] == status) revert ErrorsLib.AlreadySet();
@@ -56,6 +56,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
         emit EventsLib.RoleSet(addr, role, status);
     }
 
+    /// @inheritdoc INodeRegistry
     function addNode(address node) external onlyInitialized onlyFactory {
         if (roles[node][RegistryType.NODE]) revert ErrorsLib.AlreadySet();
         roles[node][RegistryType.NODE] = true;
@@ -82,64 +83,39 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     /* VIEW */
-    /// @inheritdoc INodeRegistry
-    function isSystemContract(address contract_) external view returns (bool) {
-        return (
-            roles[contract_][RegistryType.NODE] || roles[contract_][RegistryType.FACTORY]
-                || roles[contract_][RegistryType.ROUTER] || roles[contract_][RegistryType.QUOTER]
-                || roles[contract_][RegistryType.REBALANCER] || contract_ == address(this)
-        );
-    }
 
+    /// @inheritdoc INodeRegistry
     function isNode(address node_) external view returns (bool) {
         return roles[node_][RegistryType.NODE];
     }
 
+    /// @inheritdoc INodeRegistry
     function isFactory(address factory_) external view returns (bool) {
         return roles[factory_][RegistryType.FACTORY];
     }
 
+    /// @inheritdoc INodeRegistry
     function isRouter(address router_) external view returns (bool) {
         return roles[router_][RegistryType.ROUTER];
     }
 
+    /// @inheritdoc INodeRegistry
     function isQuoter(address quoter_) external view returns (bool) {
         return roles[quoter_][RegistryType.QUOTER];
     }
 
+    /// @inheritdoc INodeRegistry
     function isRebalancer(address rebalancer_) external view returns (bool) {
         return roles[rebalancer_][RegistryType.REBALANCER];
     }
 
-    function _initalizeFactories(address[] calldata factories_) internal {
-        for (uint256 i = 0; i < factories_.length; i++) {
-            if (factories_[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            roles[factories_[i]][RegistryType.FACTORY] = true;
-            emit EventsLib.RoleSet(factories_[i], RegistryType.FACTORY, true);
-        }
-    }
+    /* INTERNAL */
 
-    function _initalizeRouters(address[] calldata routers_) internal {
-        for (uint256 i = 0; i < routers_.length; i++) {
-            if (routers_[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            roles[routers_[i]][RegistryType.ROUTER] = true;
-            emit EventsLib.RoleSet(routers_[i], RegistryType.ROUTER, true);
-        }
-    }
-
-    function _initalizeQuoters(address[] calldata quoters_) internal {
-        for (uint256 i = 0; i < quoters_.length; i++) {
-            if (quoters_[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            roles[quoters_[i]][RegistryType.QUOTER] = true;
-            emit EventsLib.RoleSet(quoters_[i], RegistryType.QUOTER, true);
-        }
-    }
-
-    function _initalizeRebalancers(address[] calldata rebalancers_) internal {
-        for (uint256 i = 0; i < rebalancers_.length; i++) {
-            if (rebalancers_[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            roles[rebalancers_[i]][RegistryType.REBALANCER] = true;
-            emit EventsLib.RoleSet(rebalancers_[i], RegistryType.REBALANCER, true);
+    function _initializeRoles(address[] calldata addrs, RegistryType role) internal {
+        for (uint256 i = 0; i < addrs.length; i++) {
+            if (addrs[i] == address(0)) revert ErrorsLib.ZeroAddress();
+            roles[addrs[i]][role] = true;
+            emit EventsLib.RoleSet(addrs[i], role, true);
         }
     }
 }
