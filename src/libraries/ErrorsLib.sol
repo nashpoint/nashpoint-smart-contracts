@@ -139,6 +139,9 @@ library ErrorsLib {
     /// @notice Thrown when the shares returned are insufficient.
     error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
 
+    /// @notice Thrown when incorrect requestId is returned.
+    error IncorrectRequestId(uint256 requestId);
+
     /// @notice Thrown when the component is already in the queue.
     error DuplicateComponent();
 

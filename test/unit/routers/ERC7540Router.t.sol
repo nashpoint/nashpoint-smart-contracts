@@ -335,7 +335,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        vm.expectRevert("No requestId returned");
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.IncorrectRequestId.selector, 1));
         router7540.investInAsyncVault(address(node), address(liquidityPool));
         vm.stopPrank();
     }
@@ -483,7 +483,14 @@ contract ERC7540RouterTest is BaseTest {
 
         // Attempt to mint should revert
         vm.prank(rebalancer);
-        vm.expectRevert("Not enough shares received");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.InsufficientSharesReturned.selector,
+                address(liquidityPool),
+                claimableShares - 1,
+                claimableShares
+            )
+        );
         router7540.mintClaimableShares(address(node), address(liquidityPool));
     }
 
@@ -681,7 +688,7 @@ contract ERC7540RouterTest is BaseTest {
         );
 
         vm.prank(rebalancer);
-        vm.expectRevert("No requestId returned");
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.IncorrectRequestId.selector, 1));
         router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
     }
 

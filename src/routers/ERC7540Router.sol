@@ -49,7 +49,9 @@ contract ERC7540Router is BaseRouter {
         depositAmount = _computeDepositAmount(node, component);
 
         uint256 requestId = _requestDeposit(node, component, depositAmount);
-        require(requestId == 0, "No requestId returned");
+        if (requestId != 0) {
+            revert ErrorsLib.IncorrectRequestId(requestId);
+        }
         return (depositAmount);
     }
 
@@ -72,7 +74,9 @@ contract ERC7540Router is BaseRouter {
         uint256 claimableShares = IERC7575(component).maxMint(address(node));
 
         uint256 sharesReceived = _mint(node, component, claimableShares);
-        require(sharesReceived >= claimableShares, "Not enough shares received");
+        if (sharesReceived < claimableShares) {
+            revert ErrorsLib.InsufficientSharesReturned(component, sharesReceived, claimableShares);
+        }
 
         return sharesReceived;
     }
@@ -98,7 +102,9 @@ contract ERC7540Router is BaseRouter {
         }
 
         uint256 requestId = _requestRedeem(node, component, shares);
-        require(requestId == 0, "No requestId returned");
+        if (requestId != 0) {
+            revert ErrorsLib.IncorrectRequestId(requestId);
+        }
     }
 
     /// @notice Withdraws claimable assets from async vault
