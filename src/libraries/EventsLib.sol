@@ -28,9 +28,6 @@ library EventsLib {
     /// @notice Emitted when `operator` is removed.
     event RemoveOperator(address indexed operator);
 
-    /// @notice Emitted when `newManager` is set.
-    event SetManager(address indexed newManager);
-
     /// @notice Emitted when `factory` is added.
     event FactoryAdded(address indexed factory);
 
@@ -61,17 +58,8 @@ library EventsLib {
     /// @notice Emitted when a rebalancer is removed from node registry
     event RebalancerRemoved(address indexed rebalancer);
 
-    /// @notice Emitted when a pricer is added
-    event PricerAdded(address indexed pricer);
-
-    /// @notice Emitted when a pricer is removed
-    event PricerRemoved(address indexed pricer);
-
     /// @notice Emitted when a quoter is set.
     event SetQuoter(address indexed quoter);
-
-    /// @notice Emitted when node pricer is set
-    event SetNodePricer(address nodePricer);
 
     /// @notice Emitted when a node is initialized.
     event Initialize(address escrow, address manager);
