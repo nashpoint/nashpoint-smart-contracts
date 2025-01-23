@@ -154,7 +154,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         components.push(component);
         componentAllocations[component] = allocation;
 
-        emit EventsLib.ComponentAdded(address(this), component, allocation);
+        emit EventsLib.ComponentAdded(component, allocation);
     }
 
     /// @inheritdoc INode
@@ -170,7 +170,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                 }
                 components.pop();
                 delete componentAllocations[component];
-                emit EventsLib.ComponentRemoved(address(this), component);
+                emit EventsLib.ComponentRemoved(component);
                 return;
             }
         }
@@ -184,13 +184,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
         componentAllocations[component] = allocation;
-        emit EventsLib.ComponentAllocationUpdated(address(this), component, allocation);
+        emit EventsLib.ComponentAllocationUpdated(component, allocation);
     }
 
     /// @inheritdoc INode
     function updateReserveAllocation(ComponentAllocation memory allocation) external onlyOwner onlyWhenNotRebalancing {
         reserveAllocation = allocation;
-        emit EventsLib.ReserveAllocationUpdated(address(this), allocation);
+        emit EventsLib.ReserveAllocationUpdated(allocation);
     }
 
     /// @inheritdoc INode
@@ -307,7 +307,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         lastRebalance = uint64(block.timestamp);
         _updateTotalAssets();
 
-        emit EventsLib.RebalanceStarted(address(this), block.timestamp, rebalanceWindow);
+        emit EventsLib.RebalanceStarted(block.timestamp, rebalanceWindow);
     }
 
     /// @inheritdoc INode
@@ -700,7 +700,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function _setReserveAllocation(ComponentAllocation memory allocation) internal {
         if (allocation.targetWeight >= WAD) revert ErrorsLib.InvalidComponentRatios();
         reserveAllocation = allocation;
-        emit EventsLib.ReserveAllocationUpdated(address(this), allocation);
+        emit EventsLib.ReserveAllocationUpdated(allocation);
     }
 
     function _setRouters(address[] memory routers) internal {
@@ -719,7 +719,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                 components.push(components_[i]);
                 componentAllocations[components_[i]] = allocations[i];
 
-                emit EventsLib.ComponentAdded(address(this), components_[i], allocations[i]);
+                emit EventsLib.ComponentAdded(components_[i], allocations[i]);
             }
         }
         if (!_validateComponentRatios()) {

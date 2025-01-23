@@ -698,7 +698,7 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.expectEmit(true, true, true, true);
-        emit EventsLib.RebalanceStarted(address(node), block.timestamp, node.rebalanceWindow());
+        emit EventsLib.RebalanceStarted(block.timestamp, node.rebalanceWindow());
 
         vm.prank(rebalancer);
         node.startRebalance();

@@ -38,19 +38,19 @@ library EventsLib {
     event Initialize(address escrow, address manager);
 
     /// @notice Emitted when a component is added to a node
-    event ComponentAdded(address indexed node, address indexed component, ComponentAllocation allocation);
+    event ComponentAdded(address indexed component, ComponentAllocation allocation);
 
     /// @notice Emitted when a component is removed from a node
-    event ComponentRemoved(address indexed node, address indexed component);
+    event ComponentRemoved(address indexed component);
 
     /// @notice Emitted when a component's allocation is updated on the node
-    event ComponentAllocationUpdated(address indexed node, address indexed component, ComponentAllocation allocation);
+    event ComponentAllocationUpdated(address indexed component, ComponentAllocation allocation);
 
     /// @notice Emitted when node liquidation queue is updated
     event LiquidationQueueUpdated(address[] newQueue);
 
     /// @notice Emitted when the reserve allocation is updated on the node
-    event ReserveAllocationUpdated(address indexed node, ComponentAllocation allocation);
+    event ReserveAllocationUpdated(ComponentAllocation allocation);
 
     /// @notice Emitted when a target is whitelisted on the router
     event TargetWhitelisted(address indexed target, bool status);
@@ -65,7 +65,7 @@ library EventsLib {
     event SwingPricingStatusUpdated(bool status, uint256 newSwingPricing);
 
     /// @notice Emitted when rebalance is started on the node
-    event RebalanceStarted(address node, uint256 blockStarted, uint256 duration);
+    event RebalanceStarted(uint256 blockStarted, uint256 duration);
 
     /// @notice Emitted when cooldown duration is updated on the node
     event CooldownDurationUpdated(uint256 newCooldownDuration);
