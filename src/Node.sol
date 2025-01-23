@@ -448,7 +448,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
         shares = _calculateSharesAfterSwingPricing(assets);
-        _deposit(_msgSender(), receiver, assets, shares);
+        _deposit(msg.sender, receiver, assets, shares);
         cacheTotalAssets += assets;
         emit IERC7575.Deposit(receiver, receiver, assets, shares);
         return shares;
@@ -460,7 +460,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             revert ErrorsLib.ExceedsMaxMint();
         }
         assets = convertToAssets(shares);
-        _deposit(_msgSender(), receiver, assets, shares);
+        _deposit(msg.sender, receiver, assets, shares);
         cacheTotalAssets += assets;
         emit IERC7575.Deposit(receiver, receiver, assets, shares);
         return assets;
