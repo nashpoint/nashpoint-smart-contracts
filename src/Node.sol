@@ -658,13 +658,19 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
         uint256 balance = IERC20(asset).balanceOf(address(this));
         uint256 assetsToReturn = convertToAssets(request.sharesAdjusted);
+        uint256 sharesPending = request.pendingRedeemRequest;
+        uint256 sharesAdjusted = request.sharesAdjusted;
 
-        // check that current reserve is enough for redeem
         if (assetsToReturn > balance) {
-            revert ErrorsLib.ExceedsAvailableReserve();
+            sharesPending =
+                MathLib.min(sharesPending, MathLib.mulDiv(sharesPending, balance, assetsToReturn, MathLib.Rounding.Up));
+            sharesAdjusted = MathLib.min(
+                sharesAdjusted, MathLib.mulDiv(sharesAdjusted, balance, assetsToReturn, MathLib.Rounding.Up)
+            );
+            assetsToReturn = balance;
         }
 
-        _finalizeRedemption(controller, assetsToReturn, request.pendingRedeemRequest, request.sharesAdjusted);
+        _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
         IERC20(asset).safeTransfer(escrow, assetsToReturn);
     }
 

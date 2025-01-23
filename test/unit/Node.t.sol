@@ -1189,21 +1189,29 @@ contract NodeTest is BaseTest {
         node.fulfillRedeemFromReserve(user);
     }
 
-    function test_fulfillRedeemFromReserve_revert_ExceedsAvailableReserve() public {
+    function test_fulfillRedeemFromReserve_ExceedsAvailableReserve() public {
         deal(address(asset), address(user), 100 ether);
         _userDeposits(user, 100 ether);
+
+        assertEq(node.totalAssets(), 100 ether);
+        assertEq(asset.balanceOf(address(user)), 0);
 
         vm.prank(rebalancer);
         uint256 investedAssets = router4626.invest(address(node), address(vault));
         uint256 remainingReserve = node.totalAssets() - investedAssets;
 
-        assertGt(50 ether, remainingReserve);
+        assertEq(investedAssets, 90 ether);
+        assertEq(remainingReserve, 10 ether);
 
         _userRequestsRedeem(user, 50 ether);
 
         vm.prank(rebalancer);
-        vm.expectRevert(ErrorsLib.ExceedsAvailableReserve.selector);
         node.fulfillRedeemFromReserve(user);
+
+        assertEq(node.claimableRedeemRequest(0, user), 10 ether);
+        assertEq(node.pendingRedeemRequest(0, user), 40 ether);
+        assertEq(asset.balanceOf(address(escrow)), 10 ether);
+        assertEq(node.balanceOf(address(escrow)), 40 ether);
     }
 
     function test_fulfillRedeemFromReserve_revert_onlyRebalancer() public {
