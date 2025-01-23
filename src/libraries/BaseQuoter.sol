@@ -33,7 +33,7 @@ contract BaseQuoter {
 
     /// @dev Reverts if the caller is not the NodeRegistry owner.
     modifier onlyRegistryOwner() {
-        if (msg.sender != address(Ownable(address(registry)).owner())) revert ErrorsLib.NotRegistryOwner();
+        if (msg.sender != Ownable(address(registry)).owner()) revert ErrorsLib.NotRegistryOwner();
         _;
     }
 }
