@@ -187,6 +187,11 @@ contract ERC4626Router is BaseRouter {
             revert ErrorsLib.InvalidShareValue(component, shares);
         }
 
+        // Check vault redeem limits
+        if (shares > IERC4626(component).maxRedeem(address(node))) {
+            revert ErrorsLib.ExceedsMaxVaultRedeem(component, shares, IERC4626(component).maxRedeem(address(node)));
+        }
+
         // Execute the redemption and check the correct number of assets returned
         uint256 expectedAssets = IERC4626(component).previewRedeem(shares);
         assetsReturned = _redeem(node, component, shares);
