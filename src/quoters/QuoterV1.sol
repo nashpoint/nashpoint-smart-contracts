@@ -88,7 +88,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @param assets The amount of assets being deposited
     /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @param maxSwingFactor The maximum swing factor to apply
-    /// @return depositBonus The deposit bonus to apply
+    /// @return shares The shares to mint after applying the deposit bonus
     function calculateDepositBonus(
         address asset,
         uint256 assets,
@@ -96,7 +96,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 reserveCash,
         uint64 targetReserveRatio,
         uint64 maxSwingFactor
-    ) external view onlyValidNode(msg.sender) returns (uint256) {
+    ) external view onlyValidNode(msg.sender) returns (uint256 shares) {
         reserveCash = IERC20(asset).balanceOf(address(msg.sender));
         int256 reserveImpact =
             int256(_calculateReserveImpact(targetReserveRatio, reserveCash, IERC7575(msg.sender).totalAssets(), assets));
@@ -106,8 +106,8 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
             MathLib.mulDiv(assets, (WAD + _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
-        uint256 sharesToMint = IERC7575(msg.sender).convertToShares(adjustedAssets);
-        return (sharesToMint);
+        shares = IERC7575(msg.sender).convertToShares(adjustedAssets);
+        return shares;
     }
 
     /// @dev Called by Node Contract to calculate the withdrawal penalty for redeem requests
@@ -117,15 +117,17 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penalty is being applied
     /// to new requests
     /// @param asset The asset being redeemed
-    /// @param sharesExiting The total number of shares exiting the node
     /// @param shares The shares being redeemed
+    /// @param sharesExiting The total number of shares exiting the node
+    /// @param reserveCash The reserve cash of the Node
     /// @param maxSwingFactor The maximum swing factor to apply
     /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @return adjustedAssets The adjusted assets for the redeem request
     function calculateRedeemPenalty(
         address asset,
-        uint256 sharesExiting,
         uint256 shares,
+        uint256 sharesExiting,
+        uint256 reserveCash,
         uint64 maxSwingFactor,
         uint64 targetReserveRatio
     ) external view onlyValidNode(msg.sender) returns (uint256 adjustedAssets) {
