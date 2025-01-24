@@ -573,7 +573,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 vaultAssets = router7540.investInAsyncVault(address(node), address(liquidityPool));
+        uint256 vaultAssets = router7540.investInAsyncComponent(address(node), address(liquidityPool));
         vm.stopPrank();
 
         vm.prank(testPoolManager);
@@ -614,7 +614,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 vaultAssets = router7540.investInAsyncVault(address(node), address(liquidityPool));
+        uint256 vaultAssets = router7540.investInAsyncComponent(address(node), address(liquidityPool));
         vm.stopPrank();
 
         vm.prank(testPoolManager);

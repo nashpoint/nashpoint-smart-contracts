@@ -37,7 +37,7 @@ contract ERC7540Router is BaseRouter {
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return depositAmount The amount of cash invested.
-    function investInAsyncVault(address node, address component)
+    function investInAsyncComponent(address node, address component)
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
@@ -99,7 +99,7 @@ contract ERC7540Router is BaseRouter {
         }
     }
 
-    /// @notice Withdraws claimable assets from async vault
+    /// @notice Withdraws claimable assets from async component
     /// @dev call by a valid node rebalancer to withdraw claimable assets from a component
     /// will revert if there is not sufficient assets available to withdraw
     /// @param node The address of the node.

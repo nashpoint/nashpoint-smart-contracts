@@ -219,7 +219,7 @@ contract EthereumForkTests is BaseTest {
     function test_cfgToNode_investInAsyncAsset() public {
         // rebalancer invests node in cfg vault
         vm.startPrank(rebalancer);
-        router7540.investInAsyncVault(address(node), address(cfgLiquidityPool));
+        router7540.investInAsyncComponent(address(node), address(cfgLiquidityPool));
         vm.stopPrank();
 
         // assert node totalAssets correctly including pendingDepositRequest
@@ -233,7 +233,7 @@ contract EthereumForkTests is BaseTest {
 
     function test_cfgToNode_mintClaimableShares() public {
         vm.startPrank(rebalancer);
-        router7540.investInAsyncVault(address(node), address(cfgLiquidityPool));
+        router7540.investInAsyncComponent(address(node), address(cfgLiquidityPool));
         vm.stopPrank();
 
         uint256 pendingDepositAssets = cfgLiquidityPool.pendingDepositRequest(0, address(node));

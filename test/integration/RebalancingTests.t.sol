@@ -63,7 +63,7 @@ contract RebalancingTests is BaseTest {
         router4626.invest(address(node), address(vaultA));
         router4626.invest(address(node), address(vaultB));
         router4626.invest(address(node), address(vaultC));
-        router7540.investInAsyncVault(address(node), address(asyncVault));
+        router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
         uint256 totalAssets = node.totalAssets();
@@ -88,7 +88,7 @@ contract RebalancingTests is BaseTest {
         router4626.invest(address(node), address(vaultC));
 
         vm.expectRevert();
-        router7540.investInAsyncVault(address(node), address(asyncVault));
+        router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
         totalAssets = node.totalAssets();
@@ -118,7 +118,7 @@ contract RebalancingTests is BaseTest {
         vm.expectRevert();
         router4626.invest(address(node), address(vaultC));
         vm.expectRevert();
-        router7540.investInAsyncVault(address(node), address(asyncVault));
+        router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
         // THIRD DEPOSIT: rebalancer can rebalance deposit into sync & async vaults as lower thresholds breached
@@ -128,7 +128,7 @@ contract RebalancingTests is BaseTest {
         router4626.invest(address(node), address(vaultA));
         router4626.invest(address(node), address(vaultB));
         router4626.invest(address(node), address(vaultC));
-        router7540.investInAsyncVault(address(node), address(asyncVault));
+        router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
         totalAssets = node.totalAssets();

@@ -417,7 +417,7 @@ contract RebalanceFuzzTests is BaseTest {
         try node.startRebalance() {} catch {}
         for (uint256 i = 0; i < components.length; i++) {
             try router4626.invest(address(node), address(components[i])) {} catch {}
-            try router7540.investInAsyncVault(address(node), address(components[i])) {} catch {}
+            try router7540.investInAsyncComponent(address(node), address(components[i])) {} catch {}
         }
         vm.stopPrank();
     }
