@@ -28,6 +28,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address public immutable asset;
     address public immutable share;
     address public immutable registry;
+    uint8 private immutable _decimals;
     uint256 internal constant WAD = 1e18;
     uint256 private constant REQUEST_ID = 0;
     uint256 public constant SECONDS_PER_YEAR = 365 days;
@@ -82,6 +83,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         registry = registry_;
         asset = asset_;
         share = address(this);
+        _decimals = IERC20Metadata(asset_).decimals();
         _setReserveAllocation(reserveAllocation_);
         _setRouters(routers);
         _setInitialComponents(components_, componentAllocations_);
@@ -568,7 +570,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function decimals() public view override(ERC20, IERC20Metadata) returns (uint8) {
-        return IERC20Metadata(asset).decimals();
+        return _decimals;
     }
 
     /*//////////////////////////////////////////////////////////////
