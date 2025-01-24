@@ -34,7 +34,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     uint256 public constant SECONDS_PER_YEAR = 365 days;
 
     /* COMPONENTS */
-    address[] public components;
+    address[] private components;
     address[] public liquidationsQueue;
     mapping(address => ComponentAllocation) public componentAllocations;
     ComponentAllocation public reserveAllocation;
