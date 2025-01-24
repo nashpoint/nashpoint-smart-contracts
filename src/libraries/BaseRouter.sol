@@ -58,6 +58,15 @@ abstract contract BaseRouter {
         _;
     }
 
+    /// @dev Reverts if the component is not a valid component on the node
+    modifier onlyNodeComponent(address node, address component) {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
+        _;
+    }
+
     /*//////////////////////////////////////////////////////////////
                          REGISTRY OWNER FUNCTIONS
     //////////////////////////////////////////////////////////////*/

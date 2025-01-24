@@ -38,14 +38,10 @@ contract ERC4626Router is BaseRouter {
     function invest(address node, address component)
         external
         onlyNodeRebalancer(node)
+        onlyNodeComponent(node, component)
         onlyWhitelisted(component)
         returns (uint256 depositAmount)
     {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
-
         depositAmount = _computeDepositAmount(node, component);
 
         // Check vault deposit limits
