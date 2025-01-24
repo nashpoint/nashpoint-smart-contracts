@@ -595,9 +595,9 @@ contract NodeTest is BaseTest {
         testNode.setLiquidationQueue(components);
         vm.stopPrank();
 
-        assertEq(testNode.liquidationsQueue(0), testComponent);
-        assertEq(testNode.liquidationsQueue(1), testComponent2);
-        assertEq(testNode.liquidationsQueue(2), testComponent3);
+        assertEq(INode(address(testNode)).getLiquidationQueue(0), testComponent);
+        assertEq(INode(address(testNode)).getLiquidationQueue(1), testComponent2);
+        assertEq(INode(address(testNode)).getLiquidationQueue(2), testComponent3);
     }
 
     function test_setLiquidationQueue_revert_zeroAddress() public {

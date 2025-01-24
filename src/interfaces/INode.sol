@@ -274,6 +274,11 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return address[] The liquidation queue
     function getLiquidationsQueue() external view returns (address[] memory);
 
+    /// @notice Returns the liquidation queue at a given index
+    /// @param index The index of the liquidation queue
+    /// @return address The liquidation queue at the given index
+    function getLiquidationQueue(uint256 index) external view returns (address);
+
     /// @notice Returns the target reserve ratio
     function targetReserveRatio() external view returns (uint64);
 

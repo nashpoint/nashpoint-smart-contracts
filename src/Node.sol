@@ -35,7 +35,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /* COMPONENTS */
     address[] private components;
-    address[] public liquidationsQueue;
+    address[] private liquidationsQueue;
     mapping(address => ComponentAllocation) public componentAllocations;
     ComponentAllocation public reserveAllocation;
 
@@ -600,6 +600,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /// @inheritdoc INode
     function getLiquidationsQueue() external view returns (address[] memory) {
         return liquidationsQueue;
+    }
+
+    /// @inheritdoc INode
+    function getLiquidationQueue(uint256 index) external view returns (address) {
+        return liquidationsQueue[index];
     }
 
     /// @inheritdoc INode
