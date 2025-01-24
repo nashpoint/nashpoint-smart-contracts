@@ -94,12 +94,11 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 assets,
         uint256 sharesExiting,
         uint256 reserveCash,
+        uint256 totalAssets,
         uint64 targetReserveRatio,
         uint64 maxSwingFactor
     ) external view onlyValidNode(msg.sender) returns (uint256 shares) {
-        reserveCash = IERC20(asset).balanceOf(address(msg.sender));
-        int256 reserveImpact =
-            int256(_calculateReserveImpact(targetReserveRatio, reserveCash, IERC7575(msg.sender).totalAssets(), assets));
+        int256 reserveImpact = int256(_calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets, assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets =
@@ -128,19 +127,19 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 shares,
         uint256 sharesExiting,
         uint256 reserveCash,
+        uint256 totalAssets,
         uint64 maxSwingFactor,
         uint64 targetReserveRatio
     ) external view onlyValidNode(msg.sender) returns (uint256 assets) {
-        // get the cash balance of the node and pending redemptions
-        uint256 balance = IERC20(asset).balanceOf(address(msg.sender));
+        // get the pending redemptions
         uint256 pendingRedemptions = IERC7575(msg.sender).convertToAssets(sharesExiting);
 
-        // check if pending redemptions exceed current cash balance
-        // if not subtract pending redemptions from balance
-        if (pendingRedemptions > balance) {
-            balance = 0;
+        // check if pending redemptions exceed current reserve cash
+        // if not subtract pending redemptions from reserve cash
+        if (pendingRedemptions > reserveCash) {
+            reserveCash = 0;
         } else {
-            balance -= pendingRedemptions;
+            reserveCash -= pendingRedemptions;
         }
 
         // get the asset value of the redeem request
@@ -150,10 +149,10 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         // check redemption (assets) exceed current cash balance
         // if not get reserve ratio
         int256 reserveImpact;
-        if (assets > balance) {
+        if (assets > reserveCash) {
             reserveImpact = 0;
         } else {
-            reserveImpact = int256(MathLib.mulDiv(balance - assets, WAD, IERC7575(msg.sender).totalAssets() - assets));
+            reserveImpact = int256(MathLib.mulDiv(reserveCash - assets, WAD, totalAssets - assets));
         }
 
         assets = MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);

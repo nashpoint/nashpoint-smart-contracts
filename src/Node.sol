@@ -400,6 +400,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                 shares,
                 sharesExiting,
                 IERC20(asset).balanceOf(address(this)),
+                totalAssets(),
                 maxSwingFactor,
                 reserveAllocation.targetWeight
             );
@@ -782,6 +783,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                 assets,
                 sharesExiting,
                 IERC20(asset).balanceOf(address(this)),
+                totalAssets(),
                 reserveAllocation.targetWeight,
                 maxSwingFactor
             );
