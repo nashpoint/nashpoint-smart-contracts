@@ -396,7 +396,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         uint256 adjustedShares = 0;
         if (swingPricingEnabled) {
             uint256 adjustedAssets = quoter.calculateRedeemPenalty(
-                asset,
                 shares,
                 sharesExiting,
                 IERC20(asset).balanceOf(address(this)),
@@ -779,7 +778,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             shares = convertToShares(assets);
         } else {
             shares = quoter.calculateDepositBonus(
-                asset,
                 assets,
                 sharesExiting,
                 IERC20(asset).balanceOf(address(this)),

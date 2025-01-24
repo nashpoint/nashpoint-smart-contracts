@@ -6,8 +6,7 @@ interface IQuoter {
     /// @return The total assets in the Node
     function getTotalAssets() external view returns (uint256);
 
-    /// @notice Calculates the deposit bonus based on the asset, assets, shares exiting, reserve cash, total assets, max swing factor, and target reserve ratio
-    /// @param asset The asset of the Node
+    /// @notice Calculates the deposit bonus based on the assets, shares exiting, reserve cash, total assets, max swing factor, and target reserve ratio
     /// @param assets The assets to deposit
     /// @param sharesExiting The shares exiting
     /// @param reserveCash The reserve cash of the Node
@@ -16,7 +15,6 @@ interface IQuoter {
     /// @param targetReserveRatio The target reserve ratio of the Node
     /// @return The shares to mint after applying the deposit bonus
     function calculateDepositBonus(
-        address asset,
         uint256 assets,
         uint256 sharesExiting,
         uint256 reserveCash,
@@ -25,8 +23,7 @@ interface IQuoter {
         uint64 targetReserveRatio
     ) external view returns (uint256);
 
-    /// @notice Calculates the redeem penalty based on the asset, shares, shares exiting, reserve cash, total assets, max swing factor, and target reserve ratio
-    /// @param asset The asset of the Node
+    /// @notice Calculates the redeem penalty based on the shares, shares exiting, reserve cash, total assets, max swing factor, and target reserve ratio
     /// @param shares The shares to redeem
     /// @param sharesExiting The shares exiting
     /// @param reserveCash The reserve cash of the Node
@@ -35,7 +32,6 @@ interface IQuoter {
     /// @param targetReserveRatio The target reserve ratio of the Node
     /// @return The assets to redeem after applying the redeem penalty
     function calculateRedeemPenalty(
-        address asset,
         uint256 shares,
         uint256 sharesExiting,
         uint256 reserveCash,

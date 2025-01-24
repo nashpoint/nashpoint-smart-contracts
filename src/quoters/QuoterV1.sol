@@ -84,13 +84,15 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @dev Called by Node Contract to calculate the deposit bonus
     /// reserveImpact is the inverse of the percentage of the reserve assets shortfall closed by the deposit
     /// The majority of logic is in _calculateReserveImpact and _getSwingFactor
-    /// @param asset The asset being deposited
+
     /// @param assets The amount of assets being deposited
+    /// @param sharesExiting The total number of shares exiting the node
+    /// @param reserveCash The reserve cash of the Node
+    /// @param totalAssets The total assets of the Node
     /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @param maxSwingFactor The maximum swing factor to apply
     /// @return shares The shares to mint after applying the deposit bonus
     function calculateDepositBonus(
-        address asset,
         uint256 assets,
         uint256 sharesExiting,
         uint256 reserveCash,
@@ -115,15 +117,14 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// Uses sharesExiting to track redeem request currently pending for redemption and subtracts them from cash balance
     /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penalty is being applied
     /// to new requests
-    /// @param asset The asset being redeemed
     /// @param shares The shares being redeemed
     /// @param sharesExiting The total number of shares exiting the node
     /// @param reserveCash The reserve cash of the Node
+    /// @param totalAssets The total assets of the Node
     /// @param maxSwingFactor The maximum swing factor to apply
     /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @return assets The assets to redeem after applying the redeem penalty
     function calculateRedeemPenalty(
-        address asset,
         uint256 shares,
         uint256 sharesExiting,
         uint256 reserveCash,
