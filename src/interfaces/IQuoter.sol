@@ -11,10 +11,14 @@ interface IQuoter {
     /// @param maxSwingFactor The max swing factor of the Node
     /// @param targetReserveRatio The target reserve ratio of the Node
     /// @return The deposit bonus
-    function calculateDepositBonus(address asset, uint256 assets, uint64 maxSwingFactor, uint64 targetReserveRatio)
-        external
-        view
-        returns (uint256);
+    function calculateDepositBonus(
+        address asset,
+        uint256 assets,
+        uint256 sharesExiting,
+        uint256 reserveCash,
+        uint64 maxSwingFactor,
+        uint64 targetReserveRatio
+    ) external view returns (uint256);
 
     /// @notice Calculates the redeem penalty based on the asset, shares exiting, shares, max swing factor, and target reserve ratio
     /// @param asset The asset of the Node

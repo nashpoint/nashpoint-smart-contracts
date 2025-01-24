@@ -89,13 +89,15 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @param maxSwingFactor The maximum swing factor to apply
     /// @return depositBonus The deposit bonus to apply
-    function calculateDepositBonus(address asset, uint256 assets, uint64 targetReserveRatio, uint64 maxSwingFactor)
-        external
-        view
-        onlyValidNode(msg.sender)
-        returns (uint256)
-    {
-        uint256 reserveCash = IERC20(asset).balanceOf(address(msg.sender));
+    function calculateDepositBonus(
+        address asset,
+        uint256 assets,
+        uint256 sharesExiting,
+        uint256 reserveCash,
+        uint64 targetReserveRatio,
+        uint64 maxSwingFactor
+    ) external view onlyValidNode(msg.sender) returns (uint256) {
+        reserveCash = IERC20(asset).balanceOf(address(msg.sender));
         int256 reserveImpact =
             int256(_calculateReserveImpact(targetReserveRatio, reserveCash, IERC7575(msg.sender).totalAssets(), assets));
 
