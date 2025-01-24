@@ -145,7 +145,7 @@ contract ERC7540Router is BaseRouter {
         _approve(node, underlying, component, assets);
 
         bytes memory result = INode(node).execute(
-            component, 0, abi.encodeWithSelector(IERC7540Deposit.requestDeposit.selector, assets, node, node)
+            component, abi.encodeWithSelector(IERC7540Deposit.requestDeposit.selector, assets, node, node)
         );
         return abi.decode(result, (uint256));
     }
@@ -160,7 +160,7 @@ contract ERC7540Router is BaseRouter {
         _approve(node, shareToken, component, claimableShares);
 
         bytes memory result = INode(node).execute(
-            component, 0, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
+            component, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
         );
 
         return abi.decode(result, (uint256));
@@ -173,7 +173,7 @@ contract ERC7540Router is BaseRouter {
     /// @return requestId The request ID.
     function _requestRedeem(address node, address component, uint256 shares) internal returns (uint256) {
         bytes memory result = INode(node).execute(
-            component, 0, abi.encodeWithSelector(IERC7540Redeem.requestRedeem.selector, shares, node, node)
+            component, abi.encodeWithSelector(IERC7540Redeem.requestRedeem.selector, shares, node, node)
         );
         return abi.decode(result, (uint256));
     }
@@ -185,7 +185,7 @@ contract ERC7540Router is BaseRouter {
     /// @return assetsReceived The amount of assets received.
     function _withdraw(address node, address component, uint256 assets) internal returns (uint256) {
         bytes memory result =
-            INode(node).execute(component, 0, abi.encodeWithSelector(IERC7575.withdraw.selector, assets, node, node));
+            INode(node).execute(component, abi.encodeWithSelector(IERC7575.withdraw.selector, assets, node, node));
         return abi.decode(result, (uint256));
     }
 

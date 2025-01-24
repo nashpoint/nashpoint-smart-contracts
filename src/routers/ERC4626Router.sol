@@ -133,7 +133,7 @@ contract ERC4626Router is BaseRouter {
         _approve(node, underlying, component, assets);
 
         bytes memory result =
-            INode(node).execute(component, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
+            INode(node).execute(component, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
         return abi.decode(result, (uint256));
     }
 
@@ -143,7 +143,7 @@ contract ERC4626Router is BaseRouter {
     /// @param shares The amount of shares to burn.
     function _redeem(address node, address component, uint256 shares) internal returns (uint256) {
         bytes memory result =
-            INode(node).execute(component, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
+            INode(node).execute(component, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
         return abi.decode(result, (uint256));
     }
 

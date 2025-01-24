@@ -313,15 +313,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function execute(address target, uint256 value, bytes calldata data)
+    function execute(address target, bytes calldata data)
         external
         onlyRouter
         onlyWhenRebalancing
         returns (bytes memory)
     {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
-        bytes memory result = target.functionCallWithValue(data, value);
-        emit EventsLib.Execute(target, value, data, result);
+        bytes memory result = target.functionCall(data);
+        emit EventsLib.Execute(target, data, result);
         return result;
     }
 
