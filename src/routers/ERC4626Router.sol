@@ -70,6 +70,7 @@ contract ERC4626Router is BaseRouter {
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
         assetsReturned = _liquidate(node, component, shares);
@@ -87,14 +88,14 @@ contract ERC4626Router is BaseRouter {
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
         (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
         uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
 
         // Validate that the component is top of the liquidation queue
-        address[] memory liquidationsQueue = INode(node).getLiquidationsQueue();
-        _enforceLiquidationQueue(component, assetsRequested, liquidationsQueue);
+        _enforceLiquidationQueue(component, assetsRequested, INode(node).getLiquidationsQueue());
 
         // liquidate either the requested amount or the balance of the component
         // if the requested amount is greater than the balance of the component
