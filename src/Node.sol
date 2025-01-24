@@ -603,11 +603,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function getLastRebalance() external view returns (uint64) {
-        return lastRebalance;
-    }
-
-    /// @inheritdoc INode
     function targetReserveRatio() public view returns (uint64) {
         return reserveAllocation.targetWeight;
     }

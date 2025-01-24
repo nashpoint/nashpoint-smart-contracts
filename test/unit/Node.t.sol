@@ -809,7 +809,7 @@ contract NodeTest is BaseTest {
         deal(address(asset), address(vault), 100 ether);
         assertEq(vault.totalAssets(), 100 ether);
 
-        uint256 lastRebalance = node.getLastRebalance();
+        uint256 lastRebalance = Node(address(node)).lastRebalance();
         vm.warp(block.timestamp + lastRebalance + 1);
 
         vm.prank(rebalancer);
@@ -821,7 +821,7 @@ contract NodeTest is BaseTest {
     }
 
     function test_startRebalance_revert_CooldownActive() public {
-        uint256 lastRebalance = node.getLastRebalance();
+        uint256 lastRebalance = Node(address(node)).lastRebalance();
         assertEq(lastRebalance, block.timestamp);
         vm.prank(rebalancer);
         vm.expectRevert(ErrorsLib.CooldownActive.selector);
@@ -1944,12 +1944,12 @@ contract NodeTest is BaseTest {
     }
 
     function test_isCacheValid() public view {
-        assertEq(block.timestamp, node.getLastRebalance());
+        assertEq(block.timestamp, Node(address(node)).lastRebalance());
         assertEq(node.isCacheValid(), true);
     }
 
     function test_isCacheValid_isFalse() public {
-        uint256 lastRebalance = node.getLastRebalance();
+        uint256 lastRebalance = Node(address(node)).lastRebalance();
         vm.warp(block.timestamp + lastRebalance + 1);
         assertFalse(node.isCacheValid());
     }
