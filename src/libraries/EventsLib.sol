@@ -76,8 +76,8 @@ library EventsLib {
     /// @notice Emitted when a node is initialized.
     event Initialize(address escrow, address manager);
 
-    /// @notice Emitted when a target is whitelisted on the router
-    event TargetWhitelisted(address indexed target, bool status);
+    /// @notice Emitted when a component is whitelisted on the router
+    event ComponentWhitelisted(address indexed component, bool status);
 
     /// @notice Emitted when approval is granted on the escrow
     event Approve(address token, address spender, uint256 amount);

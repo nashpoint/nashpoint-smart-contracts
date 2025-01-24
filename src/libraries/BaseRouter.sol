@@ -8,6 +8,7 @@ import {INode} from "../interfaces/INode.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
 import {MathLib} from "./MathLib.sol";
 import {ErrorsLib} from "./ErrorsLib.sol";
+import {EventsLib} from "./EventsLib.sol";
 
 /**
  * @title BaseRouter
@@ -20,11 +21,10 @@ abstract contract BaseRouter {
     uint256 immutable WAD = 1e18;
 
     /* STORAGE */
-    /// @notice Mapping of whitelisted target addresses
+    /// @notice Mapping of whitelisted component addresses
     mapping(address => bool) public isWhitelisted;
 
     /* EVENTS */
-    event TargetWhitelisted(address indexed target, bool status);
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
@@ -77,7 +77,7 @@ abstract contract BaseRouter {
     function setWhitelistStatus(address target, bool status) external onlyRegistryOwner {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
         isWhitelisted[target] = status;
-        emit TargetWhitelisted(target, status);
+        emit EventsLib.ComponentWhitelisted(target, status);
     }
 
     /// @notice Batch updates whitelist status of targets
@@ -90,7 +90,7 @@ abstract contract BaseRouter {
         for (uint256 i = 0; i < length;) {
             if (targets[i] == address(0)) revert ErrorsLib.ZeroAddress();
             isWhitelisted[targets[i]] = statuses[i];
-            emit TargetWhitelisted(targets[i], statuses[i]);
+            emit EventsLib.ComponentWhitelisted(targets[i], statuses[i]);
             unchecked {
                 ++i;
             }
