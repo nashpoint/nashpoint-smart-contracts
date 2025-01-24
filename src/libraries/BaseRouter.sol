@@ -53,8 +53,8 @@ abstract contract BaseRouter {
     }
 
     /// @dev Reverts if the target is not whitelisted
-    modifier onlyWhitelisted(address target) {
-        if (!isWhitelisted[target]) revert ErrorsLib.NotWhitelisted();
+    modifier onlyWhitelisted(address component) {
+        if (!isWhitelisted[component]) revert ErrorsLib.NotWhitelisted();
         _;
     }
 
@@ -71,26 +71,29 @@ abstract contract BaseRouter {
                          REGISTRY OWNER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Updates the whitelist status of a target
-    /// @param target The address to update
+    /// @notice Updates the whitelist status of a component
+    /// @param component The address to update
     /// @param status The new whitelist status
-    function setWhitelistStatus(address target, bool status) external onlyRegistryOwner {
-        if (target == address(0)) revert ErrorsLib.ZeroAddress();
-        isWhitelisted[target] = status;
-        emit EventsLib.ComponentWhitelisted(target, status);
+    function setWhitelistStatus(address component, bool status) external onlyRegistryOwner {
+        if (component == address(0)) revert ErrorsLib.ZeroAddress();
+        isWhitelisted[component] = status;
+        emit EventsLib.ComponentWhitelisted(component, status);
     }
 
-    /// @notice Batch updates whitelist status of targets
-    /// @param targets Array of addresses to update
+    /// @notice Batch updates whitelist status of components
+    /// @param components Array of addresses to update
     /// @param statuses Array of whitelist statuses
-    function batchSetWhitelistStatus(address[] calldata targets, bool[] calldata statuses) external onlyRegistryOwner {
-        if (targets.length != statuses.length) revert ErrorsLib.LengthMismatch();
+    function batchSetWhitelistStatus(address[] calldata components, bool[] calldata statuses)
+        external
+        onlyRegistryOwner
+    {
+        if (components.length != statuses.length) revert ErrorsLib.LengthMismatch();
 
-        uint256 length = targets.length;
+        uint256 length = components.length;
         for (uint256 i = 0; i < length;) {
-            if (targets[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            isWhitelisted[targets[i]] = statuses[i];
-            emit EventsLib.ComponentWhitelisted(targets[i], statuses[i]);
+            if (components[i] == address(0)) revert ErrorsLib.ZeroAddress();
+            isWhitelisted[components[i]] = statuses[i];
+            emit EventsLib.ComponentWhitelisted(components[i], statuses[i]);
             unchecked {
                 ++i;
             }
