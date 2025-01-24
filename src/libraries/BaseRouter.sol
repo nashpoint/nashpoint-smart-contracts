@@ -144,9 +144,7 @@ abstract contract BaseRouter {
     /// @notice Validates that the reserve is above the target ratio.
     /// @param node The address of the node.
     function _validateReserveAboveTargetRatio(address node) internal view {
-        uint256 totalAssets_ = INode(node).totalAssets();
-        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
-        uint256 currentCash = INode(node).getCashAfterRedemptions();
+        (, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
