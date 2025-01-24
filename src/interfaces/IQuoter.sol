@@ -29,7 +29,7 @@ interface IQuoter {
     /// @param reserveCash The reserve cash of the Node
     /// @param maxSwingFactor The max swing factor of the Node
     /// @param targetReserveRatio The target reserve ratio of the Node
-    /// @return The redeem penalty
+    /// @return The assets to redeem after applying the redeem penalty
     function calculateRedeemPenalty(
         address asset,
         uint256 shares,

@@ -122,7 +122,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @param reserveCash The reserve cash of the Node
     /// @param maxSwingFactor The maximum swing factor to apply
     /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
-    /// @return adjustedAssets The adjusted assets for the redeem request
+    /// @return assets The assets to redeem after applying the redeem penalty
     function calculateRedeemPenalty(
         address asset,
         uint256 shares,
@@ -130,7 +130,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 reserveCash,
         uint64 maxSwingFactor,
         uint64 targetReserveRatio
-    ) external view onlyValidNode(msg.sender) returns (uint256 adjustedAssets) {
+    ) external view onlyValidNode(msg.sender) returns (uint256 assets) {
         // get the cash balance of the node and pending redemptions
         uint256 balance = IERC20(asset).balanceOf(address(msg.sender));
         uint256 pendingRedemptions = IERC7575(msg.sender).convertToAssets(sharesExiting);
@@ -144,7 +144,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         }
 
         // get the asset value of the redeem request
-        uint256 assets = IERC7575(msg.sender).convertToAssets(shares);
+        assets = IERC7575(msg.sender).convertToAssets(shares);
 
         // gets the expected reserve ratio after tx
         // check redemption (assets) exceed current cash balance
@@ -156,10 +156,8 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
             reserveImpact = int256(MathLib.mulDiv(balance - assets, WAD, IERC7575(msg.sender).totalAssets() - assets));
         }
 
-        adjustedAssets =
-            MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
-
-        return adjustedAssets;
+        assets = MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
+        return assets;
     }
 
     /*//////////////////////////////////////////////////////////////
