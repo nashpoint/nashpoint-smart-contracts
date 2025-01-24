@@ -41,12 +41,9 @@ contract ERC7540Router is BaseRouter {
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
         returns (uint256 depositAmount)
     {
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
-
         depositAmount = _computeDepositAmount(node, component);
 
         uint256 requestId = _requestDeposit(node, component, depositAmount);
@@ -66,12 +63,9 @@ contract ERC7540Router is BaseRouter {
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
         returns (uint256)
     {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
         uint256 claimableShares = IERC7575(component).maxMint(address(node));
 
         uint256 sharesReceived = _mint(node, component, claimableShares);
@@ -92,11 +86,8 @@ contract ERC7540Router is BaseRouter {
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
     {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
         address shareToken = IERC7575(component).share();
         if (shares > IERC20(shareToken).balanceOf(address(node))) {
             revert ErrorsLib.ExceedsAvailableShares(node, component, shares);
@@ -119,12 +110,9 @@ contract ERC7540Router is BaseRouter {
         external
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
         returns (uint256 assetsReceived)
     {
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
-
         if (assets > IERC7575(component).maxWithdraw(address(node))) {
             revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
         }

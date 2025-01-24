@@ -172,11 +172,6 @@ contract ERC4626Router is BaseRouter {
     /// @param shares The amount of shares to liquidate.
     /// @return assetsReturned The amount of assets returned.
     function _liquidate(address node, address component, uint256 shares) internal returns (uint256 assetsReturned) {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
-
         _validateNodeAcceptsRouter(node);
 
         // Validate share value
