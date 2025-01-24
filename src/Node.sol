@@ -603,11 +603,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function getSharesExiting() external view returns (uint256) {
-        return sharesExiting;
-    }
-
-    /// @inheritdoc INode
     function getLastRebalance() external view returns (uint64) {
         return lastRebalance;
     }

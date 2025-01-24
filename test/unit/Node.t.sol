@@ -1325,7 +1325,7 @@ contract NodeTest is BaseTest {
             node.getRequestState(user);
 
         // assert vault state and variables are correctly updated
-        assertEq(node.getSharesExiting(), 0);
+        assertEq(Node(address(node)).sharesExiting(), 0);
         assertEq(node.totalAssets(), totalAssetsBefore - 50 ether);
         assertEq(Node(address(node)).cacheTotalAssets(), cacheTotalAssetsBefore - 50 ether);
         assertEq(node.balanceOf(address(escrow)), sharesAtEscowBefore - sharesToRedeem);
@@ -1858,7 +1858,7 @@ contract NodeTest is BaseTest {
         if (redeemAmount > shares) {
             redeemAmount = shares;
         }
-        uint256 sharesExiting = node.getSharesExiting();
+        uint256 sharesExiting = Node(address(node)).sharesExiting();
         assertEq(sharesExiting, 0);
 
         vm.startPrank(user);
@@ -1866,7 +1866,7 @@ contract NodeTest is BaseTest {
         node.requestRedeem(redeemAmount, user, user);
         vm.stopPrank();
 
-        sharesExiting = node.getSharesExiting();
+        sharesExiting = Node(address(node)).sharesExiting();
         assertEq(sharesExiting, redeemAmount);
     }
 

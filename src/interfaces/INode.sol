@@ -274,10 +274,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return address[] The liquidation queue
     function getLiquidationsQueue() external view returns (address[] memory);
 
-    /// @notice Returns the shares exiting the node
-    /// @return uint256 The shares exiting
-    function getSharesExiting() external view returns (uint256);
-
     /// @notice Returns the last rebalance timestamp
     /// @return uint64 The last rebalance timestamp
     function getLastRebalance() external view returns (uint64);
