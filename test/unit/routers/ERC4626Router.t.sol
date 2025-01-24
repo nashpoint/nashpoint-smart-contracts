@@ -271,7 +271,10 @@ contract ERC4626RouterTest is BaseTest {
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.ExceedsMaxVaultDeposit.selector, address(testComponent), investmentSize, investmentSize - 1
+                ErrorsLib.ExceedsMaxComponentDeposit.selector,
+                address(testComponent),
+                investmentSize,
+                investmentSize - 1
             )
         );
         router4626.invest(address(node), address(testComponent));

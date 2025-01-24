@@ -44,9 +44,9 @@ contract ERC4626Router is BaseRouter {
     {
         depositAmount = _computeDepositAmount(node, component);
 
-        // Check vault deposit limits
+        // Check component deposit limits
         if (depositAmount > IERC4626(component).maxDeposit(address(node))) {
-            revert ErrorsLib.ExceedsMaxVaultDeposit(
+            revert ErrorsLib.ExceedsMaxComponentDeposit(
                 component, depositAmount, IERC4626(component).maxDeposit(address(node))
             );
         }
@@ -124,26 +124,26 @@ contract ERC4626Router is BaseRouter {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Deposits assets into an ERC4626 vault on behalf of the Node.
+    /// @notice Deposits assets into an ERC4626 component on behalf of the Node.
     /// @param node The address of the node.
-    /// @param vault The address of the ERC4626 vault.
+    /// @param component The address of the ERC4626 component.
     /// @param assets The amount of assets to deposit.
-    function _deposit(address node, address vault, uint256 assets) internal returns (uint256) {
-        address underlying = IERC4626(vault).asset();
-        _approve(node, underlying, vault, assets);
+    function _deposit(address node, address component, uint256 assets) internal returns (uint256) {
+        address underlying = IERC4626(component).asset();
+        _approve(node, underlying, component, assets);
 
         bytes memory result =
-            INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
+            INode(node).execute(component, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
         return abi.decode(result, (uint256));
     }
 
-    /// @notice Burns shares to assets in an ERC4626 vault on behalf of the Node.
+    /// @notice Burns shares to assets in an ERC4626 component on behalf of the Node.
     /// @param node The address of the node.
-    /// @param vault The address of the ERC4626 vault.
+    /// @param component The address of the ERC4626 component.
     /// @param shares The amount of shares to burn.
-    function _redeem(address node, address vault, uint256 shares) internal returns (uint256) {
+    function _redeem(address node, address component, uint256 shares) internal returns (uint256) {
         bytes memory result =
-            INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
+            INode(node).execute(component, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
         return abi.decode(result, (uint256));
     }
 
@@ -179,9 +179,9 @@ contract ERC4626Router is BaseRouter {
             revert ErrorsLib.InvalidShareValue(component, shares);
         }
 
-        // Check vault redeem limits
+        // Check component redeem limits
         if (shares > IERC4626(component).maxRedeem(address(node))) {
-            revert ErrorsLib.ExceedsMaxVaultRedeem(component, shares, IERC4626(component).maxRedeem(address(node)));
+            revert ErrorsLib.ExceedsMaxComponentRedeem(component, shares, IERC4626(component).maxRedeem(address(node)));
         }
 
         // Execute the redemption and check the correct number of assets returned
