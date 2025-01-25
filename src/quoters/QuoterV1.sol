@@ -250,22 +250,19 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /// @dev Called by Node Contract to get the total assets of a node
+    /// @dev in ERC7540 deposits are denominated in assets and redeems are in shares
     /// @param node The node to get the assets of
     /// @param component The component to get the assets of
     /// @return assets The total assets of the node
-    function _getErc7540Assets(address node, address component) internal view returns (uint256) {
-        uint256 assets = 0;
+    function _getErc7540Assets(address node, address component) internal view returns (uint256 assets) {
         address shareToken = IERC7575(component).share();
-        uint256 shareBalance = IERC20(shareToken).balanceOf(node);
+        uint256 shares = IERC20(shareToken).balanceOf(node);
 
-        if (shareBalance > 0) {
-            assets = IERC4626(component).convertToAssets(shareBalance);
-        }
-        /// @dev in ERC7540 deposits are denominated in assets and redeems are in shares
+        shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
+        shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
+        shares > 0 ? assets = IERC4626(component).convertToAssets(shares) : 0;
         assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
         assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
-        assets += IERC4626(component).convertToAssets(IERC7540(component).pendingRedeemRequest(REQUEST_ID, node));
-        assets += IERC4626(component).convertToAssets(IERC7540(component).claimableRedeemRequest(REQUEST_ID, node));
 
         return assets;
     }
