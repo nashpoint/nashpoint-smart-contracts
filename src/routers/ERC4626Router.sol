@@ -5,7 +5,6 @@ import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 
@@ -14,13 +13,6 @@ import {MathLib} from "../libraries/MathLib.sol";
  * @author ODND Studios
  */
 contract ERC4626Router is BaseRouter {
-    using SafeERC20 for IERC20;
-
-    /* STATE */
-    uint256 internal totalAssets;
-    uint256 internal currentCash;
-    uint256 internal idealCashReserve;
-
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
 

@@ -18,9 +18,6 @@ import {MathLib} from "../libraries/MathLib.sol";
  * @author ODND Studios
  */
 contract ERC7540Router is BaseRouter {
-    uint256 internal totalAssets;
-    uint256 internal currentCash;
-    uint256 internal idealCashReserve;
     uint256 internal constant REQUEST_ID = 0;
 
     /* CONSTRUCTOR */
