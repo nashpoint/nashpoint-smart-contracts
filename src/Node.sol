@@ -28,16 +28,16 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address public immutable asset;
     address public immutable share;
     address public immutable registry;
-    uint8 private immutable _decimals;
+    uint8 internal immutable _decimals;
     uint256 internal constant WAD = 1e18;
-    uint256 private constant REQUEST_ID = 0;
-    uint256 public constant SECONDS_PER_YEAR = 365 days;
+    uint256 internal constant REQUEST_ID = 0;
+    uint256 internal constant SECONDS_PER_YEAR = 365 days;
 
     /* COMPONENTS */
-    address[] private components;
-    address[] private liquidationsQueue;
-    mapping(address => ComponentAllocation) private componentAllocations;
-    ComponentAllocation private reserveAllocation;
+    address[] internal components;
+    address[] internal liquidationsQueue;
+    mapping(address => ComponentAllocation) internal componentAllocations;
+    ComponentAllocation internal reserveAllocation;
 
     /* PROTOCOL ADDRESSES */
     IQuoter public quoter;
