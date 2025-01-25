@@ -227,7 +227,7 @@ contract VaultTests is BaseTest {
 
         // assert reserveRatio is correct before other tests
         uint256 reserveRatio = _getCurrentReserveRatio();
-        assertEq(reserveRatio, node.targetReserveRatio());
+        assertEq(reserveRatio, node.getReserveAllocation().targetWeight);
 
         // mint cash so invested assets = 100
         mockAsset.mint(address(vault), 10 ether + 1);
@@ -253,7 +253,7 @@ contract VaultTests is BaseTest {
 
         // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
         uint256 reserveRatioAfterTX = _getCurrentReserveRatio();
-        assertGt(reserveRatioAfterTX, node.targetReserveRatio());
+        assertGt(reserveRatioAfterTX, node.getReserveAllocation().targetWeight);
 
         // get the actual shares received and assert they are the same i.e. no swing factor applied
         uint256 sharesReceived = node.balanceOf(address(user2));
@@ -265,7 +265,7 @@ contract VaultTests is BaseTest {
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
         router4626.invest(address(node), address(vault));
-        assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
+        assertEq(node.getReserveAllocation().targetWeight, _getCurrentReserveRatio());
 
         vm.startPrank(user2);
         node.approve(address(node), type(uint256).max);
@@ -276,7 +276,7 @@ contract VaultTests is BaseTest {
         node.fulfillRedeemFromReserve(address(user2));
 
         // assert reserve ratio is on target and user 3 has zero shares
-        assertLt(_getCurrentReserveRatio(), node.targetReserveRatio());
+        assertLt(_getCurrentReserveRatio(), node.getReserveAllocation().targetWeight);
         assertEq(node.balanceOf(address(user3)), 0);
 
         nonAdjustedShares = node.convertToShares(2 ether);
@@ -303,7 +303,7 @@ contract VaultTests is BaseTest {
 
         // assert reserveRatio is correct before other tests
         uint256 reserveRatio = _getCurrentReserveRatio();
-        assertEq(reserveRatio, node.targetReserveRatio());
+        assertEq(reserveRatio, node.getReserveAllocation().targetWeight);
 
         // mint cash so invested assets = 100
         mockAsset.mint(address(vault), 10 ether + 1);
@@ -328,7 +328,7 @@ contract VaultTests is BaseTest {
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
         router4626.invest(address(node), address(vault));
-        assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
+        assertEq(node.getReserveAllocation().targetWeight, _getCurrentReserveRatio());
 
         // grab share value of deposit
         uint256 sharesToRedeem = node.convertToShares(10 ether);

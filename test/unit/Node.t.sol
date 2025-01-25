@@ -145,9 +145,9 @@ contract NodeTest is BaseTest {
         assertEq(componentAllocation.maxDelta, 0.01 ether);
 
         // Check reserve allocation
-        (uint256 reserveWeight, uint256 reserveMaxDelta) = testNode.reserveAllocation();
-        assertEq(reserveWeight, 0.1 ether);
-        assertEq(reserveMaxDelta, 0.01 ether);
+        ComponentAllocation memory reserveAllocation = testNode.getReserveAllocation();
+        assertEq(reserveAllocation.targetWeight, 0.1 ether);
+        assertEq(reserveAllocation.maxDelta, 0.01 ether);
 
         // Check ownership
         assertEq(testNode.owner(), owner);
@@ -424,9 +424,9 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         testNode.updateReserveAllocation(newAllocation);
 
-        (uint256 reserveWeight, uint256 reserveMaxDelta) = testNode.reserveAllocation();
-        assertEq(reserveWeight, newAllocation.targetWeight);
-        assertEq(reserveMaxDelta, newAllocation.maxDelta);
+        ComponentAllocation memory reserveAllocation = testNode.getReserveAllocation();
+        assertEq(reserveAllocation.targetWeight, newAllocation.targetWeight);
+        assertEq(reserveAllocation.maxDelta, newAllocation.maxDelta);
     }
 
     function test_addRouter() public {
@@ -1885,8 +1885,8 @@ contract NodeTest is BaseTest {
         vm.prank(rebalancer);
         node.startRebalance(); // if this runs ratios are validated
 
-        uint256 reserveRatio = node.targetReserveRatio();
-        assertEq(reserveRatio, targetWeight);
+        ComponentAllocation memory reserveAllocation = node.getReserveAllocation();
+        assertEq(reserveAllocation.targetWeight, targetWeight);
     }
 
     function test_getComponents() public {
@@ -2019,7 +2019,7 @@ contract NodeTest is BaseTest {
 
         assertEq(dummyNode.getComponentAllocation(testComponent).targetWeight, comp1);
         assertEq(dummyNode.getComponentAllocation(testComponent2).targetWeight, comp2);
-        assertEq(dummyNode.targetReserveRatio(), reserve);
+        assertEq(dummyNode.getReserveAllocation().targetWeight, reserve);
     }
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {

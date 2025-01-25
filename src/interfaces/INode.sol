@@ -279,9 +279,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return address The liquidation queue at the given index
     function getLiquidationQueue(uint256 index) external view returns (address);
 
-    /// @notice Returns the target reserve ratio
-    function targetReserveRatio() external view returns (uint64);
-
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
 
@@ -289,6 +286,10 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param component The address of the component
     /// @return ComponentAllocation The allocation parameters for the component
     function getComponentAllocation(address component) external view returns (ComponentAllocation memory);
+
+    /// @notice Returns the reserve allocation
+    /// @return ComponentAllocation The allocation parameters for the reserve
+    function getReserveAllocation() external view returns (ComponentAllocation memory);
 
     /// @notice Returns whether the given address is a component
     /// @param component The address to check

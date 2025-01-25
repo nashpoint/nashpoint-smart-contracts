@@ -37,7 +37,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address[] private components;
     address[] private liquidationsQueue;
     mapping(address => ComponentAllocation) private componentAllocations;
-    ComponentAllocation public reserveAllocation;
+    ComponentAllocation private reserveAllocation;
 
     /* PROTOCOL ADDRESSES */
     IQuoter public quoter;
@@ -608,8 +608,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function targetReserveRatio() public view returns (uint64) {
-        return reserveAllocation.targetWeight;
+    function getReserveAllocation() public view returns (ComponentAllocation memory) {
+        return reserveAllocation;
     }
 
     /// @inheritdoc INode
