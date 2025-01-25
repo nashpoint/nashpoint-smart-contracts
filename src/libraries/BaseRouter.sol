@@ -152,14 +152,6 @@ abstract contract BaseRouter {
         }
     }
 
-    /// @notice Validates that the node accepts the router.
-    /// @param node The address of the node.
-    function _validateNodeAcceptsRouter(address node) internal view {
-        if (!INode(node).isRouter(address(this))) {
-            revert ErrorsLib.NotRouter();
-        }
-    }
-
     /// @notice Calculates the partial fulfillment of a redemption request.
     /// @param sharesPending The pending shares of the redemption request.
     /// @param assetsReturned The amount of assets returned from the redemption.
