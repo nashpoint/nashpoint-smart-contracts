@@ -116,9 +116,11 @@ contract DecimalsTests is BaseTest {
         vm.prank(rebalancer);
         router4626.invest(address(decNode), address(testVault6));
 
-        uint256 componentRatio = decNode.getComponentRatio(address(testVault6));
+        ComponentAllocation memory componentAllocation = decNode.getComponentAllocation(address(testVault6));
 
-        assertEq(testVault6.balanceOf(address(decNode)), MathLib.mulDiv(deposit, componentRatio, 1e18));
+        assertEq(
+            testVault6.balanceOf(address(decNode)), MathLib.mulDiv(deposit, componentAllocation.targetWeight, 1e18)
+        );
         assertEq(testToken6.balanceOf(address(testVault6)), testVault6.balanceOf(address(decNode)));
     }
 

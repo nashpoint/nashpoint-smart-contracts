@@ -140,9 +140,9 @@ contract NodeTest is BaseTest {
         assertEq(nodeComponents[0], testComponent);
 
         // Check component allocation
-        (uint256 componentWeight, uint256 maxDelta) = testNode.componentAllocations(testComponent);
-        assertEq(componentWeight, 0.9 ether);
-        assertEq(maxDelta, 0.01 ether);
+        ComponentAllocation memory componentAllocation = testNode.getComponentAllocation(testComponent);
+        assertEq(componentAllocation.targetWeight, 0.9 ether);
+        assertEq(componentAllocation.maxDelta, 0.01 ether);
 
         // Check reserve allocation
         (uint256 reserveWeight, uint256 reserveMaxDelta) = testNode.reserveAllocation();
@@ -250,9 +250,9 @@ contract NodeTest is BaseTest {
         testNode.addComponent(newComponent, allocation);
 
         assertTrue(testNode.isComponent(newComponent));
-        (uint256 componentWeight, uint256 maxDelta) = testNode.componentAllocations(newComponent);
-        assertEq(componentWeight, allocation.targetWeight);
-        assertEq(maxDelta, allocation.maxDelta);
+        ComponentAllocation memory componentAllocation = testNode.getComponentAllocation(newComponent);
+        assertEq(componentAllocation.targetWeight, allocation.targetWeight);
+        assertEq(componentAllocation.maxDelta, allocation.maxDelta);
 
         // Verify components array
         address[] memory components = testNode.getComponents();
@@ -289,9 +289,9 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         assertFalse(testNode.isComponent(testComponent));
-        (uint256 componentWeight, uint256 maxDelta) = testNode.componentAllocations(testComponent);
-        assertEq(componentWeight, 0);
-        assertEq(maxDelta, 0);
+        ComponentAllocation memory componentAllocation = testNode.getComponentAllocation(testComponent);
+        assertEq(componentAllocation.targetWeight, 0);
+        assertEq(componentAllocation.maxDelta, 0);
 
         // Verify components array
         address[] memory components = testNode.getComponents();
@@ -405,9 +405,9 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         testNode.updateComponentAllocation(testComponent, newAllocation);
 
-        (uint256 componentWeight, uint256 maxDelta) = testNode.componentAllocations(testComponent);
-        assertEq(componentWeight, newAllocation.targetWeight);
-        assertEq(maxDelta, newAllocation.maxDelta);
+        ComponentAllocation memory componentAllocation = testNode.getComponentAllocation(testComponent);
+        assertEq(componentAllocation.targetWeight, newAllocation.targetWeight);
+        assertEq(componentAllocation.maxDelta, newAllocation.maxDelta);
     }
 
     function test_updateComponentAllocation_revert_NotSet() public {
@@ -1915,8 +1915,8 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         node.addComponent(component, allocation);
 
-        uint256 componentRatio = node.getComponentRatio(component);
-        assertEq(componentRatio, allocation.targetWeight);
+        ComponentAllocation memory componentAllocation = node.getComponentAllocation(component);
+        assertEq(componentAllocation.targetWeight, allocation.targetWeight);
     }
 
     function test_isComponent() public {
@@ -1938,9 +1938,9 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         node.addComponent(testComponent, allocation);
 
-        uint64 maxDelta = node.getMaxDelta(testComponent);
-        assertEq(maxDelta, delta);
-        assertEq(maxDelta, allocation.maxDelta);
+        ComponentAllocation memory componentAllocation = node.getComponentAllocation(testComponent);
+        assertEq(componentAllocation.maxDelta, delta);
+        assertEq(componentAllocation.maxDelta, allocation.maxDelta);
     }
 
     function test_isCacheValid() public view {
@@ -2017,9 +2017,9 @@ contract NodeTest is BaseTest {
             reserveAllocation
         );
 
-        assertEq(INode(dummyNode).getComponentRatio(testComponent), comp1);
-        assertEq(INode(dummyNode).getComponentRatio(testComponent2), comp2);
-        assertEq(INode(dummyNode).targetReserveRatio(), reserve);
+        assertEq(dummyNode.getComponentAllocation(testComponent).targetWeight, comp1);
+        assertEq(dummyNode.getComponentAllocation(testComponent2).targetWeight, comp2);
+        assertEq(dummyNode.targetReserveRatio(), reserve);
     }
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {

@@ -50,7 +50,7 @@ contract ERC4626RouterTest is BaseTest {
 
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(testComponent));
 
-        assertEq(node.getComponentRatio(address(testComponent)), 0.5 ether);
+        assertEq(node.getComponentAllocation(address(testComponent)).targetWeight, 0.5 ether);
         assertEq(testComponent.balanceOf(address(node)), 0);
         assertEq(investmentSize, 50 ether);
     }
@@ -532,7 +532,8 @@ contract ERC4626RouterTest is BaseTest {
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        uint256 expectedDeposit = 100 ether * uint256(node.getComponentRatio(address(testComponent))) / 1 ether;
+        uint256 expectedDeposit =
+            100 ether * uint256(node.getComponentAllocation(address(testComponent)).targetWeight) / 1 ether;
 
         vm.startPrank(rebalancer);
         node.startRebalance();

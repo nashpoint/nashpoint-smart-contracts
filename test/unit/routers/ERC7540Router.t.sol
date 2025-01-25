@@ -61,7 +61,7 @@ contract ERC7540RouterTest is BaseTest {
 
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(liquidityPool));
 
-        assertEq(node.getComponentRatio(address(liquidityPool)), 0.9 ether);
+        assertEq(node.getComponentAllocation(address(liquidityPool)).targetWeight, 0.9 ether);
         assertEq(liquidityPool.balanceOf(address(node)), 0);
         assertEq(investmentSize, 90 ether);
     }
@@ -708,7 +708,8 @@ contract ERC7540RouterTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
-        uint256 expectedDeposit = 100 ether * uint256(node.getComponentRatio(address(liquidityPool))) / 1 ether;
+        uint256 expectedDeposit =
+            100 ether * uint256(node.getComponentAllocation(address(liquidityPool)).targetWeight) / 1 ether;
 
         vm.startPrank(rebalancer);
         node.startRebalance();

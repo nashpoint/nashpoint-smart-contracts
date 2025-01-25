@@ -158,7 +158,7 @@ contract ERC4626Router is BaseRouter {
         returns (uint256 depositAssets)
     {
         uint256 targetHoldings =
-            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentRatio(component), WAD);
+            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
         uint256 currentBalance = IERC20(component).balanceOf(address(node));
 

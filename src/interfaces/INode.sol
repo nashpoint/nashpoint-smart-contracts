@@ -285,18 +285,15 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
 
-    /// @notice Returns the target ratio of a component
+    /// @notice Returns target weight and max delta for a component
     /// @param component The address of the component
-    /// @return uint256 The target ratio of the component
-    function getComponentRatio(address component) external view returns (uint64);
+    /// @return ComponentAllocation The allocation parameters for the component
+    function getComponentAllocation(address component) external view returns (ComponentAllocation memory);
 
     /// @notice Returns whether the given address is a component
     /// @param component The address to check
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
-
-    /// @notice Returns the max delta for the component
-    function getMaxDelta(address component) external view returns (uint64);
 
     /// @notice Checks if the cache is valid
     /// @return bool True if the cache is valid, false otherwise

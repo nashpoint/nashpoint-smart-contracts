@@ -127,7 +127,7 @@ abstract contract BaseRouter {
         depositAmount = _getInvestmentSize(node, component);
 
         // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
+        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getComponentAllocation(component).maxDelta, WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 

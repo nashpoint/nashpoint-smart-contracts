@@ -227,7 +227,8 @@ contract EthereumForkTests is BaseTest {
 
         // assert pendingDeposit on cfg == correct ratio of assets for node
         uint256 pendingDeposit = cfgLiquidityPool.pendingDepositRequest(0, address(node));
-        uint256 expectedDeposit = 100 ether * uint256(node.getComponentRatio(address(cfgLiquidityPool))) / 1e18;
+        uint256 expectedDeposit =
+            100 ether * uint256(node.getComponentAllocation(address(cfgLiquidityPool)).targetWeight) / 1e18;
         assertEq(pendingDeposit, expectedDeposit);
     }
 

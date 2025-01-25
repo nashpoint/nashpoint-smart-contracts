@@ -36,7 +36,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /* COMPONENTS */
     address[] private components;
     address[] private liquidationsQueue;
-    mapping(address => ComponentAllocation) public componentAllocations;
+    mapping(address => ComponentAllocation) private componentAllocations;
     ComponentAllocation public reserveAllocation;
 
     /* PROTOCOL ADDRESSES */
@@ -618,18 +618,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function getComponentRatio(address component) external view returns (uint64 ratio) {
-        return componentAllocations[component].targetWeight;
+    function getComponentAllocation(address component) external view returns (ComponentAllocation memory) {
+        return componentAllocations[component];
     }
 
     /// @inheritdoc INode
     function isComponent(address component) external view returns (bool) {
         return _isComponent(component);
-    }
-
-    /// @inheritdoc INode
-    function getMaxDelta(address component) external view returns (uint64) {
-        return componentAllocations[component].maxDelta;
     }
 
     /// @inheritdoc INode

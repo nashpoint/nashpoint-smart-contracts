@@ -201,7 +201,7 @@ contract ERC7540Router is BaseRouter {
         returns (uint256 depositAssets)
     {
         uint256 targetHoldings =
-            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentRatio(component), WAD);
+            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
         uint256 currentBalance = _getErc7540Assets(node, component);
 
