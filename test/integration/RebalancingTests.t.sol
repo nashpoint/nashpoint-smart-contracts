@@ -32,23 +32,33 @@ contract RebalancingTests is BaseTest {
         vm.startPrank(owner);
 
         node.removeComponent(address(vault));
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0 ether}));
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0 ether, isComponent: true})
+        );
 
         quoter.setErc4626(address(vaultA), true);
         router4626.setWhitelistStatus(address(vaultA), true);
-        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 0.18 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            address(vaultA), ComponentAllocation({targetWeight: 0.18 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         quoter.setErc4626(address(vaultB), true);
         router4626.setWhitelistStatus(address(vaultB), true);
-        node.addComponent(address(vaultB), ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            address(vaultB), ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         quoter.setErc4626(address(vaultC), true);
         router4626.setWhitelistStatus(address(vaultC), true);
-        node.addComponent(address(vaultC), ComponentAllocation({targetWeight: 0.22 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            address(vaultC), ComponentAllocation({targetWeight: 0.22 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         quoter.setErc7540(address(asyncVault), true);
         router7540.setWhitelistStatus(address(asyncVault), true);
-        node.addComponent(address(asyncVault), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.03 ether}));
+        node.addComponent(
+            address(asyncVault), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.03 ether, isComponent: true})
+        );
 
         vm.stopPrank();
     }

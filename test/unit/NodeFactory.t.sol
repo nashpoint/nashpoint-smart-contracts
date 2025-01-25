@@ -26,7 +26,7 @@ contract NodeFactoryTest is BaseTest {
     bytes32 constant TEST_SALT = bytes32(uint256(1));
 
     function getTestReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        return ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
     }
 
     function getTestComponentAllocations(uint256 count)
@@ -36,7 +36,7 @@ contract NodeFactoryTest is BaseTest {
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+            allocations[i] = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
         }
     }
 

@@ -152,12 +152,12 @@ contract BaseTest is Test {
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
         }
     }
 
     function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether});
+        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, isComponent: true});
     }
 
     function _labelAddresses() internal {
@@ -248,10 +248,16 @@ contract BaseTest is Test {
     function _setAllocationToAsyncVault(address liquidityPool_, uint64 allocation) internal {
         vm.startPrank(owner);
         uint64 reserveAllocation = 1 ether - allocation;
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0}));
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0}));
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0, isComponent: true})
+        );
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0, isComponent: true})
+        );
         node.removeComponent(address(vault));
-        node.addComponent(address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0}));
+        node.addComponent(
+            address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0, isComponent: true})
+        );
         quoter.setErc7540(address(liquidityPool_), true);
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();

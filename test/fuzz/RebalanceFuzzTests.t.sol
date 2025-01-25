@@ -55,7 +55,7 @@ contract RebalanceFuzzTests is BaseTest {
 
         vm.startPrank(owner);
         node.removeComponent(address(vault));
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0 ether, maxDelta: 0 ether}));
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0 ether, maxDelta: 0 ether, isComponent: true}));
         quoter.setErc4626(address(vaultA), true);
         router4626.setWhitelistStatus(address(vaultA), true);
         quoter.setErc4626(address(vaultB), true);
@@ -296,7 +296,7 @@ contract RebalanceFuzzTests is BaseTest {
         deal(address(asset), address(user), seedAmount);
 
         vm.startPrank(owner);
-        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0}));
+        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0, isComponent: true}));
         node.setLiquidationQueue(components);
         vm.stopPrank();
 
@@ -387,7 +387,9 @@ contract RebalanceFuzzTests is BaseTest {
         internal
     {
         vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether}));
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether, isComponent: true})
+        );
         components = newComponents;
 
         uint64 availableAllocation = 1 ether - reserveRatio;
@@ -395,7 +397,8 @@ contract RebalanceFuzzTests is BaseTest {
             if (i == components.length - 1) {
                 if (availableAllocation > 0) {
                     node.addComponent(
-                        components[i], ComponentAllocation({targetWeight: availableAllocation, maxDelta: 0})
+                        components[i],
+                        ComponentAllocation({targetWeight: availableAllocation, maxDelta: 0, isComponent: true})
                     );
                 }
             } else {
@@ -405,7 +408,9 @@ contract RebalanceFuzzTests is BaseTest {
 
                 // uint64 chunk = uint64(keccak256(abi.encodePacked(randUint, i)));
                 // chunk = bound(chunk, 0, availableAllocation);
-                node.addComponent(components[i], ComponentAllocation({targetWeight: chunk, maxDelta: 0}));
+                node.addComponent(
+                    components[i], ComponentAllocation({targetWeight: chunk, maxDelta: 0, isComponent: true})
+                );
                 availableAllocation -= chunk;
             }
         }

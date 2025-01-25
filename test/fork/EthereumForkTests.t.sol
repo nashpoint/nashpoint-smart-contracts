@@ -86,7 +86,7 @@ contract EthereumForkTests is BaseTest {
 
         testRouter = new ERC7540RouterHarness(address(registry));
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.03 ether});
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.03 ether, isComponent: true});
 
         // warp forward to ensure not rebalancing
         vm.warp(block.timestamp + 1 days);
@@ -110,7 +110,9 @@ contract EthereumForkTests is BaseTest {
         vm.stopPrank();
 
         vm.prank(owner);
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0.01 ether}));
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         vm.prank(rebalancer);
         node.startRebalance();

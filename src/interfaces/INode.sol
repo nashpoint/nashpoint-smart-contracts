@@ -12,6 +12,7 @@ import {IQuoter} from "./IQuoter.sol";
 struct ComponentAllocation {
     uint64 targetWeight;
     uint64 maxDelta;
+    bool isComponent;
 }
 
 /// @notice Redeem request state

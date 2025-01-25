@@ -30,18 +30,19 @@ contract ERC4626RouterTest is BaseTest {
         testComponent = new ERC4626Mock(address(asset));
         testComponent70 = new ERC4626Mock(address(asset));
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.warp(block.timestamp + 1 days);
         vm.prank(owner);
         node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether})
+            address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether, isComponent: true})
         );
     }
 
     function test_getInvestmentSize() public {
         _seedNode(100 ether);
-        ComponentAllocation memory allocation50 = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation50 =
+            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -201,8 +202,10 @@ contract ERC4626RouterTest is BaseTest {
         _seedNode(1000 ether);
 
         // Define component allocations
-        ComponentAllocation memory allocation20 = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
-        ComponentAllocation memory allocation70 = ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation20 =
+            ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether, isComponent: true});
+        ComponentAllocation memory allocation70 =
+            ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether, isComponent: true});
 
         // Set up the environment as the owner
         vm.startPrank(owner);
@@ -229,10 +232,12 @@ contract ERC4626RouterTest is BaseTest {
         // set both original component to 50% target weight
         vm.startPrank(owner);
         node.updateComponentAllocation(
-            address(testComponent), ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether})
+            address(testComponent),
+            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
         );
         node.updateComponentAllocation(
-            address(testComponent70), ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether})
+            address(testComponent70),
+            ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether, isComponent: true})
         );
         vm.stopPrank();
 
@@ -439,8 +444,10 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(owner);
         node.setLiquidationQueue(components);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0}));
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0}));
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0, isComponent: true}));
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0, isComponent: true})
+        );
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
@@ -482,8 +489,10 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(owner);
         node.setLiquidationQueue(components);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0}));
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0}));
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0, isComponent: true}));
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0, isComponent: true})
+        );
         vm.stopPrank();
 
         vm.startPrank(rebalancer);

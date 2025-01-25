@@ -244,7 +244,8 @@ contract NodeTest is BaseTest {
 
     function test_addComponent() public {
         address newComponent = makeAddr("newComponent");
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation =
+            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.prank(owner);
         testNode.addComponent(newComponent, allocation);
@@ -261,7 +262,8 @@ contract NodeTest is BaseTest {
     }
 
     function test_addComponent_revert_ZeroAddress() public {
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation =
+            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
@@ -269,7 +271,8 @@ contract NodeTest is BaseTest {
     }
 
     function test_addComponent_revert_AlreadySet() public {
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation =
+            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
@@ -279,7 +282,8 @@ contract NodeTest is BaseTest {
     function test_removeComponent() public {
         // Add a second component first
         address secondComponent = makeAddr("secondComponent");
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation =
+            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.startPrank(owner);
         testNode.addComponent(secondComponent, allocation);
@@ -333,8 +337,12 @@ contract NodeTest is BaseTest {
         address component3 = makeAddr("component3");
 
         vm.startPrank(owner);
-        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
-        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        testNode.addComponent(
+            component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        testNode.addComponent(
+            component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         // Remove first component
         testNode.removeComponent(testComponent);
@@ -359,8 +367,12 @@ contract NodeTest is BaseTest {
         vm.mockCall(component3, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
 
         vm.startPrank(owner);
-        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
-        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        testNode.addComponent(
+            component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        testNode.addComponent(
+            component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         // Remove middle component
         testNode.removeComponent(component2);
@@ -384,8 +396,12 @@ contract NodeTest is BaseTest {
         vm.mockCall(component3, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
 
         vm.startPrank(owner);
-        testNode.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
-        testNode.addComponent(component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        testNode.addComponent(
+            component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        testNode.addComponent(
+            component3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         // Remove last component
         testNode.removeComponent(component3);
@@ -400,7 +416,8 @@ contract NodeTest is BaseTest {
     }
 
     function test_updateComponentAllocation() public {
-        ComponentAllocation memory newAllocation = ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory newAllocation =
+            ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.prank(owner);
         testNode.updateComponentAllocation(testComponent, newAllocation);
@@ -414,12 +431,14 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotSet.selector);
         testNode.updateComponentAllocation(
-            makeAddr("nonexistent"), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0.01 ether})
+            makeAddr("nonexistent"),
+            ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0.01 ether, isComponent: true})
         );
     }
 
     function test_updateReserveAllocation() public {
-        ComponentAllocation memory newAllocation = ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether});
+        ComponentAllocation memory newAllocation =
+            ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.prank(owner);
         testNode.updateReserveAllocation(newAllocation);
@@ -583,8 +602,12 @@ contract NodeTest is BaseTest {
 
     function test_setLiquidationQueue() public {
         vm.startPrank(owner);
-        testNode.addComponent(testComponent2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
-        testNode.addComponent(testComponent3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        testNode.addComponent(
+            testComponent2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        testNode.addComponent(
+            testComponent3, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         address[] memory components = testNode.getComponents();
         assertEq(components.length, 3);
@@ -831,7 +854,9 @@ contract NodeTest is BaseTest {
     function test_startRebalance_revert_InvalidComponentRatios() public {
         vm.warp(block.timestamp + 1 days);
         vm.prank(owner);
-        node.addComponent(testComponent, ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            testComponent, ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         vm.startPrank(rebalancer);
         vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
@@ -1825,9 +1850,15 @@ contract NodeTest is BaseTest {
         address component3 = makeAddr("component3");
 
         vm.startPrank(owner);
-        node.addComponent(component3, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
-        node.addComponent(component2, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
-        node.addComponent(component1, ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            component3, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            component2, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            component1, ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
         vm.stopPrank();
 
         // incorrect component order on purpose
@@ -1876,9 +1907,12 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetWeight, maxDelta: 0.01 ether}));
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: targetWeight, maxDelta: 0.01 ether, isComponent: true})
+        );
         node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 1e18 - targetWeight, maxDelta: 0.01 ether})
+            address(vault),
+            ComponentAllocation({targetWeight: 1e18 - targetWeight, maxDelta: 0.01 ether, isComponent: true})
         );
         vm.stopPrank();
 
@@ -1896,8 +1930,12 @@ contract NodeTest is BaseTest {
         address component2 = makeAddr("component2");
 
         vm.startPrank(owner);
-        node.addComponent(component1, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
-        node.addComponent(component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            component1, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
         vm.stopPrank();
 
         address[] memory components = node.getComponents();
@@ -1910,7 +1948,8 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         address component = makeAddr("component");
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: ratio, maxDelta: 0.01 ether});
+        ComponentAllocation memory allocation =
+            ComponentAllocation({targetWeight: ratio, maxDelta: 0.01 ether, isComponent: true});
 
         vm.prank(owner);
         node.addComponent(component, allocation);
@@ -1926,14 +1965,17 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.prank(owner);
-        node.addComponent(testComponent, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            testComponent, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
         assertTrue(node.isComponent(testComponent));
     }
 
     function test_getMaxDelta(uint64 delta) public {
         vm.warp(block.timestamp + 2 days);
 
-        ComponentAllocation memory allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: delta});
+        ComponentAllocation memory allocation =
+            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: delta, isComponent: true});
 
         vm.prank(owner);
         node.addComponent(testComponent, allocation);
@@ -1989,10 +2031,10 @@ contract NodeTest is BaseTest {
         vm.assume(uint256(comp1) + uint256(comp2) < 1e18);
         uint64 reserve = uint64(1e18 - uint256(comp1) - uint256(comp2));
         ComponentAllocation[] memory allocations = new ComponentAllocation[](2);
-        allocations[0] = ComponentAllocation({targetWeight: comp1, maxDelta: 0.01 ether});
-        allocations[1] = ComponentAllocation({targetWeight: comp2, maxDelta: 0.01 ether});
+        allocations[0] = ComponentAllocation({targetWeight: comp1, maxDelta: 0.01 ether, isComponent: true});
+        allocations[1] = ComponentAllocation({targetWeight: comp2, maxDelta: 0.01 ether, isComponent: true});
         ComponentAllocation memory reserveAllocation =
-            ComponentAllocation({targetWeight: reserve, maxDelta: 0.01 ether});
+            ComponentAllocation({targetWeight: reserve, maxDelta: 0.01 ether, isComponent: true});
 
         if (comp1 + comp2 == 0) {
             return;
@@ -2024,7 +2066,7 @@ contract NodeTest is BaseTest {
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {
         ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
-        invalidAllocation[0] = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
+        invalidAllocation[0] = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether, isComponent: true});
 
         address[] memory routers = new address[](1);
         routers[0] = testRouter;
@@ -2040,10 +2082,10 @@ contract NodeTest is BaseTest {
             routers,
             _toArray(testComponent),
             invalidAllocation,
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, isComponent: true})
         );
 
-        invalidAllocation[0] = ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether});
+        invalidAllocation[0] = ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
         new Node(
@@ -2055,7 +2097,7 @@ contract NodeTest is BaseTest {
             routers,
             _toArray(testComponent),
             invalidAllocation,
-            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether})
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, isComponent: true})
         );
     }
 

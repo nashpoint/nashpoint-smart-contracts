@@ -41,12 +41,12 @@ contract ERC7540RouterTest is BaseTest {
         testRouter = new ERC7540RouterHarness(address(registry));
         testComponent70 = new ERC4626Mock(address(asset));
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.warp(block.timestamp + 1 days);
         vm.prank(owner);
         node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether})
+            address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether, isComponent: true})
         );
     }
 
@@ -69,7 +69,7 @@ contract ERC7540RouterTest is BaseTest {
     function test_getInvestmentSize_7540_atTargetRatio() public {
         _seedNode(100 ether);
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -181,7 +181,7 @@ contract ERC7540RouterTest is BaseTest {
         node.deposit(100 ether, address(user));
         vm.stopPrank();
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -210,7 +210,7 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_revert_ComponentWithinTargetRange() public {
         _seedNode(10000 ether);
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -242,9 +242,11 @@ contract ERC7540RouterTest is BaseTest {
         // todo: do this with more realistic allocation values later that all sum to 100%
 
         // Define component allocations
-        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
-        ComponentAllocation memory allocation20 = ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether});
-        ComponentAllocation memory allocation70 = ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether});
+        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
+        ComponentAllocation memory allocation20 =
+            ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether, isComponent: true});
+        ComponentAllocation memory allocation70 =
+            ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether, isComponent: true});
 
         // Set up the environment as the owner
         vm.startPrank(owner);
@@ -271,10 +273,12 @@ contract ERC7540RouterTest is BaseTest {
         // set both original component to 50% target weight
         vm.startPrank(owner);
         node.updateComponentAllocation(
-            address(liquidityPool), ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether})
+            address(liquidityPool),
+            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
         );
         node.updateComponentAllocation(
-            address(testComponent70), ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether})
+            address(testComponent70),
+            ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether, isComponent: true})
         );
         vm.stopPrank();
 

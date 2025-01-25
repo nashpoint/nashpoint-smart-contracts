@@ -756,13 +756,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _isComponent(address component) internal view returns (bool) {
-        uint256 length = components.length;
-        unchecked {
-            for (uint256 i; i < length; ++i) {
-                if (components[i] == component) return true;
-            }
-        }
-        return false;
+        return componentAllocations[component].isComponent;
     }
 
     function _calculateSharesAfterSwingPricing(uint256 assets) internal view returns (uint256 shares) {
