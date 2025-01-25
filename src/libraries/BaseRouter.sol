@@ -132,10 +132,7 @@ abstract contract BaseRouter {
         }
 
         // limit deposit by reserve ratio requirements
-        uint256 availableReserve = currentCash - idealCashReserve;
-        if (depositAmount > availableReserve) {
-            depositAmount = availableReserve;
-        }
+        depositAmount = MathLib.min(depositAmount, currentCash - idealCashReserve);
 
         // subtract execution fee for protocol
         depositAmount = _subtractExecutionFee(depositAmount, node);
