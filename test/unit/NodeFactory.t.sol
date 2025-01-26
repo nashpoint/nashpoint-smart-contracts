@@ -54,7 +54,13 @@ contract NodeFactoryTest is BaseTest {
 
         vm.startPrank(owner);
         testRegistry.initialize(
-            _toArray(address(testFactory)), _toArray(testRouter), _toArray(testQuoter), _toArray(testRebalancer)
+            _toArray(address(testFactory)),
+            _toArray(testRouter),
+            _toArray(testQuoter),
+            _toArray(testRebalancer),
+            protocolFeesAddress,
+            0,
+            0
         );
         vm.stopPrank();
 

@@ -26,7 +26,10 @@ interface INodeRegistry {
         address[] calldata factories_,
         address[] calldata routers_,
         address[] calldata quoters_,
-        address[] calldata rebalancers_
+        address[] calldata rebalancers_,
+        address feeAddress_,
+        uint64 managementFee_,
+        uint64 executionFee_
     ) external;
 
     /**

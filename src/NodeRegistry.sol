@@ -38,13 +38,19 @@ contract NodeRegistry is INodeRegistry, Ownable {
         address[] calldata factories_,
         address[] calldata routers_,
         address[] calldata quoters_,
-        address[] calldata rebalancers_
+        address[] calldata rebalancers_,
+        address feeAddress_,
+        uint64 managementFee_,
+        uint64 executionFee_
     ) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
         _initializeRoles(factories_, RegistryType.FACTORY);
         _initializeRoles(routers_, RegistryType.ROUTER);
         _initializeRoles(quoters_, RegistryType.QUOTER);
         _initializeRoles(rebalancers_, RegistryType.REBALANCER);
+        _setProtocolFeeAddress(feeAddress_);
+        _setProtocolManagementFee(managementFee_);
+        _setProtocolExecutionFee(executionFee_);
         isInitialized = true;
     }
 
@@ -65,21 +71,17 @@ contract NodeRegistry is INodeRegistry, Ownable {
 
     /// @inheritdoc INodeRegistry
     function setProtocolFeeAddress(address newProtocolFeeAddress) external onlyOwner {
-        if (newProtocolFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
-        protocolFeeAddress = newProtocolFeeAddress;
-        emit EventsLib.ProtocolFeeAddressSet(newProtocolFeeAddress);
+        _setProtocolFeeAddress(newProtocolFeeAddress);
     }
 
     /// @inheritdoc INodeRegistry
     function setProtocolManagementFee(uint64 newProtocolManagementFee) external onlyOwner {
-        protocolManagementFee = newProtocolManagementFee;
-        emit EventsLib.ProtocolManagementFeeSet(newProtocolManagementFee);
+        _setProtocolManagementFee(newProtocolManagementFee);
     }
 
     /// @inheritdoc INodeRegistry
     function setProtocolExecutionFee(uint64 newProtocolExecutionFee) external onlyOwner {
-        protocolExecutionFee = newProtocolExecutionFee;
-        emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
+        _setProtocolExecutionFee(newProtocolExecutionFee);
     }
 
     /* VIEW */
@@ -117,5 +119,22 @@ contract NodeRegistry is INodeRegistry, Ownable {
             roles[addrs[i]][role] = true;
             emit EventsLib.RoleSet(addrs[i], role, true);
         }
+    }
+
+    function _setProtocolFeeAddress(address newProtocolFeeAddress) internal {
+        if (newProtocolFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
+        if (newProtocolFeeAddress == protocolFeeAddress) revert ErrorsLib.AlreadySet();
+        protocolFeeAddress = newProtocolFeeAddress;
+        emit EventsLib.ProtocolFeeAddressSet(newProtocolFeeAddress);
+    }
+
+    function _setProtocolManagementFee(uint64 newProtocolManagementFee) internal {
+        protocolManagementFee = newProtocolManagementFee;
+        emit EventsLib.ProtocolManagementFeeSet(newProtocolManagementFee);
+    }
+
+    function _setProtocolExecutionFee(uint64 newProtocolExecutionFee) internal {
+        protocolExecutionFee = newProtocolExecutionFee;
+        emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
     }
 }

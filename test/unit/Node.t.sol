@@ -82,7 +82,10 @@ contract NodeTest is BaseTest {
             _toArray(address(this)), // factory
             _toArray(testRouter),
             _toArray(testQuoter),
-            _toArray(testRebalancer)
+            _toArray(testRebalancer),
+            protocolFeesAddress,
+            0,
+            0
         );
 
         testNode = new Node(

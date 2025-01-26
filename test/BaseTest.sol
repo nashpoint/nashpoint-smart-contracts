@@ -47,7 +47,7 @@ contract BaseTest is Test {
     address public rebalancer;
     address public vaultSeeder;
     address public testPoolManager;
-
+    address public protocolFeesAddress;
     uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
@@ -66,6 +66,7 @@ contract BaseTest is Test {
         rebalancer = makeAddr("rebalancer");
         vaultSeeder = makeAddr("vaultSeeder");
         testPoolManager = makeAddr("testPoolManager");
+        protocolFeesAddress = makeAddr("protocolFeesAddress");
 
         deployer = new Deployer();
         deployer.deploy(owner);
@@ -93,7 +94,10 @@ contract BaseTest is Test {
             _toArray(address(factory)),
             _toArrayTwo(address(router4626), address(router7540)),
             _toArray(address(quoter)),
-            _toArray(address(rebalancer))
+            _toArray(address(rebalancer)),
+            protocolFeesAddress,
+            0,
+            0
         );
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);
