@@ -207,15 +207,6 @@ abstract contract BaseRouter {
         return transactionAfterFee;
     }
 
-    /// @dev Transfers assets to the escrow.
-    /// @param node The address of the node.
-    /// @param assetsToReturn The amount of assets to return.
-    function _transferToEscrow(address node, uint256 assetsToReturn) internal {
-        bytes memory transferCallData =
-            abi.encodeWithSelector(IERC20.transfer.selector, INode(node).escrow(), assetsToReturn);
-        INode(node).execute(INode(node).asset(), transferCallData);
-    }
-
     /// @dev Enforces the liquidation queue.
     /// @param component The address of the component.
     /// @param assetsToReturn The amount of assets to return.

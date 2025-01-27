@@ -104,10 +104,7 @@ contract ERC4626Router is BaseRouter {
                 _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested, sharesAdjusted);
         }
 
-        // transfer the assets to the escrow
-        _transferToEscrow(node, assetsReturned);
-
-        // update the redemption request state on the node
+        // update the redemption request state on the node and transfer the assets to the escrow
         INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
         return assetsReturned;
     }

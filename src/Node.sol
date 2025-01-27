@@ -666,9 +666,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             );
             assetsToReturn = balance;
         }
-
         _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
-        IERC20(asset).safeTransfer(escrow, assetsToReturn);
     }
 
     function _finalizeRedemption(
@@ -689,6 +687,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         sharesExiting -= sharesPending;
         cacheTotalAssets -= assetsToReturn;
 
+        if (assetsToReturn > IERC20(asset).balanceOf(address(this))) {
+            revert ErrorsLib.ExceedsAvailableReserve();
+        }
+
+        IERC20(asset).safeTransfer(escrow, assetsToReturn);
         emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assetsToReturn, sharesPending);
     }
 

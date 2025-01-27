@@ -133,6 +133,9 @@ library ErrorsLib {
     /// @notice Thrown when the assets requested are more than the available assets
     error ExceedsAvailableAssets(address node, address component, uint256 assetsRequested);
 
+    /// @notice Thrown when the assets requested are more than the available reserve  asset of the node
+    error ExceedsAvailableReserve();
+
     /// @notice Thrown when the share value is invalid.
     error InvalidShareValue(address component, uint256 shareValue);
 
