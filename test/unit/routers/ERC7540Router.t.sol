@@ -48,10 +48,15 @@ contract ERC7540RouterTest is BaseTest {
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether, isComponent: true})
         );
+
+        // jump back in time to keep the cache valid
+        vm.warp(block.timestamp - 1 days);
     }
 
     function test_getInvestmentSize_7540() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -68,6 +73,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_getInvestmentSize_7540_atTargetRatio() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
@@ -99,6 +106,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_investInAsyncVault() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -115,6 +124,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_fail_not_whitelisted() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -129,6 +141,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_fail_not_rebalancer() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -145,6 +160,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_fail_not_node() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -160,6 +178,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_fail_invalid_component() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         address invalidComponent = makeAddr("invalidComponent");
         vm.startPrank(owner);
@@ -180,6 +200,8 @@ contract ERC7540RouterTest is BaseTest {
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, address(user));
         vm.stopPrank();
+
+        vm.warp(block.timestamp + 1 days);
 
         allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
@@ -210,6 +232,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_revert_ComponentWithinTargetRange() public {
         _seedNode(10000 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.startPrank(owner);
@@ -239,7 +264,7 @@ contract ERC7540RouterTest is BaseTest {
         // Seed the node with 1000 ether
         _seedNode(1000 ether);
 
-        // todo: do this with more realistic allocation values later that all sum to 100%
+        vm.warp(block.timestamp + 1 days);
 
         // Define component allocations
         allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
@@ -304,6 +329,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncComponent_fail_deposit_request_reverts() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -324,6 +352,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncComponent_fail_zero_request_id() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -347,6 +378,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_mintClaimableShares() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -369,6 +402,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_requestAsyncWithdrawal() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -396,6 +431,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_executeAsyncWithdrawal() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -461,6 +498,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_mintClaimableShares_revert_not_enough_shares_received() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -525,6 +564,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_requestAsyncWithdrawal_revert_ExceedsAvailableShares() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -582,6 +623,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_executeAsyncWithdrawal_revert_ExceedsAvailableAssets() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -619,6 +662,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_executeAsyncWithdrawal_revert_InsufficientAssetsReturned() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -666,6 +711,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_requestAsyncWithdrawal_fail_nonzero_request_id() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -705,6 +752,8 @@ contract ERC7540RouterTest is BaseTest {
         vm.stopPrank();
 
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);

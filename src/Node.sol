@@ -451,7 +451,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
-        if (assets > maxDepositSize) {
+        if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
         shares = _calculateSharesAfterSwingPricing(assets);
