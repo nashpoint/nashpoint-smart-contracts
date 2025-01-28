@@ -18,7 +18,6 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 contract NodeFactory is INodeFactory {
     /* IMMUTABLES */
     INodeRegistry public immutable registry;
-    uint256 public immutable maxDelta = 0.01 ether;
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
