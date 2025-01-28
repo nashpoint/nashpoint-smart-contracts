@@ -50,7 +50,7 @@ contract ERC4626Router is BaseRouter {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, expectedShares);
         }
 
-        return sharesReturned;
+        return depositAmount;
     }
 
     /// @notice Liquidates a component on behalf of the Node.
