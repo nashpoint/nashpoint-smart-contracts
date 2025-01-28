@@ -40,6 +40,9 @@ library ErrorsLib {
     /// @notice Thrown when the controller is invalid.
     error InvalidController();
 
+    /// @notice Thrown when the quoter is not valid for the node
+    error InvalidQuoter();
+
     /// @notice Thrown when the balance is insufficient.
     error InsufficientBalance();
 

@@ -73,7 +73,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /// @inheritdoc IQuoter
-    function getTotalAssets() external view onlyValidNode(msg.sender) returns (uint256) {
+    function getTotalAssets() external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256) {
         return _getTotalAssets(msg.sender);
     }
 
@@ -99,7 +99,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 totalAssets,
         uint64 targetReserveRatio,
         uint64 maxSwingFactor
-    ) external view onlyValidNode(msg.sender) returns (uint256 shares) {
+    ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 shares) {
         int256 reserveImpact = int256(_calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets, assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
@@ -131,7 +131,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 totalAssets,
         uint64 maxSwingFactor,
         uint64 targetReserveRatio
-    ) external view onlyValidNode(msg.sender) returns (uint256 assets) {
+    ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 assets) {
         // get the pending redemptions
         uint256 pendingRedemptions = IERC7575(msg.sender).convertToAssets(sharesExiting);
 
