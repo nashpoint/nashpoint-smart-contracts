@@ -231,6 +231,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function setQuoter(address newQuoter) external onlyOwner {
         if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
         if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
+        if (!INodeRegistry(registry).isQuoter(newQuoter)) revert ErrorsLib.NotWhitelisted();
         quoter = IQuoter(newQuoter);
         emit EventsLib.QuoterSet(newQuoter);
     }

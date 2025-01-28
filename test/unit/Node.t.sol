@@ -16,7 +16,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
-import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 
 contract NodeHarness is Node {
     constructor(
@@ -548,9 +548,10 @@ contract NodeTest is BaseTest {
     function test_setQuoter() public {
         address newQuoter = makeAddr("newQuoter");
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+        INodeRegistry(testRegistry).setRole(newQuoter, RegistryType.QUOTER, true);
         testNode.setQuoter(newQuoter);
-
+        vm.stopPrank();
         assertEq(address(testNode.quoter()), newQuoter);
     }
 
@@ -570,6 +571,12 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.setQuoter(testQuoter);
+    }
+
+    function test_setQuoter_revert_NotWhitelisted() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.setQuoter(makeAddr("notWhitelisted"));
     }
 
     function test_setLiquidationQueue() public {
