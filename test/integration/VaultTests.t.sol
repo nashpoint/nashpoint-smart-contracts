@@ -363,6 +363,11 @@ contract VaultTests is BaseTest {
     function test_fulfilRedeemRequest_4626Router() public {
         address[] memory components = node.getComponents();
 
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
@@ -371,11 +376,6 @@ contract VaultTests is BaseTest {
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0, isComponent: true})
         );
-        vm.stopPrank();
-
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
