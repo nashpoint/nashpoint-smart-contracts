@@ -17,6 +17,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
     mapping(address => mapping(RegistryType => bool)) public roles;
+    uint64 public constant WAD = 1e18;
 
     /* CONSTRUCTOR */
     constructor(address owner_) Ownable(owner_) {}
@@ -129,11 +130,13 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     function _setProtocolManagementFee(uint64 newProtocolManagementFee) internal {
+        if (newProtocolManagementFee >= WAD) revert ErrorsLib.InvalidFee();
         protocolManagementFee = newProtocolManagementFee;
         emit EventsLib.ProtocolManagementFeeSet(newProtocolManagementFee);
     }
 
     function _setProtocolExecutionFee(uint64 newProtocolExecutionFee) internal {
+        if (newProtocolExecutionFee >= WAD) revert ErrorsLib.InvalidFee();
         protocolExecutionFee = newProtocolExecutionFee;
         emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
     }

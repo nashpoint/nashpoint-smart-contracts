@@ -171,4 +171,10 @@ library ErrorsLib {
 
     /// @notice Thrown when the fee exceeds the amount.
     error FeeExceedsAmount(uint256 fee, uint256 amount);
+
+    /// @notice Thrown when the fee is invalid.
+    error InvalidFee();
+
+    /// @notice Thrown when the swing factor is invalid.
+    error InvalidSwingFactor();
 }
