@@ -124,10 +124,8 @@ contract EthereumForkTests is BaseTest {
     }
 
     function test_usdcAddress_ethereum() public view {
-        string memory name = IERC20Metadata(usdcEthereum).name();
-        uint256 totalSupply = IERC20Metadata(usdcEthereum).totalSupply();
-        assertEq(name, "USD Coin");
-        assertEq(totalSupply, 25385817571885697);
+        assertEq(IERC20Metadata(usdcEthereum).name(), "USD Coin");
+        assertEq(IERC20Metadata(usdcEthereum).totalSupply(), 25385817571885697);
         assertEq(IERC20Metadata(usdcEthereum).decimals(), 6);
     }
 
