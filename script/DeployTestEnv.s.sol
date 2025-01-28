@@ -44,7 +44,8 @@ contract DeployTestEnv is Script {
             _toArray(address(rebalancer)),
             address(0),
             0,
-            0
+            0,
+            0.01 ether
         );
 
         // Configure components

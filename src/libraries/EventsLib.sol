@@ -25,6 +25,9 @@ library EventsLib {
     /// @notice Emitted when protocol execution fee is set on the registry
     event ProtocolExecutionFeeSet(uint256 protocolExecutionFee);
 
+    /// @notice Emitted when protocol max swing factor is set on the registry
+    event ProtocolMaxSwingFactorSet(uint256 protocolMaxSwingFactor);
+
     /// @notice Emitted when `escrow` is updated on the node.
     event EscrowSet(address indexed newEscrow);
 

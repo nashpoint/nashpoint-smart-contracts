@@ -97,7 +97,8 @@ contract BaseTest is Test {
             _toArray(address(rebalancer)),
             protocolFeesAddress,
             0,
-            0
+            0,
+            0.99 ether
         );
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);

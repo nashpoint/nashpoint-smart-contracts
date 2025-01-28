@@ -16,6 +16,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
     address public protocolFeeAddress;
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
+    uint64 public protocolMaxSwingFactor;
     mapping(address => mapping(RegistryType => bool)) public roles;
     uint64 public constant WAD = 1e18;
 
@@ -42,7 +43,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
         address[] calldata rebalancers_,
         address feeAddress_,
         uint64 managementFee_,
-        uint64 executionFee_
+        uint64 executionFee_,
+        uint64 maxSwingFactor_
     ) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
         _initializeRoles(factories_, RegistryType.FACTORY);
@@ -52,6 +54,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
         _setProtocolFeeAddress(feeAddress_);
         _setProtocolManagementFee(managementFee_);
         _setProtocolExecutionFee(executionFee_);
+        _setProtocolMaxSwingFactor(maxSwingFactor_);
         isInitialized = true;
     }
 
@@ -83,6 +86,11 @@ contract NodeRegistry is INodeRegistry, Ownable {
     /// @inheritdoc INodeRegistry
     function setProtocolExecutionFee(uint64 newProtocolExecutionFee) external onlyOwner {
         _setProtocolExecutionFee(newProtocolExecutionFee);
+    }
+
+    /// @inheritdoc INodeRegistry
+    function setProtocolMaxSwingFactor(uint64 newProtocolMaxSwingFactor) external onlyOwner {
+        _setProtocolMaxSwingFactor(newProtocolMaxSwingFactor);
     }
 
     /* VIEW */
@@ -139,5 +147,11 @@ contract NodeRegistry is INodeRegistry, Ownable {
         if (newProtocolExecutionFee >= WAD) revert ErrorsLib.InvalidFee();
         protocolExecutionFee = newProtocolExecutionFee;
         emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
+    }
+
+    function _setProtocolMaxSwingFactor(uint64 newProtocolMaxSwingFactor) internal {
+        if (newProtocolMaxSwingFactor >= WAD) revert ErrorsLib.InvalidSwingFactor();
+        protocolMaxSwingFactor = newProtocolMaxSwingFactor;
+        emit EventsLib.ProtocolMaxSwingFactorSet(newProtocolMaxSwingFactor);
     }
 }

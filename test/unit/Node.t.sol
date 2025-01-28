@@ -85,7 +85,8 @@ contract NodeTest is BaseTest {
             _toArray(testRebalancer),
             protocolFeesAddress,
             0,
-            0
+            0,
+            0.1 ether
         );
 
         testNode = new Node(

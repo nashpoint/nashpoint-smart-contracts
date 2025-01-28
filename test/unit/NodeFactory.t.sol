@@ -60,7 +60,8 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRebalancer),
             protocolFeesAddress,
             0,
-            0
+            0,
+            0.99 ether
         );
         vm.stopPrank();
 
