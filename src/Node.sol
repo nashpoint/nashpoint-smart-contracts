@@ -457,7 +457,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         shares = _calculateSharesAfterSwingPricing(assets);
         _deposit(msg.sender, receiver, assets, shares);
         cacheTotalAssets += assets;
-        emit IERC7575.Deposit(receiver, receiver, assets, shares);
         return shares;
     }
 
@@ -469,7 +468,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         assets = convertToAssets(shares);
         _deposit(msg.sender, receiver, assets, shares);
         cacheTotalAssets += assets;
-        emit IERC7575.Deposit(receiver, receiver, assets, shares);
         return assets;
     }
 
@@ -792,7 +790,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual {
         SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
         _mint(receiver, shares);
-
         emit Deposit(caller, receiver, assets, shares);
     }
 }
