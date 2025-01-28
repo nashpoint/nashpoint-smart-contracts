@@ -197,13 +197,8 @@ abstract contract BaseRouter {
             return transactionAmount;
         }
 
-        if (executionFee >= transactionAmount) {
-            revert ErrorsLib.FeeExceedsAmount(executionFee, transactionAmount);
-        }
-
         uint256 transactionAfterFee = transactionAmount - executionFee;
         INode(node).subtractProtocolExecutionFee(executionFee);
-
         return transactionAfterFee;
     }
 

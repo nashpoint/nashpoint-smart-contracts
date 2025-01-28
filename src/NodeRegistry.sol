@@ -12,13 +12,13 @@ import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
  */
 contract NodeRegistry is INodeRegistry, Ownable {
     /* STATE */
+    uint64 public constant WAD = 1e18;
     bool public isInitialized;
     address public protocolFeeAddress;
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
     uint64 public protocolMaxSwingFactor;
     mapping(address => mapping(RegistryType => bool)) public roles;
-    uint64 public constant WAD = 1e18;
 
     /* CONSTRUCTOR */
     constructor(address owner_) Ownable(owner_) {}
