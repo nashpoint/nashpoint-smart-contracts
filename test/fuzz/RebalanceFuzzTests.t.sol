@@ -109,6 +109,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -117,10 +118,11 @@ contract RebalanceFuzzTests is BaseTest {
 
         runs = uint8(bound(uint256(runs), 1, 100));
         for (uint256 i = 0; i < runs; i++) {
-            vm.warp(block.timestamp + 1 days);
             uint256 depositThisRun = uint256(keccak256(abi.encodePacked(randUint, i, depositAmount)));
             depositThisRun = bound(depositThisRun, 1 ether, maxDeposit);
+
             _userDeposits(user, depositThisRun);
+            vm.warp(block.timestamp + 1 days);
             _tryRebalance();
             depositAssets += depositThisRun;
         }
