@@ -28,7 +28,8 @@ contract NodeFactory is INodeFactory {
     /* EXTERNAL FUNCTIONS */
     /// @inheritdoc INodeFactory
     function deployFullNode(DeployParams memory params) external returns (INode node, address escrow) {
-        node = createNode(
+        bytes32 salt = keccak256(abi.encodePacked(msg.sender, params.salt));
+        node = _createNode(
             params.name,
             params.symbol,
             params.asset,
@@ -37,9 +38,10 @@ contract NodeFactory is INodeFactory {
             params.components,
             params.componentAllocations,
             params.reserveAllocation,
-            params.salt
+            salt
         );
-        escrow = address(new Escrow{salt: params.salt}(address(node)));
+
+        escrow = address(new Escrow{salt: salt}(address(node)));
         node.addRebalancer(params.rebalancer);
         node.setQuoter(params.quoter);
         node.initialize(address(escrow));
@@ -58,6 +60,22 @@ contract NodeFactory is INodeFactory {
         ComponentAllocation memory reserveAllocation,
         bytes32 salt
     ) public returns (INode node) {
+        salt = keccak256(abi.encodePacked(msg.sender, salt));
+        node =
+            _createNode(name, symbol, asset, owner, routers, components, componentAllocations, reserveAllocation, salt);
+    }
+
+    function _createNode(
+        string memory name,
+        string memory symbol,
+        address asset,
+        address owner,
+        address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        ComponentAllocation memory reserveAllocation,
+        bytes32 salt
+    ) internal returns (INode node) {
         if (asset == address(0) || owner == address(0)) {
             revert ErrorsLib.ZeroAddress();
         }

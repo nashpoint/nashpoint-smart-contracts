@@ -10,6 +10,7 @@ import {EventsLib} from "src/libraries/EventsLib.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {DeployParams} from "src/interfaces/INodeFactory.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
+import {console2} from "forge-std/console2.sol";
 
 contract NodeFactoryTest is BaseTest {
     NodeRegistry public testRegistry;
@@ -74,8 +75,11 @@ contract NodeFactoryTest is BaseTest {
     }
 
     function test_createNode() public {
+        bytes32 expectedSalt = keccak256(abi.encodePacked(owner, TEST_SALT));
+        vm.prank(owner);
         vm.expectEmit(false, true, true, true);
-        emit EventsLib.CreateNode(address(0), address(testAsset), TEST_NAME, TEST_SYMBOL, owner, TEST_SALT);
+
+        emit EventsLib.CreateNode(address(0), address(testAsset), TEST_NAME, TEST_SYMBOL, owner, expectedSalt);
 
         INode node = testFactory.createNode(
             TEST_NAME,
@@ -93,14 +97,17 @@ contract NodeFactoryTest is BaseTest {
     }
 
     function test_deployFullNode() public {
+        bytes32 expectedSalt = keccak256(abi.encodePacked(owner, TEST_SALT));
+        vm.prank(owner);
         vm.expectEmit(false, true, true, true);
+
         emit EventsLib.CreateNode(
             address(0),
             address(testAsset),
             TEST_NAME,
             TEST_SYMBOL,
             address(testFactory), // owner is factory during creation
-            TEST_SALT
+            expectedSalt
         );
 
         DeployParams memory params = DeployParams({
