@@ -8,7 +8,6 @@ import {NodeRegistry} from "src/NodeRegistry.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {DeployParams} from "src/interfaces/INodeFactory.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 
@@ -118,7 +117,7 @@ contract NodeFactoryTest is BaseTest {
             salt: TEST_SALT
         });
 
-        (INode node, IEscrow escrow) = testFactory.deployFullNode(params);
+        (INode node, address escrow) = testFactory.deployFullNode(params);
 
         assertTrue(testRegistry.isNode(address(node)));
         assertEq(Ownable(address(node)).owner(), owner);

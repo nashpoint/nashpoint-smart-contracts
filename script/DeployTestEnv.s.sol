@@ -9,7 +9,6 @@ import {QuoterV1} from "src/quoters/QuoterV1.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {DeployParams} from "src/interfaces/INodeFactory.sol";
 
 contract DeployTestEnv is Script {

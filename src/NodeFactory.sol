@@ -6,7 +6,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Escrow} from "./Escrow.sol";
 import {Node} from "./Node.sol";
 
-import {IEscrow} from "./interfaces/IEscrow.sol";
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {INodeFactory, DeployParams} from "./interfaces/INodeFactory.sol";
 import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
@@ -19,7 +18,6 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 contract NodeFactory is INodeFactory {
     /* IMMUTABLES */
     INodeRegistry public immutable registry;
-
     uint256 public immutable maxDelta = 0.01 ether;
 
     /* CONSTRUCTOR */
@@ -30,7 +28,7 @@ contract NodeFactory is INodeFactory {
 
     /* EXTERNAL FUNCTIONS */
     /// @inheritdoc INodeFactory
-    function deployFullNode(DeployParams memory params) external returns (INode node, IEscrow escrow) {
+    function deployFullNode(DeployParams memory params) external returns (INode node, address escrow) {
         node = createNode(
             params.name,
             params.symbol,
@@ -42,7 +40,7 @@ contract NodeFactory is INodeFactory {
             params.reserveAllocation,
             params.salt
         );
-        escrow = IEscrow(address(new Escrow{salt: params.salt}(address(node))));
+        escrow = address(new Escrow{salt: params.salt}(address(node)));
         node.addRebalancer(params.rebalancer);
         node.setQuoter(params.quoter);
         node.initialize(address(escrow));
