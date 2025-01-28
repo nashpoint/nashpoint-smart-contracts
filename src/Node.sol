@@ -499,7 +499,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
-        return shares;
+        return assets;
     }
 
     /// @inheritdoc INode

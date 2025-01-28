@@ -189,14 +189,14 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param receiver The address of the receiver
     /// @param controller The address of the controller
     /// @return shares The amount of shares received
-    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256);
+    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256 shares);
 
     /// @notice Redeems shares from the node
     /// @param shares The amount of shares to redeem
     /// @param receiver The address of the receiver
     /// @param controller The address of the controller
     /// @return assets The amount of assets received
-    function redeem(uint256 shares, address receiver, address controller) external returns (uint256);
+    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets);
 
     /// @notice Returns the total assets
     /// @return uint256 The total assets
