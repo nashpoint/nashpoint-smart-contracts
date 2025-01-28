@@ -73,9 +73,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Removes a rebalancer
     function removeRebalancer(address oldRebalancer) external;
 
-    /// @notice Sets the escrow
-    function setEscrow(address newEscrow) external;
-
     /// @notice Sets the quoter
     function setQuoter(address newQuoter) external;
 

@@ -228,14 +228,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function setEscrow(address newEscrow) external onlyOwner {
-        if (newEscrow == escrow) revert ErrorsLib.AlreadySet();
-        if (newEscrow == address(0)) revert ErrorsLib.ZeroAddress();
-        escrow = newEscrow;
-        emit EventsLib.EscrowSet(newEscrow);
-    }
-
-    /// @inheritdoc INode
     function setQuoter(address newQuoter) external onlyOwner {
         if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
         if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();

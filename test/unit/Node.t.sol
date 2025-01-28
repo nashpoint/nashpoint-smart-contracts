@@ -545,38 +545,6 @@ contract NodeTest is BaseTest {
         testNode.removeRebalancer(makeAddr("nonexistent"));
     }
 
-    function test_setEscrow() public {
-        address newEscrow = makeAddr("newEscrow");
-
-        vm.startPrank(owner);
-        testNode.initialize(makeAddr("initialEscrow"));
-        testNode.setEscrow(newEscrow);
-        vm.stopPrank();
-
-        assertEq(address(testNode.escrow()), newEscrow);
-    }
-
-    function test_setEscrow_revert_ZeroAddress() public {
-        vm.startPrank(owner);
-        // Initialize first to avoid AlreadySet error
-        testNode.initialize(makeAddr("initialEscrow"));
-
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.setEscrow(address(0));
-        vm.stopPrank();
-    }
-
-    function test_setEscrow_revert_AlreadySet() public {
-        address escrowAddr = makeAddr("escrow");
-
-        vm.startPrank(owner);
-        testNode.initialize(escrowAddr);
-
-        vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testNode.setEscrow(escrowAddr);
-        vm.stopPrank();
-    }
-
     function test_setQuoter() public {
         address newQuoter = makeAddr("newQuoter");
 
