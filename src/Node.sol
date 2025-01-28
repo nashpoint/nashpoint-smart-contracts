@@ -465,7 +465,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ExceedsMaxMint();
         }
-        assets = convertToAssets(shares);
+        assets = _convertToAssets(shares, MathLib.Rounding.Up);
         _deposit(msg.sender, receiver, assets, shares);
         cacheTotalAssets += assets;
         return assets;
@@ -480,7 +480,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         uint256 maxShares = maxRedeem(controller);
         if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
 
-        shares = MathLib.mulDiv(assets, maxShares, maxAssets);
+        shares = MathLib.mulDiv(assets, maxShares, maxAssets, MathLib.Rounding.Up);
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
@@ -554,7 +554,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function previewMint(uint256 shares) external view returns (uint256 assets) {
-        return _convertToAssets(shares, MathLib.Rounding.Down);
+        return _convertToAssets(shares, MathLib.Rounding.Up);
     }
 
     /// @inheritdoc INode
