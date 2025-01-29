@@ -72,14 +72,25 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     /// @return sharesReceived The amount of shares received.
     function mintClaimableShares(address node, address component)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         onlyNodeComponent(node, component)
-        returns (uint256)
+        returns (uint256 sharesReceived)
     {
         uint256 claimableShares = IERC7575(component).maxMint(address(node));
 
-        uint256 sharesReceived = _mint(node, component, claimableShares);
+        address share = IERC7575(component).share();
+        uint256 balanceBefore = IERC20(share).balanceOf(address(node));
+        console2.log("balanceBefore", balanceBefore);
+
+        _mint(node, component, claimableShares);
+        if (IERC20(share).balanceOf(address(node)) < balanceBefore) {
+            revert ErrorsLib.InsufficientSharesReturned(component, 0, claimableShares);
+        } else {
+            sharesReceived = IERC20(share).balanceOf(address(node)) - balanceBefore;
+        }
+        console2.log("sharesReceived", sharesReceived);
         if (sharesReceived < claimableShares) {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReceived, claimableShares);
         }

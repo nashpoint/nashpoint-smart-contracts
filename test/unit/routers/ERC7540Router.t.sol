@@ -474,22 +474,19 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(testPoolManager);
         liquidityPool.processPendingDeposits();
 
-        // Mock the mint function to return fewer shares than requested
-        uint256 claimableShares = liquidityPool.maxMint(address(node));
-        vm.mockCall(
-            address(liquidityPool),
-            abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, address(node), address(node)),
-            abi.encode(claimableShares - 1) // Return 1 less share than expected
-        );
+        uint256 claimableShares = IERC7575(address(liquidityPool)).maxMint(address(node));
+        address share = IERC7575(address(liquidityPool)).share();
+        uint256 sharesBefore = IERC20(share).balanceOf(address(node));
 
-        // Attempt to mint should revert
+        // mock call to return the balance before the withdrawal
+        vm.mockCall(address(share), abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)), abi.encode(0));
+
+        // Attempt withdrawal should revert with InsufficientAssetsReturned
         vm.prank(rebalancer);
+
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.InsufficientSharesReturned.selector,
-                address(liquidityPool),
-                claimableShares - 1,
-                claimableShares
+                ErrorsLib.InsufficientSharesReturned.selector, address(liquidityPool), 0, claimableShares
             )
         );
         router7540.mintClaimableShares(address(node), address(liquidityPool));
