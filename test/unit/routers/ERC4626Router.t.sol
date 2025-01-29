@@ -454,7 +454,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.mockCall(
             address(testComponent),
             abi.encodeWithSelector(testComponent.previewRedeem.selector, shares),
-            abi.encode(expectedAssets + 1)
+            abi.encode(expectedAssets + 100)
         );
 
         vm.prank(rebalancer);
@@ -463,7 +463,7 @@ contract ERC4626RouterTest is BaseTest {
                 ErrorsLib.InsufficientAssetsReturned.selector,
                 address(testComponent),
                 expectedAssets,
-                expectedAssets + 1
+                expectedAssets + 100
             )
         );
         router4626.liquidate(address(node), address(testComponent), shares);

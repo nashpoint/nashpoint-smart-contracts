@@ -173,11 +173,21 @@ contract ERC4626Router is BaseRouter {
             revert ErrorsLib.ExceedsMaxComponentRedeem(component, shares, IERC4626(component).maxRedeem(address(node)));
         }
 
-        // Execute the redemption and check the correct number of assets returned
-        uint256 expectedAssets = IERC4626(component).previewRedeem(shares);
-        assetsReturned = _redeem(node, component, shares);
-        if (assetsReturned < expectedAssets) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, expectedAssets);
+        address asset = IERC4626(node).asset();
+        uint256 balanceBefore = IERC20(asset).balanceOf(address(node));
+
+        uint256 assets = IERC4626(component).previewRedeem(shares);
+
+        _redeem(node, component, shares);
+
+        if (IERC20(asset).balanceOf(address(node)) < balanceBefore) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
+        } else {
+            assetsReturned = IERC20(asset).balanceOf(address(node)) - balanceBefore;
+        }
+
+        if (assetsReturned + tolerance < assets) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, assets);
         }
 
         return assetsReturned;
