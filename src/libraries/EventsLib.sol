@@ -96,4 +96,7 @@ library EventsLib {
 
     /// @notice Emitted when node owner fee address is set on the node
     event NodeOwnerFeeAddressSet(address nodeOwnerFeeAddress);
+
+    /// @notice Emitted when tolerance is updated on the router
+    event ToleranceUpdated(uint256 newTolerance);
 }

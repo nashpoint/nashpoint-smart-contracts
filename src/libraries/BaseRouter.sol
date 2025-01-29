@@ -23,8 +23,7 @@ abstract contract BaseRouter {
     /* STORAGE */
     /// @notice Mapping of whitelisted component addresses
     mapping(address => bool) public isWhitelisted;
-
-    /* EVENTS */
+    uint256 public tolerance;
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
@@ -95,6 +94,13 @@ abstract contract BaseRouter {
                 ++i;
             }
         }
+    }
+
+    /// @notice Updates the tolerance for the router
+    /// @param newTolerance The new tolerance
+    function setTolerance(uint256 newTolerance) external onlyRegistryOwner {
+        tolerance = newTolerance;
+        emit EventsLib.ToleranceUpdated(newTolerance);
     }
 
     /*//////////////////////////////////////////////////////////////

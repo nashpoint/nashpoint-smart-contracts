@@ -14,7 +14,9 @@ import {MathLib} from "../libraries/MathLib.sol";
  */
 contract ERC4626Router is BaseRouter {
     /* CONSTRUCTOR */
-    constructor(address registry_) BaseRouter(registry_) {}
+    constructor(address registry_) BaseRouter(registry_) {
+        tolerance = 1;
+    }
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS

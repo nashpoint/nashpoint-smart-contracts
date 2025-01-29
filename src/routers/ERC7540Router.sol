@@ -31,7 +31,9 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     event AsyncWithdrawalExecuted(address indexed node, address indexed component, uint256 assetsReceived);
 
     /* CONSTRUCTOR */
-    constructor(address registry_) BaseRouter(registry_) {}
+    constructor(address registry_) BaseRouter(registry_) {
+        tolerance = 1;
+    }
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
@@ -141,7 +143,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
             assetsReceived = IERC20(asset).balanceOf(address(node)) - balanceBefore;
         }
 
-        if (assetsReceived < assets) {
+        if ((assetsReceived + tolerance) < assets) {
             revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
         }
 
