@@ -224,7 +224,8 @@ abstract contract BaseRouter {
         }
     }
 
-    function _approve(address node, address token, address spender, uint256 amount) internal {
-        INode(node).execute(token, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+    function _safeApprove(address node, address token, address spender, uint256 amount) internal {
+        bytes memory data = INode(node).execute(token, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+        if (!(data.length == 0 || abi.decode(data, (bool)))) revert ErrorsLib.SafeApproveFailed();
     }
 }

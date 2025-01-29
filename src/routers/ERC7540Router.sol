@@ -139,7 +139,7 @@ contract ERC7540Router is BaseRouter {
     /// @return requestId The request ID.
     function _requestDeposit(address node, address component, uint256 assets) internal returns (uint256) {
         address underlying = IERC4626(component).asset();
-        _approve(node, underlying, component, assets);
+        _safeApprove(node, underlying, component, assets);
 
         bytes memory result = INode(node).execute(
             component, abi.encodeWithSelector(IERC7540Deposit.requestDeposit.selector, assets, node, node)
@@ -154,7 +154,7 @@ contract ERC7540Router is BaseRouter {
     /// @return sharesReceived The amount of shares received.
     function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
         address shareToken = IERC7575(component).share();
-        _approve(node, shareToken, component, claimableShares);
+        _safeApprove(node, shareToken, component, claimableShares);
 
         bytes memory result = INode(node).execute(
             component, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
