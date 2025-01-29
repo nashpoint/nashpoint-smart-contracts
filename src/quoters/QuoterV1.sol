@@ -86,7 +86,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// The majority of logic is in _calculateReserveImpact and _getSwingFactor
 
     /// @param assets The amount of assets being deposited
-    /// @param sharesExiting The total number of shares exiting the node
     /// @param reserveCash The reserve cash of the Node
     /// @param totalAssets The total assets of the Node
     /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
@@ -94,7 +93,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @return shares The shares to mint after applying the deposit bonus
     function calculateDepositBonus(
         uint256 assets,
-        uint256 sharesExiting,
         uint256 reserveCash,
         uint256 totalAssets,
         uint64 targetReserveRatio,
@@ -118,7 +116,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penalty is being applied
     /// to new requests
     /// @param shares The shares being redeemed
-    /// @param sharesExiting The total number of shares exiting the node
     /// @param reserveCash The reserve cash of the Node
     /// @param totalAssets The total assets of the Node
     /// @param maxSwingFactor The maximum swing factor to apply
@@ -126,23 +123,11 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @return assets The assets to redeem after applying the redeem penalty
     function calculateRedeemPenalty(
         uint256 shares,
-        uint256 sharesExiting,
         uint256 reserveCash,
         uint256 totalAssets,
         uint64 maxSwingFactor,
         uint64 targetReserveRatio
     ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 assets) {
-        // get the pending redemptions
-        uint256 pendingRedemptions = IERC7575(msg.sender).convertToAssets(sharesExiting);
-
-        // check if pending redemptions exceed current reserve cash
-        // if not subtract pending redemptions from reserve cash
-        if (pendingRedemptions > reserveCash) {
-            reserveCash = 0;
-        } else {
-            reserveCash -= pendingRedemptions;
-        }
-
         // get the asset value of the redeem request
         assets = IERC7575(msg.sender).convertToAssets(shares);
 
