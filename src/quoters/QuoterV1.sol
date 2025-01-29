@@ -21,10 +21,9 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 contract QuoterV1 is IQuoterV1, BaseQuoter {
     using MathLib for uint256;
 
-    /* IMMUTABLES */
-    // todo: should not be immutable
-    int256 public immutable SCALING_FACTOR = -5e18;
-    uint256 public immutable WAD = 1e18;
+    /* CONSTANTS */
+    int256 internal constant SCALING_FACTOR = -5e18;
+    uint256 internal constant WAD = 1e18;
     uint256 internal constant REQUEST_ID = 0;
 
     /* STATE */
