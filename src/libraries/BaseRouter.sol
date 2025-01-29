@@ -218,8 +218,20 @@ abstract contract BaseRouter {
     {
         for (uint256 i = 0; i < liquidationsQueue.length; i++) {
             address candidate = liquidationsQueue[i];
-            uint256 candidateShares = IERC20(candidate).balanceOf(address(this));
-            uint256 candidateAssets = IERC4626(candidate).convertToAssets(candidateShares);
+
+            uint256 candidateShares;
+            try IERC20(candidate).balanceOf(address(this)) returns (uint256 shares) {
+                candidateShares = shares;
+            } catch {
+                continue;
+            }
+
+            uint256 candidateAssets;
+            try IERC4626(candidate).convertToAssets(candidateShares) returns (uint256 assets) {
+                candidateAssets = assets;
+            } catch {
+                continue;
+            }
 
             if (candidateAssets >= assetsToReturn) {
                 if (candidate != component) {
