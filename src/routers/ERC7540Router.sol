@@ -153,9 +153,6 @@ contract ERC7540Router is BaseRouter {
     /// @param claimableShares The amount of shares to mint.
     /// @return sharesReceived The amount of shares received.
     function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
-        address shareToken = IERC7575(component).share();
-        _safeApprove(node, shareToken, component, claimableShares);
-
         bytes memory result = INode(node).execute(
             component, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
         );
@@ -169,6 +166,8 @@ contract ERC7540Router is BaseRouter {
     /// @param shares The amount of shares to redeem.
     /// @return requestId The request ID.
     function _requestRedeem(address node, address component, uint256 shares) internal returns (uint256) {
+        address shareToken = IERC7575(component).share();
+        _safeApprove(node, shareToken, component, shares);
         bytes memory result = INode(node).execute(
             component, abi.encodeWithSelector(IERC7540Redeem.requestRedeem.selector, shares, node, node)
         );
