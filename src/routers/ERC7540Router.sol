@@ -5,6 +5,7 @@ import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
 
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "../interfaces/IERC7540.sol";
@@ -13,11 +14,13 @@ import {IERC7575} from "../interfaces/IERC7575.sol";
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 /**
  * @title ERC7540Router
  * @author ODND Studios
  */
-contract ERC7540Router is BaseRouter {
+contract ERC7540Router is BaseRouter, ReentrancyGuard {
     uint256 internal constant REQUEST_ID = 0;
 
     /* CONSTRUCTOR */
@@ -105,6 +108,7 @@ contract ERC7540Router is BaseRouter {
     /// @return assetsReceived The amount of assets received.
     function executeAsyncWithdrawal(address node, address component, uint256 assets)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         onlyNodeComponent(node, component)
@@ -114,8 +118,17 @@ contract ERC7540Router is BaseRouter {
             revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
         }
 
-        assetsReceived = IERC7575(component).convertToAssets(_withdraw(node, component, assets));
+        address asset = IERC7575(node).asset();
+        uint256 balanceBefore = IERC20(asset).balanceOf(address(node));
 
+        _withdraw(node, component, assets);
+        uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
+
+        if (balanceAfter < balanceBefore) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, balanceAfter - balanceBefore, assets);
+        } else {
+            assetsReceived = balanceAfter - balanceBefore;
+        }
         if (assetsReceived < assets) {
             revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
         }

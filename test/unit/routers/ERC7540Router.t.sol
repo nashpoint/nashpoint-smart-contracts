@@ -429,48 +429,6 @@ contract ERC7540RouterTest is BaseTest {
         assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(80 ether));
     }
 
-    function test_executeAsyncWithdrawal() public {
-        _seedNode(100 ether);
-
-        vm.warp(block.timestamp + 1 days);
-
-        vm.startPrank(owner);
-        quoter.setErc7540(address(liquidityPool), true);
-        node.addComponent(address(liquidityPool), allocation);
-        router7540.setWhitelistStatus(address(liquidityPool), true);
-        vm.stopPrank();
-
-        vm.startPrank(rebalancer);
-        node.startRebalance();
-        router7540.investInAsyncComponent(address(node), address(liquidityPool));
-        vm.stopPrank();
-
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingDeposits();
-
-        vm.startPrank(rebalancer);
-        router7540.mintClaimableShares(address(node), address(liquidityPool));
-
-        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
-        vm.stopPrank();
-
-        assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 10 ether);
-
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingRedemptions();
-
-        assertEq(liquidityPool.claimableRedeemRequest(0, address(node)), 10 ether);
-        assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 0);
-
-        uint256 balanceBefore = asset.balanceOf(address(node));
-
-        vm.prank(rebalancer);
-        router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
-
-        uint256 balanceAfter = asset.balanceOf(address(node));
-        assertEq(balanceAfter - balanceBefore, 10 ether);
-    }
-
     /* mintClaimableShares Tests */
     function test_mintClaimableShares_fail_not_whitelisted() public {
         vm.prank(rebalancer);
@@ -597,6 +555,48 @@ contract ERC7540RouterTest is BaseTest {
     }
 
     /* executeAsyncWithdrawal Tests */
+    function test_executeAsyncWithdrawal() public {
+        _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        router7540.investInAsyncComponent(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.startPrank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+        vm.stopPrank();
+
+        assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 10 ether);
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingRedemptions();
+
+        assertEq(liquidityPool.claimableRedeemRequest(0, address(node)), 10 ether);
+        assertEq(liquidityPool.pendingRedeemRequest(0, address(node)), 0);
+
+        uint256 balanceBefore = asset.balanceOf(address(node));
+
+        vm.prank(rebalancer);
+        router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+
+        uint256 balanceAfter = asset.balanceOf(address(node));
+        assertEq(balanceAfter - balanceBefore, 10 ether);
+    }
+
     function test_executeAsyncWithdrawal_fail_not_whitelisted() public {
         vm.prank(rebalancer);
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
@@ -690,19 +690,18 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(testPoolManager);
         liquidityPool.processPendingRedemptions();
 
-        // Mock the withdrawal to return less than requested
-        bytes memory withdrawData =
-            abi.encodeWithSelector(IERC7575.withdraw.selector, withdrawAmount, address(node), address(node));
-        vm.mockCall(address(liquidityPool), withdrawData, abi.encode(withdrawAmount - 1));
+        uint256 balanceBefore = asset.balanceOf(address(node));
+
+        // mock call to return the balance before the withdrawal
+        vm.mockCall(
+            address(asset), abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)), abi.encode(balanceBefore)
+        );
 
         // Attempt withdrawal should revert with InsufficientAssetsReturned
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.InsufficientAssetsReturned.selector,
-                address(liquidityPool),
-                withdrawAmount - 1,
-                withdrawAmount
+                ErrorsLib.InsufficientAssetsReturned.selector, address(liquidityPool), 0, withdrawAmount
             )
         );
         router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), withdrawAmount);
