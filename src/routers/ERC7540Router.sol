@@ -12,6 +12,7 @@ import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "../interfaces/IERC7540.
 import {IERC7575} from "../interfaces/IERC7575.sol";
 
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
+import {EventsLib} from "../libraries/EventsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 
 import {console2} from "forge-std/console2.sol";
@@ -22,6 +23,12 @@ import {console2} from "forge-std/console2.sol";
  */
 contract ERC7540Router is BaseRouter, ReentrancyGuard {
     uint256 internal constant REQUEST_ID = 0;
+
+    /* EVENTS */
+    event InvestedInAsyncComponent(address indexed node, address indexed component, uint256 assets);
+    event MintedClaimableShares(address indexed node, address indexed component, uint256 sharesReceived);
+    event RequestedAsyncWithdrawal(address indexed node, address indexed component, uint256 shares);
+    event AsyncWithdrawalExecuted(address indexed node, address indexed component, uint256 assetsReceived);
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {}
@@ -50,6 +57,8 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         if (requestId != REQUEST_ID) {
             revert ErrorsLib.IncorrectRequestId(requestId);
         }
+
+        emit InvestedInAsyncComponent(node, component, depositAmount);
         return (depositAmount);
     }
 
@@ -73,6 +82,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReceived, claimableShares);
         }
 
+        emit MintedClaimableShares(node, component, sharesReceived);
         return sharesReceived;
     }
 
@@ -97,6 +107,8 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         if (requestId != REQUEST_ID) {
             revert ErrorsLib.IncorrectRequestId(requestId);
         }
+
+        emit RequestedAsyncWithdrawal(node, component, shares);
     }
 
     /// @notice Withdraws claimable assets from async component
@@ -122,16 +134,18 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         uint256 balanceBefore = IERC20(asset).balanceOf(address(node));
 
         _withdraw(node, component, assets);
-        uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
 
-        if (balanceAfter < balanceBefore) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, balanceAfter - balanceBefore, assets);
+        if (IERC20(asset).balanceOf(address(node)) < balanceBefore) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
         } else {
-            assetsReceived = balanceAfter - balanceBefore;
+            assetsReceived = IERC20(asset).balanceOf(address(node)) - balanceBefore;
         }
+
         if (assetsReceived < assets) {
             revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
         }
+
+        emit AsyncWithdrawalExecuted(node, component, assetsReceived);
         return assetsReceived;
     }
 
