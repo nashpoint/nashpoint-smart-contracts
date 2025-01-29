@@ -32,6 +32,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @return depositAmount The amount of assets invested.
     function invest(address node, address component)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
         onlyNodeComponent(node, component)
         onlyWhitelisted(component)
@@ -47,9 +48,19 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         }
 
         // Execute deposit and check correct shares received
+        uint256 sharesBefore = IERC4626(component).balanceOf(address(node));
         uint256 expectedShares = IERC4626(component).previewDeposit(depositAmount);
-        uint256 sharesReturned = _deposit(node, component, depositAmount);
-        if (sharesReturned < expectedShares) {
+        uint256 sharesReturned;
+
+        _deposit(node, component, depositAmount);
+
+        if (IERC4626(component).balanceOf(address(node)) < sharesBefore) {
+            revert ErrorsLib.InsufficientSharesReturned(component, 0, expectedShares);
+        } else {
+            sharesReturned = IERC4626(component).balanceOf(address(node)) - sharesBefore;
+        }
+
+        if (sharesReturned + tolerance < expectedShares) {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, expectedShares);
         }
 
