@@ -175,12 +175,19 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
     /// @notice Deposits assets into the node
+    /// @dev if swing pricing is enabled a bonus will be applied
+    /// @dev this bonus increases the number of shares minted to the receiver up to maxSwingFactor
     /// @param assets The amount of assets to deposit
+    /// @param receiver The address of the receiver
     /// @return shares The amount of shares received
     function deposit(uint256 assets, address receiver) external returns (uint256);
 
     /// @notice Mints shares into the node
+    /// @dev mint will always bypass swing pricing calculation
+    /// @dev this can be called by a user when the gas cost of calculating the bonus is worth less the bonus
+    /// the differential between mint and deposit can be preview using previewDeposit() & previewRedeem()
     /// @param shares The amount of shares to mint
+    /// @param receiver The address of the receiver
     /// @return assets The amount of assets received
     function mint(uint256 shares, address receiver) external returns (uint256);
 
