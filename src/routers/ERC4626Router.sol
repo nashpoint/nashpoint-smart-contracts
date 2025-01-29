@@ -7,12 +7,13 @@ import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/e
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ERC4626Router
  * @author ODND Studios
  */
-contract ERC4626Router is BaseRouter {
+contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {
         tolerance = 1;
@@ -62,6 +63,7 @@ contract ERC4626Router is BaseRouter {
     /// @return assetsReturned The amount of assets returned.
     function liquidate(address node, address component, uint256 shares)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         onlyNodeComponent(node, component)
@@ -80,6 +82,7 @@ contract ERC4626Router is BaseRouter {
     /// @return assetsReturned The amount of assets returned.
     function fulfillRedeemRequest(address node, address controller, address component)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
         onlyNodeComponent(node, component)
@@ -175,7 +178,6 @@ contract ERC4626Router is BaseRouter {
 
         address asset = IERC4626(node).asset();
         uint256 balanceBefore = IERC20(asset).balanceOf(address(node));
-
         uint256 assets = IERC4626(component).previewRedeem(shares);
 
         _redeem(node, component, shares);
