@@ -292,14 +292,6 @@ contract VaultTests is BaseTest {
     }
 
     function testAdjustedWithdraw() public {
-        vm.warp(block.timestamp + 1 days);
-        vm.startPrank(owner);
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0, isComponent: true})
-        );
-        vm.stopPrank();
-        vm.warp(block.timestamp - 1 days);
-
         vm.startPrank(user);
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
