@@ -25,6 +25,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     int256 internal constant SCALING_FACTOR = -5e18;
     uint256 internal constant WAD = 1e18;
     uint256 internal constant REQUEST_ID = 0;
+    uint64 internal constant SWING_FACTOR_DIVISOR = 2;
 
     /* STATE */
     mapping(address => bool) public isErc4626;
@@ -98,6 +99,9 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint64 maxSwingFactor
     ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 shares) {
         int256 reserveImpact = int256(_calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets, assets));
+
+        // reduce maxSwingFactor by half
+        maxSwingFactor = maxSwingFactor / SWING_FACTOR_DIVISOR;
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets =

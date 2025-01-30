@@ -534,5 +534,7 @@ contract VaultTests is BaseTest {
 
         emit log_named_uint("sum of share value and withdrawn value:", user2Assets + totalWithdrawn);
         emit log_named_uint("total deposited by user2:", 100_000 ether + totalWithdrawn);
+
+        assertLt(user2Assets + totalWithdrawn, 100_000 ether + totalWithdrawn);
     }
 }
