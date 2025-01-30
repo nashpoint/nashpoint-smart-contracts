@@ -291,6 +291,12 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.MaxDepositSizeSet(newMaxDepositSize);
     }
 
+    function rescueTokens(address token, address recipient, uint256 amount) external onlyOwner {
+        if (token == asset) revert ErrorsLib.InvalidToken();
+        if (componentAllocations[token].isComponent) revert ErrorsLib.InvalidToken();
+        IERC20(token).safeTransfer(recipient, amount);
+    }
+
     /*//////////////////////////////////////////////////////////////
                     REBALANCER & ROUTER FUNCTIONS
     //////////////////////////////////////////////////////////////*/

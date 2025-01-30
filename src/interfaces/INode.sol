@@ -100,6 +100,12 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param newMaxDepositSize The new max deposit size
     function setMaxDepositSize(uint256 newMaxDepositSize) external;
 
+    /// @notice Rescues tokens from the node
+    /// @param token The address of the token to rescue
+    /// @param recipient The address of the recipient
+    /// @param amount The amount of tokens to rescue
+    function rescueTokens(address token, address recipient, uint256 amount) external;
+
     /// @notice Starts a rebalance
     function startRebalance() external;
 

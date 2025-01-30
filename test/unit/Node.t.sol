@@ -797,6 +797,43 @@ contract NodeTest is BaseTest {
         node.setMaxDepositSize(1e36 + 1);
     }
 
+    function test_rescueTokens() public {
+        ERC20Mock rescueToken = new ERC20Mock("RescueToken", "RST");
+        deal(address(rescueToken), address(node), 100 ether);
+
+        assertEq(rescueToken.balanceOf(address(node)), 100 ether);
+
+        vm.prank(owner);
+        node.rescueTokens(address(rescueToken), address(user), 100 ether);
+        assertEq(rescueToken.balanceOf(address(user)), 100 ether);
+        assertEq(rescueToken.balanceOf(address(node)), 0);
+    }
+
+    function test_rescueTokens_revert_asset() public {
+        deal(address(asset), address(node), 100 ether);
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.InvalidToken.selector);
+        node.rescueTokens(address(asset), address(user), 100 ether);
+    }
+
+    function test_rescueTokens_revert_component() public {
+        vm.warp(block.timestamp + 1 days);
+        deal(address(testComponent), address(node), 100 ether);
+
+        vm.startPrank(owner);
+        node.addComponent(
+            testComponent, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        vm.expectRevert(ErrorsLib.InvalidToken.selector);
+        node.rescueTokens(address(testComponent), address(user), 100 ether);
+    }
+
+    function test_rescueTokens_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        node.rescueTokens(address(asset), address(user), 100 ether);
+    }
+
     function test_startRebalance() public {
         _seedNode(100 ether);
 
