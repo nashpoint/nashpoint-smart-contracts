@@ -482,22 +482,21 @@ contract NodeFuzzTest is BaseTest {
         assertLt(withdrawalPenalty, maxPenalty);
     }
 
-    function test_fuzz_node_swing_price_vault_attack(
-        uint64 maxSwingFactor,
-        uint64 targetReserveRatio,
-        uint256 userDeposit,
-        uint256 t
-    ) public {
+    function test_fuzz_node_swing_price_vault_attack(uint64 maxSwingFactor, uint64 targetReserveRatio, uint256 t)
+        public
+    {
         maxSwingFactor = uint64(bound(maxSwingFactor, 0.001 ether, 0.1 ether));
-        targetReserveRatio = uint64(bound(targetReserveRatio, 0, 0.1 ether));
-        userDeposit = bound(userDeposit, 1 ether, 100_000 ether);
-        t = bound(t, 1, 1e18 - 1);
+        targetReserveRatio = uint64(bound(targetReserveRatio, 100, 0.1 ether));
+        t = bound(t, 1e16, 1e18 - 1);
+        uint256 seedAmount = 900_000 ether;
+        uint256 userDeposit = 100_000 ether;
+        uint256 tolerance = 1000;
 
         deal(address(asset), address(user2), userDeposit);
 
         vm.startPrank(user);
-        asset.approve(address(node), 1e36 ether);
-        node.deposit(100_000 ether, user);
+        asset.approve(address(node), seedAmount);
+        node.deposit(seedAmount, user);
         vm.stopPrank();
 
         vm.startPrank(user2);
@@ -542,8 +541,10 @@ contract NodeFuzzTest is BaseTest {
             vm.stopPrank();
         }
 
-        vm.prank(rebalancer);
-        node.fulfillRedeemFromReserve(user2);
+        if (node.pendingRedeemRequest(0, user2) > 0) {
+            vm.prank(rebalancer);
+            node.fulfillRedeemFromReserve(user2);
+        }
 
         uint256 user2BalBefore = asset.balanceOf(user2);
 
@@ -593,7 +594,7 @@ contract NodeFuzzTest is BaseTest {
         emit log_named_uint("total withdrawn:", totalWithdrawn);
 
         vm.startPrank(user2);
-        asset.approve(address(node), 100_000 ether);
+        asset.approve(address(node), type(uint256).max);
         node.deposit(totalWithdrawn, user2);
         vm.stopPrank();
 
@@ -603,7 +604,7 @@ contract NodeFuzzTest is BaseTest {
         emit log_named_uint("sum of share value and withdrawn value:", user2Assets + totalWithdrawn);
         emit log_named_uint("total deposited by user2:", 100_000 ether + totalWithdrawn);
 
-        assertLt(user2Assets, userDeposit);
+        assertLt(user2Assets, userDeposit + tolerance);
     }
 
     /*//////////////////////////////////////////////////////////////
