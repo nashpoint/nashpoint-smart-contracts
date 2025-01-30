@@ -162,12 +162,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 totalAssets,
         uint256 deposit
     ) internal pure returns (int256) {
-        // get current reserve ratio and return 0 if targetReserveRatio is already reached
-        uint256 currentReserveRatio = MathLib.mulDiv(reserveCash, WAD, totalAssets);
-        if (currentReserveRatio >= targetReserveRatio) {
-            return 0;
-        }
-
         // get the required assets in unit terms where actual reserve ratio = target reserve ratio
         uint256 investedAssets = totalAssets - reserveCash;
         uint256 targetReserveAssets = MathLib.mulDiv(investedAssets, targetReserveRatio, WAD - targetReserveRatio);

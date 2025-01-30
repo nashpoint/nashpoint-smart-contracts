@@ -753,12 +753,17 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return totalWeight == WAD;
     }
 
+    function _validateReserveAboveTarget() internal view returns (bool) {
+        uint256 currentReserveRatio = MathLib.mulDiv(getCashAfterRedemptions(), WAD, totalAssets());
+        return currentReserveRatio >= reserveAllocation.targetWeight;
+    }
+
     function _isComponent(address component) internal view returns (bool) {
         return componentAllocations[component].isComponent;
     }
 
     function _calculateSharesAfterSwingPricing(uint256 assets) internal view returns (uint256 shares) {
-        if ((totalAssets() == 0 && totalSupply() == 0) || !swingPricingEnabled) {
+        if ((totalAssets() == 0 && totalSupply() == 0) || !swingPricingEnabled || _validateReserveAboveTarget()) {
             shares = convertToShares(assets);
         } else {
             shares = quoter.calculateDepositBonus(
