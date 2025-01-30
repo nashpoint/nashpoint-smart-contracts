@@ -292,6 +292,14 @@ contract VaultTests is BaseTest {
     }
 
     function testAdjustedWithdraw() public {
+        vm.warp(block.timestamp + 1 days);
+        vm.startPrank(owner);
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0, isComponent: true})
+        );
+        vm.stopPrank();
+        vm.warp(block.timestamp - 1 days);
+
         vm.startPrank(user);
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
@@ -307,6 +315,10 @@ contract VaultTests is BaseTest {
 
         // mint cash so invested assets = 100
         mockAsset.mint(address(vault), 10 ether + 1);
+
+        // update total assets to reflect new cash
+        vm.prank(owner);
+        node.updateTotalAssets();
 
         // user 2 deposits 10e6 to node and burns the rest of their assets
         vm.startPrank(user2);
