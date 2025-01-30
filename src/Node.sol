@@ -295,6 +295,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (token == asset) revert ErrorsLib.InvalidToken();
         if (componentAllocations[token].isComponent) revert ErrorsLib.InvalidToken();
         IERC20(token).safeTransfer(recipient, amount);
+        emit EventsLib.RescueTokens(token, recipient, amount);
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -99,4 +99,7 @@ library EventsLib {
 
     /// @notice Emitted when tolerance is updated on the router
     event ToleranceUpdated(uint256 newTolerance);
+
+    /// @notice Emitted when tokens are rescued from the node
+    event RescueTokens(address token, address recipient, uint256 amount);
 }
