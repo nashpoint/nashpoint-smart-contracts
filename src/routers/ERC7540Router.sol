@@ -61,7 +61,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         }
 
         emit InvestedInAsyncComponent(node, component, depositAmount);
-        return (depositAmount);
+        return depositAmount;
     }
 
     /// @notice Mints claimable shares for a component on behalf of the Node.
