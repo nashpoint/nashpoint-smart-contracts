@@ -238,7 +238,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
         shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
         shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
-        shares > 0 ? assets = IERC4626(component).convertToAssets(shares) : 0;
+        assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
         assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
         assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
 
