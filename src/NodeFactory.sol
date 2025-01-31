@@ -84,7 +84,7 @@ contract NodeFactory is INodeFactory {
         if (components.length != componentAllocations.length) revert ErrorsLib.LengthMismatch();
 
         for (uint256 i = 0; i < routers.length; i++) {
-            if (!registry.isRouter(routers[i])) revert ErrorsLib.NotRegistered();
+            if (!registry.isRegistryType(routers[i], RegistryType.ROUTER)) revert ErrorsLib.NotRegistered();
         }
 
         node = INode(

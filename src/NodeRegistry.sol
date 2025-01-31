@@ -59,11 +59,12 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     /// @inheritdoc INodeRegistry
-    function setRole(address addr, RegistryType role, bool status) external onlyInitialized onlyOwner {
-        if (role == RegistryType.NODE) revert ErrorsLib.NotFactory();
-        if (roles[addr][role] == status) revert ErrorsLib.AlreadySet();
-        roles[addr][role] = status;
-        emit EventsLib.RoleSet(addr, role, status);
+    function setRegistryType(address addr, RegistryType type_, bool status) external onlyInitialized onlyOwner {
+        if (type_ == RegistryType.UNUSED) revert ErrorsLib.InvalidRole();
+        if (type_ == RegistryType.NODE) revert ErrorsLib.NotFactory();
+        if (roles[addr][type_] == status) revert ErrorsLib.AlreadySet();
+        roles[addr][type_] = status;
+        emit EventsLib.RoleSet(addr, type_, status);
     }
 
     /// @inheritdoc INodeRegistry
@@ -101,23 +102,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     /// @inheritdoc INodeRegistry
-    function isFactory(address factory_) external view returns (bool) {
-        return roles[factory_][RegistryType.FACTORY];
-    }
-
-    /// @inheritdoc INodeRegistry
-    function isRouter(address router_) external view returns (bool) {
-        return roles[router_][RegistryType.ROUTER];
-    }
-
-    /// @inheritdoc INodeRegistry
-    function isQuoter(address quoter_) external view returns (bool) {
-        return roles[quoter_][RegistryType.QUOTER];
-    }
-
-    /// @inheritdoc INodeRegistry
-    function isRebalancer(address rebalancer_) external view returns (bool) {
-        return roles[rebalancer_][RegistryType.REBALANCER];
+    function isRegistryType(address addr, RegistryType type_) external view returns (bool) {
+        return roles[addr][type_];
     }
 
     /* INTERNAL */

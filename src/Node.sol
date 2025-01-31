@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {INode, ComponentAllocation, Request} from "src/interfaces/INode.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
-import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
@@ -204,7 +204,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function addRouter(address newRouter) external onlyOwner {
         if (isRouter[newRouter]) revert ErrorsLib.AlreadySet();
         if (newRouter == address(0)) revert ErrorsLib.ZeroAddress();
-        if (!INodeRegistry(registry).isRouter(newRouter)) revert ErrorsLib.NotWhitelisted();
+        if (!INodeRegistry(registry).isRegistryType(newRouter, RegistryType.ROUTER)) revert ErrorsLib.NotWhitelisted();
         isRouter[newRouter] = true;
         emit EventsLib.RouterAdded(newRouter);
     }
@@ -220,7 +220,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function addRebalancer(address newRebalancer) external onlyOwner {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
         if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
-        if (!INodeRegistry(registry).isRebalancer(newRebalancer)) revert ErrorsLib.NotWhitelisted();
+        if (!INodeRegistry(registry).isRegistryType(newRebalancer, RegistryType.REBALANCER)) {
+            revert ErrorsLib.NotWhitelisted();
+        }
         isRebalancer[newRebalancer] = true;
         emit EventsLib.RebalancerAdded(newRebalancer);
     }
@@ -236,7 +238,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function setQuoter(address newQuoter) external onlyOwner {
         if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
         if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
-        if (!INodeRegistry(registry).isQuoter(newQuoter)) revert ErrorsLib.NotWhitelisted();
+        if (!INodeRegistry(registry).isRegistryType(newQuoter, RegistryType.QUOTER)) revert ErrorsLib.NotWhitelisted();
         quoter = IQuoter(newQuoter);
         emit EventsLib.QuoterSet(newQuoter);
     }
