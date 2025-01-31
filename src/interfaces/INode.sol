@@ -106,7 +106,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function startRebalance() external;
 
     /// @notice Allows routers to execute external calls
-    function execute(address target, uint256 value, bytes calldata data) external returns (bytes memory);
+    function execute(address target, bytes calldata data) external returns (bytes memory);
 
     /// @notice Pays management fees
     /// @dev called by owner or rebalancer to pay management fees

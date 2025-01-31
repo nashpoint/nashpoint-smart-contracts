@@ -71,7 +71,7 @@ library EventsLib {
     event RebalanceWindowUpdated(uint256 newRebalanceWindow);
 
     /// @notice Emitted when a Rebalancer executes an external call on behalf of the node.
-    event Execute(address indexed target, uint256 value, bytes data, bytes result);
+    event Execute(address indexed target, bytes data, bytes result);
 
     /// @notice Emitted when a node is initialized.
     event Initialize(address escrow, address manager);

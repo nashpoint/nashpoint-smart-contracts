@@ -224,7 +224,7 @@ abstract contract BaseRouter {
     function _transferToEscrow(address node, uint256 assetsToReturn) internal {
         bytes memory transferCallData =
             abi.encodeWithSelector(IERC20.transfer.selector, INode(node).escrow(), assetsToReturn);
-        INode(node).execute(INode(node).asset(), 0, transferCallData);
+        INode(node).execute(INode(node).asset(), transferCallData);
     }
 
     /// @dev Enforces the liquidation queue.
@@ -250,6 +250,6 @@ abstract contract BaseRouter {
     }
 
     function _approve(address node, address token, address spender, uint256 amount) internal {
-        INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+        INode(node).execute(token, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
     }
 }

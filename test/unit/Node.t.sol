@@ -844,7 +844,7 @@ contract NodeTest is BaseTest {
         bytes memory data = abi.encodeWithSelector(IERC20.transfer.selector, makeAddr("recipient"), 100);
 
         vm.prank(address(router4626));
-        bytes memory result = node.execute(address(asset), 0, data);
+        bytes memory result = node.execute(address(asset), data);
 
         bool success = abi.decode(result, (bool));
         assertTrue(success, "ERC20 transfer should succeed");
@@ -854,7 +854,7 @@ contract NodeTest is BaseTest {
 
     function test_execute_revert_NotRouter() public {
         vm.expectRevert(ErrorsLib.InvalidSender.selector);
-        testNode.execute(testAsset, 0, "");
+        testNode.execute(testAsset, "");
     }
 
     function test_execute_revert_ZeroAddress() public {
@@ -864,7 +864,7 @@ contract NodeTest is BaseTest {
 
         vm.prank(address(router4626));
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        node.execute(address(0), 0, data);
+        node.execute(address(0), data);
     }
 
     function test_execute_revert_NotRebalancing() public {
@@ -879,7 +879,7 @@ contract NodeTest is BaseTest {
         // Try to execute as router
         vm.prank(testRouter);
         vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
-        testNode.execute(target, 0, data);
+        testNode.execute(target, data);
     }
 
     function test_payManagementFees() public {
