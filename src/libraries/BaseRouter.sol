@@ -125,9 +125,8 @@ abstract contract BaseRouter {
 
     function _computeDepositAmount(address node, address component) internal returns (uint256 depositAmount) {
         // checks if excess reserve is available to invest
-        _validateReserveAboveTargetRatio(node);
-
         (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
+        _validateReserveAboveTargetRatio(currentCash, idealCashReserve);
 
         // gets units of asset required to set component to target ratio
         depositAmount = _getInvestmentSize(node, component);
@@ -145,11 +144,11 @@ abstract contract BaseRouter {
     }
 
     /// @notice Validates that the reserve is above the target ratio.
-    /// @param node The address of the node.
-    function _validateReserveAboveTargetRatio(address node) internal view {
-        (, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
-
+    /// @param currentCash The current cash of the node.
+    /// @param idealCashReserve The ideal cash reserve of the node.
+    function _validateReserveAboveTargetRatio(uint256 currentCash, uint256 idealCashReserve) internal view {
         // checks if available reserve exceeds target ratio
+
         if (currentCash < idealCashReserve) {
             revert ErrorsLib.ReserveBelowTargetRatio();
         }
