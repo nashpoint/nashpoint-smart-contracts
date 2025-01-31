@@ -26,7 +26,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @notice Invests in a component on behalf of the Node.
     /// @dev call by a valid node rebalancer to invest excess reserve into components
     /// enforces the strategy set by the Node Owner
-    /// will revert if there is not sufficient excess reserve or if the target component is within maxDelta
+    /// will revert if there is not sufficient excess reserve or if the component is within maxDelta
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return depositAmount The amount of assets invested.
@@ -152,10 +152,10 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         return abi.decode(result, (uint256));
     }
 
-    /// @notice Calculates the target investment size for a component.
+    /// @notice Calculates the investment size for a component.
     /// @param node The address of the node.
     /// @param component The address of the component.
-    /// @return depositAssets The target investment size.
+    /// @return depositAssets The investment size.
     function _getInvestmentSize(address node, address component)
         internal
         view
