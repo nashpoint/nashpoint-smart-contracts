@@ -476,7 +476,6 @@ contract ERC7540RouterTest is BaseTest {
 
         uint256 claimableShares = IERC7575(address(liquidityPool)).maxMint(address(node));
         address share = IERC7575(address(liquidityPool)).share();
-        uint256 sharesBefore = IERC20(share).balanceOf(address(node));
 
         // mock call to return the balance before the withdrawal
         vm.mockCall(address(share), abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)), abi.encode(0));

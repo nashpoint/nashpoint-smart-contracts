@@ -165,7 +165,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         uint256 targetHoldings =
             MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
-        uint256 currentBalance = IERC20(component).balanceOf(address(node));
+        uint256 currentBalance = IERC4626(component).convertToAssets(IERC20(component).balanceOf(address(node)));
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;

@@ -308,6 +308,10 @@ contract VaultTests is BaseTest {
         // mint cash so invested assets = 100
         mockAsset.mint(address(vault), 10 ether + 1);
 
+        // update total assets to reflect new cash
+        vm.prank(owner);
+        node.updateTotalAssets();
+
         // user 2 deposits 10e6 to node and burns the rest of their assets
         vm.startPrank(user2);
         asset.approve(address(node), 10 ether);
