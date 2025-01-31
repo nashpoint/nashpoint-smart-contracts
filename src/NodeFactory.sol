@@ -6,7 +6,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Escrow} from "./Escrow.sol";
 import {Node} from "./Node.sol";
 
-import {IEscrow} from "./interfaces/IEscrow.sol";
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {INodeFactory, DeployParams} from "./interfaces/INodeFactory.sol";
 import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
@@ -20,8 +19,6 @@ contract NodeFactory is INodeFactory {
     /* IMMUTABLES */
     INodeRegistry public immutable registry;
 
-    uint256 public immutable maxDelta = 0.01 ether;
-
     /* CONSTRUCTOR */
     constructor(address registry_) {
         if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
@@ -30,8 +27,9 @@ contract NodeFactory is INodeFactory {
 
     /* EXTERNAL FUNCTIONS */
     /// @inheritdoc INodeFactory
-    function deployFullNode(DeployParams memory params) external returns (INode node, IEscrow escrow) {
-        node = createNode(
+    function deployFullNode(DeployParams memory params) external returns (INode node, address escrow) {
+        bytes32 salt = keccak256(abi.encodePacked(msg.sender, params.salt));
+        node = _createNode(
             params.name,
             params.symbol,
             params.asset,
@@ -40,9 +38,10 @@ contract NodeFactory is INodeFactory {
             params.components,
             params.componentAllocations,
             params.reserveAllocation,
-            params.salt
+            salt
         );
-        escrow = IEscrow(address(new Escrow{salt: params.salt}(address(node))));
+
+        escrow = address(new Escrow{salt: salt}(address(node)));
         node.addRebalancer(params.rebalancer);
         node.setQuoter(params.quoter);
         node.initialize(address(escrow));
@@ -61,6 +60,22 @@ contract NodeFactory is INodeFactory {
         ComponentAllocation memory reserveAllocation,
         bytes32 salt
     ) public returns (INode node) {
+        salt = keccak256(abi.encodePacked(msg.sender, salt));
+        node =
+            _createNode(name, symbol, asset, owner, routers, components, componentAllocations, reserveAllocation, salt);
+    }
+
+    function _createNode(
+        string memory name,
+        string memory symbol,
+        address asset,
+        address owner,
+        address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        ComponentAllocation memory reserveAllocation,
+        bytes32 salt
+    ) internal returns (INode node) {
         if (asset == address(0) || owner == address(0)) {
             revert ErrorsLib.ZeroAddress();
         }
@@ -90,6 +105,6 @@ contract NodeFactory is INodeFactory {
 
         registry.addNode(address(node));
 
-        emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, salt);
+        emit EventsLib.NodeCreated(address(node), asset, name, symbol, owner, salt);
     }
 }

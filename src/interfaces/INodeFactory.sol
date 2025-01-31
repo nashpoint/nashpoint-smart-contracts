@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import {IEscrow} from "./IEscrow.sol";
 import {INode, ComponentAllocation} from "./INode.sol";
 
 struct DeployParams {
@@ -28,7 +27,7 @@ interface INodeFactory {
     /// @param params The deployment parameters
     /// @return node The deployed Node contract
     /// @return escrow The deployed Escrow contract
-    function deployFullNode(DeployParams memory params) external returns (INode node, IEscrow escrow);
+    function deployFullNode(DeployParams memory params) external returns (INode node, address escrow);
 
     /// @notice Creates a Node
     /// @param name The name of the Node

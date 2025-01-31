@@ -12,6 +12,7 @@ import {IQuoter} from "./IQuoter.sol";
 struct ComponentAllocation {
     uint64 targetWeight;
     uint64 maxDelta;
+    bool isComponent;
 }
 
 /// @notice Redeem request state
@@ -72,9 +73,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Removes a rebalancer
     function removeRebalancer(address oldRebalancer) external;
 
-    /// @notice Sets the escrow
-    function setEscrow(address newEscrow) external;
-
     /// @notice Sets the quoter
     function setQuoter(address newQuoter) external;
 
@@ -102,11 +100,17 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param newMaxDepositSize The new max deposit size
     function setMaxDepositSize(uint256 newMaxDepositSize) external;
 
+    /// @notice Rescues tokens from the node
+    /// @param token The address of the token to rescue
+    /// @param recipient The address of the recipient
+    /// @param amount The amount of tokens to rescue
+    function rescueTokens(address token, address recipient, uint256 amount) external;
+
     /// @notice Starts a rebalance
     function startRebalance() external;
 
     /// @notice Allows routers to execute external calls
-    function execute(address target, uint256 value, bytes calldata data) external returns (bytes memory);
+    function execute(address target, bytes calldata data) external returns (bytes memory);
 
     /// @notice Pays management fees
     /// @dev called by owner or rebalancer to pay management fees
@@ -177,12 +181,19 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
     /// @notice Deposits assets into the node
+    /// @dev if swing pricing is enabled a bonus will be applied
+    /// @dev this bonus increases the number of shares minted to the receiver up to maxSwingFactor
     /// @param assets The amount of assets to deposit
+    /// @param receiver The address of the receiver
     /// @return shares The amount of shares received
     function deposit(uint256 assets, address receiver) external returns (uint256);
 
     /// @notice Mints shares into the node
+    /// @dev mint will always bypass swing pricing calculation
+    /// @dev this can be called by a user when the gas cost of calculating the bonus is worth less the bonus
+    /// the differential between mint and deposit can be preview using previewDeposit() & previewRedeem()
     /// @param shares The amount of shares to mint
+    /// @param receiver The address of the receiver
     /// @return assets The amount of assets received
     function mint(uint256 shares, address receiver) external returns (uint256);
 
@@ -191,14 +202,14 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param receiver The address of the receiver
     /// @param controller The address of the controller
     /// @return shares The amount of shares received
-    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256);
+    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256 shares);
 
     /// @notice Redeems shares from the node
     /// @param shares The amount of shares to redeem
     /// @param receiver The address of the receiver
     /// @param controller The address of the controller
     /// @return assets The amount of assets received
-    function redeem(uint256 shares, address receiver, address controller) external returns (uint256);
+    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets);
 
     /// @notice Returns the total assets
     /// @return uint256 The total assets
@@ -274,32 +285,27 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return address[] The liquidation queue
     function getLiquidationsQueue() external view returns (address[] memory);
 
-    /// @notice Returns the shares exiting the node
-    /// @return uint256 The shares exiting
-    function getSharesExiting() external view returns (uint256);
-
-    /// @notice Returns the last rebalance timestamp
-    /// @return uint64 The last rebalance timestamp
-    function getLastRebalance() external view returns (uint64);
-
-    /// @notice Returns the target reserve ratio
-    function targetReserveRatio() external view returns (uint64);
+    /// @notice Returns the liquidation queue at a given index
+    /// @param index The index of the liquidation queue
+    /// @return address The liquidation queue at the given index
+    function getLiquidationQueue(uint256 index) external view returns (address);
 
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
 
-    /// @notice Returns the target ratio of a component
+    /// @notice Returns target weight and max delta for a component
     /// @param component The address of the component
-    /// @return uint256 The target ratio of the component
-    function getComponentRatio(address component) external view returns (uint64);
+    /// @return ComponentAllocation The allocation parameters for the component
+    function getComponentAllocation(address component) external view returns (ComponentAllocation memory);
+
+    /// @notice Returns the reserve allocation
+    /// @return ComponentAllocation The allocation parameters for the reserve
+    function getReserveAllocation() external view returns (ComponentAllocation memory);
 
     /// @notice Returns whether the given address is a component
     /// @param component The address to check
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
-
-    /// @notice Returns the max delta for the component
-    function getMaxDelta(address component) external view returns (uint64);
 
     /// @notice Checks if the cache is valid
     /// @return bool True if the cache is valid, false otherwise

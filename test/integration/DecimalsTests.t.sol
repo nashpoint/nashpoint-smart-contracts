@@ -5,7 +5,6 @@ import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
@@ -21,7 +20,7 @@ import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 
 contract DecimalsTests is BaseTest {
     INode public decNode;
-    IEscrow public decEscrow;
+    address public decEscrow;
     ERC20Mock public testToken6;
     ERC20Mock public testToken18;
     ERC4626Mock public testVault6;
@@ -62,7 +61,7 @@ contract DecimalsTests is BaseTest {
         quoter.setErc4626(address(testVault6), true);
         router4626.setWhitelistStatus(address(testVault6), true);
 
-        decEscrow.approveMax(address(testToken6), address(decNode));
+        // decEscrow.approveMax(address(testToken6), address(decNode));
         vm.stopPrank();
 
         vm.label(address(testToken18), "Test Token 18");
@@ -98,9 +97,11 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         decNode.updateComponentAllocation(
-            address(testVault6), ComponentAllocation({targetWeight: allocation, maxDelta: 0})
+            address(testVault6), ComponentAllocation({targetWeight: allocation, maxDelta: 0, isComponent: true})
         );
-        decNode.updateReserveAllocation(ComponentAllocation({targetWeight: 1e18 - allocation, maxDelta: 0}));
+        decNode.updateReserveAllocation(
+            ComponentAllocation({targetWeight: 1e18 - allocation, maxDelta: 0, isComponent: true})
+        );
         vm.stopPrank();
 
         vm.prank(rebalancer);
@@ -116,10 +117,14 @@ contract DecimalsTests is BaseTest {
         vm.prank(rebalancer);
         router4626.invest(address(decNode), address(testVault6));
 
-        uint256 componentRatio = decNode.getComponentRatio(address(testVault6));
+        ComponentAllocation memory componentAllocation = decNode.getComponentAllocation(address(testVault6));
 
-        assertEq(testVault6.balanceOf(address(decNode)), MathLib.mulDiv(deposit, componentRatio, 1e18));
+        assertEq(
+            testVault6.balanceOf(address(decNode)), MathLib.mulDiv(deposit, componentAllocation.targetWeight, 1e18)
+        );
         assertEq(testToken6.balanceOf(address(testVault6)), testVault6.balanceOf(address(decNode)));
+
+        assertEq(decNode.balanceOf(address(user)), deposit);
     }
 
     function test_fuzz_node_swing_price_deposit_never_exceeds_max_6decimals(
@@ -144,9 +149,12 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         decNode.enableSwingPricing(true, maxSwingFactor);
-        decNode.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
+        decNode.updateReserveAllocation(
+            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
+        );
         decNode.updateComponentAllocation(
-            address(testVault6), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
+            address(testVault6),
+            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
         );
         vm.stopPrank();
 
@@ -203,9 +211,12 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         decNode.enableSwingPricing(true, maxSwingFactor);
-        decNode.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
+        decNode.updateReserveAllocation(
+            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
+        );
         decNode.updateComponentAllocation(
-            address(testVault6), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
+            address(testVault6),
+            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
         );
         vm.stopPrank();
 

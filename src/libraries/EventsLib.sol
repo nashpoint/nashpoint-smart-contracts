@@ -8,7 +8,7 @@ import {RegistryType} from "../interfaces/INodeRegistry.sol";
 /// @author ODND Studios
 library EventsLib {
     /// @notice Emitted when a node is created by the factory.
-    event CreateNode(address indexed node, address asset, string name, string symbol, address owner, bytes32 salt);
+    event NodeCreated(address indexed node, address asset, string name, string symbol, address owner, bytes32 salt);
 
     /// @notice Emitted when `node` is added to the registry.
     event NodeAdded(address indexed node);
@@ -24,6 +24,9 @@ library EventsLib {
 
     /// @notice Emitted when protocol execution fee is set on the registry
     event ProtocolExecutionFeeSet(uint256 protocolExecutionFee);
+
+    /// @notice Emitted when protocol max swing factor is set on the registry
+    event ProtocolMaxSwingFactorSet(uint256 protocolMaxSwingFactor);
 
     /// @notice Emitted when `escrow` is updated on the node.
     event EscrowSet(address indexed newEscrow);
@@ -71,7 +74,7 @@ library EventsLib {
     event RebalanceWindowUpdated(uint256 newRebalanceWindow);
 
     /// @notice Emitted when a Rebalancer executes an external call on behalf of the node.
-    event Execute(address indexed target, uint256 value, bytes data, bytes result);
+    event Execute(address indexed target, bytes data, bytes result);
 
     /// @notice Emitted when a node is initialized.
     event Initialize(address escrow, address manager);
@@ -93,4 +96,10 @@ library EventsLib {
 
     /// @notice Emitted when node owner fee address is set on the node
     event NodeOwnerFeeAddressSet(address nodeOwnerFeeAddress);
+
+    /// @notice Emitted when tolerance is updated on the router
+    event ToleranceUpdated(uint256 newTolerance);
+
+    /// @notice Emitted when tokens are rescued from the node
+    event RescueTokens(address token, address recipient, uint256 amount);
 }
