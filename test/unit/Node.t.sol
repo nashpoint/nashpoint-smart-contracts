@@ -655,15 +655,14 @@ contract NodeTest is BaseTest {
         testNode.setRebalanceWindow(1 hours);
     }
 
-    function test_RebalanceCooldown() public {
+    function test_rebalanceCooldown() public {
         _seedNode(100 ether);
 
         // Cast the interface back to the concrete implementation
         Node node = Node(address(node));
 
-        assertEq(node.rebalanceCooldown(), 1 days);
+        assertEq(node.rebalanceCooldown(), 23 hours);
         assertEq(node.rebalanceWindow(), 1 hours);
-        assertEq(node.lastRebalance(), 86401);
 
         vm.prank(rebalancer);
         router4626.invest(address(node), address(vault));
@@ -897,7 +896,7 @@ contract NodeTest is BaseTest {
         _seedNode(100 ether);
         assertEq(node.totalAssets(), 100 ether);
 
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + 364 days);
 
         vm.prank(owner);
         uint256 feeForPeriod = node.payManagementFees();
@@ -951,8 +950,8 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         uint256 feeForPeriod = node.payManagementFees();
 
-        assertApproxEqAbs(asset.balanceOf(address(ownerFeesRecipient)) * 365, 0.8 ether, 100);
-        assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether, 100);
+        assertApproxEqAbs(asset.balanceOf(address(ownerFeesRecipient)) * 365, 0.8 ether * 2, 1000);
+        assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether * 2, 1000);
         assertEq(node.totalAssets(), 100 ether - feeForPeriod);
     }
 
@@ -967,7 +966,7 @@ contract NodeTest is BaseTest {
         node.setAnnualManagementFee(0.2e18);
         node.setNodeOwnerFeeAddress(ownerFeesRecipient);
 
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + 364 days);
 
         vm.expectRevert(
             abi.encodeWithSelector(

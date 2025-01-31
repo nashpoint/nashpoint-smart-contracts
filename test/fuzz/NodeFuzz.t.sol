@@ -272,7 +272,7 @@ contract NodeFuzzTest is BaseTest {
         _seedNode(seedAmount);
         assertEq(node.totalAssets(), seedAmount);
 
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + 364 days);
 
         vm.prank(owner);
         uint256 feeForPeriod = node.payManagementFees();
@@ -294,10 +294,13 @@ contract NodeFuzzTest is BaseTest {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
+        // warp back one day to undo the warp forward in setUp()
+        vm.warp(block.timestamp - 1 days);
+
         annualFee = uint64(bound(annualFee, 0, 1e18));
         protocolFee = uint64(bound(protocolFee, 0, 1e18));
         seedAmount = bound(seedAmount, 1e18, 1e36);
-        duration = bound(duration, 1 days, 365 days);
+        duration = bound(duration, 2 days, 365 days);
 
         vm.startPrank(owner);
         node.setAnnualManagementFee(annualFee);
