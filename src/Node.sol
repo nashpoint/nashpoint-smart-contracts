@@ -743,6 +743,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _validateNoDuplicateComponents(address[] memory componentArray) internal pure {
+        if (componentArray.length == 0) return;
         Arrays.sort(componentArray);
         for (uint256 i = 0; i < componentArray.length - 1; i++) {
             if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
