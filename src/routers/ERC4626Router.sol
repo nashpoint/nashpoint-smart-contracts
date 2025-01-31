@@ -14,6 +14,11 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * @author ODND Studios
  */
 contract ERC4626Router is BaseRouter, ReentrancyGuard {
+    /* EVENTS */
+    event InvestedInComponent(address indexed node, address indexed component, uint256 assets);
+    event LiquidatedFromComponent(address indexed node, address indexed component, uint256 assets);
+    event FulfilledRedeemRequest(address indexed node, address indexed component, uint256 assets);
+
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {
         tolerance = 1;
@@ -61,10 +66,11 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
             sharesReturned = sharesAfter - sharesBefore;
         }
 
-        if (sharesReturned + tolerance < expectedShares) {
+        if ((sharesReturned + tolerance) < expectedShares) {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, expectedShares);
         }
 
+        emit InvestedInComponent(node, component, depositAmount);
         return depositAmount;
     }
 
@@ -82,6 +88,8 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         returns (uint256 assetsReturned)
     {
         assetsReturned = _liquidate(node, component, shares);
+        emit LiquidatedFromComponent(node, component, assetsReturned);
+        return assetsReturned;
     }
 
     /// @notice Fulfills a redeem request on behalf of the Node.
@@ -123,6 +131,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
         // update the redemption request state on the node and transfer the assets to the escrow
         INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
+        emit FulfilledRedeemRequest(node, component, assetsReturned);
         return assetsReturned;
     }
 
@@ -201,7 +210,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
             assetsReturned = balanceAfter - balanceBefore;
         }
 
-        if (assetsReturned + tolerance < assets) {
+        if ((assetsReturned + tolerance) < assets) {
             revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, assets);
         }
 

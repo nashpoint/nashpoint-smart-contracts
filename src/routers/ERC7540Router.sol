@@ -90,7 +90,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
             sharesReceived = balanceAfter - balanceBefore;
         }
 
-        if (sharesReceived + tolerance < claimableShares) {
+        if ((sharesReceived + tolerance) < claimableShares) {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReceived, claimableShares);
         }
 
