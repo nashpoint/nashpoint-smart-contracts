@@ -8,7 +8,7 @@ import {RegistryType} from "../interfaces/INodeRegistry.sol";
 /// @author ODND Studios
 library EventsLib {
     /// @notice Emitted when a node is created by the factory.
-    event CreateNode(address indexed node, address asset, string name, string symbol, address owner, bytes32 salt);
+    event NodeCreated(address indexed node, address asset, string name, string symbol, address owner, bytes32 salt);
 
     /// @notice Emitted when `node` is added to the registry.
     event NodeAdded(address indexed node);
