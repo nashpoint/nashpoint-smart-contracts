@@ -5,24 +5,19 @@ import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ERC4626Router
  * @author ODND Studios
  */
-contract ERC4626Router is BaseRouter {
-    using SafeERC20 for IERC20;
-
-    /* STATE */
-    uint256 internal totalAssets;
-    uint256 internal currentCash;
-    uint256 internal idealCashReserve;
-
+contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /* CONSTRUCTOR */
-    constructor(address registry_) BaseRouter(registry_) {}
+    constructor(address registry_) BaseRouter(registry_) {
+        tolerance = 1;
+    }
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
@@ -37,52 +32,39 @@ contract ERC4626Router is BaseRouter {
     /// @return depositAmount The amount of assets invested.
     function invest(address node, address component)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
+        onlyNodeComponent(node, component)
         onlyWhitelisted(component)
         returns (uint256 depositAmount)
     {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
+        depositAmount = _computeDepositAmount(node, component);
 
-        // checks if excess reserve is available to invest
-        _validateReserveAboveTargetRatio(node);
-
-        (totalAssets, currentCash, idealCashReserve) = _getNodeCashStatus(node);
-
-        // gets units of asset required to set component to target ratio
-        depositAmount = _getInvestmentSize(node, component);
-
-        // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
-            revert ErrorsLib.ComponentWithinTargetRange(node, component);
-        }
-
-        // limit deposit by reserve ratio requirements
-        uint256 availableReserve = currentCash - idealCashReserve;
-        if (depositAmount > availableReserve) {
-            depositAmount = availableReserve;
-        }
-
-        // subtract execution fee for protocol
-        depositAmount = _subtractExecutionFee(depositAmount, node);
-
-        // Check vault deposit limits
+        // Check component deposit limits
         if (depositAmount > IERC4626(component).maxDeposit(address(node))) {
-            revert ErrorsLib.ExceedsMaxVaultDeposit(
+            revert ErrorsLib.ExceedsMaxComponentDeposit(
                 component, depositAmount, IERC4626(component).maxDeposit(address(node))
             );
         }
 
         // Execute deposit and check correct shares received
+        uint256 sharesBefore = IERC4626(component).balanceOf(address(node));
         uint256 expectedShares = IERC4626(component).previewDeposit(depositAmount);
-        uint256 sharesReturned = _deposit(node, component, depositAmount);
-        if (sharesReturned < expectedShares) {
+        uint256 sharesReturned;
+
+        _deposit(node, component, depositAmount);
+
+        if (IERC4626(component).balanceOf(address(node)) < sharesBefore) {
+            revert ErrorsLib.InsufficientSharesReturned(component, 0, expectedShares);
+        } else {
+            sharesReturned = IERC4626(component).balanceOf(address(node)) - sharesBefore;
+        }
+
+        if (sharesReturned + tolerance < expectedShares) {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, expectedShares);
         }
 
-        return sharesReturned;
+        return depositAmount;
     }
 
     /// @notice Liquidates a component on behalf of the Node.
@@ -92,8 +74,10 @@ contract ERC4626Router is BaseRouter {
     /// @return assetsReturned The amount of assets returned.
     function liquidate(address node, address component, uint256 shares)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
         assetsReturned = _liquidate(node, component, shares);
@@ -109,16 +93,17 @@ contract ERC4626Router is BaseRouter {
     /// @return assetsReturned The amount of assets returned.
     function fulfillRedeemRequest(address node, address controller, address component)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
         onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
         (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
         uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
 
         // Validate that the component is top of the liquidation queue
-        address[] memory liquidationsQueue = INode(node).getLiquidationsQueue();
-        _enforceLiquidationQueue(component, assetsRequested, liquidationsQueue);
+        _enforceLiquidationQueue(component, assetsRequested, INode(node).getLiquidationsQueue());
 
         // liquidate either the requested amount or the balance of the component
         // if the requested amount is greater than the balance of the component
@@ -129,18 +114,13 @@ contract ERC4626Router is BaseRouter {
         // execute the liquidation
         assetsReturned = _liquidate(node, component, componentShares);
 
-        // if the assets returned are less than the assets requested, adjust the shares pending and shares adjusted
-        // to reflect the percentage of the requested assets that were returned
+        // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
         if (assetsReturned < assetsRequested) {
-            uint256 percentReturned = MathLib.mulDiv(assetsReturned, WAD, assetsRequested);
-            sharesPending = MathLib.mulDiv(sharesPending, percentReturned, WAD);
-            sharesAdjusted = MathLib.mulDiv(sharesAdjusted, percentReturned, WAD);
+            (sharesPending, sharesAdjusted) =
+                _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested, sharesAdjusted);
         }
 
-        // transfer the assets to the escrow
-        _transferToEscrow(node, assetsReturned);
-
-        // update the redemption request state on the node
+        // update the redemption request state on the node and transfer the assets to the escrow
         INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
         return assetsReturned;
     }
@@ -149,26 +129,26 @@ contract ERC4626Router is BaseRouter {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Deposits assets into an ERC4626 vault on behalf of the Node.
+    /// @notice Deposits assets into an ERC4626 component on behalf of the Node.
     /// @param node The address of the node.
-    /// @param vault The address of the ERC4626 vault.
+    /// @param component The address of the ERC4626 component.
     /// @param assets The amount of assets to deposit.
-    function _deposit(address node, address vault, uint256 assets) internal returns (uint256) {
-        address underlying = IERC4626(vault).asset();
-        _approve(node, underlying, vault, assets);
+    function _deposit(address node, address component, uint256 assets) internal returns (uint256) {
+        address underlying = IERC4626(component).asset();
+        _safeApprove(node, underlying, component, assets);
 
         bytes memory result =
-            INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
+            INode(node).execute(component, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
         return abi.decode(result, (uint256));
     }
 
-    /// @notice Burns shares to assets in an ERC4626 vault on behalf of the Node.
+    /// @notice Burns shares to assets in an ERC4626 component on behalf of the Node.
     /// @param node The address of the node.
-    /// @param vault The address of the ERC4626 vault.
+    /// @param component The address of the ERC4626 component.
     /// @param shares The amount of shares to burn.
-    function _redeem(address node, address vault, uint256 shares) internal returns (uint256) {
+    function _redeem(address node, address component, uint256 shares) internal returns (uint256) {
         bytes memory result =
-            INode(node).execute(vault, 0, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
+            INode(node).execute(component, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
         return abi.decode(result, (uint256));
     }
 
@@ -183,9 +163,9 @@ contract ERC4626Router is BaseRouter {
         returns (uint256 depositAssets)
     {
         uint256 targetHoldings =
-            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentRatio(component), WAD);
+            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
-        uint256 currentBalance = IERC20(component).balanceOf(address(node));
+        uint256 currentBalance = IERC4626(component).convertToAssets(IERC20(component).balanceOf(address(node)));
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
@@ -197,23 +177,30 @@ contract ERC4626Router is BaseRouter {
     /// @param shares The amount of shares to liquidate.
     /// @return assetsReturned The amount of assets returned.
     function _liquidate(address node, address component, uint256 shares) internal returns (uint256 assetsReturned) {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
-
-        _validateNodeAcceptsRouter(node);
-
         // Validate share value
         if (shares == 0 || shares > IERC4626(component).balanceOf(address(node))) {
             revert ErrorsLib.InvalidShareValue(component, shares);
         }
 
-        // Execute the redemption and check the correct number of assets returned
-        uint256 expectedAssets = IERC4626(component).previewRedeem(shares);
-        assetsReturned = _redeem(node, component, shares);
-        if (assetsReturned < expectedAssets) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, expectedAssets);
+        // Check component redeem limits
+        if (shares > IERC4626(component).maxRedeem(address(node))) {
+            revert ErrorsLib.ExceedsMaxComponentRedeem(component, shares, IERC4626(component).maxRedeem(address(node)));
+        }
+
+        address asset = IERC4626(node).asset();
+        uint256 balanceBefore = IERC20(asset).balanceOf(address(node));
+        uint256 assets = IERC4626(component).previewRedeem(shares);
+
+        _redeem(node, component, shares);
+
+        if (IERC20(asset).balanceOf(address(node)) < balanceBefore) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
+        } else {
+            assetsReturned = IERC20(asset).balanceOf(address(node)) - balanceBefore;
+        }
+
+        if (assetsReturned + tolerance < assets) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, assets);
         }
 
         return assetsReturned;

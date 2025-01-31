@@ -18,7 +18,6 @@ import {Escrow} from "src/Escrow.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
 import {MathLib} from "src/libraries/MathLib.sol";
@@ -34,7 +33,7 @@ contract BaseTest is Test {
     ERC7540Router public router7540;
 
     INode public node;
-    IEscrow public escrow;
+    address public escrow;
     IERC20 public asset;
     ERC4626Mock public vault;
     ERC7540Mock public liquidityPool;
@@ -47,7 +46,7 @@ contract BaseTest is Test {
     address public rebalancer;
     address public vaultSeeder;
     address public testPoolManager;
-
+    address public protocolFeesAddress;
     uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
@@ -66,6 +65,7 @@ contract BaseTest is Test {
         rebalancer = makeAddr("rebalancer");
         vaultSeeder = makeAddr("vaultSeeder");
         testPoolManager = makeAddr("testPoolManager");
+        protocolFeesAddress = makeAddr("protocolFeesAddress");
 
         deployer = new Deployer();
         deployer.deploy(owner);
@@ -93,7 +93,11 @@ contract BaseTest is Test {
             _toArray(address(factory)),
             _toArrayTwo(address(router4626), address(router7540)),
             _toArray(address(quoter)),
-            _toArray(address(rebalancer))
+            _toArray(address(rebalancer)),
+            protocolFeesAddress,
+            0,
+            0,
+            0.99 ether
         );
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);
@@ -114,7 +118,7 @@ contract BaseTest is Test {
 
         (node, escrow) = factory.deployFullNode(params);
 
-        escrow.approveMax(address(asset), address(node));
+        // escrow.approveMax(address(asset), address(node));
         node.setMaxDepositSize(1e36);
         vm.stopPrank();
 
@@ -152,12 +156,12 @@ contract BaseTest is Test {
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
         }
     }
 
     function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether});
+        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, isComponent: true});
     }
 
     function _labelAddresses() internal {
@@ -248,10 +252,16 @@ contract BaseTest is Test {
     function _setAllocationToAsyncVault(address liquidityPool_, uint64 allocation) internal {
         vm.startPrank(owner);
         uint64 reserveAllocation = 1 ether - allocation;
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0}));
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0}));
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0, isComponent: true})
+        );
+        node.updateComponentAllocation(
+            address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0, isComponent: true})
+        );
         node.removeComponent(address(vault));
-        node.addComponent(address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0}));
+        node.addComponent(
+            address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0, isComponent: true})
+        );
         quoter.setErc7540(address(liquidityPool_), true);
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();
