@@ -51,7 +51,7 @@ abstract contract BaseRouter {
         _;
     }
 
-    /// @dev Reverts if the target is not whitelisted
+    /// @dev Reverts if the component is not whitelisted
     modifier onlyWhitelisted(address component) {
         if (!isWhitelisted[component]) revert ErrorsLib.NotWhitelisted();
         _;
