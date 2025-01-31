@@ -83,11 +83,16 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         registry = registry_;
         asset = asset_;
         share = address(this);
-        _decimals = IERC20Metadata(asset_).decimals();
         _setReserveAllocation(reserveAllocation_);
         _setRouters(routers);
         _setInitialComponents(components_, componentAllocations_);
-        maxDepositSize = 10_000_000 * 10 ** decimals();
+
+        try IERC20Metadata(asset_).decimals() returns (uint8 decimals_) {
+            _decimals = decimals_;
+        } catch {
+            _decimals = 18;
+        }
+        maxDepositSize = 10_000_000 * 10 ** _decimals;
     }
 
     /*//////////////////////////////////////////////////////////////
