@@ -404,8 +404,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
 
         Request storage request = requests[controller];
-        request.pendingRedeemRequest = request.pendingRedeemRequest + shares;
-        request.sharesAdjusted = request.sharesAdjusted + adjustedShares;
+        request.pendingRedeemRequest += shares;
+        request.sharesAdjusted += adjustedShares;
         sharesExiting += shares;
 
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
