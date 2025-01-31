@@ -10,7 +10,7 @@ import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 /// @title  Escrow
 /// @notice Escrow contract that holds tokens for pending Node withdrawals
 /// @dev    Node is granted maximum allowance to move asset tokens out of Escrow
-///         Node can also _burn shares stored at Escrow but requires no allownace
+///         Node can also _burn shares stored at Escrow but requires no allowance
 contract Escrow {
     using SafeERC20 for IERC20;
     /* IMMUTABLES */
