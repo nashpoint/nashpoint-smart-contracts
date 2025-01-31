@@ -54,10 +54,11 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
         _deposit(node, component, depositAmount);
 
-        if (IERC4626(component).balanceOf(address(node)) < sharesBefore) {
+        uint256 sharesAfter = IERC4626(component).balanceOf(address(node));
+        if (sharesAfter < sharesBefore) {
             revert ErrorsLib.InsufficientSharesReturned(component, 0, expectedShares);
         } else {
-            sharesReturned = IERC4626(component).balanceOf(address(node)) - sharesBefore;
+            sharesReturned = sharesAfter - sharesBefore;
         }
 
         if (sharesReturned + tolerance < expectedShares) {
@@ -193,10 +194,11 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
         _redeem(node, component, shares);
 
-        if (IERC20(asset).balanceOf(address(node)) < balanceBefore) {
+        uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
+        if (balanceAfter < balanceBefore) {
             revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
         } else {
-            assetsReturned = IERC20(asset).balanceOf(address(node)) - balanceBefore;
+            assetsReturned = balanceAfter - balanceBefore;
         }
 
         if (assetsReturned + tolerance < assets) {

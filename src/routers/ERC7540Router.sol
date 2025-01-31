@@ -15,8 +15,6 @@ import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {EventsLib} from "../libraries/EventsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 
-import {console2} from "forge-std/console2.sol";
-
 /**
  * @title ERC7540Router
  * @author ODND Studios
@@ -82,16 +80,17 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
 
         address share = IERC7575(component).share();
         uint256 balanceBefore = IERC20(share).balanceOf(address(node));
-        console2.log("balanceBefore", balanceBefore);
 
         _mint(node, component, claimableShares);
-        if (IERC20(share).balanceOf(address(node)) < balanceBefore) {
+
+        uint256 balanceAfter = IERC20(share).balanceOf(address(node));
+        if (balanceAfter < balanceBefore) {
             revert ErrorsLib.InsufficientSharesReturned(component, 0, claimableShares);
         } else {
-            sharesReceived = IERC20(share).balanceOf(address(node)) - balanceBefore;
+            sharesReceived = balanceAfter - balanceBefore;
         }
-        console2.log("sharesReceived", sharesReceived);
-        if (sharesReceived < claimableShares) {
+
+        if (sharesReceived + tolerance < claimableShares) {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReceived, claimableShares);
         }
 
@@ -148,10 +147,11 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
 
         _withdraw(node, component, assets);
 
-        if (IERC20(asset).balanceOf(address(node)) < balanceBefore) {
+        uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
+        if (balanceAfter < balanceBefore) {
             revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
         } else {
-            assetsReceived = IERC20(asset).balanceOf(address(node)) - balanceBefore;
+            assetsReceived = balanceAfter - balanceBefore;
         }
 
         if ((assetsReceived + tolerance) < assets) {
