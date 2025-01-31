@@ -79,7 +79,7 @@ contract NodeFactoryTest is BaseTest {
         vm.prank(owner);
         vm.expectEmit(false, true, true, true);
 
-        emit EventsLib.CreateNode(address(0), address(testAsset), TEST_NAME, TEST_SYMBOL, owner, expectedSalt);
+        emit EventsLib.NodeCreated(address(0), address(testAsset), TEST_NAME, TEST_SYMBOL, owner, expectedSalt);
 
         INode node = testFactory.createNode(
             TEST_NAME,
@@ -101,7 +101,7 @@ contract NodeFactoryTest is BaseTest {
         vm.prank(owner);
         vm.expectEmit(false, true, true, true);
 
-        emit EventsLib.CreateNode(
+        emit EventsLib.NodeCreated(
             address(0),
             address(testAsset),
             TEST_NAME,
