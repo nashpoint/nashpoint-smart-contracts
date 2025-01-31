@@ -87,6 +87,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         _setReserveAllocation(reserveAllocation_);
         _setRouters(routers);
         _setInitialComponents(components_, componentAllocations_);
+        maxDepositSize = 10_000_000 * 10 ** decimals();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -139,7 +140,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         isInitialized = true;
         lastRebalance = uint64(block.timestamp - rebalanceWindow);
         lastPayment = uint64(block.timestamp);
-        maxDepositSize = 10_000_000 * 10 ** decimals();
 
         emit EventsLib.Initialize(escrow_, address(this));
     }
