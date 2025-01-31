@@ -1893,6 +1893,36 @@ contract NodeTest is BaseTest {
         }
     }
 
+    function test_getLiquidationQueueLength() public {
+        assertEq(node.getLiquidationQueueLength(), 0);
+
+        address component1 = makeAddr("component1");
+        address component2 = makeAddr("component2");
+        address component3 = makeAddr("component3");
+
+        address[] memory queue = new address[](3);
+        queue[0] = component1;
+        queue[1] = component2;
+        queue[2] = component3;
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.addComponent(
+            component1, ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            component2, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            component3, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.setLiquidationQueue(queue);
+        vm.stopPrank();
+
+        assertEq(node.getLiquidationQueueLength(), 3);
+    }
+
     // todo: fix this test
     function test_getSharesExiting(uint256 depositAmount, uint256 redeemAmount) public {
         _seedNode(100 ether);
