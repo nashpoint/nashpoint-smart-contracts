@@ -87,15 +87,15 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @param assets The amount of assets being deposited
     /// @param reserveCash The reserve cash of the Node
     /// @param totalAssets The total assets of the Node
-    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @param maxSwingFactor The maximum swing factor to apply
+    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @return shares The shares to mint after applying the deposit bonus
     function calculateDepositBonus(
         uint256 assets,
         uint256 reserveCash,
         uint256 totalAssets,
-        uint64 targetReserveRatio,
-        uint64 maxSwingFactor
+        uint64 maxSwingFactor,
+        uint64 targetReserveRatio
     ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 shares) {
         int256 reserveImpact = int256(_calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets, assets));
 
