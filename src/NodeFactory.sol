@@ -9,7 +9,7 @@ import {Node} from "./Node.sol";
 import {IEscrow} from "./interfaces/IEscrow.sol";
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {INodeFactory, DeployParams} from "./interfaces/INodeFactory.sol";
-import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
+import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
@@ -89,6 +89,7 @@ contract NodeFactory is INodeFactory {
         );
 
         registry.addNode(address(node));
+
         emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, salt);
     }
 }

@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {ComponentAllocation} from "../interfaces/INode.sol";
+import {RegistryType} from "../interfaces/INodeRegistry.sol";
 
 /// @title EventsLib
 /// @author ODND Studios
@@ -128,4 +129,7 @@ library EventsLib {
 
     /// @notice Emitted when max deposit size is set
     event MaxDepositSizeSet(uint256 maxDepositSize);
+
+    /// @notice Emitted when a role is set
+    event RoleSet(address indexed addr, RegistryType role, bool status);
 }

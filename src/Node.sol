@@ -350,6 +350,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter {
+        if (executionFee > IERC20(asset).balanceOf(address(this))) {
+            revert ErrorsLib.NotEnoughAssetsToPayFees(executionFee, IERC20(asset).balanceOf(address(this)));
+        }
         cacheTotalAssets -= executionFee;
         IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
     }
@@ -440,15 +443,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INode
-    function deposit(uint256 assets, address receiver) public virtual returns (uint256 sharesToMint) {
+    function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
         if (assets > maxDepositSize) {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
-        sharesToMint = _calculateSharesAfterSwingPricing(assets);
-        _deposit(_msgSender(), receiver, assets, sharesToMint);
+        shares = _calculateSharesAfterSwingPricing(assets);
+        _deposit(msg.sender, receiver, assets, shares);
         cacheTotalAssets += assets;
-        emit IERC7575.Deposit(receiver, receiver, assets, sharesToMint);
-        return sharesToMint;
+        emit IERC7575.Deposit(receiver, receiver, assets, shares);
+        return shares;
     }
 
     /// @inheritdoc INode
@@ -456,11 +459,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ExceedsMaxMint();
         }
-        uint256 assetsToDeposit = convertToAssets(shares);
-        _deposit(_msgSender(), receiver, assetsToDeposit, shares);
-        cacheTotalAssets += assetsToDeposit;
-        emit IERC7575.Deposit(receiver, receiver, assetsToDeposit, shares);
-        return assetsToDeposit;
+        assets = convertToAssets(shares);
+        _deposit(msg.sender, receiver, assets, shares);
+        cacheTotalAssets += assets;
+        emit IERC7575.Deposit(receiver, receiver, assets, shares);
+        return assets;
     }
 
     function withdraw(uint256 assets, address receiver, address controller) public returns (uint256 shares) {

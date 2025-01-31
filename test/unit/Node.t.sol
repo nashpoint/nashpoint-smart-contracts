@@ -1128,6 +1128,24 @@ contract NodeTest is BaseTest {
         node.subtractProtocolExecutionFee(0.1 ether);
     }
 
+    function test_subtractProtocolExecutionFee_revert_NotEnoughAssets() public {
+        // Seed the node with initial assets
+
+        deal(address(asset), address(node), 0);
+
+        uint256 executionFee = 1 ether;
+
+        // Mock the protocol fee address
+        address protocolFeeAddress = makeAddr("protocolFeeAddress");
+        vm.prank(owner);
+        registry.setProtocolFeeAddress(protocolFeeAddress);
+
+        // Call subtractProtocolExecutionFee as router
+        vm.prank(address(router4626));
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotEnoughAssetsToPayFees.selector, executionFee, 0));
+        node.subtractProtocolExecutionFee(executionFee);
+    }
+
     function test_updateTotalAssets() public {
         _seedNode(100 ether);
 

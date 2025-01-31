@@ -9,7 +9,7 @@ import {ErrorsLib} from "./ErrorsLib.sol";
  * @title BaseQuoter
  * @author ODND Studios
  */
-contract BaseQuoter {
+abstract contract BaseQuoter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry.
     INodeRegistry public immutable registry;
@@ -33,7 +33,7 @@ contract BaseQuoter {
 
     /// @dev Reverts if the caller is not the NodeRegistry owner.
     modifier onlyRegistryOwner() {
-        if (msg.sender != address(Ownable(address(registry)).owner())) revert ErrorsLib.NotRegistryOwner();
+        if (msg.sender != Ownable(address(registry)).owner()) revert ErrorsLib.NotRegistryOwner();
         _;
     }
 }

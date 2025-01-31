@@ -6,6 +6,14 @@ pragma solidity 0.8.26;
  * @author ODND Studios
  * @notice Interface for the NodeRegistry contract
  */
+enum RegistryType {
+    NODE,
+    FACTORY,
+    ROUTER,
+    QUOTER,
+    REBALANCER
+}
+
 interface INodeRegistry {
     /**
      * @notice Initializes the registry with initial contracts
@@ -22,58 +30,18 @@ interface INodeRegistry {
     ) external;
 
     /**
-     * @notice Adds a new node to the registry (only callable by factory)
-     * @param node_ Address of node to add
+     * @notice Sets the role of an address
+     * @param addr Address to set the role for
+     * @param role Role to set
+     * @param status Status to set
+     */
+    function setRole(address addr, RegistryType role, bool status) external;
+
+    /**
+     * @notice Adds a node to the registry
+     * @param node_ Address of the node to add
      */
     function addNode(address node_) external;
-
-    /**
-     * @notice Adds a new factory to the registry
-     * @param factory_ Address of factory to add
-     */
-    function addFactory(address factory_) external;
-
-    /**
-     * @notice Removes a factory from the registry
-     * @param factory_ Address of factory to remove
-     */
-    function removeFactory(address factory_) external;
-
-    /**
-     * @notice Adds a new router to the registry
-     * @param router_ Address of router to add
-     */
-    function addRouter(address router_) external;
-
-    /**
-     * @notice Removes a router from the registry
-     * @param router_ Address of router to remove
-     */
-    function removeRouter(address router_) external;
-
-    /**
-     * @notice Adds a new quoter to the registry
-     * @param quoter_ Address of quoter to add
-     */
-    function addQuoter(address quoter_) external;
-
-    /**
-     * @notice Removes a quoter from the registry
-     * @param quoter_ Address of quoter to remove
-     */
-    function removeQuoter(address quoter_) external;
-
-    /**
-     * @notice Adds a new rebalancer to the registry
-     * @param rebalancer_ Address of rebalancer to add
-     */
-    function addRebalancer(address rebalancer_) external;
-
-    /**
-     * @notice Removes a rebalancer from the registry
-     * @param rebalancer_ Address of rebalancer to remove
-     */
-    function removeRebalancer(address rebalancer_) external;
 
     /**
      * @notice Returns whether an address is a registered node
@@ -115,13 +83,6 @@ interface INodeRegistry {
      * @return bool True if registry is initialized
      */
     function isInitialized() external view returns (bool);
-
-    /**
-     * @notice Returns whether an address is a system contract
-     * @param contract_ Address to check
-     * @return bool True if address is a system contract
-     */
-    function isSystemContract(address contract_) external view returns (bool);
 
     /**
      * @notice Returns the address of the protocol fee address
