@@ -103,7 +103,7 @@ library EventsLib {
     event RedeemClaimable(address indexed controller, uint256 requestId, uint256 assets, uint256 shares);
 
     /// @notice Emitted when swing pricing is enabled or disabled
-    event SwingPricingStatusUpdated(bool status);
+    event SwingPricingStatusUpdated(bool status, uint256 newSwingPricing);
 
     /// @notice Emitted when rebalance is started
     event RebalanceStarted(address node, uint256 blockStarted, uint256 duration);

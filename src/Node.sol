@@ -15,6 +15,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Arrays} from "@openzeppelin/contracts/utils/Arrays.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
@@ -242,6 +243,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
+        _validateNoDuplicateComponents(newQueue);
+
         for (uint256 i = 0; i < newQueue.length; i++) {
             address component = newQueue[i];
             if (component == address(0)) revert ErrorsLib.ZeroAddress();
@@ -267,7 +270,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function enableSwingPricing(bool status_, uint64 maxSwingFactor_) public onlyOwner {
         swingPricingEnabled = status_;
         maxSwingFactor = maxSwingFactor_;
-        emit EventsLib.SwingPricingStatusUpdated(status_);
+        emit EventsLib.SwingPricingStatusUpdated(status_, maxSwingFactor_);
     }
 
     /// @inheritdoc INode
@@ -719,6 +722,14 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
         if (!_validateComponentRatios()) {
             revert ErrorsLib.InvalidComponentRatios();
+        }
+        _validateNoDuplicateComponents(components_);
+    }
+
+    function _validateNoDuplicateComponents(address[] memory componentArray) internal pure {
+        Arrays.sort(componentArray);
+        for (uint256 i = 0; i < componentArray.length - 1; i++) {
+            if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
         }
     }
 

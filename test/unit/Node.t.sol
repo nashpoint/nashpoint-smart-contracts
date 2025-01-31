@@ -618,6 +618,17 @@ contract NodeTest is BaseTest {
         testNode.setLiquidationQueue(components);
     }
 
+    function test_setLiquidationQueue_revert_DuplicateComponent() public {
+        address[] memory components = new address[](3);
+        components[0] = testComponent;
+        components[1] = testComponent2;
+        components[2] = testComponent;
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.DuplicateComponent.selector);
+        testNode.setLiquidationQueue(components);
+    }
+
     function test_setRebalanceCooldown() public {
         uint64 newRebalanceCooldown = 1 days;
         vm.prank(owner);
