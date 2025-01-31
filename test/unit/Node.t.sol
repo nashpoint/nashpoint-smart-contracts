@@ -251,6 +251,8 @@ contract NodeTest is BaseTest {
         ComponentAllocation memory allocation =
             ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
 
+        vm.mockCall(newComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+
         vm.prank(owner);
         testNode.addComponent(newComponent, allocation);
 
@@ -288,6 +290,8 @@ contract NodeTest is BaseTest {
         address secondComponent = makeAddr("secondComponent");
         ComponentAllocation memory allocation =
             ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
+
+        vm.mockCall(secondComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
 
         vm.startPrank(owner);
         testNode.addComponent(secondComponent, allocation);
@@ -340,6 +344,9 @@ contract NodeTest is BaseTest {
         address component2 = makeAddr("component2");
         address component3 = makeAddr("component3");
 
+        vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+        vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+
         vm.startPrank(owner);
         testNode.addComponent(
             component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
@@ -370,6 +377,9 @@ contract NodeTest is BaseTest {
         vm.mockCall(component2, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
         vm.mockCall(component3, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
 
+        vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+        vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+
         vm.startPrank(owner);
         testNode.addComponent(
             component2, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
@@ -398,6 +408,9 @@ contract NodeTest is BaseTest {
         vm.mockCall(testComponent, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
         vm.mockCall(component2, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
         vm.mockCall(component3, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
+
+        vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+        vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
 
         vm.startPrank(owner);
         testNode.addComponent(
@@ -820,6 +833,8 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
         deal(address(testComponent), address(node), 100 ether);
 
+        vm.mockCall(testComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
         vm.startPrank(owner);
         node.addComponent(
             testComponent, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
@@ -869,6 +884,9 @@ contract NodeTest is BaseTest {
 
     function test_startRebalance_revert_InvalidComponentRatios() public {
         vm.warp(block.timestamp + 1 days);
+
+        vm.mockCall(testComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
         vm.prank(owner);
         node.addComponent(
             testComponent, ComponentAllocation({targetWeight: 1.2 ether, maxDelta: 0.01 ether, isComponent: true})
@@ -1865,6 +1883,10 @@ contract NodeTest is BaseTest {
         address component2 = makeAddr("component2");
         address component3 = makeAddr("component3");
 
+        vm.mockCall(component1, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+        vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+        vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
         vm.startPrank(owner);
         node.addComponent(
             component3, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
@@ -1899,6 +1921,10 @@ contract NodeTest is BaseTest {
         address component1 = makeAddr("component1");
         address component2 = makeAddr("component2");
         address component3 = makeAddr("component3");
+
+        vm.mockCall(component1, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+        vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+        vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
 
         address[] memory queue = new address[](3);
         queue[0] = component1;
@@ -1975,6 +2001,9 @@ contract NodeTest is BaseTest {
         address component1 = makeAddr("component1");
         address component2 = makeAddr("component2");
 
+        vm.mockCall(component1, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+        vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
         vm.startPrank(owner);
         node.addComponent(
             component1, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
@@ -1997,6 +2026,8 @@ contract NodeTest is BaseTest {
         ComponentAllocation memory allocation =
             ComponentAllocation({targetWeight: ratio, maxDelta: 0.01 ether, isComponent: true});
 
+        vm.mockCall(component, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
         vm.prank(owner);
         node.addComponent(component, allocation);
 
@@ -2010,6 +2041,8 @@ contract NodeTest is BaseTest {
 
         vm.warp(block.timestamp + 1 days);
 
+        vm.mockCall(testComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
         vm.prank(owner);
         node.addComponent(
             testComponent, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
@@ -2022,6 +2055,8 @@ contract NodeTest is BaseTest {
 
         ComponentAllocation memory allocation =
             ComponentAllocation({targetWeight: 0.5 ether, maxDelta: delta, isComponent: true});
+
+        vm.mockCall(testComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
 
         vm.prank(owner);
         node.addComponent(testComponent, allocation);

@@ -79,6 +79,9 @@ library ErrorsLib {
     /// @notice Thrown when the component is invalid.
     error InvalidComponent();
 
+    /// @notice Thrown when the component asset is invalid.
+    error InvalidComponentAsset();
+
     /// @notice Thrown when the token is invalid.
     error InvalidToken();
 

@@ -144,7 +144,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @param component The address of the ERC4626 component.
     /// @param assets The amount of assets to deposit.
     function _deposit(address node, address component, uint256 assets) internal returns (uint256) {
-        address underlying = IERC4626(component).asset();
+        address underlying = INode(node).asset();
         _safeApprove(node, underlying, component, assets);
 
         bytes memory result =
