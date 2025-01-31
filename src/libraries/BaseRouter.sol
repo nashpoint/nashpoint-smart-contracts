@@ -140,6 +140,7 @@ abstract contract BaseRouter {
         }
 
         // limit deposit by reserve ratio requirements
+        // _validateReserveAboveTargetRatio() ensures currentCash >= idealCashReserve
         depositAmount = MathLib.min(depositAmount, currentCash - idealCashReserve);
 
         // subtract execution fee for protocol
