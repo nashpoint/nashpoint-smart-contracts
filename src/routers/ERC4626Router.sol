@@ -147,8 +147,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         address underlying = INode(node).asset();
         _safeApprove(node, underlying, component, assets);
 
-        bytes memory result =
-            INode(node).execute(component, abi.encodeWithSelector(IERC4626.deposit.selector, assets, node));
+        bytes memory result = INode(node).execute(component, abi.encodeCall(IERC4626.deposit, (assets, node)));
         return abi.decode(result, (uint256));
     }
 
@@ -157,8 +156,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @param component The address of the ERC4626 component.
     /// @param shares The amount of shares to burn.
     function _redeem(address node, address component, uint256 shares) internal returns (uint256) {
-        bytes memory result =
-            INode(node).execute(component, abi.encodeWithSelector(IERC4626.redeem.selector, shares, node, node));
+        bytes memory result = INode(node).execute(component, abi.encodeCall(IERC4626.redeem, (shares, node, node)));
         return abi.decode(result, (uint256));
     }
 
