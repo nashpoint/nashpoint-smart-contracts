@@ -41,7 +41,10 @@ contract DeployTestEnv is Script {
             _toArray(address(factory)),
             _toArray(address(router)),
             _toArray(address(quoter)),
-            _toArray(address(rebalancer))
+            _toArray(address(rebalancer)),
+            address(0),
+            0,
+            0
         );
 
         // Configure components
