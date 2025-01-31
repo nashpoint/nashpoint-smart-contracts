@@ -408,8 +408,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
 
         Request storage request = requests[controller];
-        request.pendingRedeemRequest = request.pendingRedeemRequest + shares;
-        request.sharesAdjusted = request.sharesAdjusted + adjustedShares;
+        request.pendingRedeemRequest += shares;
+        request.sharesAdjusted += adjustedShares;
         sharesExiting += shares;
 
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
@@ -603,6 +603,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
+    function getLiquidationQueueLength() external view returns (uint256) {
+        return liquidationsQueue.length;
+    }
+
+    /// @inheritdoc INode
     function getReserveAllocation() public view returns (ComponentAllocation memory) {
         return reserveAllocation;
     }
@@ -753,16 +758,21 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return totalWeight == WAD;
     }
 
+    function _validateReserveAboveTarget() internal view returns (bool) {
+        uint256 currentReserveRatio = MathLib.mulDiv(getCashAfterRedemptions(), WAD, totalAssets());
+        return currentReserveRatio >= reserveAllocation.targetWeight;
+    }
+
     function _isComponent(address component) internal view returns (bool) {
         return componentAllocations[component].isComponent;
     }
 
     function _calculateSharesAfterSwingPricing(uint256 assets) internal view returns (uint256 shares) {
-        if ((totalAssets() == 0 && totalSupply() == 0) || !swingPricingEnabled) {
+        if ((totalAssets() == 0 && totalSupply() == 0) || !swingPricingEnabled || _validateReserveAboveTarget()) {
             shares = convertToShares(assets);
         } else {
             shares = quoter.calculateDepositBonus(
-                assets, getCashAfterRedemptions(), totalAssets(), reserveAllocation.targetWeight, maxSwingFactor
+                assets, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, reserveAllocation.targetWeight
             );
         }
     }

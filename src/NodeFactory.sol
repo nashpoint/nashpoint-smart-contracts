@@ -105,6 +105,6 @@ contract NodeFactory is INodeFactory {
 
         registry.addNode(address(node));
 
-        emit EventsLib.CreateNode(address(node), asset, name, symbol, owner, salt);
+        emit EventsLib.NodeCreated(address(node), asset, name, symbol, owner, salt);
     }
 }

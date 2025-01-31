@@ -260,7 +260,7 @@ contract VaultTests is BaseTest {
 
         // accuracy is 0.1% note this is too big a delta
         // todo test this later to get it to 100% accuracy
-        assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15);
+        assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15, "check here");
 
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);

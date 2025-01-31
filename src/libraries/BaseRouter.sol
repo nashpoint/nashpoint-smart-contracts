@@ -51,9 +51,9 @@ abstract contract BaseRouter {
         _;
     }
 
-    /// @dev Reverts if the target is not whitelisted
-    modifier onlyWhitelisted(address target) {
-        if (!isWhitelisted[target]) revert ErrorsLib.NotWhitelisted();
+    /// @dev Reverts if the component is not whitelisted
+    modifier onlyWhitelisted(address component) {
+        if (!isWhitelisted[component]) revert ErrorsLib.NotWhitelisted();
         _;
     }
 
@@ -70,26 +70,29 @@ abstract contract BaseRouter {
                          REGISTRY OWNER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Updates the whitelist status of a target
-    /// @param target The address to update
+    /// @notice Updates the whitelist status of a component
+    /// @param component The address to update
     /// @param status The new whitelist status
-    function setWhitelistStatus(address target, bool status) external onlyRegistryOwner {
-        if (target == address(0)) revert ErrorsLib.ZeroAddress();
-        isWhitelisted[target] = status;
-        emit EventsLib.ComponentWhitelisted(target, status);
+    function setWhitelistStatus(address component, bool status) external onlyRegistryOwner {
+        if (component == address(0)) revert ErrorsLib.ZeroAddress();
+        isWhitelisted[component] = status;
+        emit EventsLib.ComponentWhitelisted(component, status);
     }
 
-    /// @notice Batch updates whitelist status of targets
-    /// @param targets Array of addresses to update
+    /// @notice Batch updates whitelist status of components
+    /// @param components Array of addresses to update
     /// @param statuses Array of whitelist statuses
-    function batchSetWhitelistStatus(address[] calldata targets, bool[] calldata statuses) external onlyRegistryOwner {
-        if (targets.length != statuses.length) revert ErrorsLib.LengthMismatch();
+    function batchSetWhitelistStatus(address[] calldata components, bool[] calldata statuses)
+        external
+        onlyRegistryOwner
+    {
+        if (components.length != statuses.length) revert ErrorsLib.LengthMismatch();
 
-        uint256 length = targets.length;
+        uint256 length = components.length;
         for (uint256 i = 0; i < length;) {
-            if (targets[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            isWhitelisted[targets[i]] = statuses[i];
-            emit EventsLib.ComponentWhitelisted(targets[i], statuses[i]);
+            if (components[i] == address(0)) revert ErrorsLib.ZeroAddress();
+            isWhitelisted[components[i]] = statuses[i];
+            emit EventsLib.ComponentWhitelisted(components[i], statuses[i]);
             unchecked {
                 ++i;
             }
@@ -125,9 +128,8 @@ abstract contract BaseRouter {
 
     function _computeDepositAmount(address node, address component) internal returns (uint256 depositAmount) {
         // checks if excess reserve is available to invest
-        _validateReserveAboveTargetRatio(node);
-
         (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
+        _validateReserveAboveTargetRatio(currentCash, idealCashReserve);
 
         // gets units of asset required to set component to target ratio
         depositAmount = _getInvestmentSize(node, component);
@@ -145,11 +147,11 @@ abstract contract BaseRouter {
     }
 
     /// @notice Validates that the reserve is above the target ratio.
-    /// @param node The address of the node.
-    function _validateReserveAboveTargetRatio(address node) internal view {
-        (, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
-
+    /// @param currentCash The current cash of the node.
+    /// @param idealCashReserve The ideal cash reserve of the node.
+    function _validateReserveAboveTargetRatio(uint256 currentCash, uint256 idealCashReserve) internal pure {
         // checks if available reserve exceeds target ratio
+
         if (currentCash < idealCashReserve) {
             revert ErrorsLib.ReserveBelowTargetRatio();
         }

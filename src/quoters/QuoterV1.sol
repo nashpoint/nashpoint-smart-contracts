@@ -87,15 +87,15 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @param assets The amount of assets being deposited
     /// @param reserveCash The reserve cash of the Node
     /// @param totalAssets The total assets of the Node
-    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @param maxSwingFactor The maximum swing factor to apply
+    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @return shares The shares to mint after applying the deposit bonus
     function calculateDepositBonus(
         uint256 assets,
         uint256 reserveCash,
         uint256 totalAssets,
-        uint64 targetReserveRatio,
-        uint64 maxSwingFactor
+        uint64 maxSwingFactor,
+        uint64 targetReserveRatio
     ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 shares) {
         int256 reserveImpact = int256(_calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets, assets));
 
@@ -162,12 +162,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 totalAssets,
         uint256 deposit
     ) internal pure returns (int256) {
-        // get current reserve ratio and return 0 if targetReserveRatio is already reached
-        uint256 currentReserveRatio = MathLib.mulDiv(reserveCash, WAD, totalAssets);
-        if (currentReserveRatio >= targetReserveRatio) {
-            return 0;
-        }
-
         // get the required assets in unit terms where actual reserve ratio = target reserve ratio
         uint256 investedAssets = totalAssets - reserveCash;
         uint256 targetReserveAssets = MathLib.mulDiv(investedAssets, targetReserveRatio, WAD - targetReserveRatio);
@@ -244,7 +238,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
         shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
         shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
-        shares > 0 ? assets = IERC4626(component).convertToAssets(shares) : 0;
+        assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
         assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
         assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
 
