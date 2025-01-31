@@ -16,7 +16,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
-import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 
 contract NodeHarness is Node {
     constructor(
@@ -85,7 +85,8 @@ contract NodeTest is BaseTest {
             _toArray(testRebalancer),
             protocolFeesAddress,
             0,
-            0
+            0,
+            0.1 ether
         );
 
         testNode = new Node(
@@ -544,44 +545,13 @@ contract NodeTest is BaseTest {
         testNode.removeRebalancer(makeAddr("nonexistent"));
     }
 
-    function test_setEscrow() public {
-        address newEscrow = makeAddr("newEscrow");
-
-        vm.startPrank(owner);
-        testNode.initialize(makeAddr("initialEscrow"));
-        testNode.setEscrow(newEscrow);
-        vm.stopPrank();
-
-        assertEq(address(testNode.escrow()), newEscrow);
-    }
-
-    function test_setEscrow_revert_ZeroAddress() public {
-        vm.startPrank(owner);
-        // Initialize first to avoid AlreadySet error
-        testNode.initialize(makeAddr("initialEscrow"));
-
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.setEscrow(address(0));
-        vm.stopPrank();
-    }
-
-    function test_setEscrow_revert_AlreadySet() public {
-        address escrowAddr = makeAddr("escrow");
-
-        vm.startPrank(owner);
-        testNode.initialize(escrowAddr);
-
-        vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testNode.setEscrow(escrowAddr);
-        vm.stopPrank();
-    }
-
     function test_setQuoter() public {
         address newQuoter = makeAddr("newQuoter");
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+        INodeRegistry(testRegistry).setRole(newQuoter, RegistryType.QUOTER, true);
         testNode.setQuoter(newQuoter);
-
+        vm.stopPrank();
         assertEq(address(testNode.quoter()), newQuoter);
     }
 
@@ -601,6 +571,12 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.setQuoter(testQuoter);
+    }
+
+    function test_setQuoter_revert_NotWhitelisted() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.setQuoter(makeAddr("notWhitelisted"));
     }
 
     function test_setLiquidationQueue() public {
@@ -819,6 +795,43 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.ExceedsMaxDepositLimit.selector);
         node.setMaxDepositSize(1e36 + 1);
+    }
+
+    function test_rescueTokens() public {
+        ERC20Mock rescueToken = new ERC20Mock("RescueToken", "RST");
+        deal(address(rescueToken), address(node), 100 ether);
+
+        assertEq(rescueToken.balanceOf(address(node)), 100 ether);
+
+        vm.prank(owner);
+        node.rescueTokens(address(rescueToken), address(user), 100 ether);
+        assertEq(rescueToken.balanceOf(address(user)), 100 ether);
+        assertEq(rescueToken.balanceOf(address(node)), 0);
+    }
+
+    function test_rescueTokens_revert_asset() public {
+        deal(address(asset), address(node), 100 ether);
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.InvalidToken.selector);
+        node.rescueTokens(address(asset), address(user), 100 ether);
+    }
+
+    function test_rescueTokens_revert_component() public {
+        vm.warp(block.timestamp + 1 days);
+        deal(address(testComponent), address(node), 100 ether);
+
+        vm.startPrank(owner);
+        node.addComponent(
+            testComponent, ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        vm.expectRevert(ErrorsLib.InvalidToken.selector);
+        node.rescueTokens(address(testComponent), address(user), 100 ether);
+    }
+
+    function test_rescueTokens_revert_notOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        node.rescueTokens(address(asset), address(user), 100 ether);
     }
 
     function test_startRebalance() public {
@@ -1878,6 +1891,36 @@ contract NodeTest is BaseTest {
         for (uint256 i = 0; i < expectedQueue.length; i++) {
             assertEq(liquidationQueue[i], expectedQueue[i]);
         }
+    }
+
+    function test_getLiquidationQueueLength() public {
+        assertEq(node.getLiquidationQueueLength(), 0);
+
+        address component1 = makeAddr("component1");
+        address component2 = makeAddr("component2");
+        address component3 = makeAddr("component3");
+
+        address[] memory queue = new address[](3);
+        queue[0] = component1;
+        queue[1] = component2;
+        queue[2] = component3;
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.addComponent(
+            component1, ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            component2, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            component3, ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.setLiquidationQueue(queue);
+        vm.stopPrank();
+
+        assertEq(node.getLiquidationQueueLength(), 3);
     }
 
     // todo: fix this test

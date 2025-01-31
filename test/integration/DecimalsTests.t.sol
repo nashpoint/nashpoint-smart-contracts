@@ -5,7 +5,6 @@ import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
@@ -21,7 +20,7 @@ import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 
 contract DecimalsTests is BaseTest {
     INode public decNode;
-    IEscrow public decEscrow;
+    address public decEscrow;
     ERC20Mock public testToken6;
     ERC20Mock public testToken18;
     ERC4626Mock public testVault6;
@@ -62,7 +61,7 @@ contract DecimalsTests is BaseTest {
         quoter.setErc4626(address(testVault6), true);
         router4626.setWhitelistStatus(address(testVault6), true);
 
-        decEscrow.approveMax(address(testToken6), address(decNode));
+        // decEscrow.approveMax(address(testToken6), address(decNode));
         vm.stopPrank();
 
         vm.label(address(testToken18), "Test Token 18");

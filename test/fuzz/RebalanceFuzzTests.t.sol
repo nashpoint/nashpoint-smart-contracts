@@ -80,6 +80,8 @@ contract RebalanceFuzzTests is BaseTest {
         ];
 
         synchronousComponents = [address(vaultA), address(vaultB), address(vaultC)];
+
+        vm.warp(block.timestamp - 1 days);
     }
 
     function test_fuzz_rebalance_basic(uint64 targetReserveRatio, uint256 seedAmount, uint64 randUint) public {
@@ -87,6 +89,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -106,6 +109,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -114,10 +118,11 @@ contract RebalanceFuzzTests is BaseTest {
 
         runs = uint8(bound(uint256(runs), 1, 100));
         for (uint256 i = 0; i < runs; i++) {
-            vm.warp(block.timestamp + 1 days);
             uint256 depositThisRun = uint256(keccak256(abi.encodePacked(randUint, i, depositAmount)));
             depositThisRun = bound(depositThisRun, 1 ether, maxDeposit);
+
             _userDeposits(user, depositThisRun);
+            vm.warp(block.timestamp + 1 days);
             _tryRebalance();
             depositAssets += depositThisRun;
         }
@@ -139,6 +144,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -170,6 +176,7 @@ contract RebalanceFuzzTests is BaseTest {
 
         deal(address(asset), address(user), type(uint256).max);
         _userDeposits(user, seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -215,6 +222,7 @@ contract RebalanceFuzzTests is BaseTest {
         _setFees(annualManagementFee, protocolManagementFee, protocolExecutionFee);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -262,6 +270,7 @@ contract RebalanceFuzzTests is BaseTest {
         maxInterest = bound(maxInterest, 0.1 ether, 1e36);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
         _mock7540_processPendingDeposits();
@@ -336,9 +345,11 @@ contract RebalanceFuzzTests is BaseTest {
         targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.01 ether, 0.99 ether));
         randUint = uint64(bound(uint256(randUint), 0, 1 ether));
 
-        _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
         deal(address(asset), address(user), seedAmount);
         _userDeposits(user, seedAmount);
+        vm.warp(block.timestamp + 1 days);
+        _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
+
         _tryRebalance();
 
         vm.startPrank(owner);

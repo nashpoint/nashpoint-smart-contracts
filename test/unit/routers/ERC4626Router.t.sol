@@ -37,10 +37,14 @@ contract ERC4626RouterTest is BaseTest {
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether, isComponent: true})
         );
+        vm.warp(block.timestamp - 1 days);
     }
 
     function test_getInvestmentSize() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         ComponentAllocation memory allocation50 =
             ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
 
@@ -58,6 +62,8 @@ contract ERC4626RouterTest is BaseTest {
 
     function test_invest() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -77,6 +83,9 @@ contract ERC4626RouterTest is BaseTest {
 
     function test_invest_fail_not_whitelisted() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         node.addComponent(address(testComponent), allocation);
@@ -90,6 +99,8 @@ contract ERC4626RouterTest is BaseTest {
     }
 
     function test_invest_fail_not_rebalancer() public {
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         router4626.setWhitelistStatus(address(testComponent), true);
@@ -106,6 +117,8 @@ contract ERC4626RouterTest is BaseTest {
     }
 
     function test_invest_fail_not_node() public {
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         router4626.setWhitelistStatus(address(testComponent), true);
@@ -120,6 +133,8 @@ contract ERC4626RouterTest is BaseTest {
     }
 
     function test_invest_fail_invalid_component() public {
+        vm.warp(block.timestamp + 1 days);
+
         ERC4626Mock dummyComponent = new ERC4626Mock(address(asset));
 
         vm.startPrank(owner);
@@ -142,6 +157,8 @@ contract ERC4626RouterTest is BaseTest {
 
     function test_invest_revert_ComponentWithinTargetRange() public {
         _seedNode(1000 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -172,6 +189,8 @@ contract ERC4626RouterTest is BaseTest {
         node.deposit(100 ether, address(user));
         vm.stopPrank();
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         node.addComponent(address(testComponent), allocation);
@@ -200,6 +219,8 @@ contract ERC4626RouterTest is BaseTest {
     function test_invest_depositAmount_reducedToAvailableReserve() public {
         // Seed the node with 1000 ether
         _seedNode(1000 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         // Define component allocations
         ComponentAllocation memory allocation20 =
@@ -258,6 +279,8 @@ contract ERC4626RouterTest is BaseTest {
     function test_invest_depositAmount_revert_ExceedsMaxVaultDeposit() public {
         _seedNode(1000 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         node.addComponent(address(testComponent), allocation);
@@ -288,6 +311,8 @@ contract ERC4626RouterTest is BaseTest {
     function test_invest_depositAmount_revert_InsufficientSharesReturned() public {
         _seedNode(1000 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         node.addComponent(address(testComponent), allocation);
@@ -311,6 +336,8 @@ contract ERC4626RouterTest is BaseTest {
 
     function test_liquidate() public {
         _seedNode(1000 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -368,6 +395,8 @@ contract ERC4626RouterTest is BaseTest {
     function test_liquidate_revert_zeroShareValue() public {
         _seedNode(1000 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         node.addComponent(address(testComponent), allocation);
@@ -381,6 +410,8 @@ contract ERC4626RouterTest is BaseTest {
 
     function test_liquidate_revert_InvalidShareValue() public {
         _seedNode(1000 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
@@ -404,6 +435,8 @@ contract ERC4626RouterTest is BaseTest {
     function test_liquidate_revert_InsufficientAssetsReturned() public {
         _seedNode(1000 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);
         node.addComponent(address(testComponent), allocation);
@@ -421,7 +454,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.mockCall(
             address(testComponent),
             abi.encodeWithSelector(testComponent.previewRedeem.selector, shares),
-            abi.encode(expectedAssets + 1)
+            abi.encode(expectedAssets + 100)
         );
 
         vm.prank(rebalancer);
@@ -430,7 +463,7 @@ contract ERC4626RouterTest is BaseTest {
                 ErrorsLib.InsufficientAssetsReturned.selector,
                 address(testComponent),
                 expectedAssets,
-                expectedAssets + 1
+                expectedAssets + 100
             )
         );
         router4626.liquidate(address(node), address(testComponent), shares);
@@ -484,6 +517,9 @@ contract ERC4626RouterTest is BaseTest {
     function test_fulfillRedeemRequest_partialAmount() public {
         address[] memory components = node.getComponents();
         _userDeposits(user, 100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         deal(address(asset), address(user), 0);
         vm.warp(block.timestamp + 1 days);
 
@@ -534,6 +570,8 @@ contract ERC4626RouterTest is BaseTest {
         vm.stopPrank();
 
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc4626(address(testComponent), true);

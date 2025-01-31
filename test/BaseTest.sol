@@ -18,7 +18,6 @@ import {Escrow} from "src/Escrow.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
 import {MathLib} from "src/libraries/MathLib.sol";
@@ -34,7 +33,7 @@ contract BaseTest is Test {
     ERC7540Router public router7540;
 
     INode public node;
-    IEscrow public escrow;
+    address public escrow;
     IERC20 public asset;
     ERC4626Mock public vault;
     ERC7540Mock public liquidityPool;
@@ -97,7 +96,8 @@ contract BaseTest is Test {
             _toArray(address(rebalancer)),
             protocolFeesAddress,
             0,
-            0
+            0,
+            0.99 ether
         );
         quoter.setErc4626(address(vault), true);
         router4626.setWhitelistStatus(address(vault), true);
@@ -118,7 +118,7 @@ contract BaseTest is Test {
 
         (node, escrow) = factory.deployFullNode(params);
 
-        escrow.approveMax(address(asset), address(node));
+        // escrow.approveMax(address(asset), address(node));
         node.setMaxDepositSize(1e36);
         vm.stopPrank();
 

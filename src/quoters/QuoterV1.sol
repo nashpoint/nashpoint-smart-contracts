@@ -21,10 +21,9 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 contract QuoterV1 is IQuoterV1, BaseQuoter {
     using MathLib for uint256;
 
-    /* IMMUTABLES */
-    // todo: should not be immutable
-    int256 public immutable SCALING_FACTOR = -5e18;
-    uint256 public immutable WAD = 1e18;
+    /* CONSTANTS */
+    int256 internal constant SCALING_FACTOR = -5e18;
+    uint256 internal constant WAD = 1e18;
     uint256 internal constant REQUEST_ID = 0;
 
     /* STATE */
@@ -73,7 +72,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /// @inheritdoc IQuoter
-    function getTotalAssets() external view onlyValidNode(msg.sender) returns (uint256) {
+    function getTotalAssets() external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256) {
         return _getTotalAssets(msg.sender);
     }
 
@@ -86,20 +85,18 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// The majority of logic is in _calculateReserveImpact and _getSwingFactor
 
     /// @param assets The amount of assets being deposited
-    /// @param sharesExiting The total number of shares exiting the node
     /// @param reserveCash The reserve cash of the Node
     /// @param totalAssets The total assets of the Node
-    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @param maxSwingFactor The maximum swing factor to apply
+    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
     /// @return shares The shares to mint after applying the deposit bonus
     function calculateDepositBonus(
         uint256 assets,
-        uint256 sharesExiting,
         uint256 reserveCash,
         uint256 totalAssets,
-        uint64 targetReserveRatio,
-        uint64 maxSwingFactor
-    ) external view onlyValidNode(msg.sender) returns (uint256 shares) {
+        uint64 maxSwingFactor,
+        uint64 targetReserveRatio
+    ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 shares) {
         int256 reserveImpact = int256(_calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets, assets));
 
         // Adjust the deposited assets based on the swing pricing factor.
@@ -118,7 +115,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penalty is being applied
     /// to new requests
     /// @param shares The shares being redeemed
-    /// @param sharesExiting The total number of shares exiting the node
     /// @param reserveCash The reserve cash of the Node
     /// @param totalAssets The total assets of the Node
     /// @param maxSwingFactor The maximum swing factor to apply
@@ -126,23 +122,11 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /// @return assets The assets to redeem after applying the redeem penalty
     function calculateRedeemPenalty(
         uint256 shares,
-        uint256 sharesExiting,
         uint256 reserveCash,
         uint256 totalAssets,
         uint64 maxSwingFactor,
         uint64 targetReserveRatio
-    ) external view onlyValidNode(msg.sender) returns (uint256 assets) {
-        // get the pending redemptions
-        uint256 pendingRedemptions = IERC7575(msg.sender).convertToAssets(sharesExiting);
-
-        // check if pending redemptions exceed current reserve cash
-        // if not subtract pending redemptions from reserve cash
-        if (pendingRedemptions > reserveCash) {
-            reserveCash = 0;
-        } else {
-            reserveCash -= pendingRedemptions;
-        }
-
+    ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 assets) {
         // get the asset value of the redeem request
         assets = IERC7575(msg.sender).convertToAssets(shares);
 
@@ -178,12 +162,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 totalAssets,
         uint256 deposit
     ) internal pure returns (int256) {
-        // get current reserve ratio and return 0 if targetReserveRatio is already reached
-        uint256 currentReserveRatio = MathLib.mulDiv(reserveCash, WAD, totalAssets);
-        if (currentReserveRatio >= targetReserveRatio) {
-            return 0;
-        }
-
         // get the required assets in unit terms where actual reserve ratio = target reserve ratio
         uint256 investedAssets = totalAssets - reserveCash;
         uint256 targetReserveAssets = MathLib.mulDiv(investedAssets, targetReserveRatio, WAD - targetReserveRatio);
@@ -260,7 +238,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
         shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
         shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
-        shares > 0 ? assets = IERC4626(component).convertToAssets(shares) : 0;
+        assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
         assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
         assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
 

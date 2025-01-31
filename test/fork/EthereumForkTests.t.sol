@@ -88,6 +88,12 @@ contract EthereumForkTests is BaseTest {
 
         allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.03 ether, isComponent: true});
 
+        // user approves and deposits to node
+        vm.startPrank(user);
+        IERC20(cfgLiquidityPool.asset()).approve(address(node), type(uint256).max);
+        node.deposit(100 ether, address(user));
+        vm.stopPrank();
+
         // warp forward to ensure not rebalancing
         vm.warp(block.timestamp + 1 days);
 
@@ -101,12 +107,6 @@ contract EthereumForkTests is BaseTest {
         // add node to cfg whitelist
         vm.startPrank(address(root));
         restrictionManager.updateMember(share, address(node), type(uint64).max);
-        vm.stopPrank();
-
-        // user approves and deposits to node
-        vm.startPrank(user);
-        IERC20(cfgLiquidityPool.asset()).approve(address(node), type(uint256).max);
-        node.deposit(100 ether, address(user));
         vm.stopPrank();
 
         vm.prank(owner);
@@ -124,10 +124,8 @@ contract EthereumForkTests is BaseTest {
     }
 
     function test_usdcAddress_ethereum() public view {
-        string memory name = IERC20Metadata(usdcEthereum).name();
-        uint256 totalSupply = IERC20Metadata(usdcEthereum).totalSupply();
-        assertEq(name, "USD Coin");
-        assertEq(totalSupply, 25385817571885697);
+        assertEq(IERC20Metadata(usdcEthereum).name(), "USD Coin");
+        assertEq(IERC20Metadata(usdcEthereum).totalSupply(), 25385817571885697);
         assertEq(IERC20Metadata(usdcEthereum).decimals(), 6);
     }
 

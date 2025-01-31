@@ -61,12 +61,16 @@ contract RebalancingTests is BaseTest {
         );
 
         vm.stopPrank();
+
+        vm.warp(block.timestamp - 1 days);
     }
 
     function testRebalance() public {
         uint256 seedAmount = 100 ether;
 
         _seedNode(seedAmount);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(rebalancer);
         node.startRebalance();

@@ -260,7 +260,7 @@ contract VaultTests is BaseTest {
 
         // accuracy is 0.1% note this is too big a delta
         // todo test this later to get it to 100% accuracy
-        assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15);
+        assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15, "check here");
 
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
@@ -307,6 +307,10 @@ contract VaultTests is BaseTest {
 
         // mint cash so invested assets = 100
         mockAsset.mint(address(vault), 10 ether + 1);
+
+        // update total assets to reflect new cash
+        vm.prank(owner);
+        node.updateTotalAssets();
 
         // user 2 deposits 10e6 to node and burns the rest of their assets
         vm.startPrank(user2);
@@ -363,6 +367,11 @@ contract VaultTests is BaseTest {
     function test_fulfilRedeemRequest_4626Router() public {
         address[] memory components = node.getComponents();
 
+        vm.startPrank(user);
+        asset.approve(address(node), 100 ether);
+        node.deposit(100 ether, user);
+        vm.stopPrank();
+
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
@@ -371,11 +380,6 @@ contract VaultTests is BaseTest {
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0, isComponent: true})
         );
-        vm.stopPrank();
-
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
         vm.stopPrank();
 
         vm.startPrank(rebalancer);

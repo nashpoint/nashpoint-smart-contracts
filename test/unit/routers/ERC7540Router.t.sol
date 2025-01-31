@@ -48,10 +48,15 @@ contract ERC7540RouterTest is BaseTest {
         node.updateComponentAllocation(
             address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether, isComponent: true})
         );
+
+        // jump back in time to keep the cache valid
+        vm.warp(block.timestamp - 1 days);
     }
 
     function test_getInvestmentSize_7540() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -68,6 +73,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_getInvestmentSize_7540_atTargetRatio() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
@@ -99,6 +106,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_investInAsyncVault() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -115,6 +124,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_fail_not_whitelisted() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -129,6 +141,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_fail_not_rebalancer() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -145,6 +160,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_fail_not_node() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -160,6 +178,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_fail_invalid_component() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         address invalidComponent = makeAddr("invalidComponent");
         vm.startPrank(owner);
@@ -180,6 +200,8 @@ contract ERC7540RouterTest is BaseTest {
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, address(user));
         vm.stopPrank();
+
+        vm.warp(block.timestamp + 1 days);
 
         allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
@@ -210,6 +232,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncVault_revert_ComponentWithinTargetRange() public {
         _seedNode(10000 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.startPrank(owner);
@@ -239,7 +264,7 @@ contract ERC7540RouterTest is BaseTest {
         // Seed the node with 1000 ether
         _seedNode(1000 ether);
 
-        // todo: do this with more realistic allocation values later that all sum to 100%
+        vm.warp(block.timestamp + 1 days);
 
         // Define component allocations
         allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
@@ -304,6 +329,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncComponent_fail_deposit_request_reverts() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -324,6 +352,9 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_investInAsyncComponent_fail_zero_request_id() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -347,6 +378,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_mintClaimableShares() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -369,6 +402,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_requestAsyncWithdrawal() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -394,8 +429,132 @@ contract ERC7540RouterTest is BaseTest {
         assertEq(liquidityPool.balanceOf(address(node)), liquidityPool.convertToShares(80 ether));
     }
 
+    /* mintClaimableShares Tests */
+    function test_mintClaimableShares_fail_not_whitelisted() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+    }
+
+    function test_mintClaimableShares_fail_not_rebalancer() public {
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+    }
+
+    function test_mintClaimableShares_fail_invalid_component() public {
+        address invalidComponent = makeAddr("invalidComponent");
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(invalidComponent, true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidComponent.selector));
+        router7540.mintClaimableShares(address(node), invalidComponent);
+    }
+
+    function test_mintClaimableShares_revert_not_enough_shares_received() public {
+        _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        // Setup: First create a deposit request
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        router7540.investInAsyncComponent(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        // Make deposit claimable
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        uint256 claimableShares = IERC7575(address(liquidityPool)).maxMint(address(node));
+        address share = IERC7575(address(liquidityPool)).share();
+
+        // mock call to return the balance before the withdrawal
+        vm.mockCall(address(share), abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)), abi.encode(0));
+
+        // Attempt withdrawal should revert with InsufficientAssetsReturned
+        vm.prank(rebalancer);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.InsufficientSharesReturned.selector, address(liquidityPool), 0, claimableShares
+            )
+        );
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+    }
+
+    /* requestAsyncWithdrawal Tests */
+    function test_requestAsyncWithdrawal_fail_not_whitelisted() public {
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+    }
+
+    function test_requestAsyncWithdrawal_fail_not_rebalancer() public {
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
+    }
+
+    function test_requestAsyncWithdrawal_fail_invalid_component() public {
+        address invalidComponent = makeAddr("invalidComponent");
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(invalidComponent, true);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidComponent.selector));
+        router7540.requestAsyncWithdrawal(address(node), invalidComponent, 10 ether);
+    }
+
+    function test_requestAsyncWithdrawal_revert_ExceedsAvailableShares() public {
+        _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        quoter.setErc7540(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        router7540.investInAsyncComponent(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        address shareToken = IERC7575(address(liquidityPool)).share();
+        uint256 currentShares = IERC20(shareToken).balanceOf(address(node));
+
+        vm.prank(rebalancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ErrorsLib.ExceedsAvailableShares.selector, address(node), address(liquidityPool), currentShares + 1
+            )
+        );
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), currentShares + 1);
+    }
+
+    /* executeAsyncWithdrawal Tests */
     function test_executeAsyncWithdrawal() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -434,128 +593,6 @@ contract ERC7540RouterTest is BaseTest {
         assertEq(balanceAfter - balanceBefore, 10 ether);
     }
 
-    /* mintClaimableShares Tests */
-    function test_mintClaimableShares_fail_not_whitelisted() public {
-        vm.prank(rebalancer);
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
-        router7540.mintClaimableShares(address(node), address(liquidityPool));
-    }
-
-    function test_mintClaimableShares_fail_not_rebalancer() public {
-        vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
-        router7540.mintClaimableShares(address(node), address(liquidityPool));
-    }
-
-    function test_mintClaimableShares_fail_invalid_component() public {
-        address invalidComponent = makeAddr("invalidComponent");
-        vm.startPrank(owner);
-        router7540.setWhitelistStatus(invalidComponent, true);
-        vm.stopPrank();
-
-        vm.prank(rebalancer);
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidComponent.selector));
-        router7540.mintClaimableShares(address(node), invalidComponent);
-    }
-
-    function test_mintClaimableShares_revert_not_enough_shares_received() public {
-        _seedNode(100 ether);
-
-        vm.startPrank(owner);
-        quoter.setErc7540(address(liquidityPool), true);
-        node.addComponent(address(liquidityPool), allocation);
-        router7540.setWhitelistStatus(address(liquidityPool), true);
-        vm.stopPrank();
-
-        // Setup: First create a deposit request
-        vm.startPrank(rebalancer);
-        node.startRebalance();
-        router7540.investInAsyncComponent(address(node), address(liquidityPool));
-        vm.stopPrank();
-
-        // Make deposit claimable
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingDeposits();
-
-        // Mock the mint function to return fewer shares than requested
-        uint256 claimableShares = liquidityPool.maxMint(address(node));
-        vm.mockCall(
-            address(liquidityPool),
-            abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, address(node), address(node)),
-            abi.encode(claimableShares - 1) // Return 1 less share than expected
-        );
-
-        // Attempt to mint should revert
-        vm.prank(rebalancer);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ErrorsLib.InsufficientSharesReturned.selector,
-                address(liquidityPool),
-                claimableShares - 1,
-                claimableShares
-            )
-        );
-        router7540.mintClaimableShares(address(node), address(liquidityPool));
-    }
-
-    /* requestAsyncWithdrawal Tests */
-    function test_requestAsyncWithdrawal_fail_not_whitelisted() public {
-        vm.prank(rebalancer);
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
-        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
-    }
-
-    function test_requestAsyncWithdrawal_fail_not_rebalancer() public {
-        vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRebalancer.selector));
-        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
-    }
-
-    function test_requestAsyncWithdrawal_fail_invalid_component() public {
-        address invalidComponent = makeAddr("invalidComponent");
-        vm.startPrank(owner);
-        router7540.setWhitelistStatus(invalidComponent, true);
-        vm.stopPrank();
-
-        vm.prank(rebalancer);
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidComponent.selector));
-        router7540.requestAsyncWithdrawal(address(node), invalidComponent, 10 ether);
-    }
-
-    function test_requestAsyncWithdrawal_revert_ExceedsAvailableShares() public {
-        _seedNode(100 ether);
-
-        vm.startPrank(owner);
-        quoter.setErc7540(address(liquidityPool), true);
-        node.addComponent(address(liquidityPool), allocation);
-        router7540.setWhitelistStatus(address(liquidityPool), true);
-        vm.stopPrank();
-
-        vm.startPrank(rebalancer);
-        node.startRebalance();
-        router7540.investInAsyncComponent(address(node), address(liquidityPool));
-        vm.stopPrank();
-
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingDeposits();
-
-        vm.prank(rebalancer);
-        router7540.mintClaimableShares(address(node), address(liquidityPool));
-        vm.stopPrank();
-
-        address shareToken = IERC7575(address(liquidityPool)).share();
-        uint256 currentShares = IERC20(shareToken).balanceOf(address(node));
-
-        vm.prank(rebalancer);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ErrorsLib.ExceedsAvailableShares.selector, address(node), address(liquidityPool), currentShares + 1
-            )
-        );
-        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), currentShares + 1);
-    }
-
-    /* executeAsyncWithdrawal Tests */
     function test_executeAsyncWithdrawal_fail_not_whitelisted() public {
         vm.prank(rebalancer);
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotWhitelisted.selector));
@@ -581,6 +618,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_executeAsyncWithdrawal_revert_ExceedsAvailableAssets() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -620,6 +659,8 @@ contract ERC7540RouterTest is BaseTest {
     function test_executeAsyncWithdrawal_revert_InsufficientAssetsReturned() public {
         _seedNode(100 ether);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
         node.addComponent(address(liquidityPool), allocation);
@@ -645,19 +686,18 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(testPoolManager);
         liquidityPool.processPendingRedemptions();
 
-        // Mock the withdrawal to return less than requested
-        bytes memory withdrawData =
-            abi.encodeWithSelector(IERC7575.withdraw.selector, withdrawAmount, address(node), address(node));
-        vm.mockCall(address(liquidityPool), withdrawData, abi.encode(withdrawAmount - 1));
+        uint256 balanceBefore = asset.balanceOf(address(node));
+
+        // mock call to return the balance before the withdrawal
+        vm.mockCall(
+            address(asset), abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)), abi.encode(balanceBefore)
+        );
 
         // Attempt withdrawal should revert with InsufficientAssetsReturned
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.InsufficientAssetsReturned.selector,
-                address(liquidityPool),
-                withdrawAmount - 1,
-                withdrawAmount
+                ErrorsLib.InsufficientAssetsReturned.selector, address(liquidityPool), 0, withdrawAmount
             )
         );
         router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), withdrawAmount);
@@ -665,6 +705,8 @@ contract ERC7540RouterTest is BaseTest {
 
     function test_requestAsyncWithdrawal_fail_nonzero_request_id() public {
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
@@ -705,6 +747,8 @@ contract ERC7540RouterTest is BaseTest {
         vm.stopPrank();
 
         _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool), true);
