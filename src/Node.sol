@@ -779,19 +779,14 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     function _convertToShares(uint256 assets, MathLib.Rounding rounding) internal view virtual returns (uint256) {
-        return assets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), totalAssets() + 1, rounding);
+        return assets.mulDiv(totalSupply() + 1, totalAssets() + 1, rounding);
     }
 
     function _convertToAssets(uint256 shares, MathLib.Rounding rounding) internal view virtual returns (uint256) {
-        return shares.mulDiv(totalAssets() + 1, totalSupply() + 10 ** _decimalsOffset(), rounding);
-    }
-
-    function _decimalsOffset() internal view virtual returns (uint8) {
-        return 0;
+        return shares.mulDiv(totalAssets() + 1, totalSupply() + 1, rounding);
     }
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual {
-        // slither-disable-next-line reentrancy-no-eth
         SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
         _mint(receiver, shares);
 
