@@ -149,7 +149,7 @@ abstract contract BaseRouter {
     /// @notice Validates that the reserve is above the target ratio.
     /// @param currentCash The current cash of the node.
     /// @param idealCashReserve The ideal cash reserve of the node.
-    function _validateReserveAboveTargetRatio(uint256 currentCash, uint256 idealCashReserve) internal view {
+    function _validateReserveAboveTargetRatio(uint256 currentCash, uint256 idealCashReserve) internal pure {
         // checks if available reserve exceeds target ratio
 
         if (currentCash < idealCashReserve) {
