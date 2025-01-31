@@ -772,7 +772,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             shares = convertToShares(assets);
         } else {
             shares = quoter.calculateDepositBonus(
-                assets, getCashAfterRedemptions(), totalAssets(), reserveAllocation.targetWeight, maxSwingFactor
+                assets, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, reserveAllocation.targetWeight
             );
         }
     }
