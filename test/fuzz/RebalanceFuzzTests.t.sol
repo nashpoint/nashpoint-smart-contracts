@@ -55,7 +55,7 @@ contract RebalanceFuzzTests is BaseTest {
 
         vm.startPrank(owner);
         node.removeComponent(address(vault));
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0 ether, maxDelta: 0 ether}));
+        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0 ether, maxDelta: 0 ether, isComponent: true}));
         quoter.setErc4626(address(vaultA), true);
         router4626.setWhitelistStatus(address(vaultA), true);
         quoter.setErc4626(address(vaultB), true);
@@ -80,6 +80,8 @@ contract RebalanceFuzzTests is BaseTest {
         ];
 
         synchronousComponents = [address(vaultA), address(vaultB), address(vaultC)];
+
+        vm.warp(block.timestamp - 1 days);
     }
 
     function test_fuzz_rebalance_basic(uint64 targetReserveRatio, uint256 seedAmount, uint64 randUint) public {
@@ -87,6 +89,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -106,6 +109,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -114,10 +118,11 @@ contract RebalanceFuzzTests is BaseTest {
 
         runs = uint8(bound(uint256(runs), 1, 100));
         for (uint256 i = 0; i < runs; i++) {
-            vm.warp(block.timestamp + 1 days);
             uint256 depositThisRun = uint256(keccak256(abi.encodePacked(randUint, i, depositAmount)));
             depositThisRun = bound(depositThisRun, 1 ether, maxDeposit);
+
             _userDeposits(user, depositThisRun);
+            vm.warp(block.timestamp + 1 days);
             _tryRebalance();
             depositAssets += depositThisRun;
         }
@@ -139,6 +144,7 @@ contract RebalanceFuzzTests is BaseTest {
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -170,6 +176,7 @@ contract RebalanceFuzzTests is BaseTest {
 
         deal(address(asset), address(user), type(uint256).max);
         _userDeposits(user, seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -215,6 +222,7 @@ contract RebalanceFuzzTests is BaseTest {
         _setFees(annualManagementFee, protocolManagementFee, protocolExecutionFee);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
 
@@ -262,6 +270,7 @@ contract RebalanceFuzzTests is BaseTest {
         maxInterest = bound(maxInterest, 0.1 ether, 1e36);
 
         _seedNode(seedAmount);
+        vm.warp(block.timestamp + 1 days);
         _setInitialComponentRatios(targetReserveRatio, randUint, components);
         _tryRebalance();
         _mock7540_processPendingDeposits();
@@ -296,7 +305,7 @@ contract RebalanceFuzzTests is BaseTest {
         deal(address(asset), address(user), seedAmount);
 
         vm.startPrank(owner);
-        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0}));
+        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0, isComponent: true}));
         node.setLiquidationQueue(components);
         vm.stopPrank();
 
@@ -336,9 +345,11 @@ contract RebalanceFuzzTests is BaseTest {
         targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.01 ether, 0.99 ether));
         randUint = uint64(bound(uint256(randUint), 0, 1 ether));
 
-        _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
         deal(address(asset), address(user), seedAmount);
         _userDeposits(user, seedAmount);
+        vm.warp(block.timestamp + 1 days);
+        _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
+
         _tryRebalance();
 
         vm.startPrank(owner);
@@ -387,7 +398,9 @@ contract RebalanceFuzzTests is BaseTest {
         internal
     {
         vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether}));
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether, isComponent: true})
+        );
         components = newComponents;
 
         uint64 availableAllocation = 1 ether - reserveRatio;
@@ -395,7 +408,8 @@ contract RebalanceFuzzTests is BaseTest {
             if (i == components.length - 1) {
                 if (availableAllocation > 0) {
                     node.addComponent(
-                        components[i], ComponentAllocation({targetWeight: availableAllocation, maxDelta: 0})
+                        components[i],
+                        ComponentAllocation({targetWeight: availableAllocation, maxDelta: 0, isComponent: true})
                     );
                 }
             } else {
@@ -405,7 +419,9 @@ contract RebalanceFuzzTests is BaseTest {
 
                 // uint64 chunk = uint64(keccak256(abi.encodePacked(randUint, i)));
                 // chunk = bound(chunk, 0, availableAllocation);
-                node.addComponent(components[i], ComponentAllocation({targetWeight: chunk, maxDelta: 0}));
+                node.addComponent(
+                    components[i], ComponentAllocation({targetWeight: chunk, maxDelta: 0, isComponent: true})
+                );
                 availableAllocation -= chunk;
             }
         }
@@ -417,7 +433,7 @@ contract RebalanceFuzzTests is BaseTest {
         try node.startRebalance() {} catch {}
         for (uint256 i = 0; i < components.length; i++) {
             try router4626.invest(address(node), address(components[i])) {} catch {}
-            try router7540.investInAsyncVault(address(node), address(components[i])) {} catch {}
+            try router7540.investInAsyncComponent(address(node), address(components[i])) {} catch {}
         }
         vm.stopPrank();
     }

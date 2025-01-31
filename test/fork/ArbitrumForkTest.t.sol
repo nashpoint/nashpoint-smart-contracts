@@ -39,9 +39,15 @@ contract ArbitrumForkTest is BaseTest {
         quoter.setErc4626(fUsdcAddress, true);
         quoter.setErc4626(sdUSDCV3Address, true);
         node.removeComponent(address(vault));
-        node.addComponent(address(yUsdcA), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
-        node.addComponent(address(fUsdc), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
-        node.addComponent(address(sdUsdcV3), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            address(yUsdcA), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            address(fUsdc), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
+        node.addComponent(
+            address(sdUsdcV3), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
         vm.stopPrank();
 
         vm.prank(rebalancer);

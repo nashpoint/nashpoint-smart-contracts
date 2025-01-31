@@ -9,7 +9,6 @@ import {QuoterV1} from "src/quoters/QuoterV1.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {DeployParams} from "src/interfaces/INodeFactory.sol";
 
 contract DeployTestEnv is Script {
@@ -41,7 +40,11 @@ contract DeployTestEnv is Script {
             _toArray(address(factory)),
             _toArray(address(router)),
             _toArray(address(quoter)),
-            _toArray(address(rebalancer))
+            _toArray(address(rebalancer)),
+            address(0),
+            0,
+            0,
+            0.01 ether
         );
 
         // Configure components
@@ -84,11 +87,11 @@ contract DeployTestEnv is Script {
 
     function _defaultComponentAllocations(uint256 count) internal pure returns (ComponentAllocation[] memory) {
         ComponentAllocation[] memory allocations = new ComponentAllocation[](count);
-        allocations[0] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+        allocations[0] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
         return allocations;
     }
 
     function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether});
+        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, isComponent: true});
     }
 }

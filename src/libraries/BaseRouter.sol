@@ -8,6 +8,7 @@ import {INode} from "../interfaces/INode.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
 import {MathLib} from "./MathLib.sol";
 import {ErrorsLib} from "./ErrorsLib.sol";
+import {EventsLib} from "./EventsLib.sol";
 
 /**
  * @title BaseRouter
@@ -20,11 +21,9 @@ abstract contract BaseRouter {
     uint256 immutable WAD = 1e18;
 
     /* STORAGE */
-    /// @notice Mapping of whitelisted target addresses
+    /// @notice Mapping of whitelisted component addresses
     mapping(address => bool) public isWhitelisted;
-
-    /* EVENTS */
-    event TargetWhitelisted(address indexed target, bool status);
+    uint256 public tolerance;
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
@@ -58,6 +57,15 @@ abstract contract BaseRouter {
         _;
     }
 
+    /// @dev Reverts if the component is not a valid component on the node
+    modifier onlyNodeComponent(address node, address component) {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
+        _;
+    }
+
     /*//////////////////////////////////////////////////////////////
                          REGISTRY OWNER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -68,7 +76,7 @@ abstract contract BaseRouter {
     function setWhitelistStatus(address target, bool status) external onlyRegistryOwner {
         if (target == address(0)) revert ErrorsLib.ZeroAddress();
         isWhitelisted[target] = status;
-        emit TargetWhitelisted(target, status);
+        emit EventsLib.ComponentWhitelisted(target, status);
     }
 
     /// @notice Batch updates whitelist status of targets
@@ -81,11 +89,18 @@ abstract contract BaseRouter {
         for (uint256 i = 0; i < length;) {
             if (targets[i] == address(0)) revert ErrorsLib.ZeroAddress();
             isWhitelisted[targets[i]] = statuses[i];
-            emit TargetWhitelisted(targets[i], statuses[i]);
+            emit EventsLib.ComponentWhitelisted(targets[i], statuses[i]);
             unchecked {
                 ++i;
             }
         }
+    }
+
+    /// @notice Updates the tolerance for the router
+    /// @param newTolerance The new tolerance
+    function setTolerance(uint256 newTolerance) external onlyRegistryOwner {
+        tolerance = newTolerance;
+        emit EventsLib.ToleranceUpdated(newTolerance);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -108,13 +123,31 @@ abstract contract BaseRouter {
                          INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    function _computeDepositAmount(address node, address component) internal returns (uint256 depositAmount) {
+        // checks if excess reserve is available to invest
+        _validateReserveAboveTargetRatio(node);
+
+        (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
+
+        // gets units of asset required to set component to target ratio
+        depositAmount = _getInvestmentSize(node, component);
+
+        // Validate deposit amount exceeds minimum threshold
+        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getComponentAllocation(component).maxDelta, WAD)) {
+            revert ErrorsLib.ComponentWithinTargetRange(node, component);
+        }
+
+        // limit deposit by reserve ratio requirements
+        depositAmount = MathLib.min(depositAmount, currentCash - idealCashReserve);
+
+        // subtract execution fee for protocol
+        depositAmount = _subtractExecutionFee(depositAmount, node);
+    }
+
     /// @notice Validates that the reserve is above the target ratio.
     /// @param node The address of the node.
     function _validateReserveAboveTargetRatio(address node) internal view {
-        uint256 totalAssets_ = INode(node).totalAssets();
-        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
-        uint256 currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
-            - INode(node).convertToAssets(INode(node).getSharesExiting());
+        (, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
 
         // checks if available reserve exceeds target ratio
         if (currentCash < idealCashReserve) {
@@ -122,12 +155,25 @@ abstract contract BaseRouter {
         }
     }
 
-    /// @notice Validates that the node accepts the router.
-    /// @param node The address of the node.
-    function _validateNodeAcceptsRouter(address node) internal view {
-        if (!INode(node).isRouter(address(this))) {
-            revert ErrorsLib.NotRouter();
-        }
+    /// @notice Calculates the partial fulfillment of a redemption request.
+    /// @param sharesPending The pending shares of the redemption request.
+    /// @param assetsReturned The amount of assets returned from the redemption.
+    /// @param assetsRequested The amount of assets requested from the redemption.
+    /// @param sharesAdjusted The adjusted shares of the redemption request.
+    /// @return _sharesPending The downscaled shares pending.
+    /// @return _sharesAdjusted The downscaled shares adjusted.
+    function _calculatePartialFulfill(
+        uint256 sharesPending,
+        uint256 assetsReturned,
+        uint256 assetsRequested,
+        uint256 sharesAdjusted
+    ) internal pure returns (uint256 _sharesPending, uint256 _sharesAdjusted) {
+        _sharesPending = MathLib.min(
+            sharesPending, MathLib.mulDiv(sharesPending, assetsReturned, assetsRequested, MathLib.Rounding.Up)
+        );
+        _sharesAdjusted = MathLib.min(
+            sharesAdjusted, MathLib.mulDiv(sharesAdjusted, assetsReturned, assetsRequested, MathLib.Rounding.Up)
+        );
     }
 
     /// @notice Returns the node's cash status.
@@ -141,9 +187,8 @@ abstract contract BaseRouter {
         returns (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve)
     {
         totalAssets = INode(node).totalAssets();
-        currentCash = IERC20(INode(node).asset()).balanceOf(address(node))
-            - INode(node).convertToAssets(INode(node).getSharesExiting());
-        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
+        currentCash = INode(node).getCashAfterRedemptions();
+        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).getReserveAllocation().targetWeight, WAD);
     }
 
     /// @notice Subtracts the execution fee from the transaction amount.
@@ -158,23 +203,9 @@ abstract contract BaseRouter {
             return transactionAmount;
         }
 
-        if (executionFee >= transactionAmount) {
-            revert ErrorsLib.FeeExceedsAmount(executionFee, transactionAmount);
-        }
-
         uint256 transactionAfterFee = transactionAmount - executionFee;
         INode(node).subtractProtocolExecutionFee(executionFee);
-
         return transactionAfterFee;
-    }
-
-    /// @dev Transfers assets to the escrow.
-    /// @param node The address of the node.
-    /// @param assetsToReturn The amount of assets to return.
-    function _transferToEscrow(address node, uint256 assetsToReturn) internal {
-        bytes memory transferCallData =
-            abi.encodeWithSelector(IERC20.transfer.selector, INode(node).escrow(), assetsToReturn);
-        INode(node).execute(INode(node).asset(), 0, transferCallData);
     }
 
     /// @dev Enforces the liquidation queue.
@@ -187,8 +218,20 @@ abstract contract BaseRouter {
     {
         for (uint256 i = 0; i < liquidationsQueue.length; i++) {
             address candidate = liquidationsQueue[i];
-            uint256 candidateShares = IERC20(candidate).balanceOf(address(this));
-            uint256 candidateAssets = IERC4626(candidate).convertToAssets(candidateShares);
+
+            uint256 candidateShares;
+            try IERC20(candidate).balanceOf(address(this)) returns (uint256 shares) {
+                candidateShares = shares;
+            } catch {
+                continue;
+            }
+
+            uint256 candidateAssets;
+            try IERC4626(candidate).convertToAssets(candidateShares) returns (uint256 assets) {
+                candidateAssets = assets;
+            } catch {
+                continue;
+            }
 
             if (candidateAssets >= assetsToReturn) {
                 if (candidate != component) {
@@ -199,7 +242,8 @@ abstract contract BaseRouter {
         }
     }
 
-    function _approve(address node, address token, address spender, uint256 amount) internal {
-        INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+    function _safeApprove(address node, address token, address spender, uint256 amount) internal {
+        bytes memory data = INode(node).execute(token, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+        if (!(data.length == 0 || abi.decode(data, (bool)))) revert ErrorsLib.SafeApproveFailed();
     }
 }

@@ -26,7 +26,11 @@ interface INodeRegistry {
         address[] calldata factories_,
         address[] calldata routers_,
         address[] calldata quoters_,
-        address[] calldata rebalancers_
+        address[] calldata rebalancers_,
+        address feeAddress_,
+        uint64 managementFee_,
+        uint64 executionFee_,
+        uint64 maxSwingFactor_
     ) external;
 
     /**
@@ -119,4 +123,16 @@ interface INodeRegistry {
      * @param newProtocolExecutionFee Protocol execution fee
      */
     function setProtocolExecutionFee(uint64 newProtocolExecutionFee) external;
+
+    /**
+     * @notice Returns the protocol max swing factor
+     * @return uint64 Protocol max swing factor
+     */
+    function protocolMaxSwingFactor() external view returns (uint64);
+
+    /**
+     * @notice Sets the protocol max swing factor
+     * @param newProtocolMaxSwingFactor Protocol max swing factor
+     */
+    function setProtocolMaxSwingFactor(uint64 newProtocolMaxSwingFactor) external;
 }
