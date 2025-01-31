@@ -603,6 +603,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
+    function getLiquidationQueueLength() external view returns (uint256) {
+        return liquidationsQueue.length;
+    }
+
+    /// @inheritdoc INode
     function getReserveAllocation() public view returns (ComponentAllocation memory) {
         return reserveAllocation;
     }
