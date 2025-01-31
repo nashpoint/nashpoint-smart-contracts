@@ -32,31 +32,45 @@ contract RebalancingTests is BaseTest {
         vm.startPrank(owner);
 
         node.removeComponent(address(vault));
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0 ether}));
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0 ether, isComponent: true})
+        );
 
         quoter.setErc4626(address(vaultA), true);
         router4626.setWhitelistStatus(address(vaultA), true);
-        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 0.18 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            address(vaultA), ComponentAllocation({targetWeight: 0.18 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         quoter.setErc4626(address(vaultB), true);
         router4626.setWhitelistStatus(address(vaultB), true);
-        node.addComponent(address(vaultB), ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            address(vaultB), ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         quoter.setErc4626(address(vaultC), true);
         router4626.setWhitelistStatus(address(vaultC), true);
-        node.addComponent(address(vaultC), ComponentAllocation({targetWeight: 0.22 ether, maxDelta: 0.01 ether}));
+        node.addComponent(
+            address(vaultC), ComponentAllocation({targetWeight: 0.22 ether, maxDelta: 0.01 ether, isComponent: true})
+        );
 
         quoter.setErc7540(address(asyncVault), true);
         router7540.setWhitelistStatus(address(asyncVault), true);
-        node.addComponent(address(asyncVault), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.03 ether}));
+        node.addComponent(
+            address(asyncVault), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.03 ether, isComponent: true})
+        );
 
         vm.stopPrank();
+
+        vm.warp(block.timestamp - 1 days);
     }
 
     function testRebalance() public {
         uint256 seedAmount = 100 ether;
 
         _seedNode(seedAmount);
+
+        vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(rebalancer);
         node.startRebalance();
@@ -104,7 +118,7 @@ contract RebalancingTests is BaseTest {
 
         // assert that cash reserve has not been reduced below target by rebalance
         uint256 currentReserve = asset.balanceOf(address(node));
-        uint256 targetCash = (node.totalAssets() * node.targetReserveRatio()) / 1e18;
+        uint256 targetCash = (node.totalAssets() * node.getReserveAllocation().targetWeight) / 1e18;
         assertGt(currentReserve, targetCash, "Current reserve below target");
 
         // SECOND DEPOSIT: rebalancer cannot rebalance small deposit into sync vaults as lower thresholds not breached
