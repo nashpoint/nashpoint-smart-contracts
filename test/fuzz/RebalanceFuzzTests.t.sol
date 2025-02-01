@@ -56,17 +56,17 @@ contract RebalanceFuzzTests is BaseTest {
         vm.startPrank(owner);
         node.removeComponent(address(vault));
         node.updateReserveAllocation(ComponentAllocation({targetWeight: 0 ether, maxDelta: 0 ether, isComponent: true}));
-        quoter.setErc4626(address(vaultA), true);
+        quoter.setErc4626(address(vaultA));
         router4626.setWhitelistStatus(address(vaultA), true);
-        quoter.setErc4626(address(vaultB), true);
+        quoter.setErc4626(address(vaultB));
         router4626.setWhitelistStatus(address(vaultB), true);
-        quoter.setErc4626(address(vaultC), true);
+        quoter.setErc4626(address(vaultC));
         router4626.setWhitelistStatus(address(vaultC), true);
-        quoter.setErc7540(address(asyncVaultA), true);
+        quoter.setErc7540(address(asyncVaultA));
         router7540.setWhitelistStatus(address(asyncVaultA), true);
-        quoter.setErc7540(address(asyncVaultB), true);
+        quoter.setErc7540(address(asyncVaultB));
         router7540.setWhitelistStatus(address(asyncVaultB), true);
-        quoter.setErc7540(address(asyncVaultC), true);
+        quoter.setErc7540(address(asyncVaultC));
         router7540.setWhitelistStatus(address(asyncVaultC), true);
         vm.stopPrank();
 

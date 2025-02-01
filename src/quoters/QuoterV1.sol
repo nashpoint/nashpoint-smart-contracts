@@ -57,13 +57,13 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     }
 
     /// @inheritdoc IQuoterV1
-    function setErc4626(address component, bool value) external onlyRegistryOwner {
-        isErc4626[component] = value;
+    function setErc4626(address component) external onlyRegistryOwner {
+        isErc4626[component] = true;
     }
 
     /// @inheritdoc IQuoterV1
-    function setErc7540(address component, bool value) external onlyRegistryOwner {
-        isErc7540[component] = value;
+    function setErc7540(address component) external onlyRegistryOwner {
+        isErc7540[component] = true;
     }
 
     /// @inheritdoc IQuoterV1

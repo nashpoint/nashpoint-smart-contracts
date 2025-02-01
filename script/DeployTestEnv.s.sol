@@ -48,7 +48,7 @@ contract DeployTestEnv is Script {
         );
 
         // Configure components
-        quoter.setErc4626(address(vault), true);
+        quoter.setErc4626(address(vault));
         router.setWhitelistStatus(address(vault), true);
 
         DeployParams memory params = DeployParams({

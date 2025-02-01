@@ -49,7 +49,7 @@ contract ERC4626RouterTest is BaseTest {
             ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation50);
         vm.stopPrank();
 
@@ -66,7 +66,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -87,7 +87,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         vm.stopPrank();
 
@@ -102,7 +102,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         router4626.setWhitelistStatus(address(testComponent), true);
         node.addComponent(address(testComponent), allocation);
         vm.stopPrank();
@@ -120,7 +120,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         router4626.setWhitelistStatus(address(testComponent), true);
         node.addComponent(address(testComponent), allocation);
         vm.stopPrank();
@@ -139,11 +139,11 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(owner);
         // testComponent is not added to the node but is whitelisted and added to the quoter
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         router4626.setWhitelistStatus(address(testComponent), true);
 
         // dummyComponent is added to the node so component allocations = 100
-        quoter.setErc4626(address(dummyComponent), true);
+        quoter.setErc4626(address(dummyComponent));
         router4626.setWhitelistStatus(address(dummyComponent), true);
         node.addComponent(address(dummyComponent), allocation);
         vm.stopPrank();
@@ -161,7 +161,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -192,7 +192,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -230,8 +230,8 @@ contract ERC4626RouterTest is BaseTest {
 
         // Set up the environment as the owner
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
-        quoter.setErc4626(address(testComponent70), true);
+        quoter.setErc4626(address(testComponent));
+        quoter.setErc4626(address(testComponent70));
         node.addComponent(address(testComponent), allocation20);
         node.addComponent(address(testComponent70), allocation70);
         router4626.setWhitelistStatus(address(testComponent), true);
@@ -282,7 +282,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -314,7 +314,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -340,7 +340,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -377,7 +377,7 @@ contract ERC4626RouterTest is BaseTest {
 
     function test_liquidate_revert_invalidComponent() public {
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
@@ -398,7 +398,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -414,7 +414,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -438,7 +438,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
@@ -574,7 +574,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        quoter.setErc4626(address(testComponent), true);
+        quoter.setErc4626(address(testComponent));
         node.addComponent(address(testComponent), allocation);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();

@@ -58,7 +58,7 @@ contract DecimalsTests is BaseTest {
 
         decNode.setMaxDepositSize(1e36);
 
-        quoter.setErc4626(address(testVault6), true);
+        quoter.setErc4626(address(testVault6));
         router4626.setWhitelistStatus(address(testVault6), true);
 
         // decEscrow.approveMax(address(testToken6), address(decNode));

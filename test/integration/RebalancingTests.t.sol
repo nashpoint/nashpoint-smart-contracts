@@ -36,25 +36,25 @@ contract RebalancingTests is BaseTest {
             ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0 ether, isComponent: true})
         );
 
-        quoter.setErc4626(address(vaultA), true);
+        quoter.setErc4626(address(vaultA));
         router4626.setWhitelistStatus(address(vaultA), true);
         node.addComponent(
             address(vaultA), ComponentAllocation({targetWeight: 0.18 ether, maxDelta: 0.01 ether, isComponent: true})
         );
 
-        quoter.setErc4626(address(vaultB), true);
+        quoter.setErc4626(address(vaultB));
         router4626.setWhitelistStatus(address(vaultB), true);
         node.addComponent(
             address(vaultB), ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether, isComponent: true})
         );
 
-        quoter.setErc4626(address(vaultC), true);
+        quoter.setErc4626(address(vaultC));
         router4626.setWhitelistStatus(address(vaultC), true);
         node.addComponent(
             address(vaultC), ComponentAllocation({targetWeight: 0.22 ether, maxDelta: 0.01 ether, isComponent: true})
         );
 
-        quoter.setErc7540(address(asyncVault), true);
+        quoter.setErc7540(address(asyncVault));
         router7540.setWhitelistStatus(address(asyncVault), true);
         node.addComponent(
             address(asyncVault), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.03 ether, isComponent: true})

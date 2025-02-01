@@ -99,7 +99,7 @@ contract BaseTest is Test {
             0,
             0.99 ether
         );
-        quoter.setErc4626(address(vault), true);
+        quoter.setErc4626(address(vault));
         router4626.setWhitelistStatus(address(vault), true);
 
         DeployParams memory params = DeployParams({
@@ -262,7 +262,7 @@ contract BaseTest is Test {
         node.addComponent(
             address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0, isComponent: true})
         );
-        quoter.setErc7540(address(liquidityPool_), true);
+        quoter.setErc7540(address(liquidityPool_));
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();
     }

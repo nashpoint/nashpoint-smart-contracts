@@ -35,9 +35,9 @@ contract ArbitrumForkTest is BaseTest {
         router4626.setWhitelistStatus(yUsdcaAddress, true);
         router4626.setWhitelistStatus(fUsdcAddress, true);
         router4626.setWhitelistStatus(sdUSDCV3Address, true);
-        quoter.setErc4626(yUsdcaAddress, true);
-        quoter.setErc4626(fUsdcAddress, true);
-        quoter.setErc4626(sdUSDCV3Address, true);
+        quoter.setErc4626(yUsdcaAddress);
+        quoter.setErc4626(fUsdcAddress);
+        quoter.setErc4626(sdUSDCV3Address);
         node.removeComponent(address(vault));
         node.addComponent(
             address(yUsdcA), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, isComponent: true})
