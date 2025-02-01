@@ -157,6 +157,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     {
         if (component == address(0)) revert ErrorsLib.ZeroAddress();
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
+        if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
 
         components.push(component);
         componentAllocations[component] = allocation;

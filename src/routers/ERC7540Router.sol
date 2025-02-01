@@ -178,7 +178,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     /// @param assets The amount of assets to deposit.
     /// @return requestId The request ID.
     function _requestDeposit(address node, address component, uint256 assets) internal returns (uint256) {
-        address underlying = IERC4626(component).asset();
+        address underlying = INode(node).asset();
         _safeApprove(node, underlying, component, assets);
 
         bytes memory result = INode(node).execute(
