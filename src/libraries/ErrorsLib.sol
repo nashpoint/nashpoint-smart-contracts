@@ -82,6 +82,9 @@ library ErrorsLib {
     /// @notice Thrown when the token is invalid.
     error InvalidToken();
 
+    /// @notice Thrown when the role is invalid.
+    error InvalidRole();
+
     /// @notice Thrown when not the factory.
     error NotFactory();
 

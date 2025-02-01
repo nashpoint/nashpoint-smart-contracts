@@ -56,10 +56,10 @@ contract NodeRegistryTest is BaseTest {
         testRegistry.initialize(factories, routers, quoters, rebalancers, protocolFeesAddress, 0, 0, 0.99 ether);
         vm.stopPrank();
 
-        assertTrue(testRegistry.isFactory(testFactory));
-        assertTrue(testRegistry.isRouter(testRouter));
-        assertTrue(testRegistry.isQuoter(testQuoter));
-        assertTrue(testRegistry.isRebalancer(testRebalancer));
+        assertTrue(testRegistry.isRegistryType(testFactory, RegistryType.FACTORY));
+        assertTrue(testRegistry.isRegistryType(testRouter, RegistryType.ROUTER));
+        assertTrue(testRegistry.isRegistryType(testQuoter, RegistryType.QUOTER));
+        assertTrue(testRegistry.isRegistryType(testRebalancer, RegistryType.REBALANCER));
         assertTrue(testRegistry.isInitialized());
     }
 
@@ -85,7 +85,7 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, true);
         vm.stopPrank();
 
         vm.prank(testFactory);
@@ -111,10 +111,10 @@ contract NodeRegistryTest is BaseTest {
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RoleSet(testFactory, RegistryType.FACTORY, true);
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, true);
         vm.stopPrank();
 
-        assertTrue(testRegistry.isFactory(testFactory));
+        assertTrue(testRegistry.isRegistryType(testFactory, RegistryType.FACTORY));
     }
 
     function test_addFactory_revert_AlreadySet() public {
@@ -129,10 +129,10 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, true);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, true);
         vm.stopPrank();
     }
 
@@ -203,7 +203,7 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, true);
         vm.stopPrank();
 
         vm.startPrank(testFactory);
@@ -216,7 +216,7 @@ contract NodeRegistryTest is BaseTest {
     function test_addFactory_revert_NotInitialized() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotInitialized.selector);
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, true);
     }
 
     function test_removeFactory() public {
@@ -231,20 +231,20 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, true);
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RoleSet(testFactory, RegistryType.FACTORY, false);
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, false);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, false);
         vm.stopPrank();
 
-        assertFalse(testRegistry.isFactory(testFactory));
+        assertFalse(testRegistry.isRegistryType(testFactory, RegistryType.FACTORY));
     }
 
     function test_removeFactory_revert_NotInitialized() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotInitialized.selector);
-        testRegistry.setRole(testFactory, RegistryType.FACTORY, false);
+        testRegistry.setRegistryType(testFactory, RegistryType.FACTORY, false);
     }
 
     // Router tests
@@ -263,16 +263,16 @@ contract NodeRegistryTest is BaseTest {
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RoleSet(testRouter, RegistryType.ROUTER, true);
-        testRegistry.setRole(testRouter, RegistryType.ROUTER, true);
+        testRegistry.setRegistryType(testRouter, RegistryType.ROUTER, true);
         vm.stopPrank();
 
-        assertTrue(testRegistry.isRouter(testRouter));
+        assertTrue(testRegistry.isRegistryType(testRouter, RegistryType.ROUTER));
     }
 
     function test_addRouter_revert_NotInitialized() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotInitialized.selector);
-        testRegistry.setRole(testRouter, RegistryType.ROUTER, true);
+        testRegistry.setRegistryType(testRouter, RegistryType.ROUTER, true);
     }
 
     function test_addRouter_revert_AlreadySet() public {
@@ -287,10 +287,10 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testRouter, RegistryType.ROUTER, true);
+        testRegistry.setRegistryType(testRouter, RegistryType.ROUTER, true);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testRegistry.setRole(testRouter, RegistryType.ROUTER, true);
+        testRegistry.setRegistryType(testRouter, RegistryType.ROUTER, true);
         vm.stopPrank();
     }
 
@@ -306,20 +306,20 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testRouter, RegistryType.ROUTER, true);
+        testRegistry.setRegistryType(testRouter, RegistryType.ROUTER, true);
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RoleSet(testRouter, RegistryType.ROUTER, false);
-        testRegistry.setRole(testRouter, RegistryType.ROUTER, false);
+        testRegistry.setRegistryType(testRouter, RegistryType.ROUTER, false);
         vm.stopPrank();
 
-        assertFalse(testRegistry.isRouter(testRouter));
+        assertFalse(testRegistry.isRegistryType(testRouter, RegistryType.ROUTER));
     }
 
     function test_removeRouter_revert_NotInitialized() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotInitialized.selector);
-        testRegistry.setRole(testRouter, RegistryType.ROUTER, false);
+        testRegistry.setRegistryType(testRouter, RegistryType.ROUTER, false);
     }
 
     // Quoter tests
@@ -338,16 +338,16 @@ contract NodeRegistryTest is BaseTest {
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RoleSet(testQuoter, RegistryType.QUOTER, true);
-        testRegistry.setRole(testQuoter, RegistryType.QUOTER, true);
+        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
         vm.stopPrank();
 
-        assertTrue(testRegistry.isQuoter(testQuoter));
+        assertTrue(testRegistry.isRegistryType(testQuoter, RegistryType.QUOTER));
     }
 
     function test_addQuoter_revert_NotInitialized() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotInitialized.selector);
-        testRegistry.setRole(testQuoter, RegistryType.QUOTER, true);
+        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
     }
 
     function test_addQuoter_revert_AlreadySet() public {
@@ -362,10 +362,10 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testQuoter, RegistryType.QUOTER, true);
+        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testRegistry.setRole(testQuoter, RegistryType.QUOTER, true);
+        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
         vm.stopPrank();
     }
 
@@ -381,20 +381,20 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testQuoter, RegistryType.QUOTER, true);
+        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RoleSet(testQuoter, RegistryType.QUOTER, false);
-        testRegistry.setRole(testQuoter, RegistryType.QUOTER, false);
+        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, false);
         vm.stopPrank();
 
-        assertFalse(testRegistry.isQuoter(testQuoter));
+        assertFalse(testRegistry.isRegistryType(testQuoter, RegistryType.QUOTER));
     }
 
     function test_removeQuoter_revert_NotInitialized() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotInitialized.selector);
-        testRegistry.setRole(testQuoter, RegistryType.QUOTER, false);
+        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, false);
     }
 
     // Rebalancer tests
@@ -412,16 +412,16 @@ contract NodeRegistryTest is BaseTest {
         );
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RoleSet(testRebalancer, RegistryType.REBALANCER, true);
-        testRegistry.setRole(testRebalancer, RegistryType.REBALANCER, true);
+        testRegistry.setRegistryType(testRebalancer, RegistryType.REBALANCER, true);
         vm.stopPrank();
 
-        assertTrue(testRegistry.isRebalancer(testRebalancer));
+        assertTrue(testRegistry.isRegistryType(testRebalancer, RegistryType.REBALANCER));
     }
 
     function test_addRebalancer_revert_NotInitialized() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotInitialized.selector);
-        testRegistry.setRole(testRebalancer, RegistryType.REBALANCER, true);
+        testRegistry.setRegistryType(testRebalancer, RegistryType.REBALANCER, true);
     }
 
     function test_addRebalancer_revert_AlreadySet() public {
@@ -436,10 +436,10 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testRebalancer, RegistryType.REBALANCER, true);
+        testRegistry.setRegistryType(testRebalancer, RegistryType.REBALANCER, true);
 
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testRegistry.setRole(testRebalancer, RegistryType.REBALANCER, true);
+        testRegistry.setRegistryType(testRebalancer, RegistryType.REBALANCER, true);
         vm.stopPrank();
     }
 
@@ -455,19 +455,19 @@ contract NodeRegistryTest is BaseTest {
             0,
             0.99 ether
         );
-        testRegistry.setRole(testRebalancer, RegistryType.REBALANCER, true);
+        testRegistry.setRegistryType(testRebalancer, RegistryType.REBALANCER, true);
 
         vm.expectEmit(true, false, false, false);
         emit EventsLib.RoleSet(testRebalancer, RegistryType.REBALANCER, false);
-        testRegistry.setRole(testRebalancer, RegistryType.REBALANCER, false);
+        testRegistry.setRegistryType(testRebalancer, RegistryType.REBALANCER, false);
         vm.stopPrank();
 
-        assertFalse(testRegistry.isRebalancer(testRebalancer));
+        assertFalse(testRegistry.isRegistryType(testRebalancer, RegistryType.REBALANCER));
     }
 
     function test_removeRebalancer_revert_NotInitialized() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotInitialized.selector);
-        testRegistry.setRole(testRebalancer, RegistryType.REBALANCER, false);
+        testRegistry.setRegistryType(testRebalancer, RegistryType.REBALANCER, false);
     }
 }

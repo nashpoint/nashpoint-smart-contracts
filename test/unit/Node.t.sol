@@ -455,7 +455,9 @@ contract NodeTest is BaseTest {
     function test_addRouter() public {
         address newRouter = makeAddr("newRouter");
         vm.mockCall(
-            address(testRegistry), abi.encodeWithSelector(INodeRegistry.isRouter.selector, newRouter), abi.encode(true)
+            address(testRegistry),
+            abi.encodeWithSelector(INodeRegistry.isRegistryType.selector, newRouter, RegistryType.ROUTER),
+            abi.encode(true)
         );
         vm.prank(owner);
         testNode.addRouter(newRouter);
@@ -499,7 +501,7 @@ contract NodeTest is BaseTest {
 
         vm.mockCall(
             address(testRegistry),
-            abi.encodeWithSelector(INodeRegistry.isRebalancer.selector, newRebalancer),
+            abi.encodeWithSelector(INodeRegistry.isRegistryType.selector, newRebalancer, RegistryType.REBALANCER),
             abi.encode(true)
         );
 
@@ -549,7 +551,7 @@ contract NodeTest is BaseTest {
         address newQuoter = makeAddr("newQuoter");
 
         vm.startPrank(owner);
-        INodeRegistry(testRegistry).setRole(newQuoter, RegistryType.QUOTER, true);
+        INodeRegistry(testRegistry).setRegistryType(newQuoter, RegistryType.QUOTER, true);
         testNode.setQuoter(newQuoter);
         vm.stopPrank();
         assertEq(address(testNode.quoter()), newQuoter);

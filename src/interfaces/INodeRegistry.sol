@@ -7,6 +7,7 @@ pragma solidity 0.8.26;
  * @notice Interface for the NodeRegistry contract
  */
 enum RegistryType {
+    UNUSED,
     NODE,
     FACTORY,
     ROUTER,
@@ -34,12 +35,14 @@ interface INodeRegistry {
     ) external;
 
     /**
-     * @notice Sets the role of an address
-     * @param addr Address to set the role for
-     * @param role Role to set
+     * @notice Sets the type of an address
+     * @param addr Address to set the type for
+     * @param type_ Type to set
      * @param status Status to set
+     * @dev This function is used to set the type of an address
+     *      Set to true to add, false to remove
      */
-    function setRole(address addr, RegistryType role, bool status) external;
+    function setRegistryType(address addr, RegistryType type_, bool status) external;
 
     /**
      * @notice Adds a node to the registry
@@ -55,32 +58,12 @@ interface INodeRegistry {
     function isNode(address node_) external view returns (bool);
 
     /**
-     * @notice Returns whether an address is a registered factory
-     * @param factory_ Address to check
-     * @return bool True if address is a registered factory
+     * @notice Returns whether an address has a role
+     * @param addr Address to check
+     * @param type_ RegistryType to check
+     * @return bool True if address has role
      */
-    function isFactory(address factory_) external view returns (bool);
-
-    /**
-     * @notice Returns whether an address is a registered router
-     * @param router_ Address to check
-     * @return bool True if address is a registered router
-     */
-    function isRouter(address router_) external view returns (bool);
-
-    /**
-     * @notice Returns whether an address is a registered quoter
-     * @param quoter_ Address to check
-     * @return bool True if address is a registered quoter
-     */
-    function isQuoter(address quoter_) external view returns (bool);
-
-    /**
-     * @notice Returns whether an address is a registered rebalancer
-     * @param rebalancer_ Address to check
-     * @return bool True if address is a registered rebalancer
-     */
-    function isRebalancer(address rebalancer_) external view returns (bool);
+    function isRegistryType(address addr, RegistryType type_) external view returns (bool);
 
     /**
      * @notice Returns whether the registry has been initialized
