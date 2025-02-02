@@ -263,7 +263,7 @@ contract BaseTest is Test {
         uint64 reserveAllocation = 1 ether - allocation;
         node.updateTargetReserveRatio(reserveAllocation);
         node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
-        node.removeComponent(address(vault));
+        node.removeComponent(address(vault), false);
         node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
         quoter.setErc7540(address(liquidityPool_));
         router7540.setWhitelistStatus(address(liquidityPool_), true);

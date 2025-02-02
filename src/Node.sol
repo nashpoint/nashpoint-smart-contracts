@@ -169,10 +169,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function removeComponent(address component) external onlyOwner onlyWhenNotRebalancing {
+    function removeComponent(address component, bool force) external onlyOwner onlyWhenNotRebalancing {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
         address router = componentAllocations[component].router;
-        if (IRouter(router).getComponentAssets(component) > 0) revert ErrorsLib.NonZeroBalance();
+        if (!force && IRouter(router).getComponentAssets(component) > 0) revert ErrorsLib.NonZeroBalance();
 
         uint256 length = components.length;
         for (uint256 i = 0; i < length; i++) {

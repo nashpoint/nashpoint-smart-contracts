@@ -116,7 +116,7 @@ contract EthereumForkTests is BaseTest {
 
         vm.startPrank(owner);
         node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
-        node.removeComponent(address(vault));
+        node.removeComponent(address(vault), false);
         vm.stopPrank();
 
         vm.prank(rebalancer);

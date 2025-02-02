@@ -50,8 +50,9 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Removes a component from the node. Must have zero balance.
     /// @param component The address of the component to remove
-    /// @dev Only callable by owner. Component must be rebalanced to zero before removal.
-    function removeComponent(address component) external;
+    /// @param force Whether to force the removal of the component
+    /// @dev Only callable by owner. Component must be rebalanced to zero before removal or force is true
+    function removeComponent(address component, bool force) external;
 
     /// @notice Updates the allocation for an existing component. Set to zero to rebalance out of component before removing.
     /// @param component The address of the component to update

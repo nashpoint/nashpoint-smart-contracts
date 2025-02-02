@@ -323,7 +323,7 @@ contract NodeTest is BaseTest {
         testNode.addComponent(secondComponent, allocation.targetWeight, allocation.maxDelta, allocation.router);
 
         // Now remove the first component
-        testNode.removeComponent(testComponent);
+        testNode.removeComponent(testComponent, false);
         vm.stopPrank();
 
         assertFalse(testNode.isComponent(testComponent));
@@ -342,7 +342,7 @@ contract NodeTest is BaseTest {
 
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NotSet.selector);
-        testNode.removeComponent(nonExistentComponent);
+        testNode.removeComponent(nonExistentComponent, false);
     }
 
     function test_removeComponent_revert_NonZeroBalance() public {
@@ -351,7 +351,7 @@ contract NodeTest is BaseTest {
 
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NonZeroBalance.selector);
-        testNode.removeComponent(testComponent);
+        testNode.removeComponent(testComponent, false);
     }
 
     function test_removeComponent_SingleComponent() public {
@@ -359,7 +359,7 @@ contract NodeTest is BaseTest {
         vm.mockCall(testComponent, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(0));
 
         vm.prank(owner);
-        testNode.removeComponent(testComponent);
+        testNode.removeComponent(testComponent, false);
 
         address[] memory components = testNode.getComponents();
         assertEq(components.length, 0);
@@ -386,7 +386,7 @@ contract NodeTest is BaseTest {
         testNode.addComponent(component3, 0.5 ether, 0.01 ether, address(router4626));
 
         // Remove first component
-        testNode.removeComponent(testComponent);
+        testNode.removeComponent(testComponent, false);
         vm.stopPrank();
 
         // Verify array state
@@ -427,7 +427,7 @@ contract NodeTest is BaseTest {
         testNode.addComponent(component3, 0.5 ether, 0.01 ether, address(router4626));
 
         // Remove middle component
-        testNode.removeComponent(component2);
+        testNode.removeComponent(component2, false);
         vm.stopPrank();
 
         // Verify array state
@@ -467,7 +467,7 @@ contract NodeTest is BaseTest {
         testNode.addComponent(component3, 0.5 ether, 0.01 ether, address(router4626));
 
         // Remove last component
-        testNode.removeComponent(component3);
+        testNode.removeComponent(component3, false);
         vm.stopPrank();
 
         // Verify array state
@@ -476,6 +476,22 @@ contract NodeTest is BaseTest {
         assertEq(components[0], testComponent);
         assertEq(components[1], component2);
         assertFalse(testNode.isComponent(component3));
+    }
+
+    function test_removeComponent_force() public {
+        assertTrue(testNode.isComponent(testComponent));
+
+        vm.mockCall(
+            testComponent, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(100 ether)
+        );
+
+        vm.expectRevert(ErrorsLib.NonZeroBalance.selector);
+        vm.prank(owner);
+        testNode.removeComponent(testComponent, false);
+
+        vm.prank(owner);
+        testNode.removeComponent(testComponent, true);
+        assertFalse(testNode.isComponent(testComponent));
     }
 
     function test_updateComponentAllocation() public {

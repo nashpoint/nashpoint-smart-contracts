@@ -31,7 +31,7 @@ contract RebalancingTests is BaseTest {
 
         vm.startPrank(owner);
 
-        node.removeComponent(address(vault));
+        node.removeComponent(address(vault), false);
         node.updateTargetReserveRatio(0.1 ether);
 
         quoter.setErc4626(address(vaultA));

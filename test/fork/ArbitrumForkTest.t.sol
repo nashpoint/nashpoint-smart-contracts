@@ -38,7 +38,7 @@ contract ArbitrumForkTest is BaseTest {
         quoter.setErc4626(yUsdcaAddress);
         quoter.setErc4626(fUsdcAddress);
         quoter.setErc4626(sdUSDCV3Address);
-        node.removeComponent(address(vault));
+        node.removeComponent(address(vault), false);
         node.addComponent(address(yUsdcA), 0.3 ether, 0.01 ether, address(router4626));
         node.addComponent(address(fUsdc), 0.3 ether, 0.01 ether, address(router4626));
         node.addComponent(address(sdUsdcV3), 0.3 ether, 0.01 ether, address(router4626));

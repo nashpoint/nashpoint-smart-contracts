@@ -55,7 +55,7 @@ contract RebalanceFuzzTests is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.removeComponent(address(vault));
+        node.removeComponent(address(vault), false);
         node.updateTargetReserveRatio(0 ether);
         quoter.setErc4626(address(vaultA));
         router4626.setWhitelistStatus(address(vaultA), true);
