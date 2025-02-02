@@ -114,8 +114,10 @@ contract EthereumForkTests is BaseTest {
         restrictionManager.updateMember(share, address(node), type(uint64).max);
         vm.stopPrank();
 
-        vm.prank(owner);
-        node.updateComponentAllocation(address(vault), 0, 0, address(router7540));
+        vm.startPrank(owner);
+        node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
+        node.removeComponent(address(vault));
+        vm.stopPrank();
 
         vm.prank(rebalancer);
         node.startRebalance();

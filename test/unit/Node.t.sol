@@ -418,6 +418,10 @@ contract NodeTest is BaseTest {
             address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
         );
 
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.getComponentAssets.selector, component2), abi.encode(0)
+        );
+
         vm.startPrank(owner);
         testNode.addComponent(component2, 0.5 ether, 0.01 ether, address(router4626));
         testNode.addComponent(component3, 0.5 ether, 0.01 ether, address(router4626));
@@ -452,6 +456,10 @@ contract NodeTest is BaseTest {
 
         vm.mockCall(
             address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.getComponentAssets.selector, component3), abi.encode(0)
         );
 
         vm.startPrank(owner);
@@ -1268,8 +1276,9 @@ contract NodeTest is BaseTest {
 
         // Mock quoter response
         uint256 expectedTotalAssets = 120 ether;
+
         vm.mockCall(
-            address(quoter), abi.encodeWithSelector(IQuoter.getTotalAssets.selector), abi.encode(expectedTotalAssets)
+            address(router4626), abi.encodeWithSelector(IRouter.getComponentAssets.selector), abi.encode(20 ether)
         );
 
         vm.prank(rebalancer);

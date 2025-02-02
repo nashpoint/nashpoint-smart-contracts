@@ -105,6 +105,13 @@ abstract contract BaseRouter is IRouter {
                     VIRTUAL / OVERRIDABLE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @dev This function is virtual and should be overridden by the router implementation
+    ///      Use msg.sender as the node address in inherited contracts
+    /// @return assets The amount of assets of the component.
+    function getComponentAssets(address component) public view virtual returns (uint256 assets) {}
+
     /// @notice Returns the investment size for a component.
     /// @dev This function is virtual and should be overridden by the router implementation
     /// @param node The address of the node.

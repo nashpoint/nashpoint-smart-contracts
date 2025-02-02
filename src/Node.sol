@@ -171,7 +171,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /// @inheritdoc INode
     function removeComponent(address component) external onlyOwner onlyWhenNotRebalancing {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
-        if (IERC20(component).balanceOf(address(this)) > 0) revert ErrorsLib.NonZeroBalance();
+        address router = componentAllocations[component].router;
+        if (IRouter(router).getComponentAssets(component) > 0) revert ErrorsLib.NonZeroBalance();
 
         uint256 length = components.length;
         for (uint256 i = 0; i < length; i++) {
@@ -708,7 +709,12 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _updateTotalAssets() internal {
-        cacheTotalAssets = quoter.getTotalAssets();
+        cacheTotalAssets = IERC20(asset).balanceOf(address(this));
+        uint256 componentsLength = components.length;
+        for (uint256 i = 0; i < componentsLength; i++) {
+            address router = componentAllocations[components[i]].router;
+            cacheTotalAssets += IRouter(router).getComponentAssets(components[i]);
+        }
     }
 
     function _validateController(address controller) internal view {

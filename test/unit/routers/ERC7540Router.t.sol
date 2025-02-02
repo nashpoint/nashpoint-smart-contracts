@@ -267,37 +267,15 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.warp(block.timestamp + 1 days);
 
-        // Define component allocations
-        allocation = ComponentAllocation({
-            targetWeight: 0.5 ether,
-            maxDelta: 0.01 ether,
-            router: address(router7540),
-            isComponent: true
-        });
-        ComponentAllocation memory allocation20 = ComponentAllocation({
-            targetWeight: 0.2 ether,
-            maxDelta: 0.01 ether,
-            router: address(router7540),
-            isComponent: true
-        });
-        ComponentAllocation memory allocation70 = ComponentAllocation({
-            targetWeight: 0.7 ether,
-            maxDelta: 0.01 ether,
-            router: address(router7540),
-            isComponent: true
-        });
-
         // Set up the environment as the owner
         vm.startPrank(owner);
-        quoter.setErc4626(address(liquidityPool));
+        quoter.setErc7540(address(liquidityPool));
         quoter.setErc4626(address(testComponent70));
         router7540.setWhitelistStatus(address(liquidityPool), true);
-        router7540.setWhitelistStatus(address(testComponent70), true);
-        node.addComponent(address(liquidityPool), allocation20.targetWeight, allocation20.maxDelta, address(router7540));
-        node.addComponent(
-            address(testComponent70), allocation70.targetWeight, allocation70.maxDelta, address(router7540)
-        );
         router4626.setWhitelistStatus(address(testComponent70), true);
+        node.addComponent(address(liquidityPool), 0.2 ether, 0.01 ether, address(router7540));
+        node.addComponent(address(testComponent70), 0.7 ether, 0.01 ether, address(router4626));
+
         vm.stopPrank();
 
         // Invest in the component with 70% target weight
@@ -315,7 +293,7 @@ contract ERC7540RouterTest is BaseTest {
         // set both original component to 50% target weight
         vm.startPrank(owner);
         node.updateComponentAllocation(address(liquidityPool), 0.5 ether, 0.01 ether, address(router7540));
-        node.updateComponentAllocation(address(testComponent70), 0.4 ether, 0.01 ether, address(router7540));
+        node.updateComponentAllocation(address(testComponent70), 0.4 ether, 0.01 ether, address(router4626));
         vm.stopPrank();
 
         // Calculate the investment size for the component with 50% target weight

@@ -133,6 +133,17 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @return assets The amount of assets of the component.
+    function getComponentAssets(address component) public view override returns (uint256 assets) {
+        assets = IERC4626(component).convertToAssets(IERC20(component).balanceOf(msg.sender));
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 

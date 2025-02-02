@@ -159,6 +159,25 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @return assets The amount of assets of the component.
+    function getComponentAssets(address component) public view override returns (uint256 assets) {
+        // address shareToken = IERC7575(component).share();
+        // uint256 shares = IERC20(shareToken).balanceOf(msg.sender);
+
+        // shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, msg.sender);
+        // shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, msg.sender);
+        // assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
+        // assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, msg.sender);
+        // assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, msg.sender);
+
+        return _getErc7540Assets(msg.sender, component);
+    }
+    /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -241,8 +260,16 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return assets The amount of assets.
-    function _getErc7540Assets(address node, address component) internal view returns (uint256) {
-        address quoter = address(INode(node).quoter());
-        return IQuoterV1(quoter).getErc7540Assets(node, component);
+    function _getErc7540Assets(address node, address component) internal view returns (uint256 assets) {
+        address shareToken = IERC7575(component).share();
+        uint256 shares = IERC20(shareToken).balanceOf(node);
+
+        shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
+        shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
+        assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
+        assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
+        assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
+
+        return assets;
     }
 }
