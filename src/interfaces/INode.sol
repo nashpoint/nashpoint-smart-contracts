@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575} from "./IERC7575.sol";
 import {IERC7540Redeem} from "./IERC7540.sol";
-import {IQuoter} from "./IQuoter.sol";
+import {IQuoterV1} from "./IQuoterV1.sol";
 
 /// @notice Component allocation parameters
 /// @dev targetWeight is the target weight of the component in the node
@@ -338,7 +338,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function escrow() external view returns (address);
 
     /// @notice The address of the quoter
-    function quoter() external view returns (IQuoter);
+    function quoter() external view returns (IQuoterV1);
 
     /// @notice Returns if an address is a router
     function isRouter(address) external view returns (bool);

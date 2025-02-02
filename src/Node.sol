@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {INode, ComponentAllocation, Request} from "src/interfaces/INode.sol";
-import {IQuoter} from "src/interfaces/IQuoter.sol";
+import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 
@@ -41,7 +41,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     uint64 internal targetReserveRatio;
 
     /* PROTOCOL ADDRESSES */
-    IQuoter public quoter;
+    IQuoterV1 public quoter;
     address public escrow;
     mapping(address => bool) public isRebalancer;
     mapping(address => bool) public isRouter;
@@ -245,7 +245,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
         if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
         if (!INodeRegistry(registry).isRegistryType(newQuoter, RegistryType.QUOTER)) revert ErrorsLib.NotWhitelisted();
-        quoter = IQuoter(newQuoter);
+        quoter = IQuoterV1(newQuoter);
         emit EventsLib.QuoterSet(newQuoter);
     }
 

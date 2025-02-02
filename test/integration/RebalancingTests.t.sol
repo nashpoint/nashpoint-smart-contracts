@@ -34,19 +34,15 @@ contract RebalancingTests is BaseTest {
         node.removeComponent(address(vault), false);
         node.updateTargetReserveRatio(0.1 ether);
 
-        quoter.setErc4626(address(vaultA));
         router4626.setWhitelistStatus(address(vaultA), true);
         node.addComponent(address(vaultA), 0.18 ether, 0.01 ether, address(router4626));
 
-        quoter.setErc4626(address(vaultB));
         router4626.setWhitelistStatus(address(vaultB), true);
         node.addComponent(address(vaultB), 0.2 ether, 0.01 ether, address(router4626));
 
-        quoter.setErc4626(address(vaultC));
         router4626.setWhitelistStatus(address(vaultC), true);
         node.addComponent(address(vaultC), 0.22 ether, 0.01 ether, address(router4626));
 
-        quoter.setErc7540(address(asyncVault));
         router7540.setWhitelistStatus(address(asyncVault), true);
         node.addComponent(address(asyncVault), 0.3 ether, 0.03 ether, address(router7540));
 

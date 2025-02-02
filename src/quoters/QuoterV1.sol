@@ -7,7 +7,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540} from "../interfaces/IERC7540.sol";
 import {IERC7575} from "../interfaces/IERC7575.sol";
 import {INode} from "../interfaces/INode.sol";
-import {IQuoterV1, IQuoter} from "../interfaces/IQuoterV1.sol";
+import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
 
 import {BaseQuoter} from "../libraries/BaseQuoter.sol";
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
@@ -33,48 +33,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseQuoter(registry_) {}
-
-    /* EXTERNAL */
-
-    /// @inheritdoc IQuoterV1
-    function initialize(address[] memory erc4626Components_, address[] memory erc7540Components_)
-        external
-        onlyRegistryOwner
-    {
-        if (isInitialized) revert ErrorsLib.AlreadyInitialized();
-
-        uint256 erc4626ComponentsLength = erc4626Components_.length;
-        for (uint256 i = 0; i < erc4626ComponentsLength; i++) {
-            isErc4626[erc4626Components_[i]] = true;
-        }
-
-        uint256 erc7540ComponentsLength = erc7540Components_.length;
-        for (uint256 i = 0; i < erc7540ComponentsLength; i++) {
-            isErc7540[erc7540Components_[i]] = true;
-        }
-
-        isInitialized = true;
-    }
-
-    /// @inheritdoc IQuoterV1
-    function setErc4626(address component) external onlyRegistryOwner {
-        isErc4626[component] = true;
-    }
-
-    /// @inheritdoc IQuoterV1
-    function setErc7540(address component) external onlyRegistryOwner {
-        isErc7540[component] = true;
-    }
-
-    /// @inheritdoc IQuoterV1
-    function getErc7540Assets(address node, address component) external view returns (uint256) {
-        return _getErc7540Assets(node, component);
-    }
-
-    /// @inheritdoc IQuoter
-    function getTotalAssets() external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256) {
-        return _getTotalAssets(msg.sender);
-    }
 
     /*//////////////////////////////////////////////////////////////
                         SWING PRICING FUNCTIONS
@@ -215,56 +173,5 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
             return uint256(result.unwrap());
         }
-    }
-
-    /// @dev Called by Node Contract to get the total assets of a node
-    /// @param node The node to get the assets of
-    /// @param component The component to get the assets of
-    /// @return assets The total assets of the node
-    function _getErc4626Assets(address node, address component) internal view returns (uint256) {
-        uint256 balance = IERC4626(component).balanceOf(node);
-        if (balance == 0) return 0;
-        return IERC4626(component).convertToAssets(balance);
-    }
-
-    /// @dev Called by Node Contract to get the total assets of a node
-    /// @dev in ERC7540 deposits are denominated in assets and redeems are in shares
-    /// @param node The node to get the assets of
-    /// @param component The component to get the assets of
-    /// @return assets The total assets of the node
-    function _getErc7540Assets(address node, address component) internal view returns (uint256 assets) {
-        address shareToken = IERC7575(component).share();
-        uint256 shares = IERC20(shareToken).balanceOf(node);
-
-        shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
-        shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
-        assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
-        assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
-        assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
-
-        return assets;
-    }
-
-    /// @dev Called by Node Contract to get the total assets of a node
-    /// @param node The node to get the assets of
-    /// @return assets The total assets of the node
-    function _getTotalAssets(address node) internal view returns (uint256) {
-        uint256 reserveAssets = IERC20(INode(node).asset()).balanceOf(node);
-
-        uint256 componentAssets = 0;
-        address[] memory components = INode(node).getComponents();
-        uint256 componentsLength = components.length;
-
-        for (uint256 i = 0; i < componentsLength; i++) {
-            if (isErc4626[components[i]]) {
-                componentAssets += _getErc4626Assets(node, components[i]);
-            } else if (isErc7540[components[i]]) {
-                componentAssets += _getErc7540Assets(node, components[i]);
-            } else {
-                revert ErrorsLib.InvalidComponent();
-            }
-        }
-
-        return reserveAssets + componentAssets;
     }
 }

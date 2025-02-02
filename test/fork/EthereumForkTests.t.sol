@@ -106,7 +106,6 @@ contract EthereumForkTests is BaseTest {
         vm.startPrank(owner);
         router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
         node.addComponent(address(cfgLiquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
-        quoter.setErc7540(address(cfgLiquidityPool));
         vm.stopPrank();
 
         // add node to cfg whitelist
