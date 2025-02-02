@@ -99,7 +99,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.5 ether,
             TEST_SALT
         );
 
@@ -130,7 +130,7 @@ contract NodeFactoryTest is BaseTest {
             routers: _toArray(testRouter),
             components: _toArray(testComponent),
             componentAllocations: getTestComponentAllocations(1),
-            reserveAllocation: getTestReserveAllocation(),
+            targetReserveRatio: 0.5 ether,
             salt: TEST_SALT
         });
 
@@ -157,7 +157,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
 
@@ -171,7 +171,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }
@@ -186,7 +186,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }
@@ -201,7 +201,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }
@@ -220,7 +220,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             components,
             getTestComponentAllocations(1), // Only 1 allocation for 2 components
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }
@@ -237,7 +237,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(unregisteredRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }

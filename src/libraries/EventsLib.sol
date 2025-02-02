@@ -59,7 +59,7 @@ library EventsLib {
     event LiquidationQueueUpdated(address[] newQueue);
 
     /// @notice Emitted when the reserve allocation is updated on the node
-    event ReserveAllocationUpdated(ComponentAllocation allocation);
+    event TargetReserveRatioUpdated(uint64 targetReserveRatio);
 
     /// @notice Emitted when swing pricing is enabled or disabled on the node
     event SwingPricingStatusUpdated(bool status, uint256 newSwingPricing);

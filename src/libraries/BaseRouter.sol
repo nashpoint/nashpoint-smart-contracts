@@ -191,7 +191,7 @@ abstract contract BaseRouter {
     {
         totalAssets = INode(node).totalAssets();
         currentCash = INode(node).getCashAfterRedemptions();
-        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).getReserveAllocation().targetWeight, WAD);
+        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).getTargetReserveRatio(), WAD);
     }
 
     /// @notice Subtracts the execution fee from the transaction amount.

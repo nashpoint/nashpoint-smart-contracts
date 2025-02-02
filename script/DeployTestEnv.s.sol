@@ -61,7 +61,7 @@ contract DeployTestEnv is Script {
             routers: _toArray(address(router4626)),
             components: _toArray(address(vault)),
             componentAllocations: _defaultComponentAllocations(1, address(router4626)),
-            reserveAllocation: _defaultReserveAllocation(address(router4626)),
+            targetReserveRatio: 0.1 ether,
             salt: SALT
         });
         // Deploy node

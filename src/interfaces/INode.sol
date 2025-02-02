@@ -63,9 +63,9 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
         external;
 
     /// @notice Updates the allocation for the reserve asset
-    /// @param allocation The new allocation parameters
+    /// @param targetReserveRatio The new target reserve ratio
     /// @dev Only callable by owner
-    function updateReserveAllocation(ComponentAllocation memory allocation) external;
+    function updateTargetReserveRatio(uint64 targetReserveRatio) external;
 
     /// @notice Adds a router
     function addRouter(address newRouter) external;
@@ -308,9 +308,9 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return ComponentAllocation The allocation parameters for the component
     function getComponentAllocation(address component) external view returns (ComponentAllocation memory);
 
-    /// @notice Returns the reserve allocation
-    /// @return ComponentAllocation The allocation parameters for the reserve
-    function getReserveAllocation() external view returns (ComponentAllocation memory);
+    /// @notice Returns the target reserve ratio
+    /// @return uint64 The target reserve ratio
+    function getTargetReserveRatio() external view returns (uint64);
 
     /// @notice Returns whether the given address is a component
     /// @param component The address to check

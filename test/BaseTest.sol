@@ -112,7 +112,7 @@ contract BaseTest is Test {
             routers: _toArrayTwo(address(router4626), address(router7540)),
             components: _toArray(address(vault)),
             componentAllocations: _defaultComponentAllocations(1),
-            reserveAllocation: _defaultReserveAllocation(),
+            targetReserveRatio: 0.1 ether,
             salt: SALT
         });
 
@@ -262,14 +262,7 @@ contract BaseTest is Test {
     function _setAllocationToAsyncVault(address liquidityPool_, uint64 allocation) internal {
         vm.startPrank(owner);
         uint64 reserveAllocation = 1 ether - allocation;
-        node.updateReserveAllocation(
-            ComponentAllocation({
-                targetWeight: reserveAllocation,
-                maxDelta: 0,
-                router: address(router4626),
-                isComponent: true
-            })
-        );
+        node.updateTargetReserveRatio(reserveAllocation);
         node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
         node.removeComponent(address(vault));
         node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));

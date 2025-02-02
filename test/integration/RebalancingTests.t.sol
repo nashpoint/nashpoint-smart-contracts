@@ -32,14 +32,7 @@ contract RebalancingTests is BaseTest {
         vm.startPrank(owner);
 
         node.removeComponent(address(vault));
-        node.updateReserveAllocation(
-            ComponentAllocation({
-                targetWeight: 0.1 ether,
-                maxDelta: 0 ether,
-                router: address(router4626),
-                isComponent: true
-            })
-        );
+        node.updateTargetReserveRatio(0.1 ether);
 
         quoter.setErc4626(address(vaultA));
         router4626.setWhitelistStatus(address(vaultA), true);
@@ -115,7 +108,7 @@ contract RebalancingTests is BaseTest {
 
         // assert that cash reserve has not been reduced below target by rebalance
         uint256 currentReserve = asset.balanceOf(address(node));
-        uint256 targetCash = (node.totalAssets() * node.getReserveAllocation().targetWeight) / 1e18;
+        uint256 targetCash = (node.totalAssets() * node.getTargetReserveRatio()) / 1e18;
         assertGt(currentReserve, targetCash, "Current reserve below target");
 
         // SECOND DEPOSIT: rebalancer cannot rebalance small deposit into sync vaults as lower thresholds not breached

@@ -28,8 +28,8 @@ contract NodeHarness is Node {
         address[] memory routers,
         address[] memory components_,
         ComponentAllocation[] memory componentAllocations_,
-        ComponentAllocation memory reserveAllocation_
-    ) Node(registry_, name, symbol, asset_, owner, routers, components_, componentAllocations_, reserveAllocation_) {}
+        uint64 targetReserveRatio_
+    ) Node(registry_, name, symbol, asset_, owner, routers, components_, componentAllocations_, targetReserveRatio_) {}
 }
 
 contract NodeTest is BaseTest {
@@ -98,7 +98,7 @@ contract NodeTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
-            _defaultReserveAllocation()
+            0.1 ether
         );
         vm.stopPrank();
 
@@ -123,7 +123,7 @@ contract NodeTest is BaseTest {
             _toArray(address(router4626)),
             _toArray(address(asset)),
             _defaultComponentAllocations(1),
-            _defaultReserveAllocation()
+            0.1 ether
         );
     }
 
@@ -149,9 +149,8 @@ contract NodeTest is BaseTest {
         assertEq(componentAllocation.maxDelta, 0.01 ether);
 
         // Check reserve allocation
-        ComponentAllocation memory reserveAllocation = testNode.getReserveAllocation();
-        assertEq(reserveAllocation.targetWeight, 0.1 ether);
-        assertEq(reserveAllocation.maxDelta, 0.01 ether);
+        uint64 reserveAllocation = testNode.getTargetReserveRatio();
+        assertEq(reserveAllocation, 0.1 ether);
 
         // Check ownership
         assertEq(testNode.owner(), owner);
@@ -169,7 +168,7 @@ contract NodeTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
-            _defaultReserveAllocation()
+            0.1 ether
         );
 
         // Test zero asset address
@@ -183,7 +182,7 @@ contract NodeTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
-            _defaultReserveAllocation()
+            0.1 ether
         );
 
         // Test zero component address
@@ -197,7 +196,7 @@ contract NodeTest is BaseTest {
             _toArray(testRouter),
             _toArray(address(0)),
             _defaultComponentAllocations(1),
-            _defaultReserveAllocation()
+            0.1 ether
         );
     }
 
@@ -216,7 +215,7 @@ contract NodeTest is BaseTest {
             _toArray(testRouter),
             components,
             _defaultComponentAllocations(1), // Only 1 allocation for 2 components
-            _defaultReserveAllocation()
+            0.1 ether
         );
     }
 
@@ -469,11 +468,10 @@ contract NodeTest is BaseTest {
         });
 
         vm.prank(owner);
-        testNode.updateReserveAllocation(newAllocation);
+        testNode.updateTargetReserveRatio(newAllocation.targetWeight);
 
-        ComponentAllocation memory reserveAllocation = testNode.getReserveAllocation();
-        assertEq(reserveAllocation.targetWeight, newAllocation.targetWeight);
-        assertEq(reserveAllocation.maxDelta, newAllocation.maxDelta);
+        uint64 reserveAllocation = testNode.getTargetReserveRatio();
+        assertEq(reserveAllocation, newAllocation.targetWeight);
     }
 
     function test_addRouter() public {
@@ -1972,22 +1970,15 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.updateReserveAllocation(
-            ComponentAllocation({
-                targetWeight: targetWeight,
-                maxDelta: 0.01 ether,
-                router: address(router4626),
-                isComponent: true
-            })
-        );
+        node.updateTargetReserveRatio(targetWeight);
         node.updateComponentAllocation(address(vault), 1e18 - targetWeight, 0.01 ether, address(router4626));
         vm.stopPrank();
 
         vm.prank(rebalancer);
         node.startRebalance(); // if this runs ratios are validated
 
-        ComponentAllocation memory reserveAllocation = node.getReserveAllocation();
-        assertEq(reserveAllocation.targetWeight, targetWeight);
+        uint64 reserveAllocation = node.getTargetReserveRatio();
+        assertEq(reserveAllocation, targetWeight);
     }
 
     function test_getComponents() public {
@@ -2121,12 +2112,6 @@ contract NodeTest is BaseTest {
             router: address(router4626),
             isComponent: true
         });
-        ComponentAllocation memory reserveAllocation = ComponentAllocation({
-            targetWeight: reserve,
-            maxDelta: 0.01 ether,
-            router: address(router4626),
-            isComponent: true
-        });
 
         if (comp1 + comp2 == 0) {
             return;
@@ -2140,20 +2125,12 @@ contract NodeTest is BaseTest {
         components[1] = testComponent2;
 
         Node dummyNode = new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            routers,
-            components,
-            allocations,
-            reserveAllocation
+            address(testRegistry), "Test Node", "TNODE", testAsset, owner, routers, components, allocations, reserve
         );
 
         assertEq(dummyNode.getComponentAllocation(testComponent).targetWeight, comp1);
         assertEq(dummyNode.getComponentAllocation(testComponent2).targetWeight, comp2);
-        assertEq(dummyNode.getReserveAllocation().targetWeight, reserve);
+        assertEq(dummyNode.getTargetReserveRatio(), reserve);
     }
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {
@@ -2179,12 +2156,7 @@ contract NodeTest is BaseTest {
             routers,
             _toArray(testComponent),
             invalidAllocation,
-            ComponentAllocation({
-                targetWeight: 0.1 ether,
-                maxDelta: 0.01 ether,
-                router: address(router4626),
-                isComponent: true
-            })
+            0.1 ether
         );
 
         invalidAllocation[0] = ComponentAllocation({
@@ -2204,12 +2176,7 @@ contract NodeTest is BaseTest {
             routers,
             _toArray(testComponent),
             invalidAllocation,
-            ComponentAllocation({
-                targetWeight: 0.1 ether,
-                maxDelta: 0.01 ether,
-                router: address(router4626),
-                isComponent: true
-            })
+            0.1 ether
         );
     }
 

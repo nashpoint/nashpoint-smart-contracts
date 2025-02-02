@@ -37,7 +37,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address[] internal components;
     address[] internal liquidationsQueue;
     mapping(address => ComponentAllocation) internal componentAllocations;
-    ComponentAllocation internal reserveAllocation;
+    uint64 internal targetReserveRatio;
 
     /* PROTOCOL ADDRESSES */
     IQuoter public quoter;
@@ -75,7 +75,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         address[] memory routers,
         address[] memory components_,
         ComponentAllocation[] memory componentAllocations_,
-        ComponentAllocation memory reserveAllocation_
+        uint64 targetReserveRatio_
     ) ERC20(name, symbol) Ownable(owner) {
         if (registry_ == address(0) || asset_ == address(0)) revert ErrorsLib.ZeroAddress();
         if (components_.length != componentAllocations_.length) revert ErrorsLib.LengthMismatch();
@@ -83,7 +83,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         registry = registry_;
         asset = asset_;
         share = address(this);
-        _setReserveAllocation(reserveAllocation_);
+        _setTargetReserveRatio(targetReserveRatio_);
         _setRouters(routers);
         _setInitialComponents(components_, componentAllocations_);
 
@@ -198,9 +198,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function updateReserveAllocation(ComponentAllocation memory allocation) external onlyOwner onlyWhenNotRebalancing {
-        reserveAllocation = allocation;
-        emit EventsLib.ReserveAllocationUpdated(allocation);
+    function updateTargetReserveRatio(uint64 targetReserveRatio_) external onlyOwner onlyWhenNotRebalancing {
+        targetReserveRatio = targetReserveRatio_;
+        emit EventsLib.TargetReserveRatioUpdated(targetReserveRatio_);
     }
 
     /// @inheritdoc INode
@@ -410,7 +410,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         uint256 adjustedShares = 0;
         if (swingPricingEnabled) {
             uint256 adjustedAssets = quoter.calculateRedeemPenalty(
-                shares, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, reserveAllocation.targetWeight
+                shares, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
             );
             adjustedShares = convertToShares(adjustedAssets);
         } else {
@@ -618,8 +618,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function getReserveAllocation() public view returns (ComponentAllocation memory) {
-        return reserveAllocation;
+    function getTargetReserveRatio() public view returns (uint64) {
+        return targetReserveRatio;
     }
 
     /// @inheritdoc INode
@@ -721,10 +721,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
     }
 
-    function _setReserveAllocation(ComponentAllocation memory allocation) internal {
-        if (allocation.targetWeight >= WAD) revert ErrorsLib.InvalidComponentRatios();
-        reserveAllocation = allocation;
-        emit EventsLib.ReserveAllocationUpdated(allocation);
+    function _setTargetReserveRatio(uint64 targetReserveRatio_) internal {
+        if (targetReserveRatio_ >= WAD) revert ErrorsLib.InvalidComponentRatios();
+        targetReserveRatio = targetReserveRatio_;
+        emit EventsLib.TargetReserveRatioUpdated(targetReserveRatio_);
     }
 
     function _setRouters(address[] memory routers) internal {
@@ -768,7 +768,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _validateComponentRatios() internal view returns (bool) {
-        uint256 totalWeight = reserveAllocation.targetWeight;
+        uint256 totalWeight = targetReserveRatio;
         uint256 length = components.length;
         for (uint256 i; i < length; ++i) {
             totalWeight += componentAllocations[components[i]].targetWeight;
@@ -778,7 +778,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     function _validateReserveAboveTarget() internal view returns (bool) {
         uint256 currentReserveRatio = MathLib.mulDiv(getCashAfterRedemptions(), WAD, totalAssets());
-        return currentReserveRatio >= reserveAllocation.targetWeight;
+        return currentReserveRatio >= targetReserveRatio;
     }
 
     function _isComponent(address component) internal view returns (bool) {
@@ -790,7 +790,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             shares = convertToShares(assets);
         } else {
             shares = quoter.calculateDepositBonus(
-                assets, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, reserveAllocation.targetWeight
+                assets, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
             );
         }
     }

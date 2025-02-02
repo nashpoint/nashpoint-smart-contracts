@@ -50,7 +50,7 @@ contract DecimalsTests is BaseTest {
             routers: _toArrayTwo(address(router4626), address(router7540)),
             components: _toArray(address(testVault6)),
             componentAllocations: _defaultComponentAllocations(1),
-            reserveAllocation: _defaultReserveAllocation(),
+            targetReserveRatio: 0.1 ether,
             salt: SALT
         });
 
@@ -97,14 +97,7 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         decNode.updateComponentAllocation(address(testVault6), allocation, 0, address(router4626));
-        decNode.updateReserveAllocation(
-            ComponentAllocation({
-                targetWeight: 1e18 - allocation,
-                maxDelta: 0,
-                router: address(router4626),
-                isComponent: true
-            })
-        );
+        decNode.updateTargetReserveRatio(1e18 - allocation);
         vm.stopPrank();
 
         vm.prank(rebalancer);
@@ -152,14 +145,7 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         decNode.enableSwingPricing(true, maxSwingFactor);
-        decNode.updateReserveAllocation(
-            ComponentAllocation({
-                targetWeight: targetReserveRatio,
-                maxDelta: 0,
-                router: address(router4626),
-                isComponent: true
-            })
-        );
+        decNode.updateTargetReserveRatio(targetReserveRatio);
         decNode.updateComponentAllocation(address(testVault6), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
@@ -216,14 +202,7 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         decNode.enableSwingPricing(true, maxSwingFactor);
-        decNode.updateReserveAllocation(
-            ComponentAllocation({
-                targetWeight: targetReserveRatio,
-                maxDelta: 0,
-                router: address(router4626),
-                isComponent: true
-            })
-        );
+        decNode.updateTargetReserveRatio(targetReserveRatio);
         decNode.updateComponentAllocation(address(testVault6), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
