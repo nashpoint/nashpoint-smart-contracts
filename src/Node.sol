@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {INode, ComponentAllocation, Request} from "src/interfaces/INode.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
+import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
@@ -158,6 +159,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (component == address(0)) revert ErrorsLib.ZeroAddress();
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
         if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
+        if (!IRouter(router).isWhitelisted(component)) revert ErrorsLib.NotWhitelisted();
 
         components.push(component);
         componentAllocations[component] =

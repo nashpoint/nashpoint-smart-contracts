@@ -47,7 +47,6 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     function investInAsyncComponent(address node, address component)
         external
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 depositAmount)
     {
@@ -72,7 +71,6 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         external
         nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 sharesReceived)
     {
@@ -107,7 +105,6 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     function requestAsyncWithdrawal(address node, address component, uint256 shares)
         external
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
     {
         address shareToken = IERC7575(component).share();
@@ -134,7 +131,6 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         external
         nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 assetsReceived)
     {

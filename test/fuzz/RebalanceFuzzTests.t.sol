@@ -5,6 +5,7 @@ import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
+import {IRouter} from "src/interfaces/IRouter.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
@@ -405,16 +406,22 @@ contract RebalanceFuzzTests is BaseTest {
         for (uint256 i = 0; i < components.length; i++) {
             if (i == components.length - 1) {
                 if (availableAllocation > 0) {
-                    node.addComponent(components[i], availableAllocation, 0, address(router4626));
+                    if (IRouter(router4626).isWhitelisted(components[i])) {
+                        node.addComponent(components[i], availableAllocation, 0, address(router4626));
+                    } else {
+                        node.addComponent(components[i], availableAllocation, 0, address(router7540));
+                    }
                 }
             } else {
                 uint256 hashVal = uint256(keccak256(abi.encodePacked(randUint, i)));
                 uint256 bounded = bound(hashVal, 0, availableAllocation);
                 uint64 chunk = uint64(bounded);
 
-                // uint64 chunk = uint64(keccak256(abi.encodePacked(randUint, i)));
-                // chunk = bound(chunk, 0, availableAllocation);
-                node.addComponent(components[i], chunk, 0, address(router4626));
+                if (IRouter(router4626).isWhitelisted(components[i])) {
+                    node.addComponent(components[i], chunk, 0, address(router4626));
+                } else {
+                    node.addComponent(components[i], chunk, 0, address(router7540));
+                }
                 availableAllocation -= chunk;
             }
         }

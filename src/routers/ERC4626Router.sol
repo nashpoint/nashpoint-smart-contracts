@@ -40,7 +40,6 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         nonReentrant
         onlyNodeRebalancer(node)
         onlyNodeComponent(node, component)
-        onlyWhitelisted(component)
         returns (uint256 depositAmount)
     {
         depositAmount = _computeDepositAmount(node, component);
@@ -83,7 +82,6 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         external
         nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
@@ -104,7 +102,6 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         external
         nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {

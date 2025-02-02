@@ -16,6 +16,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {IQuoter} from "src/interfaces/IQuoter.sol";
+import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 
 contract NodeHarness is Node {
@@ -256,6 +257,10 @@ contract NodeTest is BaseTest {
 
         vm.mockCall(newComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
 
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, newComponent), abi.encode(true)
+        );
+
         vm.prank(owner);
         testNode.addComponent(newComponent, allocation.targetWeight, allocation.maxDelta, allocation.router);
 
@@ -307,6 +312,12 @@ contract NodeTest is BaseTest {
         });
 
         vm.mockCall(secondComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+
+        vm.mockCall(
+            address(router4626),
+            abi.encodeWithSelector(IRouter.isWhitelisted.selector, secondComponent),
+            abi.encode(true)
+        );
 
         vm.startPrank(owner);
         testNode.addComponent(secondComponent, allocation.targetWeight, allocation.maxDelta, allocation.router);
@@ -362,6 +373,14 @@ contract NodeTest is BaseTest {
         vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
         vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
 
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component2), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
+        );
+
         vm.startPrank(owner);
         testNode.addComponent(component2, 0.5 ether, 0.01 ether, address(router4626));
         testNode.addComponent(component3, 0.5 ether, 0.01 ether, address(router4626));
@@ -391,6 +410,14 @@ contract NodeTest is BaseTest {
         vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
         vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
 
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component2), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
+        );
+
         vm.startPrank(owner);
         testNode.addComponent(component2, 0.5 ether, 0.01 ether, address(router4626));
         testNode.addComponent(component3, 0.5 ether, 0.01 ether, address(router4626));
@@ -418,6 +445,14 @@ contract NodeTest is BaseTest {
 
         vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
         vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component2), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
+        );
 
         vm.startPrank(owner);
         testNode.addComponent(component2, 0.5 ether, 0.01 ether, address(router4626));
@@ -604,6 +639,18 @@ contract NodeTest is BaseTest {
     }
 
     function test_setLiquidationQueue() public {
+        vm.mockCall(
+            address(router4626),
+            abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent2),
+            abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626),
+            abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent3),
+            abi.encode(true)
+        );
+
         vm.startPrank(owner);
         testNode.addComponent(testComponent2, 0.5 ether, 0.01 ether, address(router4626));
         testNode.addComponent(testComponent3, 0.5 ether, 0.01 ether, address(router4626));
@@ -842,6 +889,10 @@ contract NodeTest is BaseTest {
 
         vm.mockCall(testComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
 
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent), abi.encode(true)
+        );
+
         vm.startPrank(owner);
         node.addComponent(testComponent, 0.5 ether, 0.01 ether, address(router4626));
         vm.expectRevert(ErrorsLib.InvalidToken.selector);
@@ -891,6 +942,10 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.mockCall(testComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent), abi.encode(true)
+        );
 
         vm.prank(owner);
         node.addComponent(testComponent, 1.2 ether, 0.01 ether, address(router4626));
@@ -1890,6 +1945,18 @@ contract NodeTest is BaseTest {
         vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
         vm.mockCall(component3, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
 
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component1), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component2), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
+        );
+
         vm.startPrank(owner);
         node.addComponent(component3, 0.3 ether, 0.01 ether, address(router4626));
         node.addComponent(component2, 0.3 ether, 0.01 ether, address(router4626));
@@ -1929,6 +1996,18 @@ contract NodeTest is BaseTest {
         queue[2] = component3;
 
         vm.warp(block.timestamp + 1 days);
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component1), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component2), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
+        );
 
         vm.startPrank(owner);
         node.addComponent(component1, 0.4 ether, 0.01 ether, address(router4626));
@@ -1990,6 +2069,14 @@ contract NodeTest is BaseTest {
         vm.mockCall(component1, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
         vm.mockCall(component2, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
 
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component1), abi.encode(true)
+        );
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component2), abi.encode(true)
+        );
+
         vm.startPrank(owner);
         node.addComponent(component1, 0.5 ether, 0.01 ether, address(router4626));
         node.addComponent(component2, 0.5 ether, 0.01 ether, address(router4626));
@@ -2014,6 +2101,10 @@ contract NodeTest is BaseTest {
 
         vm.mockCall(component, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
 
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component), abi.encode(true)
+        );
+
         vm.prank(owner);
         node.addComponent(component, allocation.targetWeight, allocation.maxDelta, allocation.router);
 
@@ -2028,6 +2119,10 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.mockCall(testComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent), abi.encode(true)
+        );
 
         vm.prank(owner);
         node.addComponent(testComponent, 0.5 ether, 0.01 ether, address(router4626));
@@ -2045,6 +2140,10 @@ contract NodeTest is BaseTest {
         });
 
         vm.mockCall(testComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(asset));
+
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent), abi.encode(true)
+        );
 
         vm.prank(owner);
         node.addComponent(testComponent, allocation.targetWeight, allocation.maxDelta, allocation.router);

@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
 import {MathLib} from "./MathLib.sol";
@@ -14,7 +15,7 @@ import {EventsLib} from "./EventsLib.sol";
  * @title BaseRouter
  * @author ODND Studios
  */
-abstract contract BaseRouter {
+abstract contract BaseRouter is IRouter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
@@ -48,12 +49,6 @@ abstract contract BaseRouter {
     /// @dev Reverts if the caller is not the registry owner
     modifier onlyRegistryOwner() {
         if (msg.sender != Ownable(address(registry)).owner()) revert ErrorsLib.NotRegistryOwner();
-        _;
-    }
-
-    /// @dev Reverts if the component is not whitelisted
-    modifier onlyWhitelisted(address component) {
-        if (!isWhitelisted[component]) revert ErrorsLib.NotWhitelisted();
         _;
     }
 
