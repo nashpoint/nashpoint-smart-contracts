@@ -86,7 +86,12 @@ contract EthereumForkTests is BaseTest {
 
         testRouter = new ERC7540RouterHarness(address(registry));
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.03 ether, isComponent: true});
+        allocation = ComponentAllocation({
+            targetWeight: 0.9 ether,
+            maxDelta: 0.03 ether,
+            router: address(router7540),
+            isComponent: true
+        });
 
         // user approves and deposits to node
         vm.startPrank(user);
@@ -100,7 +105,7 @@ contract EthereumForkTests is BaseTest {
         // add centrifuge liquidity pool to protocol contracts
         vm.startPrank(owner);
         router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
-        node.addComponent(address(cfgLiquidityPool), allocation);
+        node.addComponent(address(cfgLiquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         quoter.setErc7540(address(cfgLiquidityPool));
         vm.stopPrank();
 
@@ -110,9 +115,7 @@ contract EthereumForkTests is BaseTest {
         vm.stopPrank();
 
         vm.prank(owner);
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0.01 ether, isComponent: true})
-        );
+        node.updateComponentAllocation(address(vault), 0, 0, address(router7540));
 
         vm.prank(rebalancer);
         node.startRebalance();

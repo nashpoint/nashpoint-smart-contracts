@@ -376,10 +376,10 @@ contract VaultTests is BaseTest {
 
         vm.startPrank(owner);
         node.setLiquidationQueue(components);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0, maxDelta: 0, isComponent: true}));
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0, isComponent: true})
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: 0, maxDelta: 0, router: address(router4626), isComponent: true})
         );
+        node.updateComponentAllocation(address(vault), 1 ether, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);

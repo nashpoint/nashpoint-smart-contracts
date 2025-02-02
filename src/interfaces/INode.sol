@@ -12,6 +12,7 @@ import {IQuoter} from "./IQuoter.sol";
 struct ComponentAllocation {
     uint64 targetWeight;
     uint64 maxDelta;
+    address router;
     bool isComponent;
 }
 
@@ -41,9 +42,11 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Adds a new component to the node
     /// @param component The address of the component to add
-    /// @param allocation The allocation parameters for the component
+    /// @param targetWeight The target weight of the component
+    /// @param maxDelta The max delta of the component
+    /// @param router The router of the component
     /// @dev Only callable by owner
-    function addComponent(address component, ComponentAllocation memory allocation) external;
+    function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router) external;
 
     /// @notice Removes a component from the node. Must have zero balance.
     /// @param component The address of the component to remove
@@ -52,9 +55,12 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Updates the allocation for an existing component. Set to zero to rebalance out of component before removing.
     /// @param component The address of the component to update
-    /// @param allocation The new allocation parameters
+    /// @param targetWeight The target weight of the component
+    /// @param maxDelta The max delta of the component
+    /// @param router The router of the component
     /// @dev Only callable by owner
-    function updateComponentAllocation(address component, ComponentAllocation memory allocation) external;
+    function updateComponentAllocation(address component, uint64 targetWeight, uint64 maxDelta, address router)
+        external;
 
     /// @notice Updates the allocation for the reserve asset
     /// @param allocation The new allocation parameters

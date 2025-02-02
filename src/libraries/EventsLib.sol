@@ -47,13 +47,13 @@ library EventsLib {
     event RebalancerRemoved(address indexed rebalancer);
 
     /// @notice Emitted when a component is added to a node
-    event ComponentAdded(address indexed component, ComponentAllocation allocation);
+    event ComponentAdded(address indexed component, uint64 targetWeight, uint64 maxDelta, address router);
 
     /// @notice Emitted when a component is removed from a node
     event ComponentRemoved(address indexed component);
 
     /// @notice Emitted when a component's allocation is updated on the node
-    event ComponentAllocationUpdated(address indexed component, ComponentAllocation allocation);
+    event ComponentAllocationUpdated(address indexed component, uint64 targetWeight, uint64 maxDelta, address router);
 
     /// @notice Emitted when the liquidation queue is updated on the node
     event LiquidationQueueUpdated(address[] newQueue);

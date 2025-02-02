@@ -25,18 +25,28 @@ contract NodeFactoryTest is BaseTest {
     string constant TEST_SYMBOL = "TNODE";
     bytes32 constant TEST_SALT = bytes32(uint256(1));
 
-    function getTestReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
+    function getTestReserveAllocation() internal view returns (ComponentAllocation memory) {
+        return ComponentAllocation({
+            targetWeight: 0.5 ether,
+            maxDelta: 0.01 ether,
+            router: address(testRouter),
+            isComponent: true
+        });
     }
 
     function getTestComponentAllocations(uint256 count)
         internal
-        pure
+        view
         returns (ComponentAllocation[] memory allocations)
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
+            allocations[i] = ComponentAllocation({
+                targetWeight: 0.5 ether,
+                maxDelta: 0.01 ether,
+                router: address(testRouter),
+                isComponent: true
+            });
         }
     }
 

@@ -151,17 +151,27 @@ contract BaseTest is Test {
 
     function _defaultComponentAllocations(uint256 count)
         internal
-        pure
+        view
         returns (ComponentAllocation[] memory allocations)
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
+            allocations[i] = ComponentAllocation({
+                targetWeight: 0.9 ether,
+                maxDelta: 0.01 ether,
+                router: address(router4626),
+                isComponent: true
+            });
         }
     }
 
-    function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, isComponent: true});
+    function _defaultReserveAllocation() internal view returns (ComponentAllocation memory) {
+        return ComponentAllocation({
+            targetWeight: 0.1 ether,
+            maxDelta: 0.01 ether,
+            router: address(router4626),
+            isComponent: true
+        });
     }
 
     function _labelAddresses() internal {
@@ -253,15 +263,16 @@ contract BaseTest is Test {
         vm.startPrank(owner);
         uint64 reserveAllocation = 1 ether - allocation;
         node.updateReserveAllocation(
-            ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0, isComponent: true})
+            ComponentAllocation({
+                targetWeight: reserveAllocation,
+                maxDelta: 0,
+                router: address(router4626),
+                isComponent: true
+            })
         );
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0, isComponent: true})
-        );
+        node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
         node.removeComponent(address(vault));
-        node.addComponent(
-            address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0, isComponent: true})
-        );
+        node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
         quoter.setErc7540(address(liquidityPool_));
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();

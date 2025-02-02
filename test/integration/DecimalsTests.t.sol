@@ -96,11 +96,14 @@ contract DecimalsTests is BaseTest {
         vm.warp(block.timestamp + 25 hours);
 
         vm.startPrank(owner);
-        decNode.updateComponentAllocation(
-            address(testVault6), ComponentAllocation({targetWeight: allocation, maxDelta: 0, isComponent: true})
-        );
+        decNode.updateComponentAllocation(address(testVault6), allocation, 0, address(router4626));
         decNode.updateReserveAllocation(
-            ComponentAllocation({targetWeight: 1e18 - allocation, maxDelta: 0, isComponent: true})
+            ComponentAllocation({
+                targetWeight: 1e18 - allocation,
+                maxDelta: 0,
+                router: address(router4626),
+                isComponent: true
+            })
         );
         vm.stopPrank();
 
@@ -150,12 +153,14 @@ contract DecimalsTests is BaseTest {
         vm.startPrank(owner);
         decNode.enableSwingPricing(true, maxSwingFactor);
         decNode.updateReserveAllocation(
-            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
+            ComponentAllocation({
+                targetWeight: targetReserveRatio,
+                maxDelta: 0,
+                router: address(router4626),
+                isComponent: true
+            })
         );
-        decNode.updateComponentAllocation(
-            address(testVault6),
-            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
+        decNode.updateComponentAllocation(address(testVault6), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
@@ -212,12 +217,14 @@ contract DecimalsTests is BaseTest {
         vm.startPrank(owner);
         decNode.enableSwingPricing(true, maxSwingFactor);
         decNode.updateReserveAllocation(
-            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
+            ComponentAllocation({
+                targetWeight: targetReserveRatio,
+                maxDelta: 0,
+                router: address(router4626),
+                isComponent: true
+            })
         );
-        decNode.updateComponentAllocation(
-            address(testVault6),
-            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
+        decNode.updateComponentAllocation(address(testVault6), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);

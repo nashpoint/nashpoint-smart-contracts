@@ -150,7 +150,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function addComponent(address component, ComponentAllocation memory allocation)
+    function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router)
         external
         onlyOwner
         onlyWhenNotRebalancing
@@ -160,9 +160,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
 
         components.push(component);
-        componentAllocations[component] = allocation;
+        componentAllocations[component] =
+            ComponentAllocation({targetWeight: targetWeight, maxDelta: maxDelta, router: router, isComponent: true});
 
-        emit EventsLib.ComponentAdded(component, allocation);
+        emit EventsLib.ComponentAdded(component, targetWeight, maxDelta, router);
     }
 
     /// @inheritdoc INode
@@ -185,14 +186,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function updateComponentAllocation(address component, ComponentAllocation memory allocation)
+    function updateComponentAllocation(address component, uint64 targetWeight, uint64 maxDelta, address router)
         external
         onlyOwner
         onlyWhenNotRebalancing
     {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
-        componentAllocations[component] = allocation;
-        emit EventsLib.ComponentAllocationUpdated(component, allocation);
+        componentAllocations[component] =
+            ComponentAllocation({targetWeight: targetWeight, maxDelta: maxDelta, router: router, isComponent: true});
+        emit EventsLib.ComponentAllocationUpdated(component, targetWeight, maxDelta, router);
     }
 
     /// @inheritdoc INode
@@ -739,9 +741,16 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             for (uint256 i; i < components_.length; ++i) {
                 if (components_[i] == address(0)) revert ErrorsLib.ZeroAddress();
                 components.push(components_[i]);
-                componentAllocations[components_[i]] = allocations[i];
+                componentAllocations[components_[i]] = ComponentAllocation({
+                    targetWeight: allocations[i].targetWeight,
+                    maxDelta: allocations[i].maxDelta,
+                    router: allocations[i].router,
+                    isComponent: true
+                });
 
-                emit EventsLib.ComponentAdded(components_[i], allocations[i]);
+                emit EventsLib.ComponentAdded(
+                    components_[i], allocations[i].targetWeight, allocations[i].maxDelta, allocations[i].router
+                );
             }
         }
         if (!_validateComponentRatios()) {

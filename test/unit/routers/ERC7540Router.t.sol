@@ -41,13 +41,16 @@ contract ERC7540RouterTest is BaseTest {
         testRouter = new ERC7540RouterHarness(address(registry));
         testComponent70 = new ERC4626Mock(address(asset));
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
+        allocation = ComponentAllocation({
+            targetWeight: 0.9 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
 
         vm.warp(block.timestamp + 1 days);
         vm.prank(owner);
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0 ether, maxDelta: 0.01 ether, isComponent: true})
-        );
+        node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
 
         // jump back in time to keep the cache valid
         vm.warp(block.timestamp - 1 days);
@@ -60,7 +63,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -76,11 +79,16 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.warp(block.timestamp + 1 days);
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
+        allocation = ComponentAllocation({
+            targetWeight: 0.9 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -110,7 +118,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -129,7 +137,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
@@ -146,7 +154,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -165,7 +173,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -185,7 +193,7 @@ contract ERC7540RouterTest is BaseTest {
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
 
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         router7540.setWhitelistStatus(invalidComponent, true);
         vm.stopPrank();
@@ -203,11 +211,16 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.warp(block.timestamp + 1 days);
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
+        allocation = ComponentAllocation({
+            targetWeight: 0.9 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -235,11 +248,16 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.warp(block.timestamp + 1 days);
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
+        allocation = ComponentAllocation({
+            targetWeight: 0.9 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -267,18 +285,33 @@ contract ERC7540RouterTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         // Define component allocations
-        allocation = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true});
-        ComponentAllocation memory allocation20 =
-            ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether, isComponent: true});
-        ComponentAllocation memory allocation70 =
-            ComponentAllocation({targetWeight: 0.7 ether, maxDelta: 0.01 ether, isComponent: true});
+        allocation = ComponentAllocation({
+            targetWeight: 0.5 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
+        ComponentAllocation memory allocation20 = ComponentAllocation({
+            targetWeight: 0.2 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
+        ComponentAllocation memory allocation70 = ComponentAllocation({
+            targetWeight: 0.7 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
 
         // Set up the environment as the owner
         vm.startPrank(owner);
         quoter.setErc4626(address(liquidityPool));
         quoter.setErc4626(address(testComponent70));
-        node.addComponent(address(liquidityPool), allocation20);
-        node.addComponent(address(testComponent70), allocation70);
+        node.addComponent(address(liquidityPool), allocation20.targetWeight, allocation20.maxDelta, address(router7540));
+        node.addComponent(
+            address(testComponent70), allocation70.targetWeight, allocation70.maxDelta, address(router7540)
+        );
         router7540.setWhitelistStatus(address(liquidityPool), true);
         router4626.setWhitelistStatus(address(testComponent70), true);
         vm.stopPrank();
@@ -297,14 +330,8 @@ contract ERC7540RouterTest is BaseTest {
 
         // set both original component to 50% target weight
         vm.startPrank(owner);
-        node.updateComponentAllocation(
-            address(liquidityPool),
-            ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether, isComponent: true})
-        );
-        node.updateComponentAllocation(
-            address(testComponent70),
-            ComponentAllocation({targetWeight: 0.4 ether, maxDelta: 0.01 ether, isComponent: true})
-        );
+        node.updateComponentAllocation(address(liquidityPool), 0.5 ether, 0.01 ether, address(router7540));
+        node.updateComponentAllocation(address(testComponent70), 0.4 ether, 0.01 ether, address(router7540));
         vm.stopPrank();
 
         // Calculate the investment size for the component with 50% target weight
@@ -334,7 +361,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -357,7 +384,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -382,7 +409,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -407,7 +434,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -460,7 +487,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -522,7 +549,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -558,7 +585,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -623,7 +650,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -663,7 +690,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -710,7 +737,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 
@@ -752,7 +779,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(owner);
         quoter.setErc7540(address(liquidityPool));
-        node.addComponent(address(liquidityPool), allocation);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool), true);
         vm.stopPrank();
 

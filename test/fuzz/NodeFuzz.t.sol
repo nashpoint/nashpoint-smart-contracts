@@ -355,12 +355,14 @@ contract NodeFuzzTest is BaseTest {
         vm.startPrank(owner);
         node.enableSwingPricing(true, maxSwingFactor);
         node.updateReserveAllocation(
-            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
+            ComponentAllocation({
+                targetWeight: targetReserveRatio,
+                maxDelta: 0,
+                router: address(router4626),
+                isComponent: true
+            })
         );
-        node.updateComponentAllocation(
-            address(vault),
-            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0.1 ether, isComponent: true})
-        );
+        node.updateComponentAllocation(address(vault), 1 ether - targetReserveRatio, 0, address(router4626));
 
         vm.startPrank(rebalancer);
         node.startRebalance();
@@ -405,12 +407,14 @@ contract NodeFuzzTest is BaseTest {
         vm.startPrank(owner);
         node.enableSwingPricing(true, maxSwingFactor);
         node.updateReserveAllocation(
-            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
+            ComponentAllocation({
+                targetWeight: targetReserveRatio,
+                maxDelta: 0,
+                router: address(router4626),
+                isComponent: true
+            })
         );
-        node.updateComponentAllocation(
-            address(vault),
-            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
+        node.updateComponentAllocation(address(vault), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
@@ -451,12 +455,14 @@ contract NodeFuzzTest is BaseTest {
         vm.startPrank(owner);
         node.enableSwingPricing(true, maxSwingFactor);
         node.updateReserveAllocation(
-            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
+            ComponentAllocation({
+                targetWeight: targetReserveRatio,
+                maxDelta: 0,
+                router: address(router4626),
+                isComponent: true
+            })
         );
-        node.updateComponentAllocation(
-            address(vault),
-            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
+        node.updateComponentAllocation(address(vault), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
@@ -500,10 +506,10 @@ contract NodeFuzzTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0, isComponent: true}));
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0, isComponent: true})
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0, router: address(router4626), isComponent: true})
         );
+        node.updateComponentAllocation(address(vault), 0.8 ether, 0, address(router4626));
         vm.stopPrank();
 
         uint256 expectedVaultAssets = MathLib.mulDiv(userDeposit, 0.8 ether, 1 ether);
@@ -547,10 +553,10 @@ contract NodeFuzzTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0, isComponent: true}));
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0, isComponent: true})
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0, router: address(router4626), isComponent: true})
         );
+        node.updateComponentAllocation(address(vault), 0.8 ether, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
