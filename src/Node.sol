@@ -658,6 +658,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return balance >= exitingAssets ? balance - exitingAssets : 0;
     }
 
+    /// @inheritdoc INode
+    function enforceLiquidationOrder(address component, uint256 assetsToReturn) public view {
+        _enforceLiquidationOrder(component, assetsToReturn);
+    }
+
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -787,6 +792,27 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function _validateReserveAboveTarget() internal view returns (bool) {
         uint256 currentReserveRatio = MathLib.mulDiv(getCashAfterRedemptions(), WAD, totalAssets());
         return currentReserveRatio >= targetReserveRatio;
+    }
+
+    function _enforceLiquidationOrder(address component, uint256 assetsToReturn) internal view {
+        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
+            address candidate = liquidationsQueue[i];
+            address router = componentAllocations[candidate].router;
+
+            uint256 candidateAssets;
+            try IRouter(router).getComponentAssets(candidate) returns (uint256 assets) {
+                candidateAssets = assets;
+            } catch {
+                continue;
+            }
+
+            if (candidateAssets >= assetsToReturn) {
+                if (candidate != component) {
+                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
+                }
+                break;
+            }
+        }
     }
 
     function _isComponent(address component) internal view returns (bool) {

@@ -109,7 +109,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
 
         // Validate that the component is top of the liquidation queue
-        _enforceLiquidationQueue(component, assetsRequested, INode(node).getLiquidationsQueue());
+        INode(node).enforceLiquidationOrder(component, assetsRequested);
 
         // liquidate either the requested amount or the balance of the component
         // if the requested amount is greater than the balance of the component

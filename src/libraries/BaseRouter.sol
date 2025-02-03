@@ -213,40 +213,6 @@ abstract contract BaseRouter is IRouter {
         return transactionAfterFee;
     }
 
-    /// @dev Enforces the liquidation queue.
-    /// @param component The address of the component.
-    /// @param assetsToReturn The amount of assets to return.
-    /// @param liquidationsQueue The liquidation queue.
-    function _enforceLiquidationQueue(address component, uint256 assetsToReturn, address[] memory liquidationsQueue)
-        internal
-        view
-    {
-        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
-            address candidate = liquidationsQueue[i];
-
-            uint256 candidateShares;
-            try IERC20(candidate).balanceOf(address(this)) returns (uint256 shares) {
-                candidateShares = shares;
-            } catch {
-                continue;
-            }
-
-            uint256 candidateAssets;
-            try IERC4626(candidate).convertToAssets(candidateShares) returns (uint256 assets) {
-                candidateAssets = assets;
-            } catch {
-                continue;
-            }
-
-            if (candidateAssets >= assetsToReturn) {
-                if (candidate != component) {
-                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
-                }
-                break;
-            }
-        }
-    }
-
     function _safeApprove(address node, address token, address spender, uint256 amount) internal {
         bytes memory data = INode(node).execute(token, abi.encodeCall(IERC20.approve, (spender, amount)));
         if (!(data.length == 0 || abi.decode(data, (bool)))) revert ErrorsLib.SafeApproveFailed();
