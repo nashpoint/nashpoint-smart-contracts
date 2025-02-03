@@ -8,9 +8,9 @@ import {NodeRegistry} from "src/NodeRegistry.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
 import {DeployParams} from "src/interfaces/INodeFactory.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
+import {console2} from "forge-std/console2.sol";
 
 contract NodeFactoryTest is BaseTest {
     NodeRegistry public testRegistry;
@@ -25,18 +25,28 @@ contract NodeFactoryTest is BaseTest {
     string constant TEST_SYMBOL = "TNODE";
     bytes32 constant TEST_SALT = bytes32(uint256(1));
 
-    function getTestReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+    function getTestReserveAllocation() internal view returns (ComponentAllocation memory) {
+        return ComponentAllocation({
+            targetWeight: 0.5 ether,
+            maxDelta: 0.01 ether,
+            router: address(testRouter),
+            isComponent: true
+        });
     }
 
     function getTestComponentAllocations(uint256 count)
         internal
-        pure
+        view
         returns (ComponentAllocation[] memory allocations)
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0.01 ether});
+            allocations[i] = ComponentAllocation({
+                targetWeight: 0.5 ether,
+                maxDelta: 0.01 ether,
+                router: address(testRouter),
+                isComponent: true
+            });
         }
     }
 
@@ -54,7 +64,14 @@ contract NodeFactoryTest is BaseTest {
 
         vm.startPrank(owner);
         testRegistry.initialize(
-            _toArray(address(testFactory)), _toArray(testRouter), _toArray(testQuoter), _toArray(testRebalancer)
+            _toArray(address(testFactory)),
+            _toArray(testRouter),
+            _toArray(testQuoter),
+            _toArray(testRebalancer),
+            protocolFeesAddress,
+            0,
+            0,
+            0.99 ether
         );
         vm.stopPrank();
 
@@ -68,8 +85,11 @@ contract NodeFactoryTest is BaseTest {
     }
 
     function test_createNode() public {
+        bytes32 expectedSalt = keccak256(abi.encodePacked(owner, TEST_SALT));
+        vm.prank(owner);
         vm.expectEmit(false, true, true, true);
-        emit EventsLib.CreateNode(address(0), address(testAsset), TEST_NAME, TEST_SYMBOL, owner, TEST_SALT);
+
+        emit EventsLib.NodeCreated(address(0), address(testAsset), TEST_NAME, TEST_SYMBOL, owner, expectedSalt);
 
         INode node = testFactory.createNode(
             TEST_NAME,
@@ -79,7 +99,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.5 ether,
             TEST_SALT
         );
 
@@ -87,14 +107,17 @@ contract NodeFactoryTest is BaseTest {
     }
 
     function test_deployFullNode() public {
+        bytes32 expectedSalt = keccak256(abi.encodePacked(owner, TEST_SALT));
+        vm.prank(owner);
         vm.expectEmit(false, true, true, true);
-        emit EventsLib.CreateNode(
+
+        emit EventsLib.NodeCreated(
             address(0),
             address(testAsset),
             TEST_NAME,
             TEST_SYMBOL,
             address(testFactory), // owner is factory during creation
-            TEST_SALT
+            expectedSalt
         );
 
         DeployParams memory params = DeployParams({
@@ -107,11 +130,11 @@ contract NodeFactoryTest is BaseTest {
             routers: _toArray(testRouter),
             components: _toArray(testComponent),
             componentAllocations: getTestComponentAllocations(1),
-            reserveAllocation: getTestReserveAllocation(),
+            targetReserveRatio: 0.5 ether,
             salt: TEST_SALT
         });
 
-        (INode node, IEscrow escrow) = testFactory.deployFullNode(params);
+        (INode node, address escrow) = testFactory.deployFullNode(params);
 
         assertTrue(testRegistry.isNode(address(node)));
         assertEq(Ownable(address(node)).owner(), owner);
@@ -134,7 +157,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
 
@@ -148,7 +171,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }
@@ -163,7 +186,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }
@@ -178,7 +201,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }
@@ -197,7 +220,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(testRouter),
             components,
             getTestComponentAllocations(1), // Only 1 allocation for 2 components
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }
@@ -214,7 +237,7 @@ contract NodeFactoryTest is BaseTest {
             _toArray(unregisteredRouter),
             _toArray(testComponent),
             getTestComponentAllocations(1),
-            getTestReserveAllocation(),
+            0.1 ether,
             TEST_SALT
         );
     }

@@ -40,6 +40,9 @@ library ErrorsLib {
     /// @notice Thrown when the controller is invalid.
     error InvalidController();
 
+    /// @notice Thrown when the quoter is not valid for the node
+    error InvalidQuoter();
+
     /// @notice Thrown when the balance is insufficient.
     error InsufficientBalance();
 
@@ -75,6 +78,15 @@ library ErrorsLib {
 
     /// @notice Thrown when the component is invalid.
     error InvalidComponent();
+
+    /// @notice Thrown when the component asset is invalid.
+    error InvalidComponentAsset();
+
+    /// @notice Thrown when the token is invalid.
+    error InvalidToken();
+
+    /// @notice Thrown when the role is invalid.
+    error InvalidRole();
 
     /// @notice Thrown when not the factory.
     error NotFactory();
@@ -122,13 +134,19 @@ library ErrorsLib {
     error ComponentWithinTargetRange(address node, address component);
 
     /// @notice Thrown when the deposit amount exceeds the max vault deposit.
-    error ExceedsMaxVaultDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
+    error ExceedsMaxComponentDeposit(address component, uint256 depositAmount, uint256 maxDepositAmount);
+
+    /// @notice Thrown when the redeem amount exceeds the max vault redeem.
+    error ExceedsMaxComponentRedeem(address component, uint256 redeemAmount, uint256 maxRedeemAmount);
 
     /// @notice Thrown when the shares requested are more than the available shares.
     error ExceedsAvailableShares(address node, address component, uint256 sharesRequested);
 
     /// @notice Thrown when the assets requested are more than the available assets
     error ExceedsAvailableAssets(address node, address component, uint256 assetsRequested);
+
+    /// @notice Thrown when the assets requested are more than the available reserve  asset of the node
+    error ExceedsAvailableReserve();
 
     /// @notice Thrown when the share value is invalid.
     error InvalidShareValue(address component, uint256 shareValue);
@@ -138,6 +156,9 @@ library ErrorsLib {
 
     /// @notice Thrown when the shares returned are insufficient.
     error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
+
+    /// @notice Thrown when incorrect requestId is returned.
+    error IncorrectRequestId(uint256 requestId);
 
     /// @notice Thrown when the component is already in the queue.
     error DuplicateComponent();
@@ -162,4 +183,10 @@ library ErrorsLib {
 
     /// @notice Thrown when the fee exceeds the amount.
     error FeeExceedsAmount(uint256 fee, uint256 amount);
+
+    /// @notice Thrown when the fee is invalid.
+    error InvalidFee();
+
+    /// @notice Thrown when the swing factor is invalid.
+    error InvalidSwingFactor();
 }

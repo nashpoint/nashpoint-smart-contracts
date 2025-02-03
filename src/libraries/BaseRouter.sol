@@ -4,27 +4,27 @@ pragma solidity 0.8.26;
 import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
 import {MathLib} from "./MathLib.sol";
 import {ErrorsLib} from "./ErrorsLib.sol";
+import {EventsLib} from "./EventsLib.sol";
 
 /**
  * @title BaseRouter
  * @author ODND Studios
  */
-abstract contract BaseRouter {
+abstract contract BaseRouter is IRouter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
     uint256 immutable WAD = 1e18;
 
     /* STORAGE */
-    /// @notice Mapping of whitelisted target addresses
+    /// @notice Mapping of whitelisted component addresses
     mapping(address => bool) public isWhitelisted;
-
-    /* EVENTS */
-    event TargetWhitelisted(address indexed target, bool status);
+    uint256 public tolerance;
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
@@ -52,9 +52,12 @@ abstract contract BaseRouter {
         _;
     }
 
-    /// @dev Reverts if the target is not whitelisted
-    modifier onlyWhitelisted(address target) {
-        if (!isWhitelisted[target]) revert ErrorsLib.NotWhitelisted();
+    /// @dev Reverts if the component is not a valid component on the node
+    modifier onlyNodeComponent(address node, address component) {
+        // Validate component is part of the node
+        if (!INode(node).isComponent(component)) {
+            revert ErrorsLib.InvalidComponent();
+        }
         _;
     }
 
@@ -62,35 +65,52 @@ abstract contract BaseRouter {
                          REGISTRY OWNER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Updates the whitelist status of a target
-    /// @param target The address to update
+    /// @notice Updates the whitelist status of a component
+    /// @param component The address to update
     /// @param status The new whitelist status
-    function setWhitelistStatus(address target, bool status) external onlyRegistryOwner {
-        if (target == address(0)) revert ErrorsLib.ZeroAddress();
-        isWhitelisted[target] = status;
-        emit TargetWhitelisted(target, status);
+    function setWhitelistStatus(address component, bool status) external onlyRegistryOwner {
+        if (component == address(0)) revert ErrorsLib.ZeroAddress();
+        isWhitelisted[component] = status;
+        emit EventsLib.ComponentWhitelisted(component, status);
     }
 
-    /// @notice Batch updates whitelist status of targets
-    /// @param targets Array of addresses to update
+    /// @notice Batch updates whitelist status of components
+    /// @param components Array of addresses to update
     /// @param statuses Array of whitelist statuses
-    function batchSetWhitelistStatus(address[] calldata targets, bool[] calldata statuses) external onlyRegistryOwner {
-        if (targets.length != statuses.length) revert ErrorsLib.LengthMismatch();
+    function batchSetWhitelistStatus(address[] calldata components, bool[] calldata statuses)
+        external
+        onlyRegistryOwner
+    {
+        if (components.length != statuses.length) revert ErrorsLib.LengthMismatch();
 
-        uint256 length = targets.length;
+        uint256 length = components.length;
         for (uint256 i = 0; i < length;) {
-            if (targets[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            isWhitelisted[targets[i]] = statuses[i];
-            emit TargetWhitelisted(targets[i], statuses[i]);
+            if (components[i] == address(0)) revert ErrorsLib.ZeroAddress();
+            isWhitelisted[components[i]] = statuses[i];
+            emit EventsLib.ComponentWhitelisted(components[i], statuses[i]);
             unchecked {
                 ++i;
             }
         }
     }
 
+    /// @notice Updates the tolerance for the router
+    /// @param newTolerance The new tolerance
+    function setTolerance(uint256 newTolerance) external onlyRegistryOwner {
+        tolerance = newTolerance;
+        emit EventsLib.ToleranceUpdated(newTolerance);
+    }
+
     /*//////////////////////////////////////////////////////////////
                     VIRTUAL / OVERRIDABLE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @dev This function is virtual and should be overridden by the router implementation
+    ///      Use msg.sender as the node address in inherited contracts
+    /// @return assets The amount of assets of the component.
+    function getComponentAssets(address component) public view virtual returns (uint256 assets) {}
 
     /// @notice Returns the investment size for a component.
     /// @dev This function is virtual and should be overridden by the router implementation
@@ -110,46 +130,33 @@ abstract contract BaseRouter {
 
     function _computeDepositAmount(address node, address component) internal returns (uint256 depositAmount) {
         // checks if excess reserve is available to invest
-        _validateReserveAboveTargetRatio(node);
-
         (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
+        _validateReserveAboveTargetRatio(currentCash, idealCashReserve);
 
         // gets units of asset required to set component to target ratio
         depositAmount = _getInvestmentSize(node, component);
 
         // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
+        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getComponentAllocation(component).maxDelta, WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
         // limit deposit by reserve ratio requirements
-        uint256 availableReserve = currentCash - idealCashReserve;
-        if (depositAmount > availableReserve) {
-            depositAmount = availableReserve;
-        }
+        // _validateReserveAboveTargetRatio() ensures currentCash >= idealCashReserve
+        depositAmount = MathLib.min(depositAmount, currentCash - idealCashReserve);
 
         // subtract execution fee for protocol
         depositAmount = _subtractExecutionFee(depositAmount, node);
     }
 
     /// @notice Validates that the reserve is above the target ratio.
-    /// @param node The address of the node.
-    function _validateReserveAboveTargetRatio(address node) internal view {
-        uint256 totalAssets_ = INode(node).totalAssets();
-        uint256 idealCashReserve = MathLib.mulDiv(totalAssets_, INode(node).targetReserveRatio(), WAD);
-        uint256 currentCash = INode(node).getCashAfterRedemptions();
-
+    /// @param currentCash The current cash of the node.
+    /// @param idealCashReserve The ideal cash reserve of the node.
+    function _validateReserveAboveTargetRatio(uint256 currentCash, uint256 idealCashReserve) internal pure {
         // checks if available reserve exceeds target ratio
+
         if (currentCash < idealCashReserve) {
             revert ErrorsLib.ReserveBelowTargetRatio();
-        }
-    }
-
-    /// @notice Validates that the node accepts the router.
-    /// @param node The address of the node.
-    function _validateNodeAcceptsRouter(address node) internal view {
-        if (!INode(node).isRouter(address(this))) {
-            revert ErrorsLib.NotRouter();
         }
     }
 
@@ -186,7 +193,7 @@ abstract contract BaseRouter {
     {
         totalAssets = INode(node).totalAssets();
         currentCash = INode(node).getCashAfterRedemptions();
-        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
+        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).getTargetReserveRatio(), WAD);
     }
 
     /// @notice Subtracts the execution fee from the transaction amount.
@@ -201,48 +208,13 @@ abstract contract BaseRouter {
             return transactionAmount;
         }
 
-        if (executionFee >= transactionAmount) {
-            revert ErrorsLib.FeeExceedsAmount(executionFee, transactionAmount);
-        }
-
         uint256 transactionAfterFee = transactionAmount - executionFee;
         INode(node).subtractProtocolExecutionFee(executionFee);
-
         return transactionAfterFee;
     }
 
-    /// @dev Transfers assets to the escrow.
-    /// @param node The address of the node.
-    /// @param assetsToReturn The amount of assets to return.
-    function _transferToEscrow(address node, uint256 assetsToReturn) internal {
-        bytes memory transferCallData =
-            abi.encodeWithSelector(IERC20.transfer.selector, INode(node).escrow(), assetsToReturn);
-        INode(node).execute(INode(node).asset(), 0, transferCallData);
-    }
-
-    /// @dev Enforces the liquidation queue.
-    /// @param component The address of the component.
-    /// @param assetsToReturn The amount of assets to return.
-    /// @param liquidationsQueue The liquidation queue.
-    function _enforceLiquidationQueue(address component, uint256 assetsToReturn, address[] memory liquidationsQueue)
-        internal
-        view
-    {
-        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
-            address candidate = liquidationsQueue[i];
-            uint256 candidateShares = IERC20(candidate).balanceOf(address(this));
-            uint256 candidateAssets = IERC4626(candidate).convertToAssets(candidateShares);
-
-            if (candidateAssets >= assetsToReturn) {
-                if (candidate != component) {
-                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
-                }
-                break;
-            }
-        }
-    }
-
-    function _approve(address node, address token, address spender, uint256 amount) internal {
-        INode(node).execute(token, 0, abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+    function _safeApprove(address node, address token, address spender, uint256 amount) internal {
+        bytes memory data = INode(node).execute(token, abi.encodeCall(IERC20.approve, (spender, amount)));
+        if (!(data.length == 0 || abi.decode(data, (bool)))) revert ErrorsLib.SafeApproveFailed();
     }
 }

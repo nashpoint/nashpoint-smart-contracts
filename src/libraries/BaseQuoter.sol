@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
+import {INode} from "../interfaces/INode.sol";
 import {ErrorsLib} from "./ErrorsLib.sol";
 
 /**
@@ -28,6 +29,12 @@ abstract contract BaseQuoter {
     /// @dev Reverts if the caller is not a valid node.
     modifier onlyValidNode(address node) {
         if (!registry.isNode(node)) revert ErrorsLib.NotRegistered();
+        _;
+    }
+
+    /// @dev Reverts if the caller is not a valid quoter.
+    modifier onlyValidQuoter(address node) {
+        if (address(INode(node).quoter()) != address(this)) revert ErrorsLib.InvalidQuoter();
         _;
     }
 

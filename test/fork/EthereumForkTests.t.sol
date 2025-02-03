@@ -86,22 +86,12 @@ contract EthereumForkTests is BaseTest {
 
         testRouter = new ERC7540RouterHarness(address(registry));
 
-        allocation = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.03 ether});
-
-        // warp forward to ensure not rebalancing
-        vm.warp(block.timestamp + 1 days);
-
-        // add centrifuge liquidity pool to protocol contracts
-        vm.startPrank(owner);
-        router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
-        node.addComponent(address(cfgLiquidityPool), allocation);
-        quoter.setErc7540(address(cfgLiquidityPool), true);
-        vm.stopPrank();
-
-        // add node to cfg whitelist
-        vm.startPrank(address(root));
-        restrictionManager.updateMember(share, address(node), type(uint64).max);
-        vm.stopPrank();
+        allocation = ComponentAllocation({
+            targetWeight: 0.9 ether,
+            maxDelta: 0.03 ether,
+            router: address(router7540),
+            isComponent: true
+        });
 
         // user approves and deposits to node
         vm.startPrank(user);
@@ -109,8 +99,24 @@ contract EthereumForkTests is BaseTest {
         node.deposit(100 ether, address(user));
         vm.stopPrank();
 
-        vm.prank(owner);
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0.01 ether}));
+        // warp forward to ensure not rebalancing
+        vm.warp(block.timestamp + 1 days);
+
+        // add centrifuge liquidity pool to protocol contracts
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
+        node.addComponent(address(cfgLiquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
+        vm.stopPrank();
+
+        // add node to cfg whitelist
+        vm.startPrank(address(root));
+        restrictionManager.updateMember(share, address(node), type(uint64).max);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
+        node.removeComponent(address(vault), false);
+        vm.stopPrank();
 
         vm.prank(rebalancer);
         node.startRebalance();
@@ -122,10 +128,8 @@ contract EthereumForkTests is BaseTest {
     }
 
     function test_usdcAddress_ethereum() public view {
-        string memory name = IERC20Metadata(usdcEthereum).name();
-        uint256 totalSupply = IERC20Metadata(usdcEthereum).totalSupply();
-        assertEq(name, "USD Coin");
-        assertEq(totalSupply, 25385817571885697);
+        assertEq(IERC20Metadata(usdcEthereum).name(), "USD Coin");
+        assertEq(IERC20Metadata(usdcEthereum).totalSupply(), 25385817571885697);
         assertEq(IERC20Metadata(usdcEthereum).decimals(), 6);
     }
 
@@ -219,7 +223,7 @@ contract EthereumForkTests is BaseTest {
     function test_cfgToNode_investInAsyncAsset() public {
         // rebalancer invests node in cfg vault
         vm.startPrank(rebalancer);
-        router7540.investInAsyncVault(address(node), address(cfgLiquidityPool));
+        router7540.investInAsyncComponent(address(node), address(cfgLiquidityPool));
         vm.stopPrank();
 
         // assert node totalAssets correctly including pendingDepositRequest
@@ -227,13 +231,14 @@ contract EthereumForkTests is BaseTest {
 
         // assert pendingDeposit on cfg == correct ratio of assets for node
         uint256 pendingDeposit = cfgLiquidityPool.pendingDepositRequest(0, address(node));
-        uint256 expectedDeposit = 100 ether * uint256(node.getComponentRatio(address(cfgLiquidityPool))) / 1e18;
+        uint256 expectedDeposit =
+            100 ether * uint256(node.getComponentAllocation(address(cfgLiquidityPool)).targetWeight) / 1e18;
         assertEq(pendingDeposit, expectedDeposit);
     }
 
     function test_cfgToNode_mintClaimableShares() public {
         vm.startPrank(rebalancer);
-        router7540.investInAsyncVault(address(node), address(cfgLiquidityPool));
+        router7540.investInAsyncComponent(address(node), address(cfgLiquidityPool));
         vm.stopPrank();
 
         uint256 pendingDepositAssets = cfgLiquidityPool.pendingDepositRequest(0, address(node));

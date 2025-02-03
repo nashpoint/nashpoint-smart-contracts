@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import {IEscrow} from "./IEscrow.sol";
 import {INode, ComponentAllocation} from "./INode.sol";
 
 struct DeployParams {
@@ -14,7 +13,7 @@ struct DeployParams {
     address[] routers;
     address[] components;
     ComponentAllocation[] componentAllocations;
-    ComponentAllocation reserveAllocation;
+    uint64 targetReserveRatio;
     bytes32 salt;
 }
 
@@ -28,7 +27,7 @@ interface INodeFactory {
     /// @param params The deployment parameters
     /// @return node The deployed Node contract
     /// @return escrow The deployed Escrow contract
-    function deployFullNode(DeployParams memory params) external returns (INode node, IEscrow escrow);
+    function deployFullNode(DeployParams memory params) external returns (INode node, address escrow);
 
     /// @notice Creates a Node
     /// @param name The name of the Node
@@ -38,7 +37,7 @@ interface INodeFactory {
     /// @param routers The routers of the Node
     /// @param components The components of the Node
     /// @param componentAllocations The component allocations of the Node
-    /// @param reserveAllocation The reserve allocation of the Node
+    /// @param targetReserveRatio The target reserve ratio of the Node
     /// @param salt The salt for the Node
     /// @return node The deployed Node contract
     function createNode(
@@ -49,7 +48,7 @@ interface INodeFactory {
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
-        ComponentAllocation memory reserveAllocation,
+        uint64 targetReserveRatio,
         bytes32 salt
     ) external returns (INode node);
 }

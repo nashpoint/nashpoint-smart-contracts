@@ -12,10 +12,12 @@ import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
  */
 contract NodeRegistry is INodeRegistry, Ownable {
     /* STATE */
+    uint64 public constant WAD = 1e18;
     bool public isInitialized;
     address public protocolFeeAddress;
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
+    uint64 public protocolMaxSwingFactor;
     mapping(address => mapping(RegistryType => bool)) public roles;
 
     /* CONSTRUCTOR */
@@ -38,22 +40,31 @@ contract NodeRegistry is INodeRegistry, Ownable {
         address[] calldata factories_,
         address[] calldata routers_,
         address[] calldata quoters_,
-        address[] calldata rebalancers_
+        address[] calldata rebalancers_,
+        address feeAddress_,
+        uint64 managementFee_,
+        uint64 executionFee_,
+        uint64 maxSwingFactor_
     ) external onlyOwner {
         if (isInitialized) revert ErrorsLib.AlreadyInitialized();
         _initializeRoles(factories_, RegistryType.FACTORY);
         _initializeRoles(routers_, RegistryType.ROUTER);
         _initializeRoles(quoters_, RegistryType.QUOTER);
         _initializeRoles(rebalancers_, RegistryType.REBALANCER);
+        _setProtocolFeeAddress(feeAddress_);
+        _setProtocolManagementFee(managementFee_);
+        _setProtocolExecutionFee(executionFee_);
+        _setProtocolMaxSwingFactor(maxSwingFactor_);
         isInitialized = true;
     }
 
     /// @inheritdoc INodeRegistry
-    function setRole(address addr, RegistryType role, bool status) external onlyInitialized onlyOwner {
-        if (role == RegistryType.NODE) revert ErrorsLib.NotFactory();
-        if (roles[addr][role] == status) revert ErrorsLib.AlreadySet();
-        roles[addr][role] = status;
-        emit EventsLib.RoleSet(addr, role, status);
+    function setRegistryType(address addr, RegistryType type_, bool status) external onlyInitialized onlyOwner {
+        if (type_ == RegistryType.UNUSED) revert ErrorsLib.InvalidRole();
+        if (type_ == RegistryType.NODE) revert ErrorsLib.NotFactory();
+        if (roles[addr][type_] == status) revert ErrorsLib.AlreadySet();
+        roles[addr][type_] = status;
+        emit EventsLib.RoleSet(addr, type_, status);
     }
 
     /// @inheritdoc INodeRegistry
@@ -65,21 +76,22 @@ contract NodeRegistry is INodeRegistry, Ownable {
 
     /// @inheritdoc INodeRegistry
     function setProtocolFeeAddress(address newProtocolFeeAddress) external onlyOwner {
-        if (newProtocolFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
-        protocolFeeAddress = newProtocolFeeAddress;
-        emit EventsLib.ProtocolFeeAddressSet(newProtocolFeeAddress);
+        _setProtocolFeeAddress(newProtocolFeeAddress);
     }
 
     /// @inheritdoc INodeRegistry
     function setProtocolManagementFee(uint64 newProtocolManagementFee) external onlyOwner {
-        protocolManagementFee = newProtocolManagementFee;
-        emit EventsLib.ProtocolManagementFeeSet(newProtocolManagementFee);
+        _setProtocolManagementFee(newProtocolManagementFee);
     }
 
     /// @inheritdoc INodeRegistry
     function setProtocolExecutionFee(uint64 newProtocolExecutionFee) external onlyOwner {
-        protocolExecutionFee = newProtocolExecutionFee;
-        emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
+        _setProtocolExecutionFee(newProtocolExecutionFee);
+    }
+
+    /// @inheritdoc INodeRegistry
+    function setProtocolMaxSwingFactor(uint64 newProtocolMaxSwingFactor) external onlyOwner {
+        _setProtocolMaxSwingFactor(newProtocolMaxSwingFactor);
     }
 
     /* VIEW */
@@ -90,23 +102,8 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     /// @inheritdoc INodeRegistry
-    function isFactory(address factory_) external view returns (bool) {
-        return roles[factory_][RegistryType.FACTORY];
-    }
-
-    /// @inheritdoc INodeRegistry
-    function isRouter(address router_) external view returns (bool) {
-        return roles[router_][RegistryType.ROUTER];
-    }
-
-    /// @inheritdoc INodeRegistry
-    function isQuoter(address quoter_) external view returns (bool) {
-        return roles[quoter_][RegistryType.QUOTER];
-    }
-
-    /// @inheritdoc INodeRegistry
-    function isRebalancer(address rebalancer_) external view returns (bool) {
-        return roles[rebalancer_][RegistryType.REBALANCER];
+    function isRegistryType(address addr, RegistryType type_) external view returns (bool) {
+        return roles[addr][type_];
     }
 
     /* INTERNAL */
@@ -117,5 +114,30 @@ contract NodeRegistry is INodeRegistry, Ownable {
             roles[addrs[i]][role] = true;
             emit EventsLib.RoleSet(addrs[i], role, true);
         }
+    }
+
+    function _setProtocolFeeAddress(address newProtocolFeeAddress) internal {
+        if (newProtocolFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
+        if (newProtocolFeeAddress == protocolFeeAddress) revert ErrorsLib.AlreadySet();
+        protocolFeeAddress = newProtocolFeeAddress;
+        emit EventsLib.ProtocolFeeAddressSet(newProtocolFeeAddress);
+    }
+
+    function _setProtocolManagementFee(uint64 newProtocolManagementFee) internal {
+        if (newProtocolManagementFee >= WAD) revert ErrorsLib.InvalidFee();
+        protocolManagementFee = newProtocolManagementFee;
+        emit EventsLib.ProtocolManagementFeeSet(newProtocolManagementFee);
+    }
+
+    function _setProtocolExecutionFee(uint64 newProtocolExecutionFee) internal {
+        if (newProtocolExecutionFee >= WAD) revert ErrorsLib.InvalidFee();
+        protocolExecutionFee = newProtocolExecutionFee;
+        emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
+    }
+
+    function _setProtocolMaxSwingFactor(uint64 newProtocolMaxSwingFactor) internal {
+        if (newProtocolMaxSwingFactor >= WAD) revert ErrorsLib.InvalidSwingFactor();
+        protocolMaxSwingFactor = newProtocolMaxSwingFactor;
+        emit EventsLib.ProtocolMaxSwingFactorSet(newProtocolMaxSwingFactor);
     }
 }
