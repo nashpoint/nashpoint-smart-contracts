@@ -59,15 +59,12 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         // Validate that the component is top of the liquidation queue
         INode(node).enforceLiquidationOrder(component, assetsRequested);
 
-        // withdraws either the requested amount or the available claimable assets if the requested amount is greater than the claimable balance
-        // uses the share price to calculate current convertToShares(assetsRequested) but can only withdraw from already claimable assets that have previously been requested for redemption
-        uint256 sharesRequested = IERC4626(component).convertToShares(assetsRequested);
-        uint256 claimableRedeem = IERC7540Redeem(component).claimableRedeemRequest(0, node);
-        uint256 availableShares = IERC4626(component).convertToShares(claimableRedeem);
-        uint256 componentShares = MathLib.min(sharesRequested, availableShares);
+        // Get the max amount of assets that can be withdrawn from the async component atomically
+        uint256 maxClaimableRedeemRequest = IERC7540Redeem(component).claimableRedeemRequest(0, node);
+        uint256 maxClaimableAssets = IERC7575(component).convertToAssets(maxClaimableRedeemRequest);
 
         // execute the withdrawal
-        assetsReturned = _executeAsyncWithdrawal(node, component, componentShares);
+        assetsReturned = _executeAsyncWithdrawal(node, component, MathLib.min(assetsRequested, maxClaimableAssets));
 
         // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
         if (assetsReturned < assetsRequested) {
