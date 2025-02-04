@@ -61,12 +61,10 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
 
         // withdraws either the requested amount or the available claimable assets if the requested amount is greater than the claimable balance
         // uses the share price to calculate current convertToShares(assetsRequested) but can only withdraw from already claimable assets that have previously been requested for redemption
-
-        uint256 componentShares = MathLib.min(
-            IERC4626(component).convertToShares(assetsRequested),
-            // IERC4626(component).convertToShares(IERC7540Redeem(component).claimableRedeemRequest(0, node)
-            IERC4626(component).maxRedeem(node)
-        );
+        uint256 sharesRequested = IERC4626(component).convertToShares(assetsRequested);
+        uint256 claimableRedeem = IERC7540Redeem(component).claimableRedeemRequest(0, node);
+        uint256 availableShares = IERC4626(component).convertToShares(claimableRedeem);
+        uint256 componentShares = MathLib.min(sharesRequested, availableShares);
 
         // execute the withdrawal
         assetsReturned = _executeAsyncWithdrawal(node, component, componentShares);
