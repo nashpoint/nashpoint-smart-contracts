@@ -763,7 +763,7 @@ contract NodeTest is BaseTest {
         assertEq(node.rebalanceWindow(), 1 hours);
 
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
 
         // warp forward 30 mins so still inside rebalance window
         vm.warp(block.timestamp + 30 minutes);
@@ -774,7 +774,7 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
 
         // warp forward 30 mins so outside rebalance window
         vm.warp(block.timestamp + 31 minutes);
@@ -786,7 +786,7 @@ contract NodeTest is BaseTest {
 
         vm.prank(rebalancer);
         vm.expectRevert();
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
 
         vm.prank(rebalancer);
         vm.expectRevert();
@@ -938,7 +938,7 @@ contract NodeTest is BaseTest {
         _seedNode(100 ether);
 
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
 
         assertEq(node.totalAssets(), 100 ether);
         assertEq(vault.totalAssets(), 90 ether);
@@ -1105,7 +1105,7 @@ contract NodeTest is BaseTest {
         _seedNode(100 ether);
 
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
 
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         vm.startPrank(owner);
@@ -1344,7 +1344,7 @@ contract NodeTest is BaseTest {
         assertEq(asset.balanceOf(address(user)), 0);
 
         vm.prank(rebalancer);
-        uint256 investedAssets = router4626.invest(address(node), address(vault));
+        uint256 investedAssets = router4626.invest(address(node), address(vault), 0);
         uint256 remainingReserve = node.totalAssets() - investedAssets;
 
         assertEq(investedAssets, 90 ether);
@@ -1397,7 +1397,7 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
 
         vm.startPrank(user);
         node.approve(address(node), node.balanceOf(user));
@@ -2324,7 +2324,7 @@ contract NodeTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         vm.startPrank(user);

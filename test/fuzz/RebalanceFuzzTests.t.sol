@@ -323,7 +323,7 @@ contract RebalanceFuzzTests is BaseTest {
             _userRequestsRedeem(user, sharesToRedeem);
 
             vm.startPrank(rebalancer);
-            router4626.fulfillRedeemRequest(address(node), user, address(vaultA));
+            router4626.fulfillRedeemRequest(address(node), user, address(vaultA), 0);
             vm.stopPrank();
         }
         if (node.totalAssets() < 10) {
@@ -366,7 +366,7 @@ contract RebalanceFuzzTests is BaseTest {
 
             vm.startPrank(rebalancer);
             for (uint256 i = 0; i < synchronousComponents.length; i++) {
-                try router4626.fulfillRedeemRequest(address(node), user, synchronousComponents[i]) {} catch {}
+                try router4626.fulfillRedeemRequest(address(node), user, synchronousComponents[i], 0) {} catch {}
             }
             vm.stopPrank();
 
@@ -426,7 +426,7 @@ contract RebalanceFuzzTests is BaseTest {
         vm.startPrank(rebalancer);
         try node.startRebalance() {} catch {}
         for (uint256 i = 0; i < components.length; i++) {
-            try router4626.invest(address(node), address(components[i])) {} catch {}
+            try router4626.invest(address(node), address(components[i]), 0) {} catch {}
             try router7540.investInAsyncComponent(address(node), address(components[i])) {} catch {}
         }
         vm.stopPrank();
