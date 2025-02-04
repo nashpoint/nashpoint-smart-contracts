@@ -22,6 +22,6 @@ contract Escrow {
     constructor(address node_) {
         if (node_ == address(0)) revert ErrorsLib.ZeroAddress();
         node = node_;
-        IERC20(IERC4626(node_).asset()).safeIncreaseAllowance(address(node), type(uint256).max);
+        IERC20(IERC4626(node).asset()).safeIncreaseAllowance(address(node), type(uint256).max);
     }
 }

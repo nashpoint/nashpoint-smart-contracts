@@ -139,8 +139,9 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @notice Returns the assets of a component held by the node.
     /// @param component The address of the component.
     /// @return assets The amount of assets of the component.
-    function getComponentAssets(address component) public view override returns (uint256 assets) {
-        assets = IERC4626(component).convertToAssets(IERC20(component).balanceOf(msg.sender));
+
+    function getComponentAssets(address component) public view override returns (uint256) {
+        return _getComponentAssets(component, msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -181,7 +182,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         uint256 targetHoldings =
             MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
-        uint256 currentBalance = IERC4626(component).convertToAssets(IERC20(component).balanceOf(address(node)));
+        uint256 currentBalance = _getComponentAssets(component, node);
 
         uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
         return delta;
@@ -221,5 +222,14 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         }
 
         return assetsReturned;
+    }
+
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @param node The address of the node.
+    /// @return assets The amount of assets of the component.
+    function _getComponentAssets(address component, address node) internal view returns (uint256) {
+        uint256 balance = IERC20(component).balanceOf(node);
+        return IERC4626(component).convertToAssets(balance);
     }
 }
