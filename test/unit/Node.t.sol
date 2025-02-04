@@ -101,6 +101,10 @@ contract NodeTest is BaseTest {
             _defaultComponentAllocations(1),
             0.1 ether
         );
+
+        testRegistry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
+        testNode.addRouter(address(router4626));
+
         vm.stopPrank();
 
         vm.label(testAsset, "TestAsset");
@@ -502,7 +506,8 @@ contract NodeTest is BaseTest {
             isComponent: true
         });
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+        router4626.setWhitelistStatus(testComponent, true);
         testNode.updateComponentAllocation(
             testComponent, newAllocation.targetWeight, newAllocation.maxDelta, newAllocation.router
         );

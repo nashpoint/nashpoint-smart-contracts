@@ -106,7 +106,7 @@ contract ERC7540RouterTest is BaseTest {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        investInAsyncVault Tests
+                        investInAsyncComponent Tests
     //////////////////////////////////////////////////////////////*/
 
     function test_investInAsyncVault() public {
@@ -727,5 +727,68 @@ contract ERC7540RouterTest is BaseTest {
         vm.stopPrank();
 
         assertEq(router7540.isWhitelisted(address(liquidityPool)), true);
+    }
+
+    function test_fulfillRedeemRequest_7540() public {
+        _userDeposits(user, 100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        node.addComponent(address(liquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        router7540.investInAsyncComponent(address(node), address(liquidityPool));
+        vm.stopPrank();
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+
+        assertEq(liquidityPool.balanceOf(address(node)), 90 ether);
+
+        vm.startPrank(user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 50 ether);
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingRedemptions();
+
+        uint256 userBalanceBefore = asset.balanceOf(address(user));
+
+        vm.prank(rebalancer);
+        router7540.fulfillRedeemRequest(address(node), user, address(liquidityPool));
+
+        assertEq(node.claimableRedeemRequest(0, user), 50 ether);
+
+        vm.prank(user);
+        node.withdraw(50 ether, user, user);
+
+        assertEq(userBalanceBefore + 50 ether, asset.balanceOf(address(user)));
+
+        vm.startPrank(user);
+        node.approve(address(node), 50 ether);
+        node.requestRedeem(50 ether, user, user);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 40 ether);
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingRedemptions();
+
+        vm.prank(rebalancer);
+        router7540.fulfillRedeemRequest(address(node), user, address(liquidityPool));
+
+        assertEq(node.claimableRedeemRequest(0, user), 40 ether);
     }
 }
