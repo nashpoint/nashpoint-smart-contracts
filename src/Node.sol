@@ -717,12 +717,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _updateTotalAssets() internal {
-        cacheTotalAssets = IERC20(asset).balanceOf(address(this));
+        uint256 assets = IERC20(asset).balanceOf(address(this));
         uint256 componentsLength = components.length;
         for (uint256 i = 0; i < componentsLength; i++) {
             address router = componentAllocations[components[i]].router;
-            cacheTotalAssets += IRouter(router).getComponentAssets(components[i]);
+            assets += IRouter(router).getComponentAssets(components[i]);
         }
+        cacheTotalAssets = assets;
     }
 
     function _validateController(address controller) internal view {
