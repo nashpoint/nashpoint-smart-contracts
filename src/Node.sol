@@ -159,6 +159,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (component == address(0)) revert ErrorsLib.ZeroAddress();
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
         if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
+        if (!isRouter[router]) revert ErrorsLib.NotWhitelisted();
         if (!IRouter(router).isWhitelisted(component)) revert ErrorsLib.NotWhitelisted();
 
         components.push(component);
@@ -195,6 +196,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         onlyWhenNotRebalancing
     {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
+        if (!isRouter[router]) revert ErrorsLib.NotWhitelisted();
+        if (!IRouter(router).isWhitelisted(component)) revert ErrorsLib.NotWhitelisted();
         componentAllocations[component] =
             ComponentAllocation({targetWeight: targetWeight, maxDelta: maxDelta, router: router, isComponent: true});
         emit EventsLib.ComponentAllocationUpdated(component, targetWeight, maxDelta, router);
