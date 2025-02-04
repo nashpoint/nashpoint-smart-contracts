@@ -13,7 +13,7 @@ struct DeployParams {
     address[] routers;
     address[] components;
     ComponentAllocation[] componentAllocations;
-    ComponentAllocation reserveAllocation;
+    uint64 targetReserveRatio;
     bytes32 salt;
 }
 
@@ -37,7 +37,7 @@ interface INodeFactory {
     /// @param routers The routers of the Node
     /// @param components The components of the Node
     /// @param componentAllocations The component allocations of the Node
-    /// @param reserveAllocation The reserve allocation of the Node
+    /// @param targetReserveRatio The target reserve ratio of the Node
     /// @param salt The salt for the Node
     /// @return node The deployed Node contract
     function createNode(
@@ -48,7 +48,7 @@ interface INodeFactory {
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
-        ComponentAllocation memory reserveAllocation,
+        uint64 targetReserveRatio,
         bytes32 salt
     ) external returns (INode node);
 }

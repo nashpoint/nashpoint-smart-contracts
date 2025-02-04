@@ -5,6 +5,7 @@ import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
+import {IRouter} from "src/interfaces/IRouter.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
@@ -54,19 +55,13 @@ contract RebalanceFuzzTests is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.removeComponent(address(vault));
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0 ether, maxDelta: 0 ether, isComponent: true}));
-        quoter.setErc4626(address(vaultA), true);
+        node.removeComponent(address(vault), false);
+        node.updateTargetReserveRatio(0 ether);
         router4626.setWhitelistStatus(address(vaultA), true);
-        quoter.setErc4626(address(vaultB), true);
         router4626.setWhitelistStatus(address(vaultB), true);
-        quoter.setErc4626(address(vaultC), true);
         router4626.setWhitelistStatus(address(vaultC), true);
-        quoter.setErc7540(address(asyncVaultA), true);
         router7540.setWhitelistStatus(address(asyncVaultA), true);
-        quoter.setErc7540(address(asyncVaultB), true);
         router7540.setWhitelistStatus(address(asyncVaultB), true);
-        quoter.setErc7540(address(asyncVaultC), true);
         router7540.setWhitelistStatus(address(asyncVaultC), true);
         vm.stopPrank();
 
@@ -305,7 +300,7 @@ contract RebalanceFuzzTests is BaseTest {
         deal(address(asset), address(user), seedAmount);
 
         vm.startPrank(owner);
-        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0, isComponent: true}));
+        node.addComponent(address(vaultA), 1 ether, 0, address(router4626));
         node.setLiquidationQueue(components);
         vm.stopPrank();
 
@@ -398,30 +393,29 @@ contract RebalanceFuzzTests is BaseTest {
         internal
     {
         vm.startPrank(owner);
-        node.updateReserveAllocation(
-            ComponentAllocation({targetWeight: reserveRatio, maxDelta: 0 ether, isComponent: true})
-        );
+        node.updateTargetReserveRatio(reserveRatio);
         components = newComponents;
 
         uint64 availableAllocation = 1 ether - reserveRatio;
         for (uint256 i = 0; i < components.length; i++) {
             if (i == components.length - 1) {
                 if (availableAllocation > 0) {
-                    node.addComponent(
-                        components[i],
-                        ComponentAllocation({targetWeight: availableAllocation, maxDelta: 0, isComponent: true})
-                    );
+                    if (IRouter(router4626).isWhitelisted(components[i])) {
+                        node.addComponent(components[i], availableAllocation, 0, address(router4626));
+                    } else {
+                        node.addComponent(components[i], availableAllocation, 0, address(router7540));
+                    }
                 }
             } else {
                 uint256 hashVal = uint256(keccak256(abi.encodePacked(randUint, i)));
                 uint256 bounded = bound(hashVal, 0, availableAllocation);
                 uint64 chunk = uint64(bounded);
 
-                // uint64 chunk = uint64(keccak256(abi.encodePacked(randUint, i)));
-                // chunk = bound(chunk, 0, availableAllocation);
-                node.addComponent(
-                    components[i], ComponentAllocation({targetWeight: chunk, maxDelta: 0, isComponent: true})
-                );
+                if (IRouter(router4626).isWhitelisted(components[i])) {
+                    node.addComponent(components[i], chunk, 0, address(router4626));
+                } else {
+                    node.addComponent(components[i], chunk, 0, address(router7540));
+                }
                 availableAllocation -= chunk;
             }
         }

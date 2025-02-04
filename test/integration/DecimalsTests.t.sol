@@ -50,7 +50,7 @@ contract DecimalsTests is BaseTest {
             routers: _toArrayTwo(address(router4626), address(router7540)),
             components: _toArray(address(testVault6)),
             componentAllocations: _defaultComponentAllocations(1),
-            reserveAllocation: _defaultReserveAllocation(),
+            targetReserveRatio: 0.1 ether,
             salt: SALT
         });
 
@@ -58,7 +58,6 @@ contract DecimalsTests is BaseTest {
 
         decNode.setMaxDepositSize(1e36);
 
-        quoter.setErc4626(address(testVault6), true);
         router4626.setWhitelistStatus(address(testVault6), true);
 
         // decEscrow.approveMax(address(testToken6), address(decNode));
@@ -96,12 +95,8 @@ contract DecimalsTests is BaseTest {
         vm.warp(block.timestamp + 25 hours);
 
         vm.startPrank(owner);
-        decNode.updateComponentAllocation(
-            address(testVault6), ComponentAllocation({targetWeight: allocation, maxDelta: 0, isComponent: true})
-        );
-        decNode.updateReserveAllocation(
-            ComponentAllocation({targetWeight: 1e18 - allocation, maxDelta: 0, isComponent: true})
-        );
+        decNode.updateComponentAllocation(address(testVault6), allocation, 0, address(router4626));
+        decNode.updateTargetReserveRatio(1e18 - allocation);
         vm.stopPrank();
 
         vm.prank(rebalancer);
@@ -149,13 +144,8 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         decNode.enableSwingPricing(true, maxSwingFactor);
-        decNode.updateReserveAllocation(
-            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
-        decNode.updateComponentAllocation(
-            address(testVault6),
-            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
+        decNode.updateTargetReserveRatio(targetReserveRatio);
+        decNode.updateComponentAllocation(address(testVault6), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
@@ -211,13 +201,8 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         decNode.enableSwingPricing(true, maxSwingFactor);
-        decNode.updateReserveAllocation(
-            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
-        decNode.updateComponentAllocation(
-            address(testVault6),
-            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
+        decNode.updateTargetReserveRatio(targetReserveRatio);
+        decNode.updateComponentAllocation(address(testVault6), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);

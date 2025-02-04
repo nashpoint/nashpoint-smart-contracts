@@ -40,7 +40,6 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         nonReentrant
         onlyNodeRebalancer(node)
         onlyNodeComponent(node, component)
-        onlyWhitelisted(component)
         returns (uint256 depositAmount)
     {
         depositAmount = _computeDepositAmount(node, component);
@@ -83,7 +82,6 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         external
         nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
@@ -104,7 +102,6 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         external
         nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
@@ -112,7 +109,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
 
         // Validate that the component is top of the liquidation queue
-        _enforceLiquidationQueue(component, assetsRequested, INode(node).getLiquidationsQueue());
+        INode(node).enforceLiquidationOrder(component, assetsRequested);
 
         // liquidate either the requested amount or the balance of the component
         // if the requested amount is greater than the balance of the component
@@ -133,6 +130,17 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
         emit FulfilledRedeemRequest(node, component, assetsReturned);
         return assetsReturned;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @return assets The amount of assets of the component.
+    function getComponentAssets(address component) public view override returns (uint256 assets) {
+        assets = IERC4626(component).convertToAssets(IERC20(component).balanceOf(msg.sender));
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -1,43 +1,34 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.26;
 
-import {IQuoter} from "./IQuoter.sol";
+interface IQuoterV1 {
+    /// @notice Calculates the deposit bonus based on the assets, reserve cash, total assets, max swing factor, and target reserve ratio
+    /// @param assets The assets to deposit
+    /// @param reserveCash The reserve cash of the Node
+    /// @param totalAssets The total assets of the Node
+    /// @param maxSwingFactor The max swing factor of the Node
+    /// @param targetReserveRatio The target reserve ratio of the Node
+    /// @return The shares to mint after applying the deposit bonus
+    function calculateDepositBonus(
+        uint256 assets,
+        uint256 reserveCash,
+        uint256 totalAssets,
+        uint64 maxSwingFactor,
+        uint64 targetReserveRatio
+    ) external view returns (uint256);
 
-/// @title IQuoterV1
-/// @author ODND Studios
-interface IQuoterV1 is IQuoter {
-    /// @notice Initializes the quoter with component classifications
-    /// @param erc4626Components_ Array of ERC4626 component addresses
-    /// @param erc7540Components_ Array of ERC7540 component addresses
-    function initialize(address[] memory erc4626Components_, address[] memory erc7540Components_) external;
-
-    /// @notice Sets whether a component is an ERC4626 vault
-    /// @param component The component address
-    /// @param value True if ERC4626, false otherwise
-    function setErc4626(address component, bool value) external;
-
-    /// @notice Sets whether a component is an ERC7540 vault
-    /// @param component The component address
-    /// @param value True if ERC7540, false otherwise
-    function setErc7540(address component, bool value) external;
-
-    /// @notice Returns the assets of an ERC7540 vault
-    /// @param node The node address
-    /// @param component The component address
-    /// @return The assets of the ERC7540 vault
-    function getErc7540Assets(address node, address component) external view returns (uint256);
-
-    /// @notice Checks if a component is an ERC4626 vault
-    /// @param component The component address to check
-    /// @return True if the component is an ERC4626 vault
-    function isErc4626(address component) external view returns (bool);
-
-    /// @notice Checks if a component is an ERC7540 vault
-    /// @param component The component address to check
-    /// @return True if the component is an ERC7540 vault
-    function isErc7540(address component) external view returns (bool);
-
-    /// @notice Checks if the quoter has been initialized
-    /// @return True if initialized
-    function isInitialized() external view returns (bool);
+    /// @notice Calculates the redeem penalty based on the shares, reserve cash, total assets, max swing factor, and target reserve ratio
+    /// @param shares The shares to redeem
+    /// @param reserveCash The reserve cash of the Node
+    /// @param totalAssets The total assets of the Node
+    /// @param maxSwingFactor The max swing factor of the Node
+    /// @param targetReserveRatio The target reserve ratio of the Node
+    /// @return The assets to redeem after applying the redeem penalty
+    function calculateRedeemPenalty(
+        uint256 shares,
+        uint256 reserveCash,
+        uint256 totalAssets,
+        uint64 maxSwingFactor,
+        uint64 targetReserveRatio
+    ) external returns (uint256);
 }

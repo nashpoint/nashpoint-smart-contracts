@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
 import {MathLib} from "./MathLib.sol";
@@ -14,7 +15,7 @@ import {EventsLib} from "./EventsLib.sol";
  * @title BaseRouter
  * @author ODND Studios
  */
-abstract contract BaseRouter {
+abstract contract BaseRouter is IRouter {
     /* IMMUTABLES */
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
@@ -48,12 +49,6 @@ abstract contract BaseRouter {
     /// @dev Reverts if the caller is not the registry owner
     modifier onlyRegistryOwner() {
         if (msg.sender != Ownable(address(registry)).owner()) revert ErrorsLib.NotRegistryOwner();
-        _;
-    }
-
-    /// @dev Reverts if the component is not whitelisted
-    modifier onlyWhitelisted(address component) {
-        if (!isWhitelisted[component]) revert ErrorsLib.NotWhitelisted();
         _;
     }
 
@@ -109,6 +104,13 @@ abstract contract BaseRouter {
     /*//////////////////////////////////////////////////////////////
                     VIRTUAL / OVERRIDABLE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @dev This function is virtual and should be overridden by the router implementation
+    ///      Use msg.sender as the node address in inherited contracts
+    /// @return assets The amount of assets of the component.
+    function getComponentAssets(address component) public view virtual returns (uint256 assets) {}
 
     /// @notice Returns the investment size for a component.
     /// @dev This function is virtual and should be overridden by the router implementation
@@ -191,7 +193,7 @@ abstract contract BaseRouter {
     {
         totalAssets = INode(node).totalAssets();
         currentCash = INode(node).getCashAfterRedemptions();
-        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).getReserveAllocation().targetWeight, WAD);
+        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).getTargetReserveRatio(), WAD);
     }
 
     /// @notice Subtracts the execution fee from the transaction amount.
@@ -209,40 +211,6 @@ abstract contract BaseRouter {
         uint256 transactionAfterFee = transactionAmount - executionFee;
         INode(node).subtractProtocolExecutionFee(executionFee);
         return transactionAfterFee;
-    }
-
-    /// @dev Enforces the liquidation queue.
-    /// @param component The address of the component.
-    /// @param assetsToReturn The amount of assets to return.
-    /// @param liquidationsQueue The liquidation queue.
-    function _enforceLiquidationQueue(address component, uint256 assetsToReturn, address[] memory liquidationsQueue)
-        internal
-        view
-    {
-        for (uint256 i = 0; i < liquidationsQueue.length; i++) {
-            address candidate = liquidationsQueue[i];
-
-            uint256 candidateShares;
-            try IERC20(candidate).balanceOf(address(this)) returns (uint256 shares) {
-                candidateShares = shares;
-            } catch {
-                continue;
-            }
-
-            uint256 candidateAssets;
-            try IERC4626(candidate).convertToAssets(candidateShares) returns (uint256 assets) {
-                candidateAssets = assets;
-            } catch {
-                continue;
-            }
-
-            if (candidateAssets >= assetsToReturn) {
-                if (candidate != component) {
-                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
-                }
-                break;
-            }
-        }
     }
 
     function _safeApprove(address node, address token, address spender, uint256 amount) internal {

@@ -29,7 +29,7 @@ contract DeployTestEnv is Script {
         NodeRegistry registry = new NodeRegistry(deployer);
         NodeFactory factory = new NodeFactory(address(registry));
         QuoterV1 quoter = new QuoterV1(address(registry));
-        ERC4626Router router = new ERC4626Router(address(registry));
+        ERC4626Router router4626 = new ERC4626Router(address(registry));
 
         // Deploy test tokens
         ERC20Mock asset = new ERC20Mock("Test Token", "TEST");
@@ -38,7 +38,7 @@ contract DeployTestEnv is Script {
         // Initialize registry
         registry.initialize(
             _toArray(address(factory)),
-            _toArray(address(router)),
+            _toArray(address(router4626)),
             _toArray(address(quoter)),
             _toArray(address(rebalancer)),
             address(0),
@@ -48,8 +48,7 @@ contract DeployTestEnv is Script {
         );
 
         // Configure components
-        quoter.setErc4626(address(vault), true);
-        router.setWhitelistStatus(address(vault), true);
+        router4626.setWhitelistStatus(address(vault), true);
 
         DeployParams memory params = DeployParams({
             name: "Test Node",
@@ -58,10 +57,10 @@ contract DeployTestEnv is Script {
             owner: deployer,
             rebalancer: rebalancer,
             quoter: address(quoter),
-            routers: _toArray(address(router)),
+            routers: _toArray(address(router4626)),
             components: _toArray(address(vault)),
-            componentAllocations: _defaultComponentAllocations(1),
-            reserveAllocation: _defaultReserveAllocation(),
+            componentAllocations: _defaultComponentAllocations(1, address(router4626)),
+            targetReserveRatio: 0.1 ether,
             salt: SALT
         });
         // Deploy node
@@ -76,7 +75,7 @@ contract DeployTestEnv is Script {
         vm.stopBroadcast();
 
         vm.startBroadcast(rebalancerKey);
-        router.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault));
         vm.stopBroadcast();
     }
 
@@ -85,13 +84,18 @@ contract DeployTestEnv is Script {
         arr[0] = addr;
     }
 
-    function _defaultComponentAllocations(uint256 count) internal pure returns (ComponentAllocation[] memory) {
+    function _defaultComponentAllocations(uint256 count, address router)
+        internal
+        pure
+        returns (ComponentAllocation[] memory)
+    {
         ComponentAllocation[] memory allocations = new ComponentAllocation[](count);
-        allocations[0] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
+        allocations[0] =
+            ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, router: router, isComponent: true});
         return allocations;
     }
 
-    function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, isComponent: true});
+    function _defaultReserveAllocation(address router) internal pure returns (ComponentAllocation memory) {
+        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, router: router, isComponent: true});
     }
 }

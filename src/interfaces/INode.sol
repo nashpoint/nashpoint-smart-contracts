@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575} from "./IERC7575.sol";
 import {IERC7540Redeem} from "./IERC7540.sol";
-import {IQuoter} from "./IQuoter.sol";
+import {IQuoterV1} from "./IQuoterV1.sol";
 
 /// @notice Component allocation parameters
 /// @dev targetWeight is the target weight of the component in the node
@@ -12,6 +12,7 @@ import {IQuoter} from "./IQuoter.sol";
 struct ComponentAllocation {
     uint64 targetWeight;
     uint64 maxDelta;
+    address router;
     bool isComponent;
 }
 
@@ -41,25 +42,31 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Adds a new component to the node
     /// @param component The address of the component to add
-    /// @param allocation The allocation parameters for the component
+    /// @param targetWeight The target weight of the component
+    /// @param maxDelta The max delta of the component
+    /// @param router The router of the component
     /// @dev Only callable by owner
-    function addComponent(address component, ComponentAllocation memory allocation) external;
+    function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router) external;
 
     /// @notice Removes a component from the node. Must have zero balance.
     /// @param component The address of the component to remove
-    /// @dev Only callable by owner. Component must be rebalanced to zero before removal.
-    function removeComponent(address component) external;
+    /// @param force Whether to force the removal of the component
+    /// @dev Only callable by owner. Component must be rebalanced to zero before removal or force is true
+    function removeComponent(address component, bool force) external;
 
     /// @notice Updates the allocation for an existing component. Set to zero to rebalance out of component before removing.
     /// @param component The address of the component to update
-    /// @param allocation The new allocation parameters
+    /// @param targetWeight The target weight of the component
+    /// @param maxDelta The max delta of the component
+    /// @param router The router of the component
     /// @dev Only callable by owner
-    function updateComponentAllocation(address component, ComponentAllocation memory allocation) external;
+    function updateComponentAllocation(address component, uint64 targetWeight, uint64 maxDelta, address router)
+        external;
 
     /// @notice Updates the allocation for the reserve asset
-    /// @param allocation The new allocation parameters
+    /// @param targetReserveRatio The new target reserve ratio
     /// @dev Only callable by owner
-    function updateReserveAllocation(ComponentAllocation memory allocation) external;
+    function updateTargetReserveRatio(uint64 targetReserveRatio) external;
 
     /// @notice Adds a router
     function addRouter(address newRouter) external;
@@ -302,9 +309,9 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return ComponentAllocation The allocation parameters for the component
     function getComponentAllocation(address component) external view returns (ComponentAllocation memory);
 
-    /// @notice Returns the reserve allocation
-    /// @return ComponentAllocation The allocation parameters for the reserve
-    function getReserveAllocation() external view returns (ComponentAllocation memory);
+    /// @notice Returns the target reserve ratio
+    /// @return uint64 The target reserve ratio
+    function getTargetReserveRatio() external view returns (uint64);
 
     /// @notice Returns whether the given address is a component
     /// @param component The address to check
@@ -324,6 +331,11 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// subtracts the asset value of shares exiting from the reserve balance
     function getCashAfterRedemptions() external view returns (uint256);
 
+    /// @notice Enforces the liquidation order
+    /// @param component The address of the component
+    /// @param assetsToReturn The amount of assets to return
+    function enforceLiquidationOrder(address component, uint256 assetsToReturn) external view;
+
     /// @notice The address of the node registry
     function registry() external view returns (address);
 
@@ -331,7 +343,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function escrow() external view returns (address);
 
     /// @notice The address of the quoter
-    function quoter() external view returns (IQuoter);
+    function quoter() external view returns (IQuoterV1);
 
     /// @notice Returns if an address is a router
     function isRouter(address) external view returns (bool);

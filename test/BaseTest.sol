@@ -99,7 +99,7 @@ contract BaseTest is Test {
             0,
             0.99 ether
         );
-        quoter.setErc4626(address(vault), true);
+
         router4626.setWhitelistStatus(address(vault), true);
 
         DeployParams memory params = DeployParams({
@@ -112,13 +112,12 @@ contract BaseTest is Test {
             routers: _toArrayTwo(address(router4626), address(router7540)),
             components: _toArray(address(vault)),
             componentAllocations: _defaultComponentAllocations(1),
-            reserveAllocation: _defaultReserveAllocation(),
+            targetReserveRatio: 0.1 ether,
             salt: SALT
         });
 
         (node, escrow) = factory.deployFullNode(params);
 
-        // escrow.approveMax(address(asset), address(node));
         node.setMaxDepositSize(1e36);
         vm.stopPrank();
 
@@ -151,17 +150,27 @@ contract BaseTest is Test {
 
     function _defaultComponentAllocations(uint256 count)
         internal
-        pure
+        view
         returns (ComponentAllocation[] memory allocations)
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether, isComponent: true});
+            allocations[i] = ComponentAllocation({
+                targetWeight: 0.9 ether,
+                maxDelta: 0.01 ether,
+                router: address(router4626),
+                isComponent: true
+            });
         }
     }
 
-    function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether, isComponent: true});
+    function _defaultReserveAllocation() internal view returns (ComponentAllocation memory) {
+        return ComponentAllocation({
+            targetWeight: 0.1 ether,
+            maxDelta: 0.01 ether,
+            router: address(router4626),
+            isComponent: true
+        });
     }
 
     function _labelAddresses() internal {
@@ -252,17 +261,10 @@ contract BaseTest is Test {
     function _setAllocationToAsyncVault(address liquidityPool_, uint64 allocation) internal {
         vm.startPrank(owner);
         uint64 reserveAllocation = 1 ether - allocation;
-        node.updateReserveAllocation(
-            ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0, isComponent: true})
-        );
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0, isComponent: true})
-        );
-        node.removeComponent(address(vault));
-        node.addComponent(
-            address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0, isComponent: true})
-        );
-        quoter.setErc7540(address(liquidityPool_), true);
+        node.updateTargetReserveRatio(reserveAllocation);
+        node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
+        node.removeComponent(address(vault), false);
+        node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();
     }

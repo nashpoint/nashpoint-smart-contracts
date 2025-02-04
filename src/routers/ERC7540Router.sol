@@ -27,6 +27,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     event MintedClaimableShares(address indexed node, address indexed component, uint256 sharesReceived);
     event RequestedAsyncWithdrawal(address indexed node, address indexed component, uint256 shares);
     event AsyncWithdrawalExecuted(address indexed node, address indexed component, uint256 assetsReceived);
+    event FulfilledRedeemRequest(address indexed node, address indexed component, uint256 assets);
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {
@@ -36,6 +37,46 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Fulfills a redeem request on behalf of the Node.
+    /// @dev Called by a rebalancer to liquidate a component in order to make assets available for user withdrawal
+    /// Transfers the assets to Escrow and updates the Requst for the user
+    /// Enforces liquidation queue to ensure asset liquidated is according to order set by the Node Owner
+    /// @param node The address of the node.
+    /// @param controller The address of the controller.
+    /// @param component The address of the component.
+    /// @return assetsReturned The amount of assets returned.
+    function fulfillRedeemRequest(address node, address controller, address component)
+        external
+        nonReentrant
+        onlyNodeRebalancer(node)
+        onlyNodeComponent(node, component)
+        returns (uint256 assetsReturned)
+    {
+        (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
+        uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
+
+        // Validate that the component is top of the liquidation queue
+        INode(node).enforceLiquidationOrder(component, assetsRequested);
+
+        // Get the max amount of assets that can be withdrawn from the async component atomically
+        uint256 maxClaimableRedeemRequest = IERC7540Redeem(component).claimableRedeemRequest(0, node);
+        uint256 maxClaimableAssets = IERC7575(component).convertToAssets(maxClaimableRedeemRequest);
+
+        // execute the withdrawal
+        assetsReturned = _executeAsyncWithdrawal(node, component, MathLib.min(assetsRequested, maxClaimableAssets));
+
+        // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
+        if (assetsReturned < assetsRequested) {
+            (sharesPending, sharesAdjusted) =
+                _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested, sharesAdjusted);
+        }
+
+        // update the redemption request state on the node and transfer the assets to the escrow
+        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
+        emit FulfilledRedeemRequest(node, component, assetsReturned);
+        return assetsReturned;
+    }
 
     /// @notice Invests in a component on behalf of the Node.
     /// @dev call by a valid node rebalancer to invest excess reserve into components
@@ -47,7 +88,6 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     function investInAsyncComponent(address node, address component)
         external
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 depositAmount)
     {
@@ -72,7 +112,6 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         external
         nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 sharesReceived)
     {
@@ -107,7 +146,6 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     function requestAsyncWithdrawal(address node, address component, uint256 shares)
         external
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
     {
         address shareToken = IERC7575(component).share();
@@ -131,37 +169,25 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     /// @param assets The amount of assets to withdraw.
     /// @return assetsReceived The amount of assets received.
     function executeAsyncWithdrawal(address node, address component, uint256 assets)
-        external
+        public
         nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
         onlyNodeComponent(node, component)
         returns (uint256 assetsReceived)
     {
-        if (assets > IERC7575(component).maxWithdraw(address(node))) {
-            revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
-        }
-
-        address asset = IERC7575(node).asset();
-        uint256 balanceBefore = IERC20(asset).balanceOf(address(node));
-
-        _withdraw(node, component, assets);
-
-        uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
-        if (balanceAfter < balanceBefore) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
-        } else {
-            assetsReceived = balanceAfter - balanceBefore;
-        }
-
-        if ((assetsReceived + tolerance) < assets) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
-        }
-
-        emit AsyncWithdrawalExecuted(node, component, assetsReceived);
-        return assetsReceived;
+        assetsReceived = _executeAsyncWithdrawal(node, component, assets);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @return assets The amount of assets of the component.
+    function getComponentAssets(address component) public view override returns (uint256 assets) {
+        return _getErc7540Assets(msg.sender, component);
+    }
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -245,8 +271,44 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return assets The amount of assets.
-    function _getErc7540Assets(address node, address component) internal view returns (uint256) {
-        address quoter = address(INode(node).quoter());
-        return IQuoterV1(quoter).getErc7540Assets(node, component);
+    function _getErc7540Assets(address node, address component) internal view returns (uint256 assets) {
+        address shareToken = IERC7575(component).share();
+        uint256 shares = IERC20(shareToken).balanceOf(node);
+
+        shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
+        shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
+        assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
+        assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
+        assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
+
+        return assets;
+    }
+
+    function _executeAsyncWithdrawal(address node, address component, uint256 assets)
+        internal
+        returns (uint256 assetsReceived)
+    {
+        if (assets > IERC7575(component).maxWithdraw(address(node))) {
+            revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
+        }
+
+        address asset = IERC7575(node).asset();
+        uint256 balanceBefore = IERC20(asset).balanceOf(address(node));
+
+        _withdraw(node, component, assets);
+
+        uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
+        if (balanceAfter < balanceBefore) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
+        } else {
+            assetsReceived = balanceAfter - balanceBefore;
+        }
+
+        if ((assetsReceived + tolerance) < assets) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
+        }
+
+        emit AsyncWithdrawalExecuted(node, component, assetsReceived);
+        return assetsReceived;
     }
 }

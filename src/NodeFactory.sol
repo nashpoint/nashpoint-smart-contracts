@@ -37,7 +37,7 @@ contract NodeFactory is INodeFactory {
             params.routers,
             params.components,
             params.componentAllocations,
-            params.reserveAllocation,
+            params.targetReserveRatio,
             salt
         );
 
@@ -57,12 +57,12 @@ contract NodeFactory is INodeFactory {
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
-        ComponentAllocation memory reserveAllocation,
+        uint64 targetReserveRatio,
         bytes32 salt
     ) public returns (INode node) {
         salt = keccak256(abi.encodePacked(msg.sender, salt));
         node =
-            _createNode(name, symbol, asset, owner, routers, components, componentAllocations, reserveAllocation, salt);
+            _createNode(name, symbol, asset, owner, routers, components, componentAllocations, targetReserveRatio, salt);
     }
 
     function _createNode(
@@ -73,7 +73,7 @@ contract NodeFactory is INodeFactory {
         address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
-        ComponentAllocation memory reserveAllocation,
+        uint64 targetReserveRatio,
         bytes32 salt
     ) internal returns (INode node) {
         if (asset == address(0) || owner == address(0)) {
@@ -98,7 +98,7 @@ contract NodeFactory is INodeFactory {
                     routers,
                     components,
                     componentAllocations,
-                    reserveAllocation
+                    targetReserveRatio
                 )
             )
         );
