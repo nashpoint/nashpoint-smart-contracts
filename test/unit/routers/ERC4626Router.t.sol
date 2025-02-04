@@ -8,6 +8,7 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ComponentAllocation} from "src/interfaces/INode.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
+import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 
 contract ERC4626RouterHarness is ERC4626Router {
     constructor(address _registry) ERC4626Router(_registry) {}
@@ -38,8 +39,12 @@ contract ERC4626RouterTest is BaseTest {
         });
 
         vm.warp(block.timestamp + 1 days);
-        vm.prank(owner);
+        vm.startPrank(owner);
+        registry.setRegistryType(address(testRouter), RegistryType.ROUTER, true);
+        testRouter.setWhitelistStatus(address(vault), true);
+        node.addRouter(address(testRouter));
         node.updateComponentAllocation(address(vault), 0 ether, 0.01 ether, address(testRouter));
+        vm.stopPrank();
         vm.warp(block.timestamp - 1 days);
     }
 
