@@ -331,6 +331,11 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// subtracts the asset value of shares exiting from the reserve balance
     function getCashAfterRedemptions() external view returns (uint256);
 
+    /// @notice Enforces the liquidation order
+    /// @param component The address of the component
+    /// @param assetsToReturn The amount of assets to return
+    function enforceLiquidationOrder(address component, uint256 assetsToReturn) external view;
+
     /// @notice The address of the node registry
     function registry() external view returns (address);
 
