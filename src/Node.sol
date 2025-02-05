@@ -101,33 +101,31 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @notice Reverts if the sender is not a router
     modifier onlyRouter() {
-        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
+        _validateOnlyRouter();
         _;
     }
 
     /// @notice Reverts if the sender is not a rebalancer
     modifier onlyRebalancer() {
-        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+        _validateOnlyRebalancer();
         _;
     }
 
     /// @notice Reverts if the sender is not the owner or a rebalancer
     modifier onlyOwnerOrRebalancer() {
-        if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+        _validateOnlyOwnerOrRebalancer();
         _;
     }
 
     /// @notice Reverts if the current block timestamp is outside the rebalance window
     modifier onlyWhenRebalancing() {
-        if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
+        _validateRebalanceWindowOpen();
         _;
     }
 
     /// @notice Reverts if the current block timestamp is within the rebalance window
     modifier onlyWhenNotRebalancing() {
-        if (block.timestamp < lastRebalance + rebalanceWindow) {
-            revert ErrorsLib.RebalanceWindowOpen();
-        }
+        _validateRebalanceWindowClosed();
         _;
     }
 
@@ -835,6 +833,28 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             shares = quoter.calculateDepositBonus(
                 assets, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
             );
+        }
+    }
+
+    function _validateOnlyRouter() internal view {
+        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
+    }
+
+    function _validateOnlyRebalancer() internal view {
+        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+    }
+
+    function _validateOnlyOwnerOrRebalancer() internal view {
+        if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+    }
+
+    function _validateRebalanceWindowOpen() internal view {
+        if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
+    }
+
+    function _validateRebalanceWindowClosed() internal view {
+        if (block.timestamp < lastRebalance + rebalanceWindow) {
+            revert ErrorsLib.RebalanceWindowOpen();
         }
     }
 
