@@ -37,7 +37,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     address[] internal components;
     address[] internal liquidationsQueue;
     mapping(address => ComponentAllocation) internal componentAllocations;
-    uint64 internal targetReserveRatio;
+    uint64 public targetReserveRatio;
 
     /* PROTOCOL ADDRESSES */
     IQuoterV1 public quoter;
@@ -592,26 +592,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INode
-    function getRequestState(address controller)
-        external
-        view
-        returns (
-            uint256 pendingRedeemRequest_,
-            uint256 claimableRedeemRequest_,
-            uint256 claimableAssets_,
-            uint256 sharesAdjusted_
-        )
-    {
-        Request storage request = requests[controller];
-        return (
-            request.pendingRedeemRequest,
-            request.claimableRedeemRequest,
-            request.claimableAssets,
-            request.sharesAdjusted
-        );
-    }
-
-    /// @inheritdoc INode
     function getLiquidationsQueue() external view returns (address[] memory) {
         return liquidationsQueue;
     }
@@ -624,11 +604,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /// @inheritdoc INode
     function getLiquidationQueueLength() external view returns (uint256) {
         return liquidationsQueue.length;
-    }
-
-    /// @inheritdoc INode
-    function getTargetReserveRatio() external view returns (uint64) {
-        return targetReserveRatio;
     }
 
     /// @inheritdoc INode

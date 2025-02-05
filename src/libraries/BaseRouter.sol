@@ -193,7 +193,7 @@ abstract contract BaseRouter is IRouter {
     {
         totalAssets = INode(node).totalAssets();
         currentCash = INode(node).getCashAfterRedemptions();
-        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).getTargetReserveRatio(), WAD);
+        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
     }
 
     /// @notice Subtracts the execution fee from the transaction amount.

@@ -104,7 +104,7 @@ contract RebalancingTests is BaseTest {
 
         // assert that cash reserve has not been reduced below target by rebalance
         uint256 currentReserve = asset.balanceOf(address(node));
-        uint256 targetCash = (node.totalAssets() * node.getTargetReserveRatio()) / 1e18;
+        uint256 targetCash = (node.totalAssets() * node.targetReserveRatio()) / 1e18;
         assertGt(currentReserve, targetCash, "Current reserve below target");
 
         // SECOND DEPOSIT: rebalancer cannot rebalance small deposit into sync vaults as lower thresholds not breached

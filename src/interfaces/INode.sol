@@ -33,6 +33,10 @@ struct Request {
  * @author ODND Studios
  */
 interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
+    /// @notice Returns the target reserve ratio
+    /// @return uint64 The target reserve ratio
+    function targetReserveRatio() external view returns (uint64);
+
     /// @notice Returns whether the node has been initialized
     function isInitialized() external view returns (bool);
 
@@ -188,37 +192,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return bool True if the interface is supported, false otherwise
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
-    // /// @notice Deposits assets into the node
-    // /// @dev if swing pricing is enabled a bonus will be applied
-    // /// @dev this bonus increases the number of shares minted to the receiver up to maxSwingFactor
-    // /// @param assets The amount of assets to deposit
-    // /// @param receiver The address of the receiver
-    // /// @return shares The amount of shares received
-    // function deposit(uint256 assets, address receiver) external payable override returns (uint256);
-
-    // /// @notice Mints shares into the node
-    // /// @dev mint will always bypass swing pricing calculation
-    // /// @dev this can be called by a user when the gas cost of calculating the bonus is worth less the bonus
-    // /// the differential between mint and deposit can be preview using previewDeposit() & previewRedeem()
-    // /// @param shares The amount of shares to mint
-    // /// @param receiver The address of the receiver
-    // /// @return assets The amount of assets received
-    // function mint(uint256 shares, address receiver) external payable returns (uint256);
-
-    // /// @notice Withdraws assets from the node
-    // /// @param assets The amount of assets to withdraw
-    // /// @param receiver The address of the receiver
-    // /// @param controller The address of the controller
-    // /// @return shares The amount of shares received
-    // function withdraw(uint256 assets, address receiver, address controller) external payable returns (uint256 shares);
-
-    // /// @notice Redeems shares from the node
-    // /// @param shares The amount of shares to redeem
-    // /// @param receiver The address of the receiver
-    // /// @param controller The address of the controller
-    // /// @return assets The amount of assets received
-    // function redeem(uint256 shares, address receiver, address controller) external payable returns (uint256 assets);
-
     /// @notice Returns the total assets
     /// @return uint256 The total assets
     function totalAssets() external view returns (uint256);
@@ -273,20 +246,14 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @dev Reverts per ERC7540
     function previewRedeem(uint256 shares) external view returns (uint256);
 
-    /// @notice Returns the state of a request
-    /// @param controller The address of the controller to check
-    /// @return pendingRedeemRequest_ The pending redeem request
-    /// @return claimableRedeemRequest_ The claimable redeem request
-    /// @return claimableAssets_ The claimable assets
-    /// @return sharesAdjusted_ The shares adjusted
-    function getRequestState(address controller)
+    function requests(address controller)
         external
         view
         returns (
-            uint256 pendingRedeemRequest_,
-            uint256 claimableRedeemRequest_,
-            uint256 claimableAssets_,
-            uint256 sharesAdjusted_
+            uint256 pendingRedeemRequest,
+            uint256 claimableRedeemRequest,
+            uint256 claimableAssets,
+            uint256 sharesAdjusted
         );
 
     /// @notice Returns the liquidation queue
@@ -309,10 +276,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param component The address of the component
     /// @return ComponentAllocation The allocation parameters for the component
     function getComponentAllocation(address component) external view returns (ComponentAllocation memory);
-
-    /// @notice Returns the target reserve ratio
-    /// @return uint64 The target reserve ratio
-    function getTargetReserveRatio() external view returns (uint64);
 
     /// @notice Returns whether the given address is a component
     /// @param component The address to check

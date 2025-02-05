@@ -154,7 +154,7 @@ contract NodeTest is BaseTest {
         assertEq(componentAllocation.maxDelta, 0.01 ether);
 
         // Check reserve allocation
-        uint64 reserveAllocation = testNode.getTargetReserveRatio();
+        uint64 reserveAllocation = testNode.targetReserveRatio();
         assertEq(reserveAllocation, 0.1 ether);
 
         // Check ownership
@@ -534,7 +534,7 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         testNode.updateTargetReserveRatio(newAllocation.targetWeight);
 
-        uint64 reserveAllocation = testNode.getTargetReserveRatio();
+        uint64 reserveAllocation = testNode.targetReserveRatio();
         assertEq(reserveAllocation, newAllocation.targetWeight);
     }
 
@@ -1463,13 +1463,13 @@ contract NodeTest is BaseTest {
         uint256 sharesAtEscowBefore = node.balanceOf(address(escrow));
 
         (uint256 pendingBefore, uint256 claimableBefore, uint256 claimableAssetsBefore, uint256 sharesAdjustedBefore) =
-            node.getRequestState(user);
+            node.requests(user);
 
         vm.prank(address(router4626));
         node.finalizeRedemption(user, 50 ether, sharesToRedeem, sharesToRedeem);
 
         (uint256 pendingAfter, uint256 claimableAfter, uint256 claimableAssetsAfter, uint256 sharesAdjustedAfter) =
-            node.getRequestState(user);
+            node.requests(user);
 
         // assert vault state and variables are correctly updated
         assertEq(Node(address(node)).sharesExiting(), 0);
@@ -1546,7 +1546,7 @@ contract NodeTest is BaseTest {
         uint256 claimableAssets;
         uint256 sharesAdjusted;
 
-        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.requests(user);
 
         assertEq(pending, 0);
         assertEq(claimable, 0);
@@ -1557,7 +1557,7 @@ contract NodeTest is BaseTest {
         node.requestRedeem(shares, user, user);
         vm.stopPrank();
 
-        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.requests(user);
 
         assertEq(pending, shares);
         assertEq(claimable, 0);
@@ -1708,8 +1708,7 @@ contract NodeTest is BaseTest {
         assertEq(node.maxWithdraw(user), 0);
         assertEq(node.maxRedeem(user), 0);
 
-        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) =
-            node.getRequestState(user);
+        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) = node.requests(user);
         assertEq(pending, 0);
         assertEq(claimable, 0);
         assertEq(claimableAssets, 0);
@@ -1933,7 +1932,7 @@ contract NodeTest is BaseTest {
 
     // VIEW FUNCTIONS
 
-    function test_getRequestState(uint256 depositAmount, uint256 seedAmount, uint256 sharesToRedeem) public {
+    function test_requests(uint256 depositAmount, uint256 seedAmount, uint256 sharesToRedeem) public {
         depositAmount = bound(depositAmount, 1, 1e36);
         sharesToRedeem = bound(depositAmount, 1, depositAmount);
         seedAmount = bound(seedAmount, 1, 1e36);
@@ -1947,8 +1946,7 @@ contract NodeTest is BaseTest {
         node.requestRedeem(sharesToRedeem, user, user);
         vm.stopPrank();
 
-        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) =
-            node.getRequestState(user);
+        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) = node.requests(user);
         assertEq(pending, sharesToRedeem);
         assertEq(claimable, 0);
         assertEq(claimableAssets, 0);
@@ -1957,7 +1955,7 @@ contract NodeTest is BaseTest {
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user);
 
-        (pending, claimable, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        (pending, claimable, claimableAssets, sharesAdjusted) = node.requests(user);
         assertEq(pending, 0);
         assertEq(claimable, sharesToRedeem);
         assertEq(claimableAssets, node.convertToAssets(sharesToRedeem));
@@ -2086,7 +2084,7 @@ contract NodeTest is BaseTest {
         vm.prank(rebalancer);
         node.startRebalance(); // if this runs ratios are validated
 
-        uint64 reserveAllocation = node.getTargetReserveRatio();
+        uint64 reserveAllocation = node.targetReserveRatio();
         assertEq(reserveAllocation, targetWeight);
     }
 
@@ -2259,7 +2257,7 @@ contract NodeTest is BaseTest {
 
         assertEq(dummyNode.getComponentAllocation(testComponent).targetWeight, comp1);
         assertEq(dummyNode.getComponentAllocation(testComponent2).targetWeight, comp2);
-        assertEq(dummyNode.getTargetReserveRatio(), reserve);
+        assertEq(dummyNode.targetReserveRatio(), reserve);
     }
 
     function test_validateComponentRatios_revert_invalidComponentRatios() public {

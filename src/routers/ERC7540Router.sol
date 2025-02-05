@@ -53,7 +53,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
-        (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).getRequestState(controller);
+        (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).requests(controller);
         uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
 
         // Validate that the component is top of the liquidation queue
