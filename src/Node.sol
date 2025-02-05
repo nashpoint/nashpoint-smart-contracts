@@ -170,8 +170,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /// @inheritdoc INode
     function removeComponent(address component, bool force) external payable onlyOwner onlyWhenNotRebalancing {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
-        address router = componentAllocations[component].router;
-        if (!force && IRouter(router).getComponentAssets(component) > 0) revert ErrorsLib.NonZeroBalance();
+        if (!force && IRouter(componentAllocations[component].router).getComponentAssets(component) > 0) {
+            revert ErrorsLib.NonZeroBalance();
+        }
 
         uint256 length = components.length;
         for (uint256 i = 0; i < length; i++) {
@@ -355,22 +356,24 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
         _updateTotalAssets();
 
-        uint256 timePeriod = block.timestamp - lastPayment;
-        feeForPeriod = (annualManagementFee * cacheTotalAssets * timePeriod) / (SECONDS_PER_YEAR * WAD);
+        unchecked {
+            feeForPeriod =
+                (annualManagementFee * cacheTotalAssets * (block.timestamp - lastPayment)) / (SECONDS_PER_YEAR * WAD);
 
-        if (feeForPeriod > 0) {
-            uint256 protocolFeeAmount =
-                MathLib.mulDiv(feeForPeriod, INodeRegistry(registry).protocolManagementFee(), WAD);
-            uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
+            if (feeForPeriod > 0) {
+                uint256 protocolFeeAmount =
+                    MathLib.mulDiv(feeForPeriod, INodeRegistry(registry).protocolManagementFee(), WAD);
+                uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
 
-            if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
-                revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
+                if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
+                    revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
+                }
+
+                cacheTotalAssets -= feeForPeriod;
+                lastPayment = uint64(block.timestamp);
+                IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
+                IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
             }
-
-            cacheTotalAssets -= feeForPeriod;
-            lastPayment = uint64(block.timestamp);
-            IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
-            IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
         }
     }
 
@@ -419,20 +422,22 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        uint256 adjustedShares = 0;
-        if (swingPricingEnabled) {
-            uint256 adjustedAssets = quoter.calculateRedeemPenalty(
-                shares, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
-            );
-            adjustedShares = convertToShares(adjustedAssets);
-        } else {
-            adjustedShares = shares;
-        }
+        unchecked {
+            uint256 adjustedShares = 0;
+            if (swingPricingEnabled) {
+                uint256 adjustedAssets = quoter.calculateRedeemPenalty(
+                    shares, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
+                );
+                adjustedShares = convertToShares(adjustedAssets);
+            } else {
+                adjustedShares = shares;
+            }
 
-        Request storage request = requests[controller];
-        request.pendingRedeemRequest += shares;
-        request.sharesAdjusted += adjustedShares;
-        sharesExiting += shares;
+            Request storage request = requests[controller];
+            request.pendingRedeemRequest += shares;
+            request.sharesAdjusted += adjustedShares;
+            sharesExiting += shares;
+        }
 
         IERC20(share).safeTransferFrom(owner, address(escrow), shares);
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
@@ -682,13 +687,16 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         uint256 sharesPending = request.pendingRedeemRequest;
         uint256 sharesAdjusted = request.sharesAdjusted;
 
-        if (assetsToReturn > balance) {
-            sharesPending =
-                MathLib.min(sharesPending, MathLib.mulDiv(sharesPending, balance, assetsToReturn, MathLib.Rounding.Up));
-            sharesAdjusted = MathLib.min(
-                sharesAdjusted, MathLib.mulDiv(sharesAdjusted, balance, assetsToReturn, MathLib.Rounding.Up)
-            );
-            assetsToReturn = balance;
+        unchecked {
+            if (assetsToReturn > balance) {
+                sharesPending = MathLib.min(
+                    sharesPending, MathLib.mulDiv(sharesPending, balance, assetsToReturn, MathLib.Rounding.Up)
+                );
+                sharesAdjusted = MathLib.min(
+                    sharesAdjusted, MathLib.mulDiv(sharesAdjusted, balance, assetsToReturn, MathLib.Rounding.Up)
+                );
+                assetsToReturn = balance;
+            }
         }
         _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
     }
@@ -703,13 +711,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
         _burn(escrow, sharesPending);
 
-        request.pendingRedeemRequest -= sharesPending;
-        request.claimableRedeemRequest += sharesPending;
-        request.claimableAssets += assetsToReturn;
-        request.sharesAdjusted -= sharesAdjusted;
+        unchecked {
+            request.pendingRedeemRequest -= sharesPending;
+            request.claimableRedeemRequest += sharesPending;
+            request.claimableAssets += assetsToReturn;
+            request.sharesAdjusted -= sharesAdjusted;
 
-        sharesExiting -= sharesPending;
-        cacheTotalAssets -= assetsToReturn;
+            sharesExiting -= sharesPending;
+            cacheTotalAssets -= assetsToReturn;
+        }
 
         if (assetsToReturn > IERC20(asset).balanceOf(address(this))) {
             revert ErrorsLib.ExceedsAvailableReserve();
@@ -720,13 +730,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _updateTotalAssets() internal {
-        uint256 assets = IERC20(asset).balanceOf(address(this));
-        uint256 componentsLength = components.length;
-        for (uint256 i = 0; i < componentsLength; i++) {
-            address router = componentAllocations[components[i]].router;
-            assets += IRouter(router).getComponentAssets(components[i]);
+        unchecked {
+            uint256 assets = IERC20(asset).balanceOf(address(this));
+            uint256 componentsLength = components.length;
+            for (uint256 i = 0; i < componentsLength; i++) {
+                address router = componentAllocations[components[i]].router;
+                assets += IRouter(router).getComponentAssets(components[i]);
+            }
+            cacheTotalAssets = assets;
         }
-        cacheTotalAssets = assets;
     }
 
     function _validateController(address controller) internal view {
@@ -780,20 +792,24 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _validateNoDuplicateComponents(address[] memory componentArray) internal pure {
-        if (componentArray.length == 0) return;
-        Arrays.sort(componentArray);
-        for (uint256 i = 0; i < componentArray.length - 1; i++) {
-            if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
+        unchecked {
+            if (componentArray.length == 0) return;
+            Arrays.sort(componentArray);
+            for (uint256 i = 0; i < componentArray.length - 1; i++) {
+                if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
+            }
         }
     }
 
     function _validateComponentRatios() internal view returns (bool) {
-        uint256 totalWeight = targetReserveRatio;
-        uint256 length = components.length;
-        for (uint256 i; i < length; ++i) {
-            totalWeight += componentAllocations[components[i]].targetWeight;
+        unchecked {
+            uint256 totalWeight = targetReserveRatio;
+            uint256 length = components.length;
+            for (uint256 i; i < length; ++i) {
+                totalWeight += componentAllocations[components[i]].targetWeight;
+            }
+            return totalWeight == WAD;
         }
-        return totalWeight == WAD;
     }
 
     function _validateReserveAboveTarget() internal view returns (bool) {
