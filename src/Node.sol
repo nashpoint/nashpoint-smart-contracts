@@ -446,13 +446,12 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function pendingRedeemRequest(uint256, address controller) external view returns (uint256 pendingShares) {
-        Request storage request = requests[controller];
-        pendingShares = request.pendingRedeemRequest;
+        return requests[controller].pendingRedeemRequest;
     }
 
     /// @inheritdoc INode
     function claimableRedeemRequest(uint256, address controller) external view returns (uint256 claimableShares) {
-        claimableShares = maxRedeem(controller);
+        return requests[controller].claimableRedeemRequest;
     }
 
     /// @inheritdoc INode
@@ -546,26 +545,22 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function maxDeposit(address /* controller */ ) public view returns (uint256 maxAssets) {
-        maxAssets = isCacheValid() ? maxDepositSize : 0;
-        return maxAssets;
+        return isCacheValid() ? maxDepositSize : 0;
     }
 
     /// @inheritdoc INode
     function maxMint(address /* controller */ ) public view returns (uint256 maxShares) {
-        maxShares = isCacheValid() ? convertToShares(maxDepositSize) : 0;
-        return maxShares;
+        return isCacheValid() ? convertToShares(maxDepositSize) : 0;
     }
 
     /// @inheritdoc INode
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
-        Request storage request = requests[controller];
-        maxAssets = request.claimableAssets;
+        return requests[controller].claimableAssets;
     }
 
     /// @inheritdoc INode
     function maxRedeem(address controller) public view returns (uint256 maxShares) {
-        Request storage request = requests[controller];
-        maxShares = request.claimableRedeemRequest;
+        return requests[controller].claimableRedeemRequest;
     }
 
     /// @inheritdoc INode
@@ -813,8 +808,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function _validateReserveAboveTarget() internal view returns (bool) {
-        uint256 currentReserveRatio = MathLib.mulDiv(getCashAfterRedemptions(), WAD, totalAssets());
-        return currentReserveRatio >= targetReserveRatio;
+        return MathLib.mulDiv(getCashAfterRedemptions(), WAD, totalAssets()) >= targetReserveRatio;
     }
 
     function _enforceLiquidationOrder(address component, uint256 assetsToReturn) internal view {
