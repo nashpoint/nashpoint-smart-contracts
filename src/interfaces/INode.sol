@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {IERC7575} from "./IERC7575.sol";
+import {IERC7575, IERC165} from "./IERC7575.sol";
 import {IERC7540Redeem} from "./IERC7540.sol";
 import {IQuoterV1} from "./IQuoterV1.sol";
 
@@ -46,13 +46,13 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param maxDelta The max delta of the component
     /// @param router The router of the component
     /// @dev Only callable by owner
-    function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router) external;
+    function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router) external payable;
 
     /// @notice Removes a component from the node. Must have zero balance.
     /// @param component The address of the component to remove
     /// @param force Whether to force the removal of the component
     /// @dev Only callable by owner. Component must be rebalanced to zero before removal or force is true
-    function removeComponent(address component, bool force) external;
+    function removeComponent(address component, bool force) external payable;
 
     /// @notice Updates the allocation for an existing component. Set to zero to rebalance out of component before removing.
     /// @param component The address of the component to update
@@ -61,85 +61,86 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param router The router of the component
     /// @dev Only callable by owner
     function updateComponentAllocation(address component, uint64 targetWeight, uint64 maxDelta, address router)
-        external;
+        external
+        payable;
 
     /// @notice Updates the allocation for the reserve asset
     /// @param targetReserveRatio The new target reserve ratio
     /// @dev Only callable by owner
-    function updateTargetReserveRatio(uint64 targetReserveRatio) external;
+    function updateTargetReserveRatio(uint64 targetReserveRatio) external payable;
 
     /// @notice Adds a router
-    function addRouter(address newRouter) external;
+    function addRouter(address newRouter) external payable;
 
     /// @notice Removes a router
-    function removeRouter(address oldRouter) external;
+    function removeRouter(address oldRouter) external payable;
 
     /// @notice Adds a rebalancer
-    function addRebalancer(address newRebalancer) external;
+    function addRebalancer(address newRebalancer) external payable;
 
     /// @notice Removes a rebalancer
-    function removeRebalancer(address oldRebalancer) external;
+    function removeRebalancer(address oldRebalancer) external payable;
 
     /// @notice Sets the quoter
-    function setQuoter(address newQuoter) external;
+    function setQuoter(address newQuoter) external payable;
 
     /// @notice Sets the liquidation queue
-    function setLiquidationQueue(address[] calldata newQueue) external;
+    function setLiquidationQueue(address[] calldata newQueue) external payable;
 
     /// @notice Sets the rebalance cooldown
-    function setRebalanceCooldown(uint64 newRebalanceCooldown) external;
+    function setRebalanceCooldown(uint64 newRebalanceCooldown) external payable;
 
     /// @notice Sets the rebalance window
-    function setRebalanceWindow(uint64 newRebalanceWindow) external;
+    function setRebalanceWindow(uint64 newRebalanceWindow) external payable;
 
     /// @notice Enables swing pricing
-    function enableSwingPricing(bool enabled, uint64 maxSwingFactor) external;
+    function enableSwingPricing(bool enabled, uint64 maxSwingFactor) external payable;
 
     /// @notice Sets the node owner fee address
     /// @param newNodeOwnerFeeAddress The address of the new node owner fee address
-    function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external;
+    function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external payable;
 
     /// @notice Sets the annual management fee
     /// @param newAnnualManagementFee The new annual management fee
-    function setAnnualManagementFee(uint64 newAnnualManagementFee) external;
+    function setAnnualManagementFee(uint64 newAnnualManagementFee) external payable;
 
     /// @notice Sets the max deposit size
     /// @param newMaxDepositSize The new max deposit size
-    function setMaxDepositSize(uint256 newMaxDepositSize) external;
+    function setMaxDepositSize(uint256 newMaxDepositSize) external payable;
 
     /// @notice Rescues tokens from the node
     /// @param token The address of the token to rescue
     /// @param recipient The address of the recipient
     /// @param amount The amount of tokens to rescue
-    function rescueTokens(address token, address recipient, uint256 amount) external;
+    function rescueTokens(address token, address recipient, uint256 amount) external payable;
 
     /// @notice Starts a rebalance
-    function startRebalance() external;
+    function startRebalance() external payable;
 
     /// @notice Allows routers to execute external calls
-    function execute(address target, bytes calldata data) external returns (bytes memory);
+    function execute(address target, bytes calldata data) external payable returns (bytes memory);
 
     /// @notice Pays management fees
     /// @dev called by owner or rebalancer to pay management fees
     /// fees are paid from the reserve in assets and transferred to the node owner and protocol fee addresses
     /// @return uint256 The amount of assets paid
-    function payManagementFees() external returns (uint256);
+    function payManagementFees() external payable returns (uint256);
 
     /// @notice Subtracts the protocol execution fee
     /// @dev called by router to subtract the protocol execution fee during investment in a component
     /// @param executionFee The amount of execution fee to subtract
-    function subtractProtocolExecutionFee(uint256 executionFee) external;
+    function subtractProtocolExecutionFee(uint256 executionFee) external payable;
 
     /// @notice Updates the total assets
-    function updateTotalAssets() external;
+    function updateTotalAssets() external payable;
 
     /// @notice Fulfill a redeem request from the reserve
     /// @param user The address of the user to redeem for
-    function fulfillRedeemFromReserve(address user) external;
+    function fulfillRedeemFromReserve(address user) external payable;
 
     /// @notice Fulfill a batch of redeem requests from the reserve
     /// @param controllers The addresses of the controllers to redeem for
-    function fulfillRedeemBatch(address[] memory controllers) external;
+    function fulfillRedeemBatch(address[] memory controllers) external payable;
 
     /// @notice Finalizes a redemption request
     /// @dev called by router or rebalancer to update the request state after a redemption
@@ -152,7 +153,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
         uint256 assetsToReturn,
         uint256 sharesPending,
         uint256 sharesAdjusted
-    ) external;
+    ) external payable;
 
     /// @notice Requests a redemption
     /// @param shares The amount of shares to redeem
@@ -187,36 +188,36 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return bool True if the interface is supported, false otherwise
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
-    /// @notice Deposits assets into the node
-    /// @dev if swing pricing is enabled a bonus will be applied
-    /// @dev this bonus increases the number of shares minted to the receiver up to maxSwingFactor
-    /// @param assets The amount of assets to deposit
-    /// @param receiver The address of the receiver
-    /// @return shares The amount of shares received
-    function deposit(uint256 assets, address receiver) external returns (uint256);
+    // /// @notice Deposits assets into the node
+    // /// @dev if swing pricing is enabled a bonus will be applied
+    // /// @dev this bonus increases the number of shares minted to the receiver up to maxSwingFactor
+    // /// @param assets The amount of assets to deposit
+    // /// @param receiver The address of the receiver
+    // /// @return shares The amount of shares received
+    // function deposit(uint256 assets, address receiver) external payable override returns (uint256);
 
-    /// @notice Mints shares into the node
-    /// @dev mint will always bypass swing pricing calculation
-    /// @dev this can be called by a user when the gas cost of calculating the bonus is worth less the bonus
-    /// the differential between mint and deposit can be preview using previewDeposit() & previewRedeem()
-    /// @param shares The amount of shares to mint
-    /// @param receiver The address of the receiver
-    /// @return assets The amount of assets received
-    function mint(uint256 shares, address receiver) external returns (uint256);
+    // /// @notice Mints shares into the node
+    // /// @dev mint will always bypass swing pricing calculation
+    // /// @dev this can be called by a user when the gas cost of calculating the bonus is worth less the bonus
+    // /// the differential between mint and deposit can be preview using previewDeposit() & previewRedeem()
+    // /// @param shares The amount of shares to mint
+    // /// @param receiver The address of the receiver
+    // /// @return assets The amount of assets received
+    // function mint(uint256 shares, address receiver) external payable returns (uint256);
 
-    /// @notice Withdraws assets from the node
-    /// @param assets The amount of assets to withdraw
-    /// @param receiver The address of the receiver
-    /// @param controller The address of the controller
-    /// @return shares The amount of shares received
-    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256 shares);
+    // /// @notice Withdraws assets from the node
+    // /// @param assets The amount of assets to withdraw
+    // /// @param receiver The address of the receiver
+    // /// @param controller The address of the controller
+    // /// @return shares The amount of shares received
+    // function withdraw(uint256 assets, address receiver, address controller) external payable returns (uint256 shares);
 
-    /// @notice Redeems shares from the node
-    /// @param shares The amount of shares to redeem
-    /// @param receiver The address of the receiver
-    /// @param controller The address of the controller
-    /// @return assets The amount of assets received
-    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets);
+    // /// @notice Redeems shares from the node
+    // /// @param shares The amount of shares to redeem
+    // /// @param receiver The address of the receiver
+    // /// @param controller The address of the controller
+    // /// @return assets The amount of assets received
+    // function redeem(uint256 shares, address receiver, address controller) external payable returns (uint256 assets);
 
     /// @notice Returns the total assets
     /// @return uint256 The total assets
