@@ -60,9 +60,9 @@ contract RebalancingTests is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(vaultA));
-        router4626.invest(address(node), address(vaultB));
-        router4626.invest(address(node), address(vaultC));
+        router4626.invest(address(node), address(vaultA), 0);
+        router4626.invest(address(node), address(vaultB), 0);
+        router4626.invest(address(node), address(vaultC), 0);
         router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
@@ -83,9 +83,9 @@ contract RebalancingTests is BaseTest {
         _userDeposits(address(user), 10 ether);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vaultA));
-        router4626.invest(address(node), address(vaultB));
-        router4626.invest(address(node), address(vaultC));
+        router4626.invest(address(node), address(vaultA), 0);
+        router4626.invest(address(node), address(vaultB), 0);
+        router4626.invest(address(node), address(vaultC), 0);
 
         vm.expectRevert();
         router7540.investInAsyncComponent(address(node), address(asyncVault));
@@ -112,11 +112,11 @@ contract RebalancingTests is BaseTest {
 
         vm.startPrank(rebalancer);
         vm.expectRevert();
-        router4626.invest(address(node), address(vaultA));
+        router4626.invest(address(node), address(vaultA), 0);
         vm.expectRevert();
-        router4626.invest(address(node), address(vaultB));
+        router4626.invest(address(node), address(vaultB), 0);
         vm.expectRevert();
-        router4626.invest(address(node), address(vaultC));
+        router4626.invest(address(node), address(vaultC), 0);
         vm.expectRevert();
         router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
@@ -125,9 +125,9 @@ contract RebalancingTests is BaseTest {
         _userDeposits(user, 9 ether);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vaultA));
-        router4626.invest(address(node), address(vaultB));
-        router4626.invest(address(node), address(vaultC));
+        router4626.invest(address(node), address(vaultA), 0);
+        router4626.invest(address(node), address(vaultB), 0);
+        router4626.invest(address(node), address(vaultC), 0);
         router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 

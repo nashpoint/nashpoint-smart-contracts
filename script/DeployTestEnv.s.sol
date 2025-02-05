@@ -75,7 +75,7 @@ contract DeployTestEnv is Script {
         vm.stopBroadcast();
 
         vm.startBroadcast(rebalancerKey);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopBroadcast();
     }
 

@@ -35,7 +35,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return depositAmount The amount of assets invested.
-    function invest(address node, address component)
+    function invest(address node, address component, uint256 minSharesOut)
         external
         nonReentrant
         onlyNodeRebalancer(node)
@@ -69,6 +69,10 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
             revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, expectedShares);
         }
 
+        if ((sharesReturned + tolerance) < minSharesOut) {
+            revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, minSharesOut);
+        }
+
         emit InvestedInComponent(node, component, depositAmount);
         return depositAmount;
     }
@@ -78,7 +82,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @param component The address of the component.
     /// @param shares The amount of shares to liquidate.
     /// @return assetsReturned The amount of assets returned.
-    function liquidate(address node, address component, uint256 shares)
+    function liquidate(address node, address component, uint256 shares, uint256 minAssetsOut)
         external
         nonReentrant
         onlyNodeRebalancer(node)
@@ -86,6 +90,10 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         returns (uint256 assetsReturned)
     {
         assetsReturned = _liquidate(node, component, shares);
+        if ((assetsReturned + tolerance) < minAssetsOut) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, minAssetsOut);
+        }
+
         emit LiquidatedFromComponent(node, component, assetsReturned);
         return assetsReturned;
     }
@@ -98,7 +106,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @param controller The address of the controller.
     /// @param component The address of the component.
     /// @return assetsReturned The amount of assets returned.
-    function fulfillRedeemRequest(address node, address controller, address component)
+    function fulfillRedeemRequest(address node, address controller, address component, uint256 minAssetsOut)
         external
         nonReentrant
         onlyNodeRebalancer(node)
@@ -119,6 +127,10 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
         // execute the liquidation
         assetsReturned = _liquidate(node, component, componentShares);
+
+        if ((assetsReturned + tolerance) < minAssetsOut) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, minAssetsOut);
+        }
 
         // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
         if (assetsReturned < assetsRequested) {

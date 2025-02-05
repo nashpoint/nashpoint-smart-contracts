@@ -90,7 +90,7 @@ contract ArbitrumForkTest is BaseTest {
         assertEq(yUsdcA.balanceOf(address(node)), 0);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(yUsdcA));
+        router4626.invest(address(node), address(yUsdcA), 0);
         vm.stopPrank();
 
         uint256 nodeShares = yUsdcA.balanceOf(address(node));
@@ -100,7 +100,7 @@ contract ArbitrumForkTest is BaseTest {
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);
-        router4626.liquidate(address(node), address(yUsdcA), yUsdcA.balanceOf(address(node)));
+        router4626.liquidate(address(node), address(yUsdcA), yUsdcA.balanceOf(address(node)), 0);
         vm.stopPrank();
 
         assertEq(yUsdcA.balanceOf(address(node)), 0);
@@ -114,7 +114,7 @@ contract ArbitrumForkTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(fUsdc));
+        router4626.invest(address(node), address(fUsdc), 0);
         vm.stopPrank();
 
         uint256 nodeShares = fUsdc.balanceOf(address(node));
@@ -124,7 +124,7 @@ contract ArbitrumForkTest is BaseTest {
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);
-        router4626.liquidate(address(node), address(fUsdc), fUsdc.balanceOf(address(node)));
+        router4626.liquidate(address(node), address(fUsdc), fUsdc.balanceOf(address(node)), 0);
         vm.stopPrank();
 
         assertEq(fUsdc.balanceOf(address(node)), 0);
@@ -138,7 +138,7 @@ contract ArbitrumForkTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(sdUsdcV3));
+        router4626.invest(address(node), address(sdUsdcV3), 0);
         vm.stopPrank();
 
         uint256 nodeShares = sdUsdcV3.balanceOf(address(node));
@@ -148,7 +148,7 @@ contract ArbitrumForkTest is BaseTest {
         assertApproxEqAbs(node.totalAssets(), 100e6, 1);
 
         vm.startPrank(rebalancer);
-        router4626.liquidate(address(node), address(sdUsdcV3), sdUsdcV3.balanceOf(address(node)));
+        router4626.liquidate(address(node), address(sdUsdcV3), sdUsdcV3.balanceOf(address(node)), 0);
         vm.stopPrank();
 
         assertEq(sdUsdcV3.balanceOf(address(node)), 0);

@@ -110,7 +110,7 @@ contract DecimalsTests is BaseTest {
         assertEq(testToken6.balanceOf(address(decNode)), decNode.balanceOf(address(user)));
 
         vm.prank(rebalancer);
-        router4626.invest(address(decNode), address(testVault6));
+        router4626.invest(address(decNode), address(testVault6), 0);
 
         ComponentAllocation memory componentAllocation = decNode.getComponentAllocation(address(testVault6));
 
@@ -150,7 +150,7 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(rebalancer);
         decNode.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(decNode), address(testVault6));
+        uint256 investmentAmount = router4626.invest(address(decNode), address(testVault6), 0);
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
@@ -207,7 +207,7 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(rebalancer);
         decNode.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(decNode), address(testVault6));
+        uint256 investmentAmount = router4626.invest(address(decNode), address(testVault6), 0);
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;

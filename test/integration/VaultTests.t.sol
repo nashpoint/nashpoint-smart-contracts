@@ -170,7 +170,7 @@ contract VaultTests is BaseTest {
         _seedNode(100 ether);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         assertEq(vault.balanceOf(address(node)), 90 ether);
@@ -222,7 +222,7 @@ contract VaultTests is BaseTest {
         node.enableSwingPricing(true, maxSwingFactor);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -264,7 +264,7 @@ contract VaultTests is BaseTest {
 
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         assertEq(node.getTargetReserveRatio(), _getCurrentReserveRatio());
 
         vm.startPrank(user2);
@@ -298,7 +298,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -331,7 +331,7 @@ contract VaultTests is BaseTest {
 
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         assertEq(node.getTargetReserveRatio(), _getCurrentReserveRatio());
 
         // grab share value of deposit
@@ -382,7 +382,7 @@ contract VaultTests is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         assertEq(asset.balanceOf(address(node)), 0);
@@ -408,7 +408,7 @@ contract VaultTests is BaseTest {
         assertEq(sharesAdjusted, 50 ether);
 
         vm.startPrank(rebalancer);
-        router4626.fulfillRedeemRequest(address(node), user, address(vault));
+        router4626.fulfillRedeemRequest(address(node), user, address(vault), 0);
         vm.stopPrank();
 
         assertEq(node.balanceOf(address(escrow)), 0);
@@ -429,7 +429,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.fulfillRedeemRequest(address(node), user, address(vault));
+        router4626.fulfillRedeemRequest(address(node), user, address(vault), 0);
         vm.stopPrank();
 
         assertEq(node.balanceOf(address(escrow)), 0);

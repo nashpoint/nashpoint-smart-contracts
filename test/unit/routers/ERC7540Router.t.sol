@@ -270,7 +270,7 @@ contract ERC7540RouterTest is BaseTest {
         // Invest in the component with 70% target weight
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent70));
+        router4626.invest(address(node), address(testComponent70), 0);
         vm.stopPrank();
 
         // Assert that the balance of the node is 700 ether for the component and 300 ether in reserve

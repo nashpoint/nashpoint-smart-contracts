@@ -362,7 +362,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        uint256 investmentAmount = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
@@ -408,7 +408,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        uint256 investmentAmount = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
@@ -449,7 +449,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        uint256 investmentAmount = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
@@ -496,7 +496,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 vaultAssets = router4626.invest(address(node), address(vault));
+        uint256 vaultAssets = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         // assert that shares are 1:1 assets & vault has the correct assets
@@ -539,7 +539,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 vaultAssets = router4626.invest(address(node), address(vault));
+        uint256 vaultAssets = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         uint256 interestEarned = 0;
