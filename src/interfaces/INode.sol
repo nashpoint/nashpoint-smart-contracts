@@ -256,19 +256,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
             uint256 sharesAdjusted
         );
 
-    /// @notice Returns the liquidation queue
-    /// @return address[] The liquidation queue
-    function getLiquidationsQueue() external view returns (address[] memory);
-
-    /// @notice Returns the liquidation queue at a given index
-    /// @param index The index of the liquidation queue
-    /// @return address The liquidation queue at the given index
-    function getLiquidationQueue(uint256 index) external view returns (address);
-
-    /// @notice Returns the length of the liquidation queue
-    /// @return uint256 The length of the liquidation queue
-    function getLiquidationQueueLength() external view returns (uint256);
-
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
 
