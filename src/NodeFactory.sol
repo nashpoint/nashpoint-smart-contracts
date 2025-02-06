@@ -48,23 +48,6 @@ contract NodeFactory is INodeFactory {
         Ownable(address(node)).transferOwnership(params.owner);
     }
 
-    /// @inheritdoc INodeFactory
-    function createNode(
-        string memory name,
-        string memory symbol,
-        address asset,
-        address owner,
-        address[] memory routers,
-        address[] memory components,
-        ComponentAllocation[] memory componentAllocations,
-        uint64 targetReserveRatio,
-        bytes32 salt
-    ) public returns (INode node) {
-        salt = keccak256(abi.encodePacked(msg.sender, salt));
-        node =
-            _createNode(name, symbol, asset, owner, routers, components, componentAllocations, targetReserveRatio, salt);
-    }
-
     function _createNode(
         string memory name,
         string memory symbol,

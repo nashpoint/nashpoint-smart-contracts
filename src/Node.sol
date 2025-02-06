@@ -25,10 +25,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     using MathLib for uint256;
 
     /* IMMUTABLES & CONSTANTS */
-    address public immutable asset;
-    address public immutable share;
+    address public asset;
+    address public share;
     address public immutable registry;
-    uint8 internal immutable _decimals;
+    uint8 public _decimals;
     uint256 internal constant WAD = 1e18;
     uint256 internal constant REQUEST_ID = 0;
     uint256 internal constant SECONDS_PER_YEAR = 365 days;
@@ -82,17 +82,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
         registry = registry_;
         asset = asset_;
-        share = address(this);
         _setTargetReserveRatio(targetReserveRatio_);
-        _setRouters(routers);
+        _setInitialRouters(routers);
         _setInitialComponents(components_, componentAllocations_);
-
-        try IERC20Metadata(asset_).decimals() returns (uint8 decimals_) {
-            _decimals = decimals_;
-        } catch {
-            _decimals = 18;
-        }
-        maxDepositSize = 10_000_000 * 10 ** _decimals;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -143,6 +135,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         isInitialized = true;
         lastRebalance = uint64(block.timestamp - rebalanceWindow);
         lastPayment = uint64(block.timestamp);
+        _setMaxDepositSize(10_000_000 * 10 ** _decimals);
+        _setDecimals(IERC20Metadata(asset).decimals());
+        _setShare(address(this));
 
         emit EventsLib.Initialize(escrow_, address(this));
     }
@@ -714,11 +709,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.TargetReserveRatioUpdated(targetReserveRatio_);
     }
 
-    function _setRouters(address[] memory routers) internal {
+    function _setInitialRouters(address[] memory routers) internal {
         unchecked {
             for (uint256 i; i < routers.length; ++i) {
                 isRouter[routers[i]] = true;
-                emit EventsLib.RouterAdded(routers[i]);
             }
         }
     }
@@ -734,10 +728,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                     router: allocations[i].router,
                     isComponent: true
                 });
-
-                emit EventsLib.ComponentAdded(
-                    components_[i], allocations[i].targetWeight, allocations[i].maxDelta, allocations[i].router
-                );
             }
         }
         if (!_validateComponentRatios()) {
@@ -804,6 +794,18 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                 assets, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
             );
         }
+    }
+
+    function _setShare(address share_) internal {
+        share = share_;
+    }
+
+    function _setDecimals(uint8 decimals_) internal {
+        _decimals = decimals_;
+    }
+
+    function _setMaxDepositSize(uint256 maxDepositSize_) internal {
+        maxDepositSize = maxDepositSize_;
     }
 
     function _validateOnlyRouter() internal view {

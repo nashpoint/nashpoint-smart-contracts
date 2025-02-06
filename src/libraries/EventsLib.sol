@@ -40,6 +40,9 @@ library EventsLib {
     /// @notice Emitted when `oldRouter` is removed from the node.
     event RouterRemoved(address indexed oldRouter);
 
+    /// @notice Emitted when `routers` are added to the node.
+    event RoutersAdded(address[] routers);
+
     /// @notice Emitted when a rebalancer is added to the node.
     event RebalancerAdded(address indexed rebalancer);
 

@@ -12,9 +12,9 @@ remappings = [
 evm_version = "cancun"
 solc = '0.8.28'
 gas_limit = 100000000000
-optimizer = true
-optimizer-runs = 1
-via-ir = true
+# optimizer = true
+# optimizer-runs = 1
+# via-ir = true
 
 [fuzz]
 runs = 10

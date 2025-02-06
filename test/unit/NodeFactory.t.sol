@@ -12,9 +12,29 @@ import {DeployParams} from "src/interfaces/INodeFactory.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {console2} from "forge-std/console2.sol";
 
+contract TestFactoryHarness is NodeFactory {
+    constructor(address registry) NodeFactory(registry) {}
+
+    function createNode(
+        string memory name,
+        string memory symbol,
+        address asset,
+        address owner,
+        address[] memory routers,
+        address[] memory components,
+        ComponentAllocation[] memory componentAllocations,
+        uint64 targetReserveRatio,
+        bytes32 salt
+    ) public returns (INode node) {
+        salt = keccak256(abi.encodePacked(msg.sender, salt));
+        node =
+            _createNode(name, symbol, asset, owner, routers, components, componentAllocations, targetReserveRatio, salt);
+    }
+}
+
 contract NodeFactoryTest is BaseTest {
     NodeRegistry public testRegistry;
-    NodeFactory public testFactory;
+    TestFactoryHarness public testFactory;
 
     ERC20Mock public testAsset;
     address public testQuoter;
@@ -60,7 +80,7 @@ contract NodeFactoryTest is BaseTest {
         testComponent = makeAddr("testComponent");
 
         testRegistry = new NodeRegistry(owner);
-        testFactory = new NodeFactory(address(testRegistry));
+        testFactory = new TestFactoryHarness(address(testRegistry));
 
         vm.startPrank(owner);
         testRegistry.initialize(

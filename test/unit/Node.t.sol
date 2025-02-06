@@ -142,7 +142,6 @@ contract NodeTest is BaseTest {
         // Check immutables
         assertEq(address(testNode.registry()), address(testRegistry));
         assertEq(testNode.asset(), testAsset);
-        assertEq(testNode.share(), address(testNode));
 
         // Check initial state
         assertEq(testNode.name(), TEST_NAME);
