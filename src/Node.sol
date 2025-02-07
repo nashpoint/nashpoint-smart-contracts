@@ -25,19 +25,17 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     using MathLib for uint256;
 
     /* IMMUTABLES & CONSTANTS */
-    address public asset;
-    address public share;
     address public immutable registry;
-    uint8 public _decimals;
     uint256 internal constant WAD = 1e18;
     uint256 internal constant REQUEST_ID = 0;
     uint256 internal constant SECONDS_PER_YEAR = 365 days;
 
     /* COMPONENTS */
+    uint64 public targetReserveRatio;
+    address public asset;
     address[] internal components;
     address[] public liquidationsQueue;
     mapping(address => ComponentAllocation) internal componentAllocations;
-    uint64 public targetReserveRatio;
 
     /* PROTOCOL ADDRESSES */
     IQuoterV1 public quoter;
@@ -135,9 +133,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         isInitialized = true;
         lastRebalance = uint64(block.timestamp - rebalanceWindow);
         lastPayment = uint64(block.timestamp);
-        _setDecimals();
-        _setMaxDepositSize(10_000_000 * 10 ** _decimals);
-        _setShare(address(this));
+        _setMaxDepositSize(10_000_000 * 10 ** decimals());
 
         emit EventsLib.Initialize(escrow_, address(this));
     }
@@ -145,7 +141,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /// @inheritdoc INode
     function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router)
         external
-        payable
         onlyOwner
         onlyWhenNotRebalancing
     {
@@ -434,7 +429,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             sharesExiting += shares;
         }
 
-        IERC20(share).safeTransferFrom(owner, address(escrow), shares);
+        IERC20(address(this)).safeTransferFrom(owner, address(escrow), shares);
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
@@ -450,7 +445,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function setOperator(address operator, bool approved) external virtual returns (bool success) {
+    function setOperator(address operator, bool approved) external returns (bool success) {
         if (msg.sender == operator) revert ErrorsLib.CannotSetSelfAsOperator();
         isOperator[msg.sender][operator] = approved;
         emit OperatorSet(msg.sender, operator, approved);
@@ -524,7 +519,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function totalAssets() public view virtual returns (uint256) {
+    function totalAssets() public view returns (uint256) {
         return cacheTotalAssets;
     }
 
@@ -579,7 +574,12 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     function decimals() public view override(ERC20, IERC20Metadata) returns (uint8) {
-        return _decimals;
+        (bool success, bytes memory data) = asset.staticcall(abi.encodeWithSignature("decimals()"));
+        if (success && data.length >= 32) {
+            return abi.decode(data, (uint8));
+        } else {
+            return 18;
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -624,6 +624,11 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         _enforceLiquidationOrder(component, assetsToReturn);
     }
 
+    /// @inheritdoc INode
+    function share() public view returns (address) {
+        return address(this);
+    }
+
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -661,15 +666,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
         _burn(escrow, sharesPending);
 
-        unchecked {
-            request.pendingRedeemRequest -= sharesPending;
-            request.claimableRedeemRequest += sharesPending;
-            request.claimableAssets += assetsToReturn;
-            request.sharesAdjusted -= sharesAdjusted;
+        request.pendingRedeemRequest -= sharesPending;
+        request.claimableRedeemRequest += sharesPending;
+        request.claimableAssets += assetsToReturn;
+        request.sharesAdjusted -= sharesAdjusted;
 
-            sharesExiting -= sharesPending;
-            cacheTotalAssets -= assetsToReturn;
-        }
+        sharesExiting -= sharesPending;
+        cacheTotalAssets -= assetsToReturn;
 
         if (assetsToReturn > IERC20(asset).balanceOf(address(this))) {
             revert ErrorsLib.ExceedsAvailableReserve();
@@ -796,19 +799,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
     }
 
-    function _setShare(address share_) internal {
-        share = share_;
-    }
-
-    function _setDecimals() internal {
-        (bool success, bytes memory data) = asset.call(abi.encodeWithSignature("decimals()"));
-        if (success && data.length >= 32) {
-            _decimals = abi.decode(data, (uint8));
-        } else {
-            _decimals = 18;
-        }
-    }
-
     function _setMaxDepositSize(uint256 maxDepositSize_) internal {
         maxDepositSize = maxDepositSize_;
     }
@@ -839,15 +829,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                         ERC4626 INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _convertToShares(uint256 assets, MathLib.Rounding rounding) internal view virtual returns (uint256) {
+    function _convertToShares(uint256 assets, MathLib.Rounding rounding) internal view returns (uint256) {
         return assets.mulDiv(totalSupply() + 1, totalAssets() + 1, rounding);
     }
 
-    function _convertToAssets(uint256 shares, MathLib.Rounding rounding) internal view virtual returns (uint256) {
+    function _convertToAssets(uint256 shares, MathLib.Rounding rounding) internal view returns (uint256) {
         return shares.mulDiv(totalAssets() + 1, totalSupply() + 1, rounding);
     }
 
-    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual {
+    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
         SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
         _mint(receiver, shares);
         emit Deposit(caller, receiver, assets, shares);

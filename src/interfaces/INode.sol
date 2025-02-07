@@ -50,7 +50,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param maxDelta The max delta of the component
     /// @param router The router of the component
     /// @dev Only callable by owner
-    function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router) external payable;
+    function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router) external;
 
     /// @notice Removes a component from the node. Must have zero balance.
     /// @param component The address of the component to remove
@@ -286,6 +286,9 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param component The address of the component
     /// @param assetsToReturn The amount of assets to return
     function enforceLiquidationOrder(address component, uint256 assetsToReturn) external view;
+
+    /// @notice The address of the share
+    function share() external view returns (address);
 
     /// @notice The address of the node registry
     function registry() external view returns (address);
