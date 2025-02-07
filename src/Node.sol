@@ -135,8 +135,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         isInitialized = true;
         lastRebalance = uint64(block.timestamp - rebalanceWindow);
         lastPayment = uint64(block.timestamp);
+        _setDecimals();
         _setMaxDepositSize(10_000_000 * 10 ** _decimals);
-        _setDecimals(IERC20Metadata(asset).decimals());
         _setShare(address(this));
 
         emit EventsLib.Initialize(escrow_, address(this));
@@ -800,8 +800,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         share = share_;
     }
 
-    function _setDecimals(uint8 decimals_) internal {
-        _decimals = decimals_;
+    function _setDecimals() internal {
+        (bool success, bytes memory data) = asset.call(abi.encodeWithSignature("decimals()"));
+        if (success && data.length >= 32) {
+            _decimals = abi.decode(data, (uint8));
+        } else {
+            _decimals = 18;
+        }
     }
 
     function _setMaxDepositSize(uint256 maxDepositSize_) internal {

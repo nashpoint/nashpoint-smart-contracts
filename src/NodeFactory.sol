@@ -9,7 +9,6 @@ import {Node} from "./Node.sol";
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
 import {INodeFactory, DeployParams} from "./interfaces/INodeFactory.sol";
 import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
-
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
