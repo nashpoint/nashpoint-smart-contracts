@@ -144,11 +144,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         onlyOwner
         onlyWhenNotRebalancing
     {
-        if (component == address(0)) revert ErrorsLib.ZeroAddress();
-        if (_isComponent(component)) revert ErrorsLib.AlreadySet();
-        if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
-        if (!isRouter[router]) revert ErrorsLib.NotWhitelisted();
-        if (!IRouter(router).isWhitelisted(component)) revert ErrorsLib.NotWhitelisted();
+        _validateNewComponent(component, router);
 
         components.push(component);
         componentAllocations[component] =
@@ -723,7 +719,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function _setInitialComponents(address[] memory components_, ComponentAllocation[] memory allocations) internal {
         unchecked {
             for (uint256 i; i < components_.length; ++i) {
-                if (components_[i] == address(0)) revert ErrorsLib.ZeroAddress();
+                _validateNewComponent(components_[i], allocations[i].router);
                 components.push(components_[i]);
                 componentAllocations[components_[i]] = ComponentAllocation({
                     targetWeight: allocations[i].targetWeight,
@@ -758,6 +754,14 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             }
             return totalWeight == WAD;
         }
+    }
+
+    function _validateNewComponent(address component, address router) internal view {
+        if (component == address(0)) revert ErrorsLib.ZeroAddress();
+        if (_isComponent(component)) revert ErrorsLib.AlreadySet();
+        if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
+        if (!isRouter[router]) revert ErrorsLib.NotWhitelisted();
+        if (!IRouter(router).isWhitelisted(component)) revert ErrorsLib.NotWhitelisted();
     }
 
     function _validateReserveAboveTarget() internal view returns (bool) {

@@ -40,6 +40,7 @@ contract DecimalsTests is BaseTest {
         maxDeposit = nodeImpl.maxDepositSize();
 
         vm.startPrank(owner);
+        router4626.setWhitelistStatus(address(testVault6), true);
         DeployParams memory params = DeployParams({
             name: "Decimal Node ",
             symbol: "DNODE",
@@ -55,12 +56,7 @@ contract DecimalsTests is BaseTest {
         });
 
         (decNode, decEscrow) = factory.deployFullNode(params);
-
         decNode.setMaxDepositSize(1e36);
-
-        router4626.setWhitelistStatus(address(testVault6), true);
-
-        // decEscrow.approveMax(address(testToken6), address(decNode));
         vm.stopPrank();
 
         vm.label(address(testToken18), "Test Token 18");

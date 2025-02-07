@@ -85,6 +85,7 @@ contract NodeTest is BaseTest {
         testRegistry = new NodeRegistry(owner);
 
         vm.startPrank(owner);
+
         testRegistry.initialize(
             _toArray(address(this)), // factory
             _toArray(testRouter),
@@ -96,20 +97,22 @@ contract NodeTest is BaseTest {
             0.1 ether
         );
 
+        testRegistry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
+        router4626.setWhitelistStatus(address(testComponent), true);
+
         testNode = new NodeHarness(
             address(testRegistry),
             TEST_NAME,
             TEST_SYMBOL,
             testAsset,
             owner,
-            _toArray(testRouter),
+            _toArray(address(router4626)),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
             0.1 ether
         );
 
-        testRegistry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
-        testNode.addRouter(address(router4626));
+        testNode.addRouter(address(testRouter));
 
         vm.stopPrank();
 
@@ -2242,11 +2245,16 @@ contract NodeTest is BaseTest {
         }
 
         address[] memory routers = new address[](1);
-        routers[0] = testRouter;
+        routers[0] = address(router4626);
 
         address[] memory components = new address[](2);
         components[0] = testComponent;
         components[1] = testComponent2;
+
+        vm.startPrank(owner);
+        router4626.setWhitelistStatus(testComponent, true);
+        router4626.setWhitelistStatus(testComponent2, true);
+        vm.stopPrank();
 
         Node dummyNode = new Node(
             address(testRegistry), "Test Node", "TNODE", testAsset, owner, routers, components, allocations, reserve
@@ -2267,7 +2275,10 @@ contract NodeTest is BaseTest {
         });
 
         address[] memory routers = new address[](1);
-        routers[0] = testRouter;
+        routers[0] = address(router4626);
+
+        vm.prank(owner);
+        router4626.setWhitelistStatus(testComponent, true);
 
         vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
 
