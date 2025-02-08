@@ -21,9 +21,7 @@ contract NodeFactory is INodeFactory {
     error LengthMismatch();
 
     /* EVENTS */
-    event NodeCreated(
-        address indexed node, address indexed asset, string name, string symbol, address indexed owner, bytes32 salt
-    );
+    event NodeCreated(address indexed node, address indexed asset, string name, string symbol, address indexed owner);
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
@@ -83,6 +81,6 @@ contract NodeFactory is INodeFactory {
 
         registry.addNode(address(node));
 
-        emit NodeCreated(address(node), asset, name, symbol, owner, salt);
+        emit NodeCreated(address(node), asset, name, symbol, owner);
     }
 }
