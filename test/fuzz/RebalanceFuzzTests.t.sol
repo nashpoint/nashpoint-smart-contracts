@@ -63,6 +63,7 @@ contract RebalanceFuzzTests is BaseTest {
         router7540.setWhitelistStatus(address(asyncVaultA), true);
         router7540.setWhitelistStatus(address(asyncVaultB), true);
         router7540.setWhitelistStatus(address(asyncVaultC), true);
+        node.addRouter(address(router7540));
         vm.stopPrank();
 
         components = [

@@ -33,6 +33,7 @@ contract RebalancingTests is BaseTest {
 
         node.removeComponent(address(vault), false);
         node.updateTargetReserveRatio(0.1 ether);
+        node.addRouter(address(router7540));
 
         router4626.setWhitelistStatus(address(vaultA), true);
         node.addComponent(address(vaultA), 0.18 ether, 0.01 ether, address(router4626));

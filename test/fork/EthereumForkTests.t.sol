@@ -105,6 +105,7 @@ contract EthereumForkTests is BaseTest {
         // add centrifuge liquidity pool to protocol contracts
         vm.startPrank(owner);
         router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
+        node.addRouter(address(router7540));
         node.addComponent(address(cfgLiquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         vm.stopPrank();
 

@@ -102,20 +102,6 @@ contract BaseTest is Test {
 
         router4626.setWhitelistStatus(address(vault), true);
 
-        // DeployParams memory params = DeployParams({
-        //     name: "Test Node",
-        //     symbol: "TNODE",
-        //     asset: address(asset),
-        //     owner: owner,
-        //     rebalancer: address(rebalancer),
-        //     quoter: address(quoter),
-        //     routers: _toArrayTwo(address(router4626), address(router7540)),
-        //     components: _toArray(address(vault)),
-        //     componentAllocations: _defaultComponentAllocations(1),
-        //     targetReserveRatio: 0.1 ether,
-        //     salt: SALT
-        // });
-
         (node, escrow) = factory.deployFullNode(
             "Test Node",
             "TNODE",

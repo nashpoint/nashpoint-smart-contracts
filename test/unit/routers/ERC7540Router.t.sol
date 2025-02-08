@@ -5,6 +5,7 @@ import {console2} from "forge-std/Test.sol";
 import {BaseTest} from "../../BaseTest.sol";
 
 import {BaseRouter} from "src/libraries/BaseRouter.sol";
+import {RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
@@ -49,8 +50,10 @@ contract ERC7540RouterTest is BaseTest {
         });
 
         vm.warp(block.timestamp + 1 days);
-        vm.prank(owner);
+        vm.startPrank(owner);
+        node.addRouter(address(router7540));
         node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
+        vm.stopPrank();
 
         // jump back in time to keep the cache valid
         vm.warp(block.timestamp - 1 days);
