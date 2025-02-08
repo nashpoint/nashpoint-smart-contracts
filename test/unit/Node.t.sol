@@ -30,7 +30,7 @@ contract NodeHarness is Node {
         address[] memory components_,
         ComponentAllocation[] memory componentAllocations_,
         uint64 targetReserveRatio_
-    ) Node(registry_, name, symbol, asset_, owner, routers, components_, componentAllocations_, targetReserveRatio_) {}
+    ) Node(registry_, name, symbol, asset_, owner, components_, componentAllocations_, targetReserveRatio_) {}
 
     function getLiquidationQueue(uint256 index) external view returns (address component) {
         return liquidationsQueue[index];
@@ -85,6 +85,7 @@ contract NodeTest is BaseTest {
         testRegistry = new NodeRegistry(owner);
 
         vm.startPrank(owner);
+
         testRegistry.initialize(
             _toArray(address(this)), // factory
             _toArray(testRouter),
@@ -96,20 +97,22 @@ contract NodeTest is BaseTest {
             0.1 ether
         );
 
+        testRegistry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
+        router4626.setWhitelistStatus(address(testComponent), true);
+
         testNode = new NodeHarness(
             address(testRegistry),
             TEST_NAME,
             TEST_SYMBOL,
             testAsset,
             owner,
-            _toArray(testRouter),
+            _toArray(address(router4626)),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
             0.1 ether
         );
 
-        testRegistry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
-        testNode.addRouter(address(router4626));
+        testNode.addRouter(address(testRouter));
 
         vm.stopPrank();
 
@@ -124,18 +127,6 @@ contract NodeTest is BaseTest {
         Node nodeImpl = Node(address(node));
         maxDeposit = nodeImpl.maxDepositSize();
         rebalanceCooldown = nodeImpl.rebalanceCooldown();
-
-        // nodeHarness = new NodeHarness(
-        //     address(registry),
-        //     "TEST_NAME",
-        //     "TEST_SYMBOL",
-        //     address(asset),
-        //     address(owner),
-        //     _toArray(address(router4626)),
-        //     _toArray(address(asset)),
-        //     _defaultComponentAllocations(1),
-        //     0.1 ether
-        // );
     }
 
     function test_constructor() public view {
@@ -175,7 +166,6 @@ contract NodeTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
-            _toArray(testRouter),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
             0.1 ether
@@ -189,7 +179,6 @@ contract NodeTest is BaseTest {
             TEST_SYMBOL,
             address(0),
             owner,
-            _toArray(testRouter),
             _toArray(testComponent),
             _defaultComponentAllocations(1),
             0.1 ether
@@ -203,7 +192,6 @@ contract NodeTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
-            _toArray(testRouter),
             _toArray(address(0)),
             _defaultComponentAllocations(1),
             0.1 ether
@@ -222,7 +210,6 @@ contract NodeTest is BaseTest {
             TEST_SYMBOL,
             testAsset,
             owner,
-            _toArray(testRouter),
             components,
             _defaultComponentAllocations(1), // Only 1 allocation for 2 components
             0.1 ether
@@ -513,6 +500,7 @@ contract NodeTest is BaseTest {
 
         vm.startPrank(owner);
         router4626.setWhitelistStatus(testComponent, true);
+        testNode.addRouter(address(router4626));
         testNode.updateComponentAllocation(
             testComponent, newAllocation.targetWeight, newAllocation.maxDelta, newAllocation.router
         );
@@ -569,9 +557,10 @@ contract NodeTest is BaseTest {
     }
 
     function test_addRouter_revert_AlreadySet() public {
-        vm.prank(owner);
+        vm.startPrank(owner);
+
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testNode.addRouter(testRouter);
+        node.addRouter(address(router4626));
     }
 
     function test_removeRouter() public {
@@ -2242,15 +2231,19 @@ contract NodeTest is BaseTest {
         }
 
         address[] memory routers = new address[](1);
-        routers[0] = testRouter;
+        routers[0] = address(router4626);
 
         address[] memory components = new address[](2);
         components[0] = testComponent;
         components[1] = testComponent2;
 
-        Node dummyNode = new Node(
-            address(testRegistry), "Test Node", "TNODE", testAsset, owner, routers, components, allocations, reserve
-        );
+        vm.startPrank(owner);
+        router4626.setWhitelistStatus(testComponent, true);
+        router4626.setWhitelistStatus(testComponent2, true);
+        vm.stopPrank();
+
+        Node dummyNode =
+            new Node(address(testRegistry), "Test Node", "TNODE", testAsset, owner, components, allocations, reserve);
 
         assertEq(dummyNode.getComponentAllocation(testComponent).targetWeight, comp1);
         assertEq(dummyNode.getComponentAllocation(testComponent2).targetWeight, comp2);
@@ -2267,7 +2260,10 @@ contract NodeTest is BaseTest {
         });
 
         address[] memory routers = new address[](1);
-        routers[0] = testRouter;
+        routers[0] = address(router4626);
+
+        vm.prank(owner);
+        router4626.setWhitelistStatus(testComponent, true);
 
         vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
 
@@ -2277,7 +2273,6 @@ contract NodeTest is BaseTest {
             "TNODE",
             testAsset,
             owner,
-            routers,
             _toArray(testComponent),
             invalidAllocation,
             0.1 ether
@@ -2297,7 +2292,6 @@ contract NodeTest is BaseTest {
             "TNODE",
             testAsset,
             owner,
-            routers,
             _toArray(testComponent),
             invalidAllocation,
             0.1 ether

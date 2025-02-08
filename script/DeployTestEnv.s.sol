@@ -9,7 +9,6 @@ import {QuoterV1} from "src/quoters/QuoterV1.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {DeployParams} from "src/interfaces/INodeFactory.sol";
 
 contract DeployTestEnv is Script {
     bytes32 public constant SALT = bytes32(uint256(1));
@@ -50,21 +49,19 @@ contract DeployTestEnv is Script {
         // Configure components
         router4626.setWhitelistStatus(address(vault), true);
 
-        DeployParams memory params = DeployParams({
-            name: "Test Node",
-            symbol: "TNODE",
-            asset: address(asset),
-            owner: deployer,
-            rebalancer: rebalancer,
-            quoter: address(quoter),
-            routers: _toArray(address(router4626)),
-            components: _toArray(address(vault)),
-            componentAllocations: _defaultComponentAllocations(1, address(router4626)),
-            targetReserveRatio: 0.1 ether,
-            salt: SALT
-        });
         // Deploy node
-        (INode node,) = factory.deployFullNode(params);
+        (INode node,) = factory.deployFullNode(
+            "Test Node",
+            "TNODE",
+            address(asset),
+            deployer,
+            _toArray(address(vault)),
+            _defaultComponentAllocations(1, address(router4626)),
+            0.1 ether,
+            address(rebalancer),
+            address(quoter),
+            SALT
+        );
 
         // Fund test addresses
         asset.mint(user, 1000000 ether);

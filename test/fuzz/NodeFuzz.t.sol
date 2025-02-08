@@ -18,8 +18,10 @@ contract NodeFuzzTest is BaseTest {
         Node nodeImpl = Node(address(node));
         maxDeposit = nodeImpl.maxDepositSize();
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         router7540.setWhitelistStatus(address(liquidityPool), true);
+        node.addRouter(address(router7540));
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
