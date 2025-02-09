@@ -56,7 +56,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param component The address of the component to remove
     /// @param force Whether to force the removal of the component
     /// @dev Only callable by owner. Component must be rebalanced to zero before removal or force is true
-    function removeComponent(address component, bool force) external payable;
+    function removeComponent(address component, bool force) external;
 
     /// @notice Updates the allocation for an existing component. Set to zero to rebalance out of component before removing.
     /// @param component The address of the component to update
@@ -65,86 +65,85 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param router The router of the component
     /// @dev Only callable by owner
     function updateComponentAllocation(address component, uint64 targetWeight, uint64 maxDelta, address router)
-        external
-        payable;
+        external;
 
     /// @notice Updates the allocation for the reserve asset
     /// @param targetReserveRatio The new target reserve ratio
     /// @dev Only callable by owner
-    function updateTargetReserveRatio(uint64 targetReserveRatio) external payable;
+    function updateTargetReserveRatio(uint64 targetReserveRatio) external;
 
     /// @notice Adds a router
-    function addRouter(address newRouter) external payable;
+    function addRouter(address newRouter) external;
 
     /// @notice Removes a router
-    function removeRouter(address oldRouter) external payable;
+    function removeRouter(address oldRouter) external;
 
     /// @notice Adds a rebalancer
-    function addRebalancer(address newRebalancer) external payable;
+    function addRebalancer(address newRebalancer) external;
 
     /// @notice Removes a rebalancer
-    function removeRebalancer(address oldRebalancer) external payable;
+    function removeRebalancer(address oldRebalancer) external;
 
     /// @notice Sets the quoter
-    function setQuoter(address newQuoter) external payable;
+    function setQuoter(address newQuoter) external;
 
     /// @notice Sets the liquidation queue
-    function setLiquidationQueue(address[] calldata newQueue) external payable;
+    function setLiquidationQueue(address[] calldata newQueue) external;
 
     /// @notice Sets the rebalance cooldown
-    function setRebalanceCooldown(uint64 newRebalanceCooldown) external payable;
+    function setRebalanceCooldown(uint64 newRebalanceCooldown) external;
 
     /// @notice Sets the rebalance window
-    function setRebalanceWindow(uint64 newRebalanceWindow) external payable;
+    function setRebalanceWindow(uint64 newRebalanceWindow) external;
 
     /// @notice Enables swing pricing
-    function enableSwingPricing(bool enabled, uint64 maxSwingFactor) external payable;
+    function enableSwingPricing(bool enabled, uint64 maxSwingFactor) external;
 
     /// @notice Sets the node owner fee address
     /// @param newNodeOwnerFeeAddress The address of the new node owner fee address
-    function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external payable;
+    function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external;
 
     /// @notice Sets the annual management fee
     /// @param newAnnualManagementFee The new annual management fee
-    function setAnnualManagementFee(uint64 newAnnualManagementFee) external payable;
+    function setAnnualManagementFee(uint64 newAnnualManagementFee) external;
 
     /// @notice Sets the max deposit size
     /// @param newMaxDepositSize The new max deposit size
-    function setMaxDepositSize(uint256 newMaxDepositSize) external payable;
+    function setMaxDepositSize(uint256 newMaxDepositSize) external;
 
     /// @notice Rescues tokens from the node
     /// @param token The address of the token to rescue
     /// @param recipient The address of the recipient
     /// @param amount The amount of tokens to rescue
-    function rescueTokens(address token, address recipient, uint256 amount) external payable;
+    function rescueTokens(address token, address recipient, uint256 amount) external;
 
     /// @notice Starts a rebalance
-    function startRebalance() external payable;
+    function startRebalance() external;
 
     /// @notice Allows routers to execute external calls
-    function execute(address target, bytes calldata data) external payable returns (bytes memory);
+    function execute(address target, bytes calldata data) external returns (bytes memory);
 
     /// @notice Pays management fees
     /// @dev called by owner or rebalancer to pay management fees
     /// fees are paid from the reserve in assets and transferred to the node owner and protocol fee addresses
     /// @return uint256 The amount of assets paid
-    function payManagementFees() external payable returns (uint256);
+    function payManagementFees() external returns (uint256);
 
     /// @notice Subtracts the protocol execution fee
     /// @dev called by router to subtract the protocol execution fee during investment in a component
     /// @param executionFee The amount of execution fee to subtract
-    function subtractProtocolExecutionFee(uint256 executionFee) external payable;
+    function subtractProtocolExecutionFee(uint256 executionFee) external;
 
     /// @notice Updates the total assets
-    function updateTotalAssets() external payable;
+    function updateTotalAssets() external;
 
     /// @notice Fulfill a redeem request from the reserve
     /// @param user The address of the user to redeem for
-    function fulfillRedeemFromReserve(address user) external payable;
+    function fulfillRedeemFromReserve(address user) external;
 
     /// @notice Fulfill a batch of redeem requests from the reserve
     /// @param controllers The addresses of the controllers to redeem for
-    function fulfillRedeemBatch(address[] memory controllers) external payable;
+    function fulfillRedeemBatch(address[] memory controllers) external;
 
     /// @notice Finalizes a redemption request
     /// @dev called by router or rebalancer to update the request state after a redemption
@@ -157,7 +156,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
         uint256 assetsToReturn,
         uint256 sharesPending,
         uint256 sharesAdjusted
-    ) external payable;
+    ) external;
 
     /// @notice Requests a redemption
     /// @param shares The amount of shares to redeem
