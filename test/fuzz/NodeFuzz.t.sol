@@ -470,7 +470,130 @@ contract NodeFuzzTest is BaseTest {
         assertLt(withdrawalPenalty, maxPenalty);
     }
 
-    function test_fuzz_node_swing_price_vault_attack() public {}
+    function test_fuzz_node_swing_price_vault_attack(uint64 maxSwingFactor, uint64 targetReserveRatio, uint256 t)
+        public
+    {
+        maxSwingFactor = uint64(bound(maxSwingFactor, 0.001 ether, 0.1 ether));
+        targetReserveRatio = uint64(bound(targetReserveRatio, 100, 0.1 ether));
+        t = bound(t, 1e16, 1e18 - 1);
+        uint256 seedAmount = 900_000 ether;
+        uint256 userDeposit = 100_000 ether;
+        uint256 tolerance = 1000;
+
+        deal(address(asset), address(user2), userDeposit);
+
+        vm.startPrank(user);
+        asset.approve(address(node), seedAmount);
+        node.deposit(seedAmount, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        asset.approve(address(node), type(uint256).max);
+        node.deposit(userDeposit, user2);
+        vm.stopPrank();
+
+        // jump forward in time to apply swing pricing
+        vm.warp(block.timestamp + 1 days);
+        vm.startPrank(owner);
+        node.updateReserveAllocation(
+            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
+        );
+        node.updateComponentAllocation(
+            address(vault),
+            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
+        );
+        vm.stopPrank();
+
+        // jump back in time to be in rebalance window
+        vm.warp(block.timestamp - 1 days);
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = _getCurrentReserveRatio();
+        assertEq(reserveRatio, node.getReserveAllocation().targetWeight);
+
+        // enable swing pricing
+        vm.prank(owner);
+        node.enableSwingPricing(true, maxSwingFactor);
+
+        uint256 sharesToRedeem = (1e18 - t) * node.balanceOf(user2) / 1e18;
+
+        if (sharesToRedeem > 0) {
+            // user 2 makes their first withdrawl
+            vm.startPrank(user2);
+            node.approve(address(node), type(uint256).max);
+            node.requestRedeem(sharesToRedeem, user2, user2);
+            vm.stopPrank();
+        }
+
+        if (node.pendingRedeemRequest(0, user2) > 0) {
+            vm.prank(rebalancer);
+            node.fulfillRedeemFromReserve(user2);
+        }
+
+        uint256 user2BalBefore = asset.balanceOf(user2);
+
+        // user 2 withdraws max assets
+        uint256 maxWithdraw = node.maxWithdraw(address(user2));
+
+        if (maxWithdraw > 0) {
+            vm.prank(user2);
+            node.withdraw(maxWithdraw, address(user2), address(user2));
+        }
+
+        uint256 user2FirstWithdrawal = asset.balanceOf(user2) - user2BalBefore;
+
+        emit log_named_uint("user2 first withdrawal:", user2FirstWithdrawal);
+
+        uint256 user2SecondWithdrawal = 0;
+        // Only do second withdrawal if there should be something left to withdraw.
+        if (t > 0) {
+            sharesToRedeem = node.balanceOf(user2); // Redeem the rest
+
+            if (sharesToRedeem > 0) {
+                // user 2 makes there first withdrawl
+                vm.startPrank(user2);
+                node.approve(address(node), type(uint256).max);
+                node.requestRedeem(sharesToRedeem, user2, user2);
+                vm.stopPrank();
+            }
+
+            vm.prank(rebalancer);
+            node.fulfillRedeemFromReserve(user2);
+
+            user2BalBefore = asset.balanceOf(user2);
+
+            // user 2 withdraws max assets
+            maxWithdraw = node.maxWithdraw(address(user2));
+
+            if (maxWithdraw > 0) {
+                vm.prank(user2);
+                node.withdraw(maxWithdraw, address(user2), address(user2));
+            }
+
+            user2SecondWithdrawal = asset.balanceOf(user2) - user2BalBefore;
+        }
+
+        emit log_named_uint("user2 second withdrawal:", user2SecondWithdrawal);
+        uint256 totalWithdrawn = user2FirstWithdrawal + user2SecondWithdrawal;
+        emit log_named_uint("total withdrawn:", totalWithdrawn);
+
+        vm.startPrank(user2);
+        asset.approve(address(node), type(uint256).max);
+        node.deposit(totalWithdrawn, user2);
+        vm.stopPrank();
+
+        uint256 user2Assets = node.convertToAssets(node.balanceOf(user2));
+        emit log_named_uint("user2 in-protocol share value:", user2Assets);
+
+        emit log_named_uint("sum of share value and withdrawn value:", user2Assets + totalWithdrawn);
+        emit log_named_uint("total deposited by user2:", 100_000 ether + totalWithdrawn);
+
+        assertLt(user2Assets, userDeposit + tolerance);
+    }
 
     /*//////////////////////////////////////////////////////////////
                         TOTAL ASSET & CACHE

@@ -444,4 +444,95 @@ contract VaultTests is BaseTest {
         assertEq(sharesPending, 0);
         assertEq(sharesAdjusted, 0);
     }
+
+    function testSplitWithdrawalThenRedeposit() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 900_000 ether);
+        node.deposit(900_000 ether, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        asset.approve(address(node), 100_000 ether);
+        node.deposit(100_000 ether, user2);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vault));
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = _getCurrentReserveRatio();
+        assertEq(reserveRatio, node.getReserveAllocation().targetWeight);
+
+        // set max discount for swing pricing
+        uint64 maxSwingFactor = 2e16;
+
+        // enable swing pricing
+        vm.prank(owner);
+        node.enableSwingPricing(true, maxSwingFactor);
+
+        uint256 t = 0.24e18;
+        uint256 sharesToRedeem = (1e18 - t) * node.balanceOf(user2) / 1e18;
+
+        // user 2 makes their first withdrawl
+        vm.startPrank(user2);
+        node.approve(address(node), type(uint256).max);
+        node.requestRedeem(sharesToRedeem, user2, user2);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user2);
+
+        uint256 user2BalBefore = mockAsset.balanceOf(user2);
+
+        // user 2 withdraws max assets
+        uint256 maxWithdraw = node.maxWithdraw(address(user2));
+        vm.prank(user2);
+        node.withdraw(maxWithdraw, address(user2), address(user2));
+
+        uint256 user2FirstWithdrawal = mockAsset.balanceOf(user2) - user2BalBefore;
+
+        emit log_named_uint("user2 first withdrawal:", user2FirstWithdrawal);
+
+        uint256 user2SecondWithdrawal = 0;
+        // Only do second withdrawal if there should be something left to withdraw.
+        if (t > 0) {
+            sharesToRedeem = node.balanceOf(user2); // Redeem the rest
+
+            // user 2 makes there first withdrawl
+            vm.startPrank(user2);
+            node.approve(address(node), type(uint256).max);
+            node.requestRedeem(sharesToRedeem, user2, user2);
+            vm.stopPrank();
+
+            vm.prank(rebalancer);
+            node.fulfillRedeemFromReserve(user2);
+
+            user2BalBefore = mockAsset.balanceOf(user2);
+
+            // user 2 withdraws max assets
+            maxWithdraw = node.maxWithdraw(address(user2));
+            vm.prank(user2);
+            node.withdraw(maxWithdraw, address(user2), address(user2));
+
+            user2SecondWithdrawal = mockAsset.balanceOf(user2) - user2BalBefore;
+        }
+
+        emit log_named_uint("user2 second withdrawal:", user2SecondWithdrawal);
+        uint256 totalWithdrawn = user2FirstWithdrawal + user2SecondWithdrawal;
+        emit log_named_uint("total withdrawn:", totalWithdrawn);
+
+        vm.startPrank(user2);
+        asset.approve(address(node), 100_000 ether);
+        node.deposit(totalWithdrawn, user2);
+        vm.stopPrank();
+
+        uint256 user2Assets = node.convertToAssets(node.balanceOf(user2));
+        emit log_named_uint("user2 in-protocol share value:", user2Assets);
+
+        emit log_named_uint("sum of share value and withdrawn value:", user2Assets + totalWithdrawn);
+        emit log_named_uint("total deposited by user2:", 100_000 ether + totalWithdrawn);
+
+        assertLt(user2Assets + totalWithdrawn, 100_000 ether + totalWithdrawn);
+    }
 }
