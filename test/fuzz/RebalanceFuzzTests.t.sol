@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
@@ -63,6 +63,7 @@ contract RebalanceFuzzTests is BaseTest {
         router7540.setWhitelistStatus(address(asyncVaultA), true);
         router7540.setWhitelistStatus(address(asyncVaultB), true);
         router7540.setWhitelistStatus(address(asyncVaultC), true);
+        node.addRouter(address(router7540));
         vm.stopPrank();
 
         components = [

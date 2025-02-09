@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -193,7 +193,7 @@ abstract contract BaseRouter is IRouter {
     {
         totalAssets = INode(node).totalAssets();
         currentCash = INode(node).getCashAfterRedemptions();
-        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).getTargetReserveRatio(), WAD);
+        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
     }
 
     /// @notice Subtracts the execution fee from the transaction amount.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {ComponentAllocation} from "../interfaces/INode.sol";
 import {RegistryType} from "../interfaces/INodeRegistry.sol";
@@ -39,6 +39,9 @@ library EventsLib {
 
     /// @notice Emitted when `oldRouter` is removed from the node.
     event RouterRemoved(address indexed oldRouter);
+
+    /// @notice Emitted when `routers` are added to the node.
+    event RoutersAdded(address[] routers);
 
     /// @notice Emitted when a rebalancer is added to the node.
     event RebalancerAdded(address indexed rebalancer);

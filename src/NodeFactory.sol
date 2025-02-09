@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
-
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+pragma solidity 0.8.28;
 
 import {Escrow} from "./Escrow.sol";
 import {Node} from "./Node.sol";
-
 import {INode, ComponentAllocation} from "./interfaces/INode.sol";
-import {INodeFactory, DeployParams} from "./interfaces/INodeFactory.sol";
-import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
-
-import {ErrorsLib} from "./libraries/ErrorsLib.sol";
-import {EventsLib} from "./libraries/EventsLib.sol";
+import {INodeFactory} from "./interfaces/INodeFactory.sol";
+import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title NodeFactory
 /// @author ODND Studios
@@ -19,50 +14,44 @@ contract NodeFactory is INodeFactory {
     /* IMMUTABLES */
     INodeRegistry public immutable registry;
 
+    /* ERRORS */
+    error ZeroAddress();
+    error InvalidName();
+    error InvalidSymbol();
+    error LengthMismatch();
+
+    /* EVENTS */
+    event NodeCreated(address indexed node, address indexed asset, string name, string symbol, address indexed owner);
+
     /* CONSTRUCTOR */
     constructor(address registry_) {
-        if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
+        if (registry_ == address(0)) revert ZeroAddress();
         registry = INodeRegistry(registry_);
     }
 
     /* EXTERNAL FUNCTIONS */
     /// @inheritdoc INodeFactory
-    function deployFullNode(DeployParams memory params) external returns (INode node, address escrow) {
-        bytes32 salt = keccak256(abi.encodePacked(msg.sender, params.salt));
-        node = _createNode(
-            params.name,
-            params.symbol,
-            params.asset,
-            address(this),
-            params.routers,
-            params.components,
-            params.componentAllocations,
-            params.targetReserveRatio,
-            salt
-        );
-
-        escrow = address(new Escrow{salt: salt}(address(node)));
-        node.addRebalancer(params.rebalancer);
-        node.setQuoter(params.quoter);
-        node.initialize(address(escrow));
-        Ownable(address(node)).transferOwnership(params.owner);
-    }
-
-    /// @inheritdoc INodeFactory
-    function createNode(
+    function deployFullNode(
         string memory name,
         string memory symbol,
         address asset,
         address owner,
-        address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
         uint64 targetReserveRatio,
+        address rebalancer,
+        address quoter,
         bytes32 salt
-    ) public returns (INode node) {
+    ) external returns (INode node, address escrow) {
         salt = keccak256(abi.encodePacked(msg.sender, salt));
         node =
-            _createNode(name, symbol, asset, owner, routers, components, componentAllocations, targetReserveRatio, salt);
+            _createNode(name, symbol, asset, address(this), components, componentAllocations, targetReserveRatio, salt);
+
+        escrow = address(new Escrow{salt: salt}(address(node)));
+        node.addRebalancer(rebalancer);
+        node.setQuoter(quoter);
+        node.initialize(address(escrow));
+        Ownable(address(node)).transferOwnership(owner);
     }
 
     function _createNode(
@@ -70,41 +59,28 @@ contract NodeFactory is INodeFactory {
         string memory symbol,
         address asset,
         address owner,
-        address[] memory routers,
         address[] memory components,
         ComponentAllocation[] memory componentAllocations,
         uint64 targetReserveRatio,
         bytes32 salt
     ) internal returns (INode node) {
         if (asset == address(0) || owner == address(0)) {
-            revert ErrorsLib.ZeroAddress();
+            revert ZeroAddress();
         }
-        if (bytes(name).length == 0) revert ErrorsLib.InvalidName();
-        if (bytes(symbol).length == 0) revert ErrorsLib.InvalidSymbol();
-        if (components.length != componentAllocations.length) revert ErrorsLib.LengthMismatch();
-
-        for (uint256 i = 0; i < routers.length; i++) {
-            if (!registry.isRegistryType(routers[i], RegistryType.ROUTER)) revert ErrorsLib.NotRegistered();
-        }
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(symbol).length == 0) revert InvalidSymbol();
+        if (components.length != componentAllocations.length) revert LengthMismatch();
 
         node = INode(
             address(
                 new Node{salt: salt}(
-                    address(registry),
-                    name,
-                    symbol,
-                    asset,
-                    owner,
-                    routers,
-                    components,
-                    componentAllocations,
-                    targetReserveRatio
+                    address(registry), name, symbol, asset, owner, components, componentAllocations, targetReserveRatio
                 )
             )
         );
 
         registry.addNode(address(node));
 
-        emit EventsLib.NodeCreated(address(node), asset, name, symbol, owner, salt);
+        emit NodeCreated(address(node), asset, name, symbol, owner);
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {BaseTest} from "../BaseTest.sol";
@@ -94,7 +94,7 @@ contract VaultTests is BaseTest {
         uint256 claimableAssets;
         uint256 sharesAdjusted;
 
-        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.requests(user);
         assertEq(pendingRedeemRequest, 0);
         assertEq(claimableRedeemRequest, 0);
         assertEq(claimableAssets, 0);
@@ -159,7 +159,7 @@ contract VaultTests is BaseTest {
         uint256 claimableAssets;
         uint256 sharesAdjusted;
 
-        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.requests(user);
         assertEq(pendingRedeemRequest, 0);
         assertEq(claimableRedeemRequest, 0);
         assertEq(claimableAssets, 0);
@@ -227,7 +227,7 @@ contract VaultTests is BaseTest {
 
         // assert reserveRatio is correct before other tests
         uint256 reserveRatio = _getCurrentReserveRatio();
-        assertEq(reserveRatio, node.getTargetReserveRatio());
+        assertEq(reserveRatio, node.targetReserveRatio());
 
         // mint cash so invested assets = 100
         mockAsset.mint(address(vault), 10 ether + 1);
@@ -253,7 +253,7 @@ contract VaultTests is BaseTest {
 
         // get the reserve ratio after the deposit and assert it is greater than target reserve ratio
         uint256 reserveRatioAfterTX = _getCurrentReserveRatio();
-        assertGt(reserveRatioAfterTX, node.getTargetReserveRatio());
+        assertGt(reserveRatioAfterTX, node.targetReserveRatio());
 
         // get the actual shares received and assert they are the same i.e. no swing factor applied
         uint256 sharesReceived = node.balanceOf(address(user2));
@@ -265,7 +265,7 @@ contract VaultTests is BaseTest {
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
         router4626.invest(address(node), address(vault), 0);
-        assertEq(node.getTargetReserveRatio(), _getCurrentReserveRatio());
+        assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
 
         vm.startPrank(user2);
         node.approve(address(node), type(uint256).max);
@@ -276,7 +276,7 @@ contract VaultTests is BaseTest {
         node.fulfillRedeemFromReserve(address(user2));
 
         // assert reserve ratio is on target and user 3 has zero shares
-        assertLt(_getCurrentReserveRatio(), node.getTargetReserveRatio());
+        assertLt(_getCurrentReserveRatio(), node.targetReserveRatio());
         assertEq(node.balanceOf(address(user3)), 0);
 
         nonAdjustedShares = node.convertToShares(2 ether);
@@ -303,7 +303,7 @@ contract VaultTests is BaseTest {
 
         // assert reserveRatio is correct before other tests
         uint256 reserveRatio = _getCurrentReserveRatio();
-        assertEq(reserveRatio, node.getTargetReserveRatio());
+        assertEq(reserveRatio, node.targetReserveRatio());
 
         // mint cash so invested assets = 100
         mockAsset.mint(address(vault), 10 ether + 1);
@@ -332,7 +332,7 @@ contract VaultTests is BaseTest {
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
         router4626.invest(address(node), address(vault), 0);
-        assertEq(node.getTargetReserveRatio(), _getCurrentReserveRatio());
+        assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
 
         // grab share value of deposit
         uint256 sharesToRedeem = node.convertToShares(10 ether);
@@ -402,7 +402,7 @@ contract VaultTests is BaseTest {
         assertEq(node.totalSupply(), 100 ether);
         assertEq(asset.balanceOf(address(vault)), 100 ether);
 
-        (uint256 sharesPending,,, uint256 sharesAdjusted) = node.getRequestState(user);
+        (uint256 sharesPending,,, uint256 sharesAdjusted) = node.requests(user);
 
         assertEq(sharesPending, 50 ether);
         assertEq(sharesAdjusted, 50 ether);
@@ -419,7 +419,7 @@ contract VaultTests is BaseTest {
         assertEq(node.totalAssets(), 50 ether);
         assertEq(node.totalSupply(), 50 ether);
 
-        (sharesPending,,, sharesAdjusted) = node.getRequestState(user);
+        (sharesPending,,, sharesAdjusted) = node.requests(user);
         assertEq(sharesPending, 0);
         assertEq(sharesAdjusted, 0);
 
@@ -440,7 +440,7 @@ contract VaultTests is BaseTest {
         assertEq(node.totalAssets(), 0);
         assertEq(node.totalSupply(), 0);
 
-        (sharesPending,,, sharesAdjusted) = node.getRequestState(user);
+        (sharesPending,,, sharesAdjusted) = node.requests(user);
         assertEq(sharesPending, 0);
         assertEq(sharesAdjusted, 0);
     }

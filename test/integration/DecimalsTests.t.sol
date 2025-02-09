@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
+import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
@@ -40,27 +40,34 @@ contract DecimalsTests is BaseTest {
         maxDeposit = nodeImpl.maxDepositSize();
 
         vm.startPrank(owner);
-        DeployParams memory params = DeployParams({
-            name: "Decimal Node ",
-            symbol: "DNODE",
-            asset: address(testToken6),
-            owner: owner,
-            rebalancer: address(rebalancer),
-            quoter: address(quoter),
-            routers: _toArrayTwo(address(router4626), address(router7540)),
-            components: _toArray(address(testVault6)),
-            componentAllocations: _defaultComponentAllocations(1),
-            targetReserveRatio: 0.1 ether,
-            salt: SALT
-        });
-
-        (decNode, decEscrow) = factory.deployFullNode(params);
-
-        decNode.setMaxDepositSize(1e36);
-
         router4626.setWhitelistStatus(address(testVault6), true);
+        // DeployParams memory params = DeployParams({
+        //     name: "Decimal Node ",
+        //     symbol: "DNODE",
+        //     asset: address(testToken6),
+        //     owner: owner,
+        //     rebalancer: address(rebalancer),
+        //     quoter: address(quoter),
+        //     routers: _toArrayTwo(address(router4626), address(router7540)),
+        //     components: _toArray(address(testVault6)),
+        //     componentAllocations: _defaultComponentAllocations(1),
+        //     targetReserveRatio: 0.1 ether,
+        //     salt: SALT
+        // });
 
-        // decEscrow.approveMax(address(testToken6), address(decNode));
+        (decNode, decEscrow) = factory.deployFullNode(
+            "Decimal Node",
+            "DNODE",
+            address(testToken6),
+            owner,
+            _toArray(address(testVault6)),
+            _defaultComponentAllocations(1),
+            0.1 ether,
+            address(rebalancer),
+            address(quoter),
+            SALT
+        );
+        decNode.setMaxDepositSize(1e36);
         vm.stopPrank();
 
         vm.label(address(testToken18), "Test Token 18");

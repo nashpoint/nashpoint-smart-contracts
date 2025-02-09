@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -17,7 +17,7 @@ import {Escrow} from "src/Escrow.sol";
 
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
-import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
+import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
 import {MathLib} from "src/libraries/MathLib.sol";
@@ -102,21 +102,18 @@ contract BaseTest is Test {
 
         router4626.setWhitelistStatus(address(vault), true);
 
-        DeployParams memory params = DeployParams({
-            name: "Test Node",
-            symbol: "TNODE",
-            asset: address(asset),
-            owner: owner,
-            rebalancer: address(rebalancer),
-            quoter: address(quoter),
-            routers: _toArrayTwo(address(router4626), address(router7540)),
-            components: _toArray(address(vault)),
-            componentAllocations: _defaultComponentAllocations(1),
-            targetReserveRatio: 0.1 ether,
-            salt: SALT
-        });
-
-        (node, escrow) = factory.deployFullNode(params);
+        (node, escrow) = factory.deployFullNode(
+            "Test Node",
+            "TNODE",
+            address(asset),
+            owner,
+            _toArray(address(vault)),
+            _defaultComponentAllocations(1),
+            0.1 ether,
+            address(rebalancer),
+            address(quoter),
+            SALT
+        );
 
         node.setMaxDepositSize(1e36);
         vm.stopPrank();

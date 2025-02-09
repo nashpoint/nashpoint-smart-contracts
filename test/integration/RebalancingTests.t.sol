@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
@@ -33,6 +33,7 @@ contract RebalancingTests is BaseTest {
 
         node.removeComponent(address(vault), false);
         node.updateTargetReserveRatio(0.1 ether);
+        node.addRouter(address(router7540));
 
         router4626.setWhitelistStatus(address(vaultA), true);
         node.addComponent(address(vaultA), 0.18 ether, 0.01 ether, address(router4626));
@@ -104,7 +105,7 @@ contract RebalancingTests is BaseTest {
 
         // assert that cash reserve has not been reduced below target by rebalance
         uint256 currentReserve = asset.balanceOf(address(node));
-        uint256 targetCash = (node.totalAssets() * node.getTargetReserveRatio()) / 1e18;
+        uint256 targetCash = (node.totalAssets() * node.targetReserveRatio()) / 1e18;
         assertGt(currentReserve, targetCash, "Current reserve below target");
 
         // SECOND DEPOSIT: rebalancer cannot rebalance small deposit into sync vaults as lower thresholds not breached

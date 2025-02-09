@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
@@ -18,8 +18,10 @@ contract NodeFuzzTest is BaseTest {
         Node nodeImpl = Node(address(node));
         maxDeposit = nodeImpl.maxDepositSize();
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         router7540.setWhitelistStatus(address(liquidityPool), true);
+        node.addRouter(address(router7540));
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////

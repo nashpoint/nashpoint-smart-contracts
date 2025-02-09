@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 interface IQuoterV1 {
     /// @notice Calculates the deposit bonus based on the assets, reserve cash, total assets, max swing factor, and target reserve ratio

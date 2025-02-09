@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {BaseTest} from "test/BaseTest.sol";
 import {ERC7540RouterHarness} from "test/unit/routers/ERC7540Router.t.sol";
@@ -105,6 +105,7 @@ contract EthereumForkTests is BaseTest {
         // add centrifuge liquidity pool to protocol contracts
         vm.startPrank(owner);
         router7540.setWhitelistStatus(address(cfgLiquidityPool), true);
+        node.addRouter(address(router7540));
         node.addComponent(address(cfgLiquidityPool), allocation.targetWeight, allocation.maxDelta, address(router7540));
         vm.stopPrank();
 
