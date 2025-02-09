@@ -476,7 +476,7 @@ contract NodeFuzzTest is BaseTest {
         public
     {
         maxSwingFactor = uint64(bound(maxSwingFactor, 0.001 ether, 0.1 ether));
-        targetReserveRatio = uint64(bound(targetReserveRatio, 100, 0.1 ether));
+        targetReserveRatio = uint64(bound(targetReserveRatio, 0.001 ether, 0.1 ether));
         t = bound(t, 1e16, 1e18 - 1);
         uint256 seedAmount = 900_000 ether;
         uint256 userDeposit = 100_000 ether;
@@ -497,25 +497,20 @@ contract NodeFuzzTest is BaseTest {
         // jump forward in time to apply swing pricing
         vm.warp(block.timestamp + 1 days);
         vm.startPrank(owner);
-        node.updateReserveAllocation(
-            ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
-        node.updateComponentAllocation(
-            address(vault),
-            ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0, isComponent: true})
-        );
+        node.updateTargetReserveRatio(targetReserveRatio);
+        node.updateComponentAllocation(address(vault), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         // jump back in time to be in rebalance window
         vm.warp(block.timestamp - 1 days);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
         uint256 reserveRatio = _getCurrentReserveRatio();
-        assertEq(reserveRatio, node.getReserveAllocation().targetWeight);
+        assertEq(reserveRatio, node.targetReserveRatio());
 
         // enable swing pricing
         vm.prank(owner);

@@ -457,12 +457,12 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
         uint256 reserveRatio = _getCurrentReserveRatio();
-        assertEq(reserveRatio, node.getReserveAllocation().targetWeight);
+        assertEq(reserveRatio, node.targetReserveRatio());
 
         // set max discount for swing pricing
         uint64 maxSwingFactor = 2e16;
