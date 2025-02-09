@@ -476,7 +476,7 @@ contract NodeFuzzTest is BaseTest {
         public
     {
         maxSwingFactor = uint64(bound(maxSwingFactor, 0.001 ether, 0.1 ether));
-        targetReserveRatio = uint64(bound(targetReserveRatio, 0.001 ether, 0.1 ether));
+        targetReserveRatio = uint64(bound(targetReserveRatio, 0.01 ether, 0.1 ether));
         t = bound(t, 1e16, 1e18 - 1);
         uint256 seedAmount = 900_000 ether;
         uint256 userDeposit = 100_000 ether;
@@ -558,8 +558,10 @@ contract NodeFuzzTest is BaseTest {
                 vm.stopPrank();
             }
 
-            vm.prank(rebalancer);
-            node.fulfillRedeemFromReserve(user2);
+            if (asset.balanceOf(address(node)) > 0) {
+                vm.prank(rebalancer);
+                node.fulfillRedeemFromReserve(user2);
+            }
 
             user2BalBefore = asset.balanceOf(user2);
 

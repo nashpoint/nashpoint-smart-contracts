@@ -89,31 +89,37 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @notice Reverts if the sender is not a router
     modifier onlyRouter() {
-        _validateOnlyRouter();
+        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
     /// @notice Reverts if the sender is not a rebalancer
     modifier onlyRebalancer() {
-        _validateOnlyRebalancer();
+        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
     /// @notice Reverts if the sender is not the owner or a rebalancer
     modifier onlyOwnerOrRebalancer() {
-        _validateOnlyOwnerOrRebalancer();
+        if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
         _;
     }
 
     /// @notice Reverts if the current block timestamp is outside the rebalance window
     modifier onlyWhenRebalancing() {
-        _validateRebalanceWindowOpen();
+        unchecked {
+            if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
+        }
         _;
     }
 
     /// @notice Reverts if the current block timestamp is within the rebalance window
     modifier onlyWhenNotRebalancing() {
-        _validateRebalanceWindowClosed();
+        unchecked {
+            if (block.timestamp < lastRebalance + rebalanceWindow) {
+                revert ErrorsLib.RebalanceWindowOpen();
+            }
+        }
         _;
     }
 
@@ -620,7 +626,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         Request storage request = requests[controller];
         if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
 
-        uint256 balance = IERC20(asset).balanceOf(address(this));
+        uint256 balance = MathLib.max(IERC20(asset).balanceOf(address(this)), 1);
         uint256 assetsToReturn = convertToAssets(request.sharesAdjusted);
         uint256 sharesPending = request.pendingRedeemRequest;
         uint256 sharesAdjusted = request.sharesAdjusted;
@@ -798,32 +804,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             shares = quoter.calculateDepositBonus(
                 assets, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
             );
-        }
-    }
-
-    function _validateOnlyRouter() internal view {
-        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
-    }
-
-    function _validateOnlyRebalancer() internal view {
-        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
-    }
-
-    function _validateOnlyOwnerOrRebalancer() internal view {
-        if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
-    }
-
-    function _validateRebalanceWindowOpen() internal view {
-        unchecked {
-            if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
-        }
-    }
-
-    function _validateRebalanceWindowClosed() internal view {
-        unchecked {
-            if (block.timestamp < lastRebalance + rebalanceWindow) {
-                revert ErrorsLib.RebalanceWindowOpen();
-            }
         }
     }
 
