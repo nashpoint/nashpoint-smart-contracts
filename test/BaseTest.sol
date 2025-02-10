@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -17,8 +17,7 @@ import {Escrow} from "src/Escrow.sol";
 
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
-import {INodeFactory, DeployParams} from "src/interfaces/INodeFactory.sol";
-import {IEscrow} from "src/interfaces/IEscrow.sol";
+import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
 import {MathLib} from "src/libraries/MathLib.sol";
@@ -34,7 +33,7 @@ contract BaseTest is Test {
     ERC7540Router public router7540;
 
     INode public node;
-    IEscrow public escrow;
+    address public escrow;
     IERC20 public asset;
     ERC4626Mock public vault;
     ERC7540Mock public liquidityPool;
@@ -47,7 +46,7 @@ contract BaseTest is Test {
     address public rebalancer;
     address public vaultSeeder;
     address public testPoolManager;
-
+    address public protocolFeesAddress;
     uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
 
@@ -55,6 +54,7 @@ contract BaseTest is Test {
     address constant usdcEthereum = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     function setUp() public virtual {
+        // warp forward one day to avoid underflow in initialize() setting lastRebalance
         vm.warp(block.timestamp + 1 days);
 
         owner = makeAddr("owner");
@@ -65,6 +65,7 @@ contract BaseTest is Test {
         rebalancer = makeAddr("rebalancer");
         vaultSeeder = makeAddr("vaultSeeder");
         testPoolManager = makeAddr("testPoolManager");
+        protocolFeesAddress = makeAddr("protocolFeesAddress");
 
         deployer = new Deployer();
         deployer.deploy(owner);
@@ -92,28 +93,29 @@ contract BaseTest is Test {
             _toArray(address(factory)),
             _toArrayTwo(address(router4626), address(router7540)),
             _toArray(address(quoter)),
-            _toArray(address(rebalancer))
+            _toArray(address(rebalancer)),
+            protocolFeesAddress,
+            0,
+            0,
+            0.99 ether
         );
-        quoter.setErc4626(address(vault), true);
+
         router4626.setWhitelistStatus(address(vault), true);
 
-        DeployParams memory params = DeployParams({
-            name: "Test Node",
-            symbol: "TNODE",
-            asset: address(asset),
-            owner: owner,
-            rebalancer: address(rebalancer),
-            quoter: address(quoter),
-            routers: _toArrayTwo(address(router4626), address(router7540)),
-            components: _toArray(address(vault)),
-            componentAllocations: _defaultComponentAllocations(1),
-            reserveAllocation: _defaultReserveAllocation(),
-            salt: SALT
-        });
+        (node, escrow) = factory.deployFullNode(
+            "Test Node",
+            "TNODE",
+            address(asset),
+            owner,
+            _toArray(address(vault)),
+            _defaultComponentAllocations(1),
+            0.1 ether,
+            address(rebalancer),
+            address(quoter),
+            SALT
+        );
 
-        (node, escrow) = factory.deployFullNode(params);
-
-        escrow.approveMax(address(asset), address(node));
+        node.setMaxDepositSize(1e36);
         vm.stopPrank();
 
         deal(address(asset), user, INITIAL_BALANCE);
@@ -124,6 +126,9 @@ contract BaseTest is Test {
 
         _labelAddresses();
         vm.label(address(vault), "Vault");
+
+        // warp forward one day to pass rebalance window & cooldown
+        vm.warp(block.timestamp + 1 days);
 
         vm.prank(rebalancer);
         node.startRebalance();
@@ -142,17 +147,27 @@ contract BaseTest is Test {
 
     function _defaultComponentAllocations(uint256 count)
         internal
-        pure
+        view
         returns (ComponentAllocation[] memory allocations)
     {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
-            allocations[i] = ComponentAllocation({targetWeight: 0.9 ether, maxDelta: 0.01 ether});
+            allocations[i] = ComponentAllocation({
+                targetWeight: 0.9 ether,
+                maxDelta: 0.01 ether,
+                router: address(router4626),
+                isComponent: true
+            });
         }
     }
 
-    function _defaultReserveAllocation() internal pure returns (ComponentAllocation memory) {
-        return ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0.01 ether});
+    function _defaultReserveAllocation() internal view returns (ComponentAllocation memory) {
+        return ComponentAllocation({
+            targetWeight: 0.1 ether,
+            maxDelta: 0.01 ether,
+            router: address(router4626),
+            isComponent: true
+        });
     }
 
     function _labelAddresses() internal {
@@ -243,11 +258,10 @@ contract BaseTest is Test {
     function _setAllocationToAsyncVault(address liquidityPool_, uint64 allocation) internal {
         vm.startPrank(owner);
         uint64 reserveAllocation = 1 ether - allocation;
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: reserveAllocation, maxDelta: 0}));
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0, maxDelta: 0}));
-        node.removeComponent(address(vault));
-        node.addComponent(address(liquidityPool_), ComponentAllocation({targetWeight: allocation, maxDelta: 0}));
-        quoter.setErc7540(address(liquidityPool_), true);
+        node.updateTargetReserveRatio(reserveAllocation);
+        node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
+        node.removeComponent(address(vault), false);
+        node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();
     }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {BaseTest} from "../BaseTest.sol";
@@ -94,7 +94,7 @@ contract VaultTests is BaseTest {
         uint256 claimableAssets;
         uint256 sharesAdjusted;
 
-        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.requests(user);
         assertEq(pendingRedeemRequest, 0);
         assertEq(claimableRedeemRequest, 0);
         assertEq(claimableAssets, 0);
@@ -159,7 +159,7 @@ contract VaultTests is BaseTest {
         uint256 claimableAssets;
         uint256 sharesAdjusted;
 
-        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.getRequestState(user);
+        (pendingRedeemRequest, claimableRedeemRequest, claimableAssets, sharesAdjusted) = node.requests(user);
         assertEq(pendingRedeemRequest, 0);
         assertEq(claimableRedeemRequest, 0);
         assertEq(claimableAssets, 0);
@@ -170,7 +170,7 @@ contract VaultTests is BaseTest {
         _seedNode(100 ether);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         assertEq(vault.balanceOf(address(node)), 90 ether);
@@ -222,7 +222,7 @@ contract VaultTests is BaseTest {
         node.enableSwingPricing(true, maxSwingFactor);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -260,11 +260,11 @@ contract VaultTests is BaseTest {
 
         // accuracy is 0.1% note this is too big a delta
         // todo test this later to get it to 100% accuracy
-        assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15);
+        assertApproxEqRel(sharesReceived, nonAdjustedShares, 1e15, "check here");
 
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
 
         vm.startPrank(user2);
@@ -298,7 +298,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         // assert reserveRatio is correct before other tests
@@ -307,6 +307,10 @@ contract VaultTests is BaseTest {
 
         // mint cash so invested assets = 100
         mockAsset.mint(address(vault), 10 ether + 1);
+
+        // update total assets to reflect new cash
+        vm.prank(owner);
+        node.updateTotalAssets();
 
         // user 2 deposits 10e6 to node and burns the rest of their assets
         vm.startPrank(user2);
@@ -327,7 +331,7 @@ contract VaultTests is BaseTest {
 
         // rebalances excess reserve to vault so reserve ratio = 100%
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         assertEq(node.targetReserveRatio(), _getCurrentReserveRatio());
 
         // grab share value of deposit
@@ -363,22 +367,22 @@ contract VaultTests is BaseTest {
     function test_fulfilRedeemRequest_4626Router() public {
         address[] memory components = node.getComponents();
 
-        vm.warp(block.timestamp + 1 days);
-
-        vm.startPrank(owner);
-        node.setLiquidationQueue(components);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0, maxDelta: 0}));
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 1 ether, maxDelta: 0}));
-        vm.stopPrank();
-
         vm.startPrank(user);
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
         vm.stopPrank();
 
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.setLiquidationQueue(components);
+        node.updateTargetReserveRatio(0);
+        node.updateComponentAllocation(address(vault), 1 ether, 0, address(router4626));
+        vm.stopPrank();
+
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(vault));
+        router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         assertEq(asset.balanceOf(address(node)), 0);
@@ -398,13 +402,13 @@ contract VaultTests is BaseTest {
         assertEq(node.totalSupply(), 100 ether);
         assertEq(asset.balanceOf(address(vault)), 100 ether);
 
-        (uint256 sharesPending,,, uint256 sharesAdjusted) = node.getRequestState(user);
+        (uint256 sharesPending,,, uint256 sharesAdjusted) = node.requests(user);
 
         assertEq(sharesPending, 50 ether);
         assertEq(sharesAdjusted, 50 ether);
 
         vm.startPrank(rebalancer);
-        router4626.fulfillRedeemRequest(address(node), user, address(vault));
+        router4626.fulfillRedeemRequest(address(node), user, address(vault), 0);
         vm.stopPrank();
 
         assertEq(node.balanceOf(address(escrow)), 0);
@@ -415,7 +419,7 @@ contract VaultTests is BaseTest {
         assertEq(node.totalAssets(), 50 ether);
         assertEq(node.totalSupply(), 50 ether);
 
-        (sharesPending,,, sharesAdjusted) = node.getRequestState(user);
+        (sharesPending,,, sharesAdjusted) = node.requests(user);
         assertEq(sharesPending, 0);
         assertEq(sharesAdjusted, 0);
 
@@ -425,7 +429,7 @@ contract VaultTests is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
-        router4626.fulfillRedeemRequest(address(node), user, address(vault));
+        router4626.fulfillRedeemRequest(address(node), user, address(vault), 0);
         vm.stopPrank();
 
         assertEq(node.balanceOf(address(escrow)), 0);
@@ -436,8 +440,99 @@ contract VaultTests is BaseTest {
         assertEq(node.totalAssets(), 0);
         assertEq(node.totalSupply(), 0);
 
-        (sharesPending,,, sharesAdjusted) = node.getRequestState(user);
+        (sharesPending,,, sharesAdjusted) = node.requests(user);
         assertEq(sharesPending, 0);
         assertEq(sharesAdjusted, 0);
+    }
+
+    function testSplitWithdrawalThenRedeposit() public {
+        vm.startPrank(user);
+        asset.approve(address(node), 900_000 ether);
+        node.deposit(900_000 ether, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        asset.approve(address(node), 100_000 ether);
+        node.deposit(100_000 ether, user2);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vault), 0);
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = _getCurrentReserveRatio();
+        assertEq(reserveRatio, node.targetReserveRatio());
+
+        // set max discount for swing pricing
+        uint64 maxSwingFactor = 2e16;
+
+        // enable swing pricing
+        vm.prank(owner);
+        node.enableSwingPricing(true, maxSwingFactor);
+
+        uint256 t = 0.24e18;
+        uint256 sharesToRedeem = (1e18 - t) * node.balanceOf(user2) / 1e18;
+
+        // user 2 makes their first withdrawl
+        vm.startPrank(user2);
+        node.approve(address(node), type(uint256).max);
+        node.requestRedeem(sharesToRedeem, user2, user2);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        node.fulfillRedeemFromReserve(user2);
+
+        uint256 user2BalBefore = mockAsset.balanceOf(user2);
+
+        // user 2 withdraws max assets
+        uint256 maxWithdraw = node.maxWithdraw(address(user2));
+        vm.prank(user2);
+        node.withdraw(maxWithdraw, address(user2), address(user2));
+
+        uint256 user2FirstWithdrawal = mockAsset.balanceOf(user2) - user2BalBefore;
+
+        emit log_named_uint("user2 first withdrawal:", user2FirstWithdrawal);
+
+        uint256 user2SecondWithdrawal = 0;
+        // Only do second withdrawal if there should be something left to withdraw.
+        if (t > 0) {
+            sharesToRedeem = node.balanceOf(user2); // Redeem the rest
+
+            // user 2 makes there first withdrawl
+            vm.startPrank(user2);
+            node.approve(address(node), type(uint256).max);
+            node.requestRedeem(sharesToRedeem, user2, user2);
+            vm.stopPrank();
+
+            vm.prank(rebalancer);
+            node.fulfillRedeemFromReserve(user2);
+
+            user2BalBefore = mockAsset.balanceOf(user2);
+
+            // user 2 withdraws max assets
+            maxWithdraw = node.maxWithdraw(address(user2));
+            vm.prank(user2);
+            node.withdraw(maxWithdraw, address(user2), address(user2));
+
+            user2SecondWithdrawal = mockAsset.balanceOf(user2) - user2BalBefore;
+        }
+
+        emit log_named_uint("user2 second withdrawal:", user2SecondWithdrawal);
+        uint256 totalWithdrawn = user2FirstWithdrawal + user2SecondWithdrawal;
+        emit log_named_uint("total withdrawn:", totalWithdrawn);
+
+        vm.startPrank(user2);
+        asset.approve(address(node), 100_000 ether);
+        node.deposit(totalWithdrawn, user2);
+        vm.stopPrank();
+
+        uint256 user2Assets = node.convertToAssets(node.balanceOf(user2));
+        emit log_named_uint("user2 in-protocol share value:", user2Assets);
+
+        emit log_named_uint("sum of share value and withdrawn value:", user2Assets + totalWithdrawn);
+        emit log_named_uint("total deposited by user2:", 100_000 ether + totalWithdrawn);
+
+        assertLt(user2Assets + totalWithdrawn, 100_000 ether + totalWithdrawn);
     }
 }

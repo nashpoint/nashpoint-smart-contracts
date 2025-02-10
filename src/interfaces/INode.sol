@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {IERC7575} from "./IERC7575.sol";
+import {IERC7575, IERC165} from "./IERC7575.sol";
 import {IERC7540Redeem} from "./IERC7540.sol";
-import {IQuoter} from "./IQuoter.sol";
+import {IQuoterV1} from "./IQuoterV1.sol";
 
 /// @notice Component allocation parameters
 /// @dev targetWeight is the target weight of the component in the node
@@ -12,6 +12,8 @@ import {IQuoter} from "./IQuoter.sol";
 struct ComponentAllocation {
     uint64 targetWeight;
     uint64 maxDelta;
+    address router;
+    bool isComponent;
 }
 
 /// @notice Redeem request state
@@ -31,6 +33,10 @@ struct Request {
  * @author ODND Studios
  */
 interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
+    /// @notice Returns the target reserve ratio
+    /// @return uint64 The target reserve ratio
+    function targetReserveRatio() external view returns (uint64);
+
     /// @notice Returns whether the node has been initialized
     function isInitialized() external view returns (bool);
 
@@ -40,25 +46,31 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Adds a new component to the node
     /// @param component The address of the component to add
-    /// @param allocation The allocation parameters for the component
+    /// @param targetWeight The target weight of the component
+    /// @param maxDelta The max delta of the component
+    /// @param router The router of the component
     /// @dev Only callable by owner
-    function addComponent(address component, ComponentAllocation memory allocation) external;
+    function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router) external;
 
     /// @notice Removes a component from the node. Must have zero balance.
     /// @param component The address of the component to remove
-    /// @dev Only callable by owner. Component must be rebalanced to zero before removal.
-    function removeComponent(address component) external;
+    /// @param force Whether to force the removal of the component
+    /// @dev Only callable by owner. Component must be rebalanced to zero before removal or force is true
+    function removeComponent(address component, bool force) external;
 
     /// @notice Updates the allocation for an existing component. Set to zero to rebalance out of component before removing.
     /// @param component The address of the component to update
-    /// @param allocation The new allocation parameters
+    /// @param targetWeight The target weight of the component
+    /// @param maxDelta The max delta of the component
+    /// @param router The router of the component
     /// @dev Only callable by owner
-    function updateComponentAllocation(address component, ComponentAllocation memory allocation) external;
+    function updateComponentAllocation(address component, uint64 targetWeight, uint64 maxDelta, address router)
+        external;
 
     /// @notice Updates the allocation for the reserve asset
-    /// @param allocation The new allocation parameters
+    /// @param targetReserveRatio The new target reserve ratio
     /// @dev Only callable by owner
-    function updateReserveAllocation(ComponentAllocation memory allocation) external;
+    function updateTargetReserveRatio(uint64 targetReserveRatio) external;
 
     /// @notice Adds a router
     function addRouter(address newRouter) external;
@@ -71,9 +83,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Removes a rebalancer
     function removeRebalancer(address oldRebalancer) external;
-
-    /// @notice Sets the escrow
-    function setEscrow(address newEscrow) external;
 
     /// @notice Sets the quoter
     function setQuoter(address newQuoter) external;
@@ -98,11 +107,21 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param newAnnualManagementFee The new annual management fee
     function setAnnualManagementFee(uint64 newAnnualManagementFee) external;
 
+    /// @notice Sets the max deposit size
+    /// @param newMaxDepositSize The new max deposit size
+    function setMaxDepositSize(uint256 newMaxDepositSize) external;
+
+    /// @notice Rescues tokens from the node
+    /// @param token The address of the token to rescue
+    /// @param recipient The address of the recipient
+    /// @param amount The amount of tokens to rescue
+    function rescueTokens(address token, address recipient, uint256 amount) external;
+
     /// @notice Starts a rebalance
     function startRebalance() external;
 
     /// @notice Allows routers to execute external calls
-    function execute(address target, uint256 value, bytes calldata data) external returns (bytes memory);
+    function execute(address target, bytes calldata data) external returns (bytes memory);
 
     /// @notice Pays management fees
     /// @dev called by owner or rebalancer to pay management fees
@@ -172,30 +191,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return bool True if the interface is supported, false otherwise
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
-    /// @notice Deposits assets into the node
-    /// @param assets The amount of assets to deposit
-    /// @return shares The amount of shares received
-    function deposit(uint256 assets, address receiver) external returns (uint256);
-
-    /// @notice Mints shares into the node
-    /// @param shares The amount of shares to mint
-    /// @return assets The amount of assets received
-    function mint(uint256 shares, address receiver) external returns (uint256);
-
-    /// @notice Withdraws assets from the node
-    /// @param assets The amount of assets to withdraw
-    /// @param receiver The address of the receiver
-    /// @param controller The address of the controller
-    /// @return shares The amount of shares received
-    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256);
-
-    /// @notice Redeems shares from the node
-    /// @param shares The amount of shares to redeem
-    /// @param receiver The address of the receiver
-    /// @param controller The address of the controller
-    /// @return assets The amount of assets received
-    function redeem(uint256 shares, address receiver, address controller) external returns (uint256);
-
     /// @notice Returns the total assets
     /// @return uint256 The total assets
     function totalAssets() external view returns (uint256);
@@ -250,52 +245,28 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @dev Reverts per ERC7540
     function previewRedeem(uint256 shares) external view returns (uint256);
 
-    /// @notice Returns the state of a request
-    /// @param controller The address of the controller to check
-    /// @return pendingRedeemRequest_ The pending redeem request
-    /// @return claimableRedeemRequest_ The claimable redeem request
-    /// @return claimableAssets_ The claimable assets
-    /// @return sharesAdjusted_ The shares adjusted
-    function getRequestState(address controller)
+    function requests(address controller)
         external
         view
         returns (
-            uint256 pendingRedeemRequest_,
-            uint256 claimableRedeemRequest_,
-            uint256 claimableAssets_,
-            uint256 sharesAdjusted_
+            uint256 pendingRedeemRequest,
+            uint256 claimableRedeemRequest,
+            uint256 claimableAssets,
+            uint256 sharesAdjusted
         );
-
-    /// @notice Returns the liquidation queue
-    /// @return address[] The liquidation queue
-    function getLiquidationsQueue() external view returns (address[] memory);
-
-    /// @notice Returns the shares exiting the node
-    /// @return uint256 The shares exiting
-    function getSharesExiting() external view returns (uint256);
-
-    /// @notice Returns the last rebalance timestamp
-    /// @return uint64 The last rebalance timestamp
-    function getLastRebalance() external view returns (uint64);
-
-    /// @notice Returns the target reserve ratio
-    function targetReserveRatio() external view returns (uint64);
 
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
 
-    /// @notice Returns the target ratio of a component
+    /// @notice Returns target weight and max delta for a component
     /// @param component The address of the component
-    /// @return uint256 The target ratio of the component
-    function getComponentRatio(address component) external view returns (uint64);
+    /// @return ComponentAllocation The allocation parameters for the component
+    function getComponentAllocation(address component) external view returns (ComponentAllocation memory);
 
     /// @notice Returns whether the given address is a component
     /// @param component The address to check
     /// @return bool True if the address is a component, false otherwise
     function isComponent(address component) external view returns (bool);
-
-    /// @notice Returns the max delta for the component
-    function getMaxDelta(address component) external view returns (uint64);
 
     /// @notice Checks if the cache is valid
     /// @return bool True if the cache is valid, false otherwise
@@ -305,6 +276,19 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @return bool True if the component ratios are valid, false otherwise
     function validateComponentRatios() external view returns (bool);
 
+    /// @notice Returns the current cash of the node
+    /// @return uint256 The current cash of the node
+    /// subtracts the asset value of shares exiting from the reserve balance
+    function getCashAfterRedemptions() external view returns (uint256);
+
+    /// @notice Enforces the liquidation order
+    /// @param component The address of the component
+    /// @param assetsToReturn The amount of assets to return
+    function enforceLiquidationOrder(address component, uint256 assetsToReturn) external view;
+
+    /// @notice The address of the share
+    function share() external view returns (address);
+
     /// @notice The address of the node registry
     function registry() external view returns (address);
 
@@ -312,7 +296,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function escrow() external view returns (address);
 
     /// @notice The address of the quoter
-    function quoter() external view returns (IQuoter);
+    function quoter() external view returns (IQuoterV1);
 
     /// @notice Returns if an address is a router
     function isRouter(address) external view returns (bool);

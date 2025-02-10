@@ -1,33 +1,82 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
 
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "../interfaces/IERC7540.sol";
 import {IERC7575} from "../interfaces/IERC7575.sol";
 
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
+import {EventsLib} from "../libraries/EventsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 
 /**
  * @title ERC7540Router
  * @author ODND Studios
  */
-contract ERC7540Router is BaseRouter {
-    uint256 internal totalAssets;
-    uint256 internal currentCash;
-    uint256 internal idealCashReserve;
+contract ERC7540Router is BaseRouter, ReentrancyGuard {
+    uint256 internal constant REQUEST_ID = 0;
+
+    /* EVENTS */
+    event InvestedInAsyncComponent(address indexed node, address indexed component, uint256 assets);
+    event MintedClaimableShares(address indexed node, address indexed component, uint256 sharesReceived);
+    event RequestedAsyncWithdrawal(address indexed node, address indexed component, uint256 shares);
+    event AsyncWithdrawalExecuted(address indexed node, address indexed component, uint256 assetsReceived);
+    event FulfilledRedeemRequest(address indexed node, address indexed component, uint256 assets);
 
     /* CONSTRUCTOR */
-    constructor(address registry_) BaseRouter(registry_) {}
+    constructor(address registry_) BaseRouter(registry_) {
+        tolerance = 1;
+    }
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Fulfills a redeem request on behalf of the Node.
+    /// @dev Called by a rebalancer to liquidate a component in order to make assets available for user withdrawal
+    /// Transfers the assets to Escrow and updates the Requst for the user
+    /// Enforces liquidation queue to ensure asset liquidated is according to order set by the Node Owner
+    /// @param node The address of the node.
+    /// @param controller The address of the controller.
+    /// @param component The address of the component.
+    /// @return assetsReturned The amount of assets returned.
+    function fulfillRedeemRequest(address node, address controller, address component)
+        external
+        nonReentrant
+        onlyNodeRebalancer(node)
+        onlyNodeComponent(node, component)
+        returns (uint256 assetsReturned)
+    {
+        (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).requests(controller);
+        uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
+
+        // Validate that the component is top of the liquidation queue
+        INode(node).enforceLiquidationOrder(component, assetsRequested);
+
+        // Get the max amount of assets that can be withdrawn from the async component atomically
+        uint256 maxClaimableRedeemRequest = IERC7540Redeem(component).claimableRedeemRequest(0, node);
+        uint256 maxClaimableAssets = IERC7575(component).convertToAssets(maxClaimableRedeemRequest);
+
+        // execute the withdrawal
+        assetsReturned = _executeAsyncWithdrawal(node, component, MathLib.min(assetsRequested, maxClaimableAssets));
+
+        // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
+        if (assetsReturned < assetsRequested) {
+            (sharesPending, sharesAdjusted) =
+                _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested, sharesAdjusted);
+        }
+
+        // update the redemption request state on the node and transfer the assets to the escrow
+        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
+        emit FulfilledRedeemRequest(node, component, assetsReturned);
+        return assetsReturned;
+    }
 
     /// @notice Invests in a component on behalf of the Node.
     /// @dev call by a valid node rebalancer to invest excess reserve into components
@@ -35,42 +84,22 @@ contract ERC7540Router is BaseRouter {
     /// will revert if there is not sufficient excess reserve or if the target component is within maxDelta
     /// @param node The address of the node.
     /// @param component The address of the component.
-    /// @return cashInvested The amount of cash invested.
-    function investInAsyncVault(address node, address component)
+    /// @return depositAmount The amount of cash invested.
+    function investInAsyncComponent(address node, address component)
         external
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
-        returns (uint256 cashInvested)
+        onlyNodeComponent(node, component)
+        returns (uint256 depositAmount)
     {
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
-
-        // checks if excess reserve is available to invest
-        _validateReserveAboveTargetRatio(node);
-
-        (totalAssets, currentCash, idealCashReserve) = _getNodeCashStatus(node);
-
-        // gets units of asset required to set component to target ratio
-        uint256 depositAmount = _getInvestmentSize(node, component);
-
-        // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getMaxDelta(component), WAD)) {
-            revert ErrorsLib.ComponentWithinTargetRange(node, component);
-        }
-
-        // limits the depositAmount to this transaction size
-        uint256 availableReserve = currentCash - idealCashReserve;
-        if (depositAmount > availableReserve) {
-            depositAmount = availableReserve;
-        }
-
-        // subtract execution fee for protocol
-        depositAmount = _subtractExecutionFee(depositAmount, node);
+        depositAmount = _computeDepositAmount(node, component);
 
         uint256 requestId = _requestDeposit(node, component, depositAmount);
-        require(requestId == 0, "No requestId returned");
-        return (depositAmount);
+        if (requestId != REQUEST_ID) {
+            revert ErrorsLib.IncorrectRequestId(requestId);
+        }
+
+        emit InvestedInAsyncComponent(node, component, depositAmount);
+        return depositAmount;
     }
 
     /// @notice Mints claimable shares for a component on behalf of the Node.
@@ -81,19 +110,30 @@ contract ERC7540Router is BaseRouter {
     /// @return sharesReceived The amount of shares received.
     function mintClaimableShares(address node, address component)
         external
+        nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
-        returns (uint256)
+        onlyNodeComponent(node, component)
+        returns (uint256 sharesReceived)
     {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
         uint256 claimableShares = IERC7575(component).maxMint(address(node));
 
-        uint256 sharesReceived = _mint(node, component, claimableShares);
-        require(sharesReceived >= claimableShares, "Not enough shares received");
+        address share = IERC7575(component).share();
+        uint256 balanceBefore = IERC20(share).balanceOf(address(node));
 
+        _mint(node, component, claimableShares);
+
+        uint256 balanceAfter = IERC20(share).balanceOf(address(node));
+        if (balanceAfter < balanceBefore) {
+            revert ErrorsLib.InsufficientSharesReturned(component, 0, claimableShares);
+        } else {
+            sharesReceived = balanceAfter - balanceBefore;
+        }
+
+        if ((sharesReceived + tolerance) < claimableShares) {
+            revert ErrorsLib.InsufficientSharesReturned(component, sharesReceived, claimableShares);
+        }
+
+        emit MintedClaimableShares(node, component, sharesReceived);
         return sharesReceived;
     }
 
@@ -106,22 +146,22 @@ contract ERC7540Router is BaseRouter {
     function requestAsyncWithdrawal(address node, address component, uint256 shares)
         external
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
     {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
         address shareToken = IERC7575(component).share();
         if (shares > IERC20(shareToken).balanceOf(address(node))) {
             revert ErrorsLib.ExceedsAvailableShares(node, component, shares);
         }
 
         uint256 requestId = _requestRedeem(node, component, shares);
-        require(requestId == 0, "No requestId returned");
+        if (requestId != REQUEST_ID) {
+            revert ErrorsLib.IncorrectRequestId(requestId);
+        }
+
+        emit RequestedAsyncWithdrawal(node, component, shares);
     }
 
-    /// @notice Withdraws claimable assets from async vault
+    /// @notice Withdraws claimable assets from async component
     /// @dev call by a valid node rebalancer to withdraw claimable assets from a component
     /// will revert if there is not sufficient assets available to withdraw
     /// @param node The address of the node.
@@ -129,27 +169,25 @@ contract ERC7540Router is BaseRouter {
     /// @param assets The amount of assets to withdraw.
     /// @return assetsReceived The amount of assets received.
     function executeAsyncWithdrawal(address node, address component, uint256 assets)
-        external
+        public
+        nonReentrant
         onlyNodeRebalancer(node)
-        onlyWhitelisted(component)
+        onlyNodeComponent(node, component)
         returns (uint256 assetsReceived)
     {
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
-
-        if (assets > IERC7575(component).maxWithdraw(address(node))) {
-            revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
-        }
-
-        assetsReceived = IERC7575(component).convertToAssets(_withdraw(node, component, assets));
-
-        if (assetsReceived < assets) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
-        }
-        return assetsReceived;
+        assetsReceived = _executeAsyncWithdrawal(node, component, assets);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the assets of a component held by the node.
+    /// @param component The address of the component.
+    /// @return assets The amount of assets of the component.
+    function getComponentAssets(address component) public view override returns (uint256 assets) {
+        return _getErc7540Assets(msg.sender, component);
+    }
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -166,12 +204,11 @@ contract ERC7540Router is BaseRouter {
     /// @param assets The amount of assets to deposit.
     /// @return requestId The request ID.
     function _requestDeposit(address node, address component, uint256 assets) internal returns (uint256) {
-        address underlying = IERC4626(component).asset();
-        _approve(node, underlying, component, assets);
+        address underlying = INode(node).asset();
+        _safeApprove(node, underlying, component, assets);
 
-        bytes memory result = INode(node).execute(
-            component, 0, abi.encodeWithSelector(IERC7540Deposit.requestDeposit.selector, assets, node, node)
-        );
+        bytes memory result =
+            INode(node).execute(component, abi.encodeCall(IERC7540Deposit.requestDeposit, (assets, node, node)));
         return abi.decode(result, (uint256));
     }
 
@@ -181,12 +218,8 @@ contract ERC7540Router is BaseRouter {
     /// @param claimableShares The amount of shares to mint.
     /// @return sharesReceived The amount of shares received.
     function _mint(address node, address component, uint256 claimableShares) internal returns (uint256) {
-        address shareToken = IERC7575(component).share();
-        _approve(node, shareToken, component, claimableShares);
-
-        bytes memory result = INode(node).execute(
-            component, 0, abi.encodeWithSelector(IERC7540Deposit.mint.selector, claimableShares, node, node)
-        );
+        bytes memory result =
+            INode(node).execute(component, abi.encodeCall(IERC7540Deposit.mint, (claimableShares, node, node)));
 
         return abi.decode(result, (uint256));
     }
@@ -197,9 +230,10 @@ contract ERC7540Router is BaseRouter {
     /// @param shares The amount of shares to redeem.
     /// @return requestId The request ID.
     function _requestRedeem(address node, address component, uint256 shares) internal returns (uint256) {
-        bytes memory result = INode(node).execute(
-            component, 0, abi.encodeWithSelector(IERC7540Redeem.requestRedeem.selector, shares, node, node)
-        );
+        address shareToken = IERC7575(component).share();
+        _safeApprove(node, shareToken, component, shares);
+        bytes memory result =
+            INode(node).execute(component, abi.encodeCall(IERC7540Redeem.requestRedeem, (shares, node, node)));
         return abi.decode(result, (uint256));
     }
 
@@ -209,8 +243,7 @@ contract ERC7540Router is BaseRouter {
     /// @param assets The amount of assets to withdraw.
     /// @return assetsReceived The amount of assets received.
     function _withdraw(address node, address component, uint256 assets) internal returns (uint256) {
-        bytes memory result =
-            INode(node).execute(component, 0, abi.encodeWithSelector(IERC7575.withdraw.selector, assets, node, node));
+        bytes memory result = INode(node).execute(component, abi.encodeCall(IERC7575.withdraw, (assets, node, node)));
         return abi.decode(result, (uint256));
     }
 
@@ -226,7 +259,7 @@ contract ERC7540Router is BaseRouter {
         returns (uint256 depositAssets)
     {
         uint256 targetHoldings =
-            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentRatio(component), WAD);
+            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
         uint256 currentBalance = _getErc7540Assets(node, component);
 
@@ -238,8 +271,44 @@ contract ERC7540Router is BaseRouter {
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return assets The amount of assets.
-    function _getErc7540Assets(address node, address component) internal view returns (uint256) {
-        address quoter = address(INode(node).quoter());
-        return IQuoterV1(quoter).getErc7540Assets(node, component);
+    function _getErc7540Assets(address node, address component) internal view returns (uint256 assets) {
+        address shareToken = IERC7575(component).share();
+        uint256 shares = IERC20(shareToken).balanceOf(node);
+
+        shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
+        shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
+        assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
+        assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
+        assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
+
+        return assets;
+    }
+
+    function _executeAsyncWithdrawal(address node, address component, uint256 assets)
+        internal
+        returns (uint256 assetsReceived)
+    {
+        if (assets > IERC7575(component).maxWithdraw(address(node))) {
+            revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
+        }
+
+        address asset = IERC7575(node).asset();
+        uint256 balanceBefore = IERC20(asset).balanceOf(address(node));
+
+        _withdraw(node, component, assets);
+
+        uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
+        if (balanceAfter < balanceBefore) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
+        } else {
+            assetsReceived = balanceAfter - balanceBefore;
+        }
+
+        if ((assetsReceived + tolerance) < assets) {
+            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
+        }
+
+        emit AsyncWithdrawalExecuted(node, component, assetsReceived);
+        return assetsReceived;
     }
 }

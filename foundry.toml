@@ -3,19 +3,22 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
-remappings = [
+remappings = [    
     'forge-std/=lib/forge-std/src/',
-    '@openzeppelin/contracts@v5.0.0/=lib/openzeppelin-contracts/contracts/',
-    '@prb/math/=lib/prb-math/'
+    '@openzeppelin/=lib/openzeppelin-contracts/',
+    '@prb/math/=lib/prb-math/src/'
 ]
 
 evm_version = "cancun"
+solc = '0.8.28'
 gas_limit = 100000000000
-solc = '0.8.26'
+# optimizer = true
+# optimizer-runs = 1
+# via-ir = true
 
 [fuzz]
 runs = 10
-# via-ir = true
+
 # gas_reports = ["Node"]
 
 

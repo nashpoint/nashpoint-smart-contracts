@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
@@ -7,7 +7,8 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540} from "../interfaces/IERC7540.sol";
 import {IERC7575} from "../interfaces/IERC7575.sol";
 import {INode} from "../interfaces/INode.sol";
-import {IQuoterV1, IQuoter} from "../interfaces/IQuoterV1.sol";
+import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 
 import {BaseQuoter} from "../libraries/BaseQuoter.sol";
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
@@ -21,9 +22,11 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 contract QuoterV1 is IQuoterV1, BaseQuoter {
     using MathLib for uint256;
 
-    /* IMMUTABLES */
-    int256 public immutable SCALING_FACTOR = -5e18;
-    uint256 public immutable WAD = 1e18;
+    /* CONSTANTS */
+    int256 internal constant SCALING_FACTOR = -5e18;
+    uint256 internal constant WAD = 1e18;
+    uint256 internal constant REQUEST_ID = 0;
+    uint64 internal constant SWING_FACTOR_DENOMINATOR = 2;
 
     /* STATE */
     mapping(address => bool) public isErc4626;
@@ -33,127 +36,75 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     /* CONSTRUCTOR */
     constructor(address registry_) BaseQuoter(registry_) {}
 
-    /* EXTERNAL */
-
-    /// @inheritdoc IQuoterV1
-    function initialize(address[] memory erc4626Components_, address[] memory erc7540Components_)
-        external
-        onlyRegistryOwner
-    {
-        if (isInitialized) revert ErrorsLib.AlreadyInitialized();
-
-        uint256 erc4626ComponentsLength = erc4626Components_.length;
-        for (uint256 i = 0; i < erc4626ComponentsLength; i++) {
-            isErc4626[erc4626Components_[i]] = true;
-        }
-
-        uint256 erc7540ComponentsLength = erc7540Components_.length;
-        for (uint256 i = 0; i < erc7540ComponentsLength; i++) {
-            isErc7540[erc7540Components_[i]] = true;
-        }
-
-        isInitialized = true;
-    }
-
-    /// @inheritdoc IQuoterV1
-    function setErc4626(address component, bool value) external onlyRegistryOwner {
-        isErc4626[component] = value;
-    }
-
-    /// @inheritdoc IQuoterV1
-    function setErc7540(address component, bool value) external onlyRegistryOwner {
-        isErc7540[component] = value;
-    }
-
-    /// @inheritdoc IQuoterV1
-    function getErc7540Assets(address node, address component) external view returns (uint256) {
-        return _getErc7540Assets(node, component);
-    }
-
-    /// @inheritdoc IQuoter
-    function getTotalAssets() external view onlyValidNode(msg.sender) returns (uint256) {
-        return _getTotalAssets(msg.sender);
-    }
-
     /*//////////////////////////////////////////////////////////////
                         SWING PRICING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Called by Node Contract to alculates the deposit bonus
+    /// @dev Called by Node Contract to calculate the deposit bonus
     /// reserveImpact is the inverse of the percentage of the reserve assets shortfall closed by the deposit
     /// The majority of logic is in _calculateReserveImpact and _getSwingFactor
-    /// @param asset The asset being deposited
+
     /// @param assets The amount of assets being deposited
-    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
+    /// @param reserveCash The reserve cash of the Node
+    /// @param totalAssets The total assets of the Node
     /// @param maxSwingFactor The maximum swing factor to apply
-    /// @return depositBonus The deposit bonus to apply
-    function calculateDepositBonus(address asset, uint256 assets, uint64 targetReserveRatio, uint64 maxSwingFactor)
-        external
-        view
-        onlyValidNode(msg.sender)
-        returns (uint256)
-    {
-        uint256 reserveCash = IERC20(asset).balanceOf(address(msg.sender));
-        int256 reserveImpact =
-            int256(_calculateReserveImpact(targetReserveRatio, reserveCash, IERC7575(msg.sender).totalAssets(), assets));
+    /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
+    /// @return shares The shares to mint after applying the deposit bonus
+    function calculateDepositBonus(
+        uint256 assets,
+        uint256 reserveCash,
+        uint256 totalAssets,
+        uint64 maxSwingFactor,
+        uint64 targetReserveRatio
+    ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 shares) {
+        int256 reserveImpact = int256(_calculateReserveImpact(targetReserveRatio, reserveCash, totalAssets, assets));
+
+        // reduce maxSwingFactor by half
+        maxSwingFactor = maxSwingFactor / SWING_FACTOR_DENOMINATOR;
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets =
             MathLib.mulDiv(assets, (WAD + _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
-        uint256 sharesToMint = IERC7575(msg.sender).convertToShares(adjustedAssets);
-        return (sharesToMint);
+        shares = IERC7575(msg.sender).convertToShares(adjustedAssets);
+        return shares;
     }
 
     /// @dev Called by Node Contract to calculate the withdrawal penalty for redeem requests
     /// reserveImpact is the cash balance of the node after the redeem request is processed
     /// adjustedAssets is the value of the redeem request with withdrawal penalty applied based on impact on cash reserve
     /// Uses sharesExiting to track redeem request currently pending for redemption and subtracts them from cash balance
-    /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penatly is being applied
+    /// This is to prevent a situation where requests are pending for withdrawal but no swing pricing penalty is being applied
     /// to new requests
-    /// @param asset The asset being redeemed
-    /// @param sharesExiting The total number of shares exiting the node
     /// @param shares The shares being redeemed
+    /// @param reserveCash The reserve cash of the Node
+    /// @param totalAssets The total assets of the Node
     /// @param maxSwingFactor The maximum swing factor to apply
     /// @param targetReserveRatio The target reserve ratio to calculate the swing factor against
-    /// @return adjustedAssets The adjusted assets for the redeem request
+    /// @return assets The assets to redeem after applying the redeem penalty
     function calculateRedeemPenalty(
-        address asset,
-        uint256 sharesExiting,
         uint256 shares,
+        uint256 reserveCash,
+        uint256 totalAssets,
         uint64 maxSwingFactor,
         uint64 targetReserveRatio
-    ) external view onlyValidNode(msg.sender) returns (uint256 adjustedAssets) {
-        // get the cash balance of the node and pending redemptions
-        uint256 balance = IERC20(asset).balanceOf(address(msg.sender));
-        uint256 pendingRedemptions = IERC7575(msg.sender).convertToAssets(sharesExiting);
-
-        // check if pending redemptions exceed current cash balance
-        // if not subtract pending redemptions from balance
-        if (pendingRedemptions > balance) {
-            balance = 0;
-        } else {
-            balance = balance - pendingRedemptions;
-        }
-
+    ) external view onlyValidNode(msg.sender) onlyValidQuoter(msg.sender) returns (uint256 assets) {
         // get the asset value of the redeem request
-        uint256 assets = IERC7575(msg.sender).convertToAssets(shares);
+        assets = IERC7575(msg.sender).convertToAssets(shares);
 
         // gets the expected reserve ratio after tx
         // check redemption (assets) exceed current cash balance
         // if not get reserve ratio
         int256 reserveImpact;
-        if (assets > balance) {
+        if (assets > reserveCash) {
             reserveImpact = 0;
         } else {
-            reserveImpact = int256(MathLib.mulDiv(balance - assets, WAD, IERC7575(msg.sender).totalAssets() - assets));
+            reserveImpact = int256(MathLib.mulDiv(reserveCash - assets, WAD, totalAssets - assets));
         }
 
-        adjustedAssets =
-            MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
-
-        return adjustedAssets;
+        assets = MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
+        return assets;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -174,12 +125,6 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         uint256 totalAssets,
         uint256 deposit
     ) internal pure returns (int256) {
-        // get current reserve ratio and return 0 if targetReserveRatio is already reached
-        uint256 currentReserveRatio = MathLib.mulDiv(reserveCash, WAD, totalAssets);
-        if (currentReserveRatio >= targetReserveRatio) {
-            return 0;
-        }
-
         // get the required assets in unit terms where actual reserve ratio = target reserve ratio
         uint256 investedAssets = totalAssets - reserveCash;
         uint256 targetReserveAssets = MathLib.mulDiv(investedAssets, targetReserveRatio, WAD - targetReserveRatio);
@@ -233,59 +178,5 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
             return uint256(result.unwrap());
         }
-    }
-
-    /// @dev Called by Node Contract to get the total assets of a node
-    /// @param node The node to get the assets of
-    /// @param component The component to get the assets of
-    /// @return assets The total assets of the node
-    function _getErc4626Assets(address node, address component) internal view returns (uint256) {
-        uint256 balance = IERC4626(component).balanceOf(node);
-        if (balance == 0) return 0;
-        return IERC4626(component).convertToAssets(balance);
-    }
-
-    /// @dev Called by Node Contract to get the total assets of a node
-    /// @param node The node to get the assets of
-    /// @param component The component to get the assets of
-    /// @return assets The total assets of the node
-    function _getErc7540Assets(address node, address component) internal view returns (uint256) {
-        uint256 assets = 0;
-        address shareToken = IERC7575(component).share();
-        uint256 shareBalance = IERC20(shareToken).balanceOf(node);
-
-        if (shareBalance > 0) {
-            assets = IERC4626(component).convertToAssets(shareBalance);
-        }
-        /// @dev in ERC7540 deposits are denominated in assets and redeems are in shares
-        assets += IERC7540(component).pendingDepositRequest(0, node);
-        assets += IERC7540(component).claimableDepositRequest(0, node);
-        assets += IERC4626(component).convertToAssets(IERC7540(component).pendingRedeemRequest(0, node));
-        assets += IERC4626(component).convertToAssets(IERC7540(component).claimableRedeemRequest(0, node));
-
-        return assets;
-    }
-
-    /// @dev Called by Node Contract to get the total assets of a node
-    /// @param node The node to get the assets of
-    /// @return assets The total assets of the node
-    function _getTotalAssets(address node) internal view returns (uint256) {
-        uint256 reserveAssets = IERC20(INode(node).asset()).balanceOf(node);
-
-        uint256 componentAssets = 0;
-        address[] memory components = INode(node).getComponents();
-        uint256 componentsLength = components.length;
-
-        for (uint256 i = 0; i < componentsLength; i++) {
-            if (isErc4626[components[i]]) {
-                componentAssets += _getErc4626Assets(node, components[i]);
-            } else if (isErc7540[components[i]]) {
-                componentAssets += _getErc7540Assets(node, components[i]);
-            } else {
-                revert ErrorsLib.InvalidComponent();
-            }
-        }
-
-        return reserveAssets + componentAssets;
     }
 }

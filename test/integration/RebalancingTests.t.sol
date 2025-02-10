@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
@@ -31,26 +31,25 @@ contract RebalancingTests is BaseTest {
 
         vm.startPrank(owner);
 
-        node.removeComponent(address(vault));
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0 ether}));
+        node.removeComponent(address(vault), false);
+        node.updateTargetReserveRatio(0.1 ether);
+        node.addRouter(address(router7540));
 
-        quoter.setErc4626(address(vaultA), true);
         router4626.setWhitelistStatus(address(vaultA), true);
-        node.addComponent(address(vaultA), ComponentAllocation({targetWeight: 0.18 ether, maxDelta: 0.01 ether}));
+        node.addComponent(address(vaultA), 0.18 ether, 0.01 ether, address(router4626));
 
-        quoter.setErc4626(address(vaultB), true);
         router4626.setWhitelistStatus(address(vaultB), true);
-        node.addComponent(address(vaultB), ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0.01 ether}));
+        node.addComponent(address(vaultB), 0.2 ether, 0.01 ether, address(router4626));
 
-        quoter.setErc4626(address(vaultC), true);
         router4626.setWhitelistStatus(address(vaultC), true);
-        node.addComponent(address(vaultC), ComponentAllocation({targetWeight: 0.22 ether, maxDelta: 0.01 ether}));
+        node.addComponent(address(vaultC), 0.22 ether, 0.01 ether, address(router4626));
 
-        quoter.setErc7540(address(asyncVault), true);
         router7540.setWhitelistStatus(address(asyncVault), true);
-        node.addComponent(address(asyncVault), ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.03 ether}));
+        node.addComponent(address(asyncVault), 0.3 ether, 0.03 ether, address(router7540));
 
         vm.stopPrank();
+
+        vm.warp(block.timestamp - 1 days);
     }
 
     function testRebalance() public {
@@ -58,12 +57,14 @@ contract RebalancingTests is BaseTest {
 
         _seedNode(seedAmount);
 
+        vm.warp(block.timestamp + 1 days);
+
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(vaultA));
-        router4626.invest(address(node), address(vaultB));
-        router4626.invest(address(node), address(vaultC));
-        router7540.investInAsyncVault(address(node), address(asyncVault));
+        router4626.invest(address(node), address(vaultA), 0);
+        router4626.invest(address(node), address(vaultB), 0);
+        router4626.invest(address(node), address(vaultC), 0);
+        router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
         uint256 totalAssets = node.totalAssets();
@@ -83,12 +84,12 @@ contract RebalancingTests is BaseTest {
         _userDeposits(address(user), 10 ether);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vaultA));
-        router4626.invest(address(node), address(vaultB));
-        router4626.invest(address(node), address(vaultC));
+        router4626.invest(address(node), address(vaultA), 0);
+        router4626.invest(address(node), address(vaultB), 0);
+        router4626.invest(address(node), address(vaultC), 0);
 
         vm.expectRevert();
-        router7540.investInAsyncVault(address(node), address(asyncVault));
+        router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
         totalAssets = node.totalAssets();
@@ -112,23 +113,23 @@ contract RebalancingTests is BaseTest {
 
         vm.startPrank(rebalancer);
         vm.expectRevert();
-        router4626.invest(address(node), address(vaultA));
+        router4626.invest(address(node), address(vaultA), 0);
         vm.expectRevert();
-        router4626.invest(address(node), address(vaultB));
+        router4626.invest(address(node), address(vaultB), 0);
         vm.expectRevert();
-        router4626.invest(address(node), address(vaultC));
+        router4626.invest(address(node), address(vaultC), 0);
         vm.expectRevert();
-        router7540.investInAsyncVault(address(node), address(asyncVault));
+        router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
         // THIRD DEPOSIT: rebalancer can rebalance deposit into sync & async vaults as lower thresholds breached
         _userDeposits(user, 9 ether);
 
         vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vaultA));
-        router4626.invest(address(node), address(vaultB));
-        router4626.invest(address(node), address(vaultC));
-        router7540.investInAsyncVault(address(node), address(asyncVault));
+        router4626.invest(address(node), address(vaultA), 0);
+        router4626.invest(address(node), address(vaultB), 0);
+        router4626.invest(address(node), address(vaultC), 0);
+        router7540.investInAsyncComponent(address(node), address(asyncVault));
         vm.stopPrank();
 
         totalAssets = node.totalAssets();

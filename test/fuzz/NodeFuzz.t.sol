@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
@@ -16,7 +16,12 @@ contract NodeFuzzTest is BaseTest {
     function setUp() public override {
         super.setUp();
         Node nodeImpl = Node(address(node));
-        maxDeposit = nodeImpl.MAX_DEPOSIT();
+        maxDeposit = nodeImpl.maxDepositSize();
+
+        vm.startPrank(owner);
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        node.addRouter(address(router7540));
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -258,8 +263,8 @@ contract NodeFuzzTest is BaseTest {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
-        annualFee = uint64(bound(annualFee, 0, 1e18));
-        protocolFee = uint64(bound(protocolFee, 0, 1e18));
+        annualFee = uint64(bound(annualFee, 0, 0.99 ether));
+        protocolFee = uint64(bound(protocolFee, 0, 0.99 ether));
         seedAmount = bound(seedAmount, 1e18, 1e36);
 
         vm.startPrank(owner);
@@ -272,7 +277,7 @@ contract NodeFuzzTest is BaseTest {
         _seedNode(seedAmount);
         assertEq(node.totalAssets(), seedAmount);
 
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + 364 days);
 
         vm.prank(owner);
         uint256 feeForPeriod = node.payManagementFees();
@@ -294,10 +299,13 @@ contract NodeFuzzTest is BaseTest {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
-        annualFee = uint64(bound(annualFee, 0, 1e18));
-        protocolFee = uint64(bound(protocolFee, 0, 1e18));
+        // warp back one day to undo the warp forward in setUp()
+        vm.warp(block.timestamp - 1 days);
+
+        annualFee = uint64(bound(annualFee, 0, 0.99 ether));
+        protocolFee = uint64(bound(protocolFee, 0, 0.99 ether));
         seedAmount = bound(seedAmount, 1e18, 1e36);
-        duration = bound(duration, 1 days, 365 days);
+        duration = bound(duration, 2 days, 365 days);
 
         vm.startPrank(owner);
         node.setAnnualManagementFee(annualFee);
@@ -351,14 +359,12 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(owner);
         node.enableSwingPricing(true, maxSwingFactor);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0.1 ether})
-        );
+        node.updateTargetReserveRatio(targetReserveRatio);
+        node.updateComponentAllocation(address(vault), 1 ether - targetReserveRatio, 0, address(router4626));
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        uint256 investmentAmount = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
@@ -398,15 +404,13 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(owner);
         node.enableSwingPricing(true, maxSwingFactor);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
-        );
+        node.updateTargetReserveRatio(targetReserveRatio);
+        node.updateComponentAllocation(address(vault), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        uint256 investmentAmount = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
@@ -441,15 +445,13 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(owner);
         node.enableSwingPricing(true, maxSwingFactor);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: targetReserveRatio, maxDelta: 0}));
-        node.updateComponentAllocation(
-            address(vault), ComponentAllocation({targetWeight: 1 ether - targetReserveRatio, maxDelta: 0})
-        );
+        node.updateTargetReserveRatio(targetReserveRatio);
+        node.updateComponentAllocation(address(vault), 1 ether - targetReserveRatio, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(node), address(vault));
+        uint256 investmentAmount = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         uint256 currentReserve = seedAmount - investmentAmount;
@@ -470,7 +472,127 @@ contract NodeFuzzTest is BaseTest {
         assertLt(withdrawalPenalty, maxPenalty);
     }
 
-    function test_fuzz_node_swing_price_vault_attack() public {}
+    function test_fuzz_node_swing_price_vault_attack(uint64 maxSwingFactor, uint64 targetReserveRatio, uint256 t)
+        public
+    {
+        maxSwingFactor = uint64(bound(maxSwingFactor, 0.001 ether, 0.1 ether));
+        targetReserveRatio = uint64(bound(targetReserveRatio, 0.01 ether, 0.1 ether));
+        t = bound(t, 1e16, 1e18 - 1);
+        uint256 seedAmount = 900_000 ether;
+        uint256 userDeposit = 100_000 ether;
+        uint256 tolerance = 1000;
+
+        deal(address(asset), address(user2), userDeposit);
+
+        vm.startPrank(user);
+        asset.approve(address(node), seedAmount);
+        node.deposit(seedAmount, user);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        asset.approve(address(node), type(uint256).max);
+        node.deposit(userDeposit, user2);
+        vm.stopPrank();
+
+        // jump forward in time to apply swing pricing
+        vm.warp(block.timestamp + 1 days);
+        vm.startPrank(owner);
+        node.updateTargetReserveRatio(targetReserveRatio);
+        node.updateComponentAllocation(address(vault), 1 ether - targetReserveRatio, 0, address(router4626));
+        vm.stopPrank();
+
+        // jump back in time to be in rebalance window
+        vm.warp(block.timestamp - 1 days);
+
+        vm.startPrank(rebalancer);
+        router4626.invest(address(node), address(vault), 0);
+        vm.stopPrank();
+
+        // assert reserveRatio is correct before other tests
+        uint256 reserveRatio = _getCurrentReserveRatio();
+        assertEq(reserveRatio, node.targetReserveRatio());
+
+        // enable swing pricing
+        vm.prank(owner);
+        node.enableSwingPricing(true, maxSwingFactor);
+
+        uint256 sharesToRedeem = (1e18 - t) * node.balanceOf(user2) / 1e18;
+
+        if (sharesToRedeem > 0) {
+            // user 2 makes their first withdrawl
+            vm.startPrank(user2);
+            node.approve(address(node), type(uint256).max);
+            node.requestRedeem(sharesToRedeem, user2, user2);
+            vm.stopPrank();
+        }
+
+        if (node.pendingRedeemRequest(0, user2) > 0) {
+            vm.prank(rebalancer);
+            node.fulfillRedeemFromReserve(user2);
+        }
+
+        uint256 user2BalBefore = asset.balanceOf(user2);
+
+        // user 2 withdraws max assets
+        uint256 maxWithdraw = node.maxWithdraw(address(user2));
+
+        if (maxWithdraw > 0) {
+            vm.prank(user2);
+            node.withdraw(maxWithdraw, address(user2), address(user2));
+        }
+
+        uint256 user2FirstWithdrawal = asset.balanceOf(user2) - user2BalBefore;
+
+        emit log_named_uint("user2 first withdrawal:", user2FirstWithdrawal);
+
+        uint256 user2SecondWithdrawal = 0;
+        // Only do second withdrawal if there should be something left to withdraw.
+        if (t > 0) {
+            sharesToRedeem = node.balanceOf(user2); // Redeem the rest
+
+            if (sharesToRedeem > 0) {
+                // user 2 makes there first withdrawl
+                vm.startPrank(user2);
+                node.approve(address(node), type(uint256).max);
+                node.requestRedeem(sharesToRedeem, user2, user2);
+                vm.stopPrank();
+            }
+
+            if (asset.balanceOf(address(node)) > 0) {
+                vm.prank(rebalancer);
+                node.fulfillRedeemFromReserve(user2);
+            }
+
+            user2BalBefore = asset.balanceOf(user2);
+
+            // user 2 withdraws max assets
+            maxWithdraw = node.maxWithdraw(address(user2));
+
+            if (maxWithdraw > 0) {
+                vm.prank(user2);
+                node.withdraw(maxWithdraw, address(user2), address(user2));
+            }
+
+            user2SecondWithdrawal = asset.balanceOf(user2) - user2BalBefore;
+        }
+
+        emit log_named_uint("user2 second withdrawal:", user2SecondWithdrawal);
+        uint256 totalWithdrawn = user2FirstWithdrawal + user2SecondWithdrawal;
+        emit log_named_uint("total withdrawn:", totalWithdrawn);
+
+        vm.startPrank(user2);
+        asset.approve(address(node), type(uint256).max);
+        node.deposit(totalWithdrawn, user2);
+        vm.stopPrank();
+
+        uint256 user2Assets = node.convertToAssets(node.balanceOf(user2));
+        emit log_named_uint("user2 in-protocol share value:", user2Assets);
+
+        emit log_named_uint("sum of share value and withdrawn value:", user2Assets + totalWithdrawn);
+        emit log_named_uint("total deposited by user2:", 100_000 ether + totalWithdrawn);
+
+        assertLt(user2Assets, userDeposit + tolerance);
+    }
 
     /*//////////////////////////////////////////////////////////////
                         TOTAL ASSET & CACHE
@@ -488,15 +610,15 @@ contract NodeFuzzTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0}));
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0}));
+        node.updateTargetReserveRatio(0.2 ether);
+        node.updateComponentAllocation(address(vault), 0.8 ether, 0, address(router4626));
         vm.stopPrank();
 
         uint256 expectedVaultAssets = MathLib.mulDiv(userDeposit, 0.8 ether, 1 ether);
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 vaultAssets = router4626.invest(address(node), address(vault));
+        uint256 vaultAssets = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         // assert that shares are 1:1 assets & vault has the correct assets
@@ -533,13 +655,13 @@ contract NodeFuzzTest is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.updateReserveAllocation(ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0}));
-        node.updateComponentAllocation(address(vault), ComponentAllocation({targetWeight: 0.8 ether, maxDelta: 0}));
+        node.updateTargetReserveRatio(0.2 ether);
+        node.updateComponentAllocation(address(vault), 0.8 ether, 0, address(router4626));
         vm.stopPrank();
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 vaultAssets = router4626.invest(address(node), address(vault));
+        uint256 vaultAssets = router4626.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         uint256 interestEarned = 0;
@@ -570,7 +692,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 vaultAssets = router7540.investInAsyncVault(address(node), address(liquidityPool));
+        uint256 vaultAssets = router7540.investInAsyncComponent(address(node), address(liquidityPool));
         vm.stopPrank();
 
         vm.prank(testPoolManager);
@@ -611,7 +733,7 @@ contract NodeFuzzTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 vaultAssets = router7540.investInAsyncVault(address(node), address(liquidityPool));
+        uint256 vaultAssets = router7540.investInAsyncComponent(address(node), address(liquidityPool));
         vm.stopPrank();
 
         vm.prank(testPoolManager);
