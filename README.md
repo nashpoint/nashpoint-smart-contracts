@@ -72,48 +72,6 @@ Run the test suite locally with anvil:
 forge test
 ```
 
-#### Deploy Locally for Front End Testing
-Set up .env values for $RPC_URL & $PRIVATE_KEY: 
-
-```
-# FOUNDRY CONFIG
-PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-RPC_URL="http://127.0.0.1:8545"
-
-REBALANCER=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
-USER=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
-```
-Note: these are standard foundry private key and not secure in any way
-
-On the CLI run:
-```
-source .env
-```
-
-Activate Anvil (local blockchain)
-```
-anvil
-```
-
-Run Deploy Script:
-```
-forge script script/DeployTestEnv.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast 
-```
-
-Generate ABI:
-```
-forge inspect Node abi
-```
-
-Starting Conditions:
-- Vault is initialized with a single ERC4626 vault set at 90% target
-- User is funded with 1_000_000 units of asset
-- Vault is seed with 1000 units of asset
-- Swing Pricing is activated
-- 900 units of asset are rebalanced into ERC4626 Vault
-
-Use User address to execute deposits, redeems etc
-Use Rebalancer address to execute transactions to manage funds, process withdrawals
 
 
 

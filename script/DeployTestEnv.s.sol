@@ -12,6 +12,9 @@ import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 
 contract DeployTestEnv is Script {
     bytes32 public constant SALT = bytes32(uint256(1));
+    address feeRecipient;
+    ERC4626Mock vault2;
+    ERC4626Mock vault3;
 
     function run() external {
         // Read environment values
@@ -20,6 +23,8 @@ contract DeployTestEnv is Script {
         address deployer = vm.addr(privateKey);
         address rebalancer = vm.addr(rebalancerKey);
         address user = vm.addr(vm.envUint("USER"));
+
+        feeRecipient = makeAddr("feeRecipient");
 
         // Begin the first broadcast
         vm.startBroadcast();
@@ -43,14 +48,24 @@ contract DeployTestEnv is Script {
         // Fund test addresses and deposit into the node
         fundTestAddresses(asset, node, deployer, user);
 
+        registry.setProtocolMaxSwingFactor(10e16);
+        router4626.setWhitelistStatus(address(vault2), true);
+        router4626.setWhitelistStatus(address(vault3), true);
+
         // Enable swing pricing
         node.enableSwingPricing(true, 2e16);
-
+        node.setRebalanceCooldown(0);
+        node.updateComponentAllocation(address(vault), 0.3 ether, 0.01 ether, address(router4626));
+        node.addComponent(address(vault2), 0.3 ether, 0.01 ether, address(router4626));
+        node.addComponent(address(vault3), 0.3 ether, 0.01 ether, address(router4626));
         vm.stopBroadcast();
 
-        // Broadcast a transaction from the rebalancer key
+        // Rebalance the node
         vm.startBroadcast(rebalancerKey);
+        node.startRebalance();
         router4626.invest(address(node), address(vault), 0);
+        router4626.invest(address(node), address(vault2), 0);
+        router4626.invest(address(node), address(vault3), 0);
         vm.stopBroadcast();
     }
 
@@ -69,6 +84,8 @@ contract DeployTestEnv is Script {
     function deployTestTokens() internal returns (ERC20Mock asset, ERC4626Mock vault) {
         asset = new ERC20Mock("Test Token", "TEST");
         vault = new ERC4626Mock(address(asset));
+        vault2 = new ERC4626Mock(address(asset));
+        vault3 = new ERC4626Mock(address(asset));
     }
 
     // Initialize the registry using helper functions.
@@ -84,7 +101,7 @@ contract DeployTestEnv is Script {
             _toArray(address(router4626)),
             _toArray(address(quoter)),
             _toArray(rebalancer),
-            address(0),
+            feeRecipient,
             0,
             0,
             0.01 ether
