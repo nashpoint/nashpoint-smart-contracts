@@ -10,6 +10,8 @@ import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 
+import {console2} from "forge-std/Test.sol";
+
 contract DeployTestEnv is Script {
     bytes32 public constant SALT = bytes32(uint256(1));
     address feeRecipient;
@@ -55,9 +57,9 @@ contract DeployTestEnv is Script {
         // Enable swing pricing
         node.enableSwingPricing(true, 2e16);
         node.setRebalanceCooldown(0);
-        node.updateComponentAllocation(address(vault), 0.3 ether, 0.01 ether, address(router4626));
-        node.addComponent(address(vault2), 0.3 ether, 0.01 ether, address(router4626));
-        node.addComponent(address(vault3), 0.3 ether, 0.01 ether, address(router4626));
+        node.updateComponentAllocation(address(vault), 0.3 ether, 0, address(router4626));
+        node.addComponent(address(vault2), 0.3 ether, 0, address(router4626));
+        node.addComponent(address(vault3), 0.3 ether, 0, address(router4626));
         vm.stopBroadcast();
 
         // Rebalance the node
@@ -67,6 +69,17 @@ contract DeployTestEnv is Script {
         router4626.invest(address(node), address(vault2), 0);
         router4626.invest(address(node), address(vault3), 0);
         vm.stopBroadcast();
+
+        console2.log("Node deployed and initialized");
+        console2.log("Node address: %s", address(node));
+        console2.log("Asset address: %s", address(asset));
+        console2.log("Vault address: %s", address(vault));
+        console2.log("Vault2 address: %s", address(vault2));
+        console2.log("Vault3 address: %s", address(vault3));
+        console2.log("User address: %s", user);
+        console2.log("Deployer address: %s", deployer);
+        console2.log("Rebalancer address: %s", rebalancer);
+        console2.log("ERC4626Router address: %s", address(router4626));
     }
 
     // Deploy core contracts and return them.

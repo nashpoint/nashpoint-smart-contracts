@@ -33,7 +33,7 @@ anvil
 
 Run Deploy Script:
 ```
-forge script script/DeployTestEnv.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast 
+forge script script/DeployTestEnv.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvvv
 ```
 
 Generate ABI:
@@ -96,6 +96,32 @@ The node is able to adjust the share price the user receives for a deposit or a 
 - compare ```previewDeposit()``` to ```convertToShares()``` to see what kind of a bonus a user will get for depositing.
 - if the reserve is at or above target this bonus will be zero
 - its harder to calculate the penalty for redeeming so don't worry about it
+
+
+#### Useful Cast Commands
+
+As ```user``` approve and deposit to node
+
+```
+cast send <ASSET_CONTRACT_ADDRESS> "approve(address,uint256)" <NODE_ADDRESS> <AMOUNT_IN_WEI> --private-key <USER_PRIVATE_KEY> --rpc-url <RPC_URL>
+
+cast send 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 "approve(address,uint256)" 0xf24e62cf861AAd5A268da5E3858c1C3ACFDA05F5 1000000000000000000000 --private-key 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a --rpc-url $RPC_URL  
+```
+
+```
+cast send <NODE_ADDRESS> "deposit(uint256,address)" <AMOUNT_IN_WEI> <USER_ADDRESS> --private-key <USER_PRIVATE_KEY> --rpc-url <RPC_URL>
+
+cast send 0xf24e62cf861AAd5A268da5E3858c1C3ACFDA05F5 "deposit(uint256,address)" 1000000000000000000000 "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" --private-key 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a --rpc-url $RPC_URL
+```
+
+Addresses Used
+```
+node_address = "0xf24e62cf861AAd5A268da5E3858c1C3ACFDA05F5" 
+asset_address = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+router_4626_address = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+rebalancer_address = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+user_address = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+```
 
 
 
