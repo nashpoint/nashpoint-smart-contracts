@@ -154,11 +154,11 @@ contract DeployTestEnv is Script {
     }
 
     // Fund test addresses and perform a deposit.
-    function fundTestAddresses(ERC20Mock asset_, INode node, address deployer, address user) internal {
-        asset.mint(user, 1000000 ether);
-        asset.mint(deployer, 1000000 ether);
-        asset.approve(address(node), type(uint256).max);
-        node.deposit(1000 ether, deployer);
+    function fundTestAddresses(address asset_, address node, address deployer, address user) internal {
+        ERC20Mock(asset_).mint(user, 1000000 ether);
+        ERC20Mock(asset_).mint(deployer, 1000000 ether);
+        ERC20Mock(asset_).approve(address(node), type(uint256).max);
+        INode(node).deposit(1000 ether, deployer);
     }
 
     // Helper to turn an address into a one-element array.
