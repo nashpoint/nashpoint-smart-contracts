@@ -17,7 +17,7 @@ NashPoint enables flexible deployment of investment nodes that can manage positi
   - ERC4626Router: Manages interactions with standard ERC4626 vaults
   - ERC7540Router: Manages interactions with asynchronous ERC7540 vaults
 - **Quoters**:
-  - QuoterV1: Provides price information for Node shares by aggregating component valuations.
+  - QuoterV1: Calculates Swing Pricing Bonus or Penalty for deposits and withdrawals.
 
 ### Key Roles:
 **Owner:** Owns the node. Sets the strategy by selecting the underlying assets and what proportions to allocate into them. Also sets the parameters for features like swing pricing and rebalancing frequency.
@@ -29,8 +29,9 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE)
 
 ### Technical Notes
 
-- Built on Solidity 0.8.26
+- Built on Solidity 0.8.28
 - Custom implementation of ERC7540 for handling asynchronous assets
+- Requires Foundry 0.3.0
 
 ### Development
 
@@ -38,7 +39,7 @@ This project uses Foundry for development and testing. Follow these steps to get
 
 #### Prerequisites
 
-- Install [Foundry](https://book.getfoundry.sh/getting-started/installation.html)
+- Install [Foundry](https://book.getfoundry.sh/getting-started/installation.html) 0.3.0
 
 #### Setup
 
@@ -57,7 +58,7 @@ forge install
 Update Foundry:
 
 ```
-foundryup
+foundryup --install 0.3.0
 ```
 
 #### Building
