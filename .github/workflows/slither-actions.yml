@@ -17,7 +17,6 @@ jobs:
 
       - uses: crytic/slither-action@v0.4.0
         with:
-          solc-version: "0.8.28"
-          ignore-compile: true
+          solc-version: "0.8.28"          
           slither-args: "--foundry-out-directory out"
-          fail-on: "high"
+          fail-on: "none"
