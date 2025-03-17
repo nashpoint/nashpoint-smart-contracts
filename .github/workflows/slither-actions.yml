@@ -1,22 +1,29 @@
 name: Slither Analysis
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v0.3.0"
+          version: v0.3.0
 
       - name: Compile Contracts
-        run: forge build
+        run: forge build --force --build-info --out out
 
-      - uses: crytic/slither-action@v0.4.0
+      - name: Run Slither
+        uses: crytic/slither-action@v0.4.0
         with:
-          solc-version: "0.8.28"          
-          slither-args: "--foundry-out-directory out"
-          fail-on: "none"
+          solc-version: 0.8.28
+          slither-args: --foundry-out-directory out
+          fail-on: high
