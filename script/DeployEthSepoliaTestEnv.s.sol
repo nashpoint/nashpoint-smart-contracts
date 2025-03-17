@@ -32,6 +32,7 @@ forge script script/DeployEthSepoliaTestEnv.s.sol --rpc-url $ETH_SEPOLIA_RPC_URL
 
 contract DeployTestEnv is Script {
     bytes32 SALT = keccak256(abi.encodePacked(block.timestamp));
+    address owner = 0x1F3D49c350BE3e63940c22f0560eEE3c34A717F9;
 
     address feeRecipient;
     ERC20Mock asset;
@@ -43,7 +44,6 @@ contract DeployTestEnv is Script {
         // Read environment values
         // uint256 privateKey = vm.envUint("TESTNET_PRIVATE_KEY");
         // address owner = vm.addr(privateKey);
-        address owner = 0x1F3D49c350BE3e63940c22f0560eEE3c34A717F9;
 
         // Begin the first broadcast
         vm.startBroadcast();
