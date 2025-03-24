@@ -31,7 +31,7 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE)
 
 - Built on Solidity 0.8.28
 - Custom implementation of ERC7540 for handling asynchronous assets
-- Requires Foundry 0.3.0
+- Requires Foundry 1.0.0
 
 ### Development
 
@@ -39,7 +39,7 @@ This project uses Foundry for development and testing. Follow these steps to get
 
 #### Prerequisites
 
-- Install [Foundry](https://book.getfoundry.sh/getting-started/installation.html) 0.3.0
+- Install [Foundry](https://book.getfoundry.sh/getting-started/installation.html) 1.0.0
 
 #### Setup
 
@@ -58,7 +58,7 @@ forge install
 Update Foundry:
 
 ```
-foundryup --install 0.3.0
+foundryup -v 1.0.0
 ```
 
 #### Building
