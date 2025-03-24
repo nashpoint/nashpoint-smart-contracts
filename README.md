@@ -38,9 +38,9 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE)
 
 ## Technical Notes
 
-- Built on Solidity 0.8.28
-- Foundry v1.0.0
-- Open Zeppelin v4.8.0
+- Solidity [0.8.28](https://github.com/ethereum/solidity/releases/tag/v0.8.28)
+- Foundry [v1.0.0](https://github.com/foundry-rs/foundry/releases/tag/stable)
+- Open Zeppelin [v5.2.0](https://github.com/OpenZeppelin/openzeppelin-contracts/releases/tag/v5.2.0)
 - prb-math [v4.1.0](https://github.com/PaulRBerg/prb-math/releases/tag/v4.1.0)
 
 ## Documentation
