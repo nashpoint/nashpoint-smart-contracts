@@ -1,8 +1,4 @@
 forge-std/=lib/forge-std/src/
-@openzeppelin/contracts@v5.0.0/=lib/openzeppelin-contracts/contracts/
-@prb/math/=lib/prb-math/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
-ds-test/=lib/openzeppelin-contracts/lib/forge-std/lib/ds-test/src/
-erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
-openzeppelin-contracts/=lib/openzeppelin-contracts/
-prb-math/=lib/prb-math/src/
+@prb/math/=lib/prb-math/src/
+ds-test/=lib/forge-std/lib/ds-test/src/
