@@ -36,13 +36,17 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE)
 | [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | January 2025 | [Cantina](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)              |
 
 
-### Technical Notes
+## Technical Notes
 
 - Built on Solidity 0.8.28
-- Custom implementation of ERC7540 for handling asynchronous assets
-- Requires Foundry 1.0.0
+- Foundry v1.0.0
+- Open Zeppelin v4.8.0
+- prb-math [v4.1.0](https://github.com/PaulRBerg/prb-math/releases/tag/v4.1.0)
 
-### Development
+## Documentation
+For a full protocol overview and detailed information see the [NashPoint Documentation](https://nashpoint.gitbook.io/nashpoint)
+
+## Development
 
 This project uses Foundry for development and testing. Follow these steps to get the project up and running on your local machine.
 
