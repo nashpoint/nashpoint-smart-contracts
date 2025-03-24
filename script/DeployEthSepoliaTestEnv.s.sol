@@ -34,6 +34,7 @@ contract DeployTestEnv is Script {
     bytes32 SALT = keccak256(abi.encodePacked(block.timestamp));
 
     address feeRecipient;
+    address owner = 0x1F3D49c350BE3e63940c22f0560eEE3c34A717F9;
     ERC20Mock asset;
     ERC4626Mock vault;
     ERC4626Mock vault2;
@@ -43,7 +44,6 @@ contract DeployTestEnv is Script {
         // Read environment values
         // uint256 privateKey = vm.envUint("TESTNET_PRIVATE_KEY");
         // address owner = vm.addr(privateKey);
-        address owner = 0x1F3D49c350BE3e63940c22f0560eEE3c34A717F9;
 
         // Begin the first broadcast
         vm.startBroadcast();
