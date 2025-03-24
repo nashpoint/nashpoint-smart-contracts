@@ -1,7 +1,6 @@
-# NashPoint
+# NashPoint 
 [![Foundry](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml) [![Slither Analysis](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/slither-actions.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/slither-actions.yml)
 [![License: BUSL 1.1](https://img.shields.io/badge/License-BUSL%201.1-blue.svg)](LICENSE)
-[![Audit](https://github.com/nashpoint/nashpoint-smart-contracts/images/black-NashPoint.svg)](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)
 
 
 NashPoint enables flexible deployment of investment nodes that can manage positions across multiple ERC4626 and ERC7540 vaults. The protocol was designed to provide a standardized way to manage complex investment strategies. Investors can deposit using ERC4626 synchronous functions, and redeem using the ERC7540 asynchronous tokenized vault standard.
@@ -28,6 +27,14 @@ NashPoint enables flexible deployment of investment nodes that can manage positi
 ## License
 
 This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE) file for details.
+
+## Audits
+[![](images/black-NashPoint.svg)](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)
+
+| Scope                                      | Date          | Report                                                                                     |
+|--------------------------------------------|---------------|--------------------------------------------------------------------------------------------|
+| [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | January 2025 | [Cantina](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)              |
+
 
 ### Technical Notes
 
