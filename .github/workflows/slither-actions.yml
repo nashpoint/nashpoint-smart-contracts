@@ -6,17 +6,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: "v0.3.0"
-
-      - name: Compile Contracts
-        run: forge build
-
       - uses: crytic/slither-action@v0.4.0
         with:
           target: "."
-          ignore-compile: true
-          slither-args: "--foundry-out-directory out"
           fail-on: "high"
