@@ -415,7 +415,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             Request storage request = requests[controller];
             request.pendingRedeemRequest += shares;
             request.sharesAdjusted += adjustedShares;
-            sharesExiting += shares;
+            sharesExiting += adjustedShares;
         }
 
         IERC20(address(this)).safeTransferFrom(owner, address(escrow), shares);
@@ -654,7 +654,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         request.claimableAssets += assetsToReturn;
         request.sharesAdjusted -= sharesAdjusted;
 
-        sharesExiting -= sharesPending;
+        sharesExiting -= sharesAdjusted;
         cacheTotalAssets -= assetsToReturn;
 
         if (assetsToReturn > IERC20(asset).balanceOf(address(this))) {
