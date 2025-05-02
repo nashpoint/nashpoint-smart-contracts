@@ -151,8 +151,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     /// @notice Returns the assets of a component held by the node.
     /// @param component The address of the component.
     /// @return assets The amount of assets of the component.
-
-    function getComponentAssets(address component) public view override returns (uint256) {
+    function getComponentAssets(address component, bool) public view override returns (uint256) {
         return _getComponentAssets(component, msg.sender);
     }
 

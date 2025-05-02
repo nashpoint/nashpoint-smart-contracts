@@ -64,6 +64,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     // Errors
     error ERC7540Mock_NoPendingDepositAvailable();
     error ERC7540Mock_NoPendingRedeemAvailable();
+    error ERC7540Mock_NoClaimableRedeemAvailable();
     error ERC7540Mock_ExceedsPendingDeposit();
     error ERC7540Mock_ExceedsPendingRedeem();
     error ERC7540Mock_NotImplementedYet();
@@ -279,7 +280,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
         // Check if there's any claimable redeem for the controller
         if (claimableRedeemRequests[controller] == 0) {
-            revert ERC7540Mock_NoPendingRedeemAvailable();
+            revert ERC7540Mock_NoClaimableRedeemAvailable();
         }
 
         // check if the requested assets exceed the claimable amount
