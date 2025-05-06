@@ -194,8 +194,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function updateTargetReserveRatio(uint64 targetReserveRatio_) external onlyOwner onlyWhenNotRebalancing {
-        targetReserveRatio = targetReserveRatio_;
-        emit EventsLib.TargetReserveRatioUpdated(targetReserveRatio_);
+        _setTargetReserveRatio(targetReserveRatio_);
     }
 
     /// @inheritdoc INode
