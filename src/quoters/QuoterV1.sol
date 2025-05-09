@@ -97,7 +97,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         // check redemption (assets) exceed current cash balance
         // if not get reserve ratio
         int256 reserveImpact;
-        if (assets > reserveCash) {
+        if (assets >= reserveCash) {
             reserveImpact = 0;
         } else {
             reserveImpact = int256(MathLib.mulDiv(reserveCash - assets, WAD, totalAssets - assets));

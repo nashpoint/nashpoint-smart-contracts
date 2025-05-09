@@ -160,7 +160,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /// @inheritdoc INode
     function removeComponent(address component, bool force) external onlyOwner onlyWhenNotRebalancing {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
-        if (!force && IRouter(componentAllocations[component].router).getComponentAssets(component) > 0) {
+        if (!force && IRouter(componentAllocations[component].router).getComponentAssets(component, false) > 0) {
             revert ErrorsLib.NonZeroBalance();
         }
 
@@ -194,8 +194,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function updateTargetReserveRatio(uint64 targetReserveRatio_) external onlyOwner onlyWhenNotRebalancing {
-        targetReserveRatio = targetReserveRatio_;
-        emit EventsLib.TargetReserveRatioUpdated(targetReserveRatio_);
+        _setTargetReserveRatio(targetReserveRatio_);
     }
 
     /// @inheritdoc INode
@@ -415,7 +414,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             Request storage request = requests[controller];
             request.pendingRedeemRequest += shares;
             request.sharesAdjusted += adjustedShares;
-            sharesExiting += shares;
+            sharesExiting += adjustedShares;
         }
 
         IERC20(address(this)).safeTransferFrom(owner, address(escrow), shares);
@@ -654,7 +653,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         request.claimableAssets += assetsToReturn;
         request.sharesAdjusted -= sharesAdjusted;
 
-        sharesExiting -= sharesPending;
+        sharesExiting -= sharesAdjusted;
         cacheTotalAssets -= assetsToReturn;
 
         if (assetsToReturn > IERC20(asset).balanceOf(address(this))) {
@@ -671,7 +670,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < len; i++) {
             address component = components[i];
             address router = componentAllocations[component].router;
-            assets += IRouter(router).getComponentAssets(component);
+            assets += IRouter(router).getComponentAssets(component, false);
         }
         cacheTotalAssets = assets;
     }
@@ -775,7 +774,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             address router = componentAllocations[candidate].router;
 
             uint256 candidateAssets;
-            try IRouter(router).getComponentAssets(candidate) returns (uint256 assets) {
+            try IRouter(router).getComponentAssets(candidate, true) returns (uint256 assets) {
                 candidateAssets = assets;
             } catch {
                 continue;

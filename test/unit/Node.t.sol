@@ -10,6 +10,7 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
+import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
@@ -18,6 +19,7 @@ import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
+import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 
 contract NodeHarness is Node {
     constructor(
@@ -81,6 +83,7 @@ contract NodeTest is BaseTest {
         testComponent = address(testVault);
         testComponent2 = address(testVault2);
         testComponent3 = address(testVault3);
+        liquidityPool = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", testPoolManager);
 
         testRegistry = new NodeRegistry(owner);
 
@@ -719,6 +722,149 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.DuplicateComponent.selector);
         testNode.setLiquidationQueue(components);
+    }
+
+    function test_liquidationQueue_excludes_pendingDeposit() public {
+        // sets async asset (7540) before sync (4626) in liquidity queue
+        setup_asyncAsset_first();
+
+        uint256 userWithdrawal = node.convertToAssets(node.pendingRedeemRequest(0, address(user)));
+        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
+
+        // assert node has non-zero pendingDeposit in liquidity pool but no assets
+        assertEq(erc7540Assets, 0);
+        assertGt(liquidityPool.pendingDepositRequest(0, address(node)), 0);
+
+        // enforceLiquidityQueue ignores pendingDeposit
+        vm.prank(rebalancer);
+        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
+        assertEq(assetsReturned, userWithdrawal);
+    }
+
+    function test_liquidationQueue_excludes_claimableDeposits() public {
+        // sets async asset (7540) before sync (4626) in liquidity queue
+        setup_asyncAsset_first();
+
+        uint256 userWithdrawal = node.convertToAssets(node.pendingRedeemRequest(0, address(user)));
+        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        // assert node has non-zero claimableDeposit in liquidity pool but no assets
+        assertGt(liquidityPool.claimableDepositRequest(0, address(node)), 0);
+        assertEq(erc7540Assets, 0);
+
+        // enforceLiquidityQueue ignores claimableDeposit
+        vm.prank(rebalancer);
+        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
+        assertEq(assetsReturned, userWithdrawal);
+    }
+
+    function test_liquidateQueue_excludes_shareBalance() public {
+        // sets async asset (7540) before sync (4626) in liquidity queue
+        setup_asyncAsset_first();
+
+        uint256 userWithdrawal = node.convertToAssets(node.pendingRedeemRequest(0, address(user)));
+        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.prank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(liquidityPool));
+
+        // assert node has non-zero share balance in liquidity pool but no assets
+        assertGt(liquidityPool.balanceOf(address(node)), 0);
+        assertEq(erc7540Assets, 0);
+
+        // enforceLiquidityQueue ignores share balance
+        vm.prank(rebalancer);
+        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
+        assertEq(assetsReturned, userWithdrawal);
+    }
+
+    function test_liquidationQueue_excludes_pendingRedemptions() public {
+        // sets async asset (7540) before sync (4626) in liquidity queue
+        setup_asyncAsset_first();
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.startPrank(rebalancer);
+        uint256 shares = router7540.mintClaimableShares(address(node), address(liquidityPool));
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), shares);
+        vm.stopPrank();
+
+        uint256 userWithdrawal = node.convertToAssets(node.pendingRedeemRequest(0, address(user)));
+        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
+
+        // assert node has non-zero share pendingRedeem in liquidity pool but no assets
+        assertGt(liquidityPool.pendingRedeemRequest(0, address(node)), 0);
+        assertEq(erc7540Assets, 0);
+
+        // enforceLiquidityQueue ignores share balance
+        vm.prank(rebalancer);
+        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
+        assertEq(assetsReturned, userWithdrawal);
+    }
+
+    function test_liquidationQueue_includes_claimableRedemptions() public {
+        // sets async asset (7540) before sync (4626) in liquidity queue
+        setup_asyncAsset_first();
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingDeposits();
+
+        vm.startPrank(rebalancer);
+        uint256 shares = router7540.mintClaimableShares(address(node), address(liquidityPool));
+        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), shares);
+        vm.stopPrank();
+
+        vm.prank(testPoolManager);
+        liquidityPool.processPendingRedemptions();
+
+        // assert async asset has claimable balance
+        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
+        assertGt(erc7540Assets, 0);
+
+        vm.prank(rebalancer);
+        vm.expectRevert();
+        router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
+    }
+
+    function setup_asyncAsset_first() public {
+        address[] memory components = new address[](2);
+        components[0] = address(liquidityPool);
+        components[1] = address(vault);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.addRouter(address(router7540));
+        router7540.setWhitelistStatus(address(liquidityPool), true);
+        node.updateComponentAllocation(address(vault), 0.5 ether, 0.01 ether, address(router4626));
+        node.addComponent(address(liquidityPool), 0.4 ether, 0.01 ether, address(router7540));
+        node.setLiquidationQueue(components);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp - 1 days);
+
+        uint256 assets = 100 ether;
+        vm.startPrank(user);
+        asset.approve(address(node), assets);
+        node.deposit(assets, user);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        router7540.investInAsyncComponent(address(node), address(liquidityPool));
+        router4626.invest(address(node), address(vault), 0);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        node.approve(address(node), 20 ether);
+        node.requestRedeem(20 ether, user, user);
+        vm.stopPrank();
     }
 
     function test_setRebalanceCooldown() public {
