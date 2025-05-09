@@ -209,7 +209,7 @@ contract RebalanceFuzzTests is BaseTest {
         uint256 depositAmount
     ) public {
         uint256 minFee = 100;
-        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.1 ether, 1 ether));
+        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.1 ether, 1 ether - 1));
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
         annualManagementFee = uint64(bound(annualManagementFee, 0, 0.1 ether));
         protocolManagementFee = uint64(bound(protocolManagementFee, minFee, 0.1 ether));

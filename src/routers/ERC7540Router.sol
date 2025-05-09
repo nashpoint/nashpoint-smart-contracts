@@ -184,10 +184,14 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
 
     /// @notice Returns the assets of a component held by the node.
     /// @param component The address of the component.
+    /// @param claimableOnly Whether the assets are claimable.
     /// @return assets The amount of assets of the component.
-    function getComponentAssets(address component) public view override returns (uint256 assets) {
-        return _getErc7540Assets(msg.sender, component);
+
+    function getComponentAssets(address component, bool claimableOnly) public view override returns (uint256 assets) {
+        return
+            claimableOnly ? _getClaimableErc7540Assets(msg.sender, component) : _getErc7540Assets(msg.sender, component);
     }
+
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -282,6 +286,10 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
 
         return assets;
+    }
+
+    function _getClaimableErc7540Assets(address node, address component) internal view returns (uint256 assets) {
+        return IERC4626(component).maxWithdraw(node);
     }
 
     function _executeAsyncWithdrawal(address node, address component, uint256 assets)

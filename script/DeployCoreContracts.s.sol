@@ -40,8 +40,6 @@ forge script script/DeployCoreContracts.s.sol --rpc-url $ETH_SEPOLIA_RPC_URL --p
 forge script script/DeployCoreContracts.s.sol --rpc-url $ARBITRUM_RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast --verify --force --etherscan-api-key $ETHERSCAN_API_KEY -vvvv
 */
 
-
-
 contract DeployTestEnv is Script {
     bytes32 public SALT;
     address public deployer;
