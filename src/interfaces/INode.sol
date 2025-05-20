@@ -52,7 +52,8 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @dev Only callable by owner
     function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router) external;
 
-    /// @notice Removes a component from the node. Must have zero balance.
+    /// @notice Removes a component from the node. Must have zero balance or force is used.
+    /// @notice if force is used any balance of the component will be burned
     /// @param component The address of the component to remove
     /// @param force Whether to force the removal of the component
     /// @dev Only callable by owner. Component must be rebalanced to zero before removal or force is true

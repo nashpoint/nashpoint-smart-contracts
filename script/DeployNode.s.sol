@@ -42,35 +42,36 @@ contract DeployTestEnv is Script {
     address constant farmUsdcCompoundV3Address = 0x7b33c028fdcd6425c60b7d2A1a54eC10bFdF14B8; // compound
     address constant farmUsdcAaveV3Address = 0x803Ae650Bc7c40b03Fe1C33F2a787E81f1c4819c; // aave
     address constant revertUsdcV3VaultAddress = 0x74E6AFeF5705BEb126C6d3Bf46f8fad8F3e07825; // revert
+    address constant cfgLiquidityPool = 0x16C796208c6E2d397Ec49D69D207a9cB7d072f04; // centrigue
 
-    address constant factory = 0xBf748c4b72F295ec796BDE1209057F837ecc683c;
-    address constant quoter = 0x1EcCf86A82c4Cc13971c06CE8d8418a88a9Ab70A;
-    address constant router4626 = 0x3e6abee646A2160a7C8dF5e4e8bfA43F8D0b2Da1;
+    address constant factory = 0x0CBb7C659399cf042E4DE92DaA3AE4a8Cc64A34F;
+    address constant quoter = 0xDE270C3471717cf9bE1A6d50F890AB50Ff310f85;
+    address constant router4626 = 0x1865d29036359Ba495600215ecCE85bBA5DF180D;
+    address constant router7540 = 0xb3DfeCe8BdA02084AED6Aa84d0A7A12d50be721A;
 
     uint256 privateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
     address hotWallet = vm.envAddress("METAMASK_HOT_WALLET");
 
     function run() external {
         SALT = bytes32(abi.encodePacked(block.timestamp));
-        uint64 targetReserveRatio = 0.1 ether;
+        uint64 targetReserveRatio = 0.05 ether;
 
         address[] memory addresses = _toArraySix(
-            yUsdcaAddress,
-            fUsdcAddress,
-            sdUSDCV3Address,
-            farmUsdcCompoundV3Address,
             farmUsdcAaveV3Address,
-            revertUsdcV3VaultAddress
+            farmUsdcCompoundV3Address,
+            sdUSDCV3Address,
+            fUsdcAddress,
+            revertUsdcV3VaultAddress,
+            cfgLiquidityPool
         );
 
-        ComponentAllocation[] memory componentAllocations =
-            _setEvenComponentAllocations(targetReserveRatio, uint64(addresses.length), 0.01 ether);
+        ComponentAllocation[] memory componentAllocations = _setLaunchComponentAllocations();
 
         vm.startBroadcast();
 
         INodeFactory(factory).deployFullNode(
-            "USDC Node",
-            "nUSDC",
+            "NashPoint Institutional DeFi & RWA Fund",
+            "RWAFI",
             usdc,
             hotWallet,
             addresses,
@@ -96,6 +97,40 @@ contract DeployTestEnv is Script {
         arr[3] = addr4;
         arr[4] = addr5;
         arr[5] = addr6;
+    }
+
+    function _setLaunchComponentAllocations()
+        internal
+        pure
+        returns (ComponentAllocation[] memory componentAllocations)
+    {
+        componentAllocations = new ComponentAllocation[](6);
+
+        // uint64 targetReserveRatio = 0.05 ether;
+
+        // aave
+        componentAllocations[0] =
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0, router: router4626, isComponent: true});
+
+        // compound
+        componentAllocations[1] =
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0, router: router4626, isComponent: true});
+
+        // gearbox
+        componentAllocations[2] =
+            ComponentAllocation({targetWeight: 0.1 ether, maxDelta: 0, router: router4626, isComponent: true});
+
+        // fluid
+        componentAllocations[3] =
+            ComponentAllocation({targetWeight: 0.15 ether, maxDelta: 0, router: router4626, isComponent: true});
+
+        // revert
+        componentAllocations[4] =
+            ComponentAllocation({targetWeight: 0.2 ether, maxDelta: 0, router: router4626, isComponent: true});
+
+        //centrifuge
+        componentAllocations[5] =
+            ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0.01 ether, router: router7540, isComponent: true});
     }
 
     function _setEvenComponentAllocations(uint64 targetReserveRatio, uint64 count, uint64 maxDelta)

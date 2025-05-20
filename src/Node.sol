@@ -164,6 +164,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             revert ErrorsLib.NonZeroBalance();
         }
 
+        if (force) {
+            try IERC20(component).balanceOf(address(this)) returns (uint256 balance) {
+                if (balance > 0) {
+                    try IERC20(component).transfer(0x000000000000000000000000000000000000dEaD, balance) returns (bool) {}
+                        catch {}
+                }
+            } catch {}
+        }
+
         uint256 length = components.length;
         for (uint256 i = 0; i < length; i++) {
             if (components[i] == component) {

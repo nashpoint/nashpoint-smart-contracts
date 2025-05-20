@@ -493,6 +493,29 @@ contract NodeTest is BaseTest {
         assertFalse(testNode.isComponent(testComponent));
     }
 
+    function test_removeComponent_force_has_balance() public {
+        assertTrue(node.isComponent(address(vault)));
+
+        // user deposits 100 in assets to the node
+        _userDeposits(user, 100 ether);
+
+        // rebalancer invest 90 assets to the vault address
+        vm.prank(rebalancer);
+        router4626.invest(address(node), address(vault), 0);
+        assertEq(vault.balanceOf(address(node)), 90 ether);
+
+        // warp forward out of rebalance window
+        vm.warp(block.timestamp + 1 days);
+
+        // owner removes component from component list using force bool
+        vm.startPrank(owner);
+        node.removeComponent(address(vault), true);
+
+        // assert component tokens have been removed
+        assertEq(vault.balanceOf(address(node)), 0);
+        assertFalse(node.isComponent(address(vault)));
+    }
+
     function test_updateComponentAllocation() public {
         ComponentAllocation memory newAllocation = ComponentAllocation({
             targetWeight: 0.8 ether,
