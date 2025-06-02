@@ -23,7 +23,14 @@ abstract contract BaseRouter is IRouter {
 
     /* STORAGE */
     /// @notice Mapping of whitelisted component addresses
+    /// @dev Whitelisted addresses can be added to nodes as valid components
     mapping(address => bool) public isWhitelisted;
+
+    /// @notice Mapping of blacklisted component addresses
+    /// @dev Blacklisted addresses can be force removed from nodes
+    mapping(address => bool) public isBlacklisted;
+
+    /// @notice tolerace is accepted deviation from the expected amount of tokens to be returned in a transaction
     uint256 public tolerance;
 
     /* CONSTRUCTOR */
@@ -72,6 +79,15 @@ abstract contract BaseRouter is IRouter {
         if (component == address(0)) revert ErrorsLib.ZeroAddress();
         isWhitelisted[component] = status;
         emit EventsLib.ComponentWhitelisted(component, status);
+    }
+
+    /// @notice Updates the blacklist status of a component
+    /// @param component The address to update
+    /// @param status The new blacklist status
+    function setBlacklistStatus(address component, bool status) external onlyRegistryOwner {
+        if (component == address(0)) revert ErrorsLib.ZeroAddress();
+        isBlacklisted[component] = status;
+        emit EventsLib.ComponentBlacklisted(component, status);
     }
 
     /// @notice Batch updates whitelist status of components

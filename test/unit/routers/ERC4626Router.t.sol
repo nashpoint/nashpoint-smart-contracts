@@ -650,10 +650,34 @@ contract ERC4626RouterTest is BaseTest {
     }
 
     function test_isWhitelisted() public {
+        assertFalse(router4626.isWhitelisted(address(testComponent)));
+
         vm.startPrank(owner);
         router4626.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        assertEq(router4626.isWhitelisted(address(testComponent)), true);
+        assertTrue(router4626.isWhitelisted(address(testComponent)));
+
+        vm.startPrank(owner);
+        router4626.setWhitelistStatus(address(testComponent), false);
+        vm.stopPrank();
+
+        assertFalse(router4626.isWhitelisted(address(testComponent)));
+    }
+
+    function test_isBlacklisted() public {
+        assertFalse(router4626.isBlacklisted(address(testComponent)));
+
+        vm.startPrank(owner);
+        router4626.setBlacklistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        assertTrue(router4626.isBlacklisted(address(testComponent)));
+
+        vm.startPrank(owner);
+        router4626.setBlacklistStatus(address(testComponent), false);
+        vm.stopPrank();
+
+        assertFalse(router4626.isBlacklisted(address(testComponent)));
     }
 }

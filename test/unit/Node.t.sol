@@ -20,6 +20,7 @@ import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract NodeHarness is Node {
     constructor(
@@ -346,10 +347,36 @@ contract NodeTest is BaseTest {
 
     function test_removeComponent_revert_NonZeroBalance() public {
         // Mock non-zero balance
-        vm.mockCall(testComponent, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(1));
+        vm.mockCall(
+            testComponent, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(100)
+        );
 
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.NonZeroBalance.selector);
+        testNode.removeComponent(testComponent, false);
+    }
+
+    function test_removeComponent_revert_rebalanceWindowOpen() public {
+        vm.startPrank(owner);
+        testRegistry.setRegistryType(rebalancer, RegistryType.REBALANCER, true);
+        testNode.addRebalancer(rebalancer);
+        vm.stopPrank();
+
+        vm.prank(rebalancer);
+        testNode.startRebalance();
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.RebalanceWindowOpen.selector);
+        testNode.removeComponent(testComponent, false);
+    }
+
+    function test_removeComponent_revert_notOwner() public {
+        vm.prank(owner);
+        testNode.removeComponent(testComponent, false);
+
+        address notOwner = makeAddr("notOwner");
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         testNode.removeComponent(testComponent, false);
     }
 
@@ -477,17 +504,45 @@ contract NodeTest is BaseTest {
         assertFalse(testNode.isComponent(component3));
     }
 
-    function test_removeComponent_force() public {
+    function test_removeComponent_force_succeeds() public {
+        assertTrue(testNode.isComponent(testComponent));
+
+        // component has a balance
+        vm.mockCall(
+            testComponent, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(100 ether)
+        );
+
+        // component has been blacklisted on the router contract
+        vm.mockCall(
+            address(router4626),
+            abi.encodeWithSelector(router4626.isBlacklisted.selector, address(testComponent)),
+            abi.encode(true)
+        );
+
+        // node owner calls uses force bool = true
+        vm.prank(owner);
+        testNode.removeComponent(testComponent, true);
+        assertFalse(testNode.isComponent(testComponent));
+    }
+
+    function test_removeComponent_force_reverts_notBlacklisted() public {
         assertTrue(testNode.isComponent(testComponent));
 
         vm.mockCall(
             testComponent, abi.encodeWithSelector(IERC20.balanceOf.selector, address(testNode)), abi.encode(100 ether)
         );
 
-        vm.expectRevert(ErrorsLib.NonZeroBalance.selector);
+        // reverts because not blacklisted
+        vm.expectRevert(ErrorsLib.NotBlacklisted.selector);
         vm.prank(owner);
-        testNode.removeComponent(testComponent, false);
+        testNode.removeComponent(testComponent, true);
 
+        // owner is same address as registry owner in this test
+        // owner adds test component to router blacklist
+        vm.prank(owner);
+        router4626.setBlacklistStatus(testComponent, true);
+
+        // force now succeeds
         vm.prank(owner);
         testNode.removeComponent(testComponent, true);
         assertFalse(testNode.isComponent(testComponent));
