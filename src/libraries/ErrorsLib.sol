@@ -121,6 +121,9 @@ library ErrorsLib {
     /// @notice Thrown when the target is not whitelisted.
     error NotWhitelisted();
 
+    /// @notice Thrown when the target is not blacklisted.
+    error NotBlacklisted();
+
     /// @notice Thrown when the target node is invalid
     error InvalidNode();
 

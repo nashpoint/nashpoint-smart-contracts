@@ -85,6 +85,9 @@ library EventsLib {
     /// @notice Emitted when a component is whitelisted on the router
     event ComponentWhitelisted(address indexed component, bool status);
 
+    /// @notice Emitted when a component is blacklisted on the router
+    event ComponentBlacklisted(address indexed component, bool status);
+
     /// @notice Emitted when approval is granted on the escrow
     event Approve(address token, address spender, uint256 amount);
 
