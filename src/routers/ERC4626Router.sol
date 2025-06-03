@@ -5,7 +5,6 @@ import {BaseRouter} from "../libraries/BaseRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
@@ -18,6 +17,13 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     event InvestedInComponent(address indexed node, address indexed component, uint256 assets);
     event LiquidatedFromComponent(address indexed node, address indexed component, uint256 assets);
     event FulfilledRedeemRequest(address indexed node, address indexed component, uint256 assets);
+
+    /* ERRORS */
+    error ExceedsMaxComponentDeposit(address component, uint256 depositAmount, uint256 maxDeposit);
+    error ExceedsMaxComponentRedeem(address component, uint256 shares, uint256 maxRedeem);
+    error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
+    error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
+    error InvalidShareValue(address component, uint256 shares);
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {
@@ -46,9 +52,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
         // Check component deposit limits
         if (depositAmount > IERC4626(component).maxDeposit(address(node))) {
-            revert ErrorsLib.ExceedsMaxComponentDeposit(
-                component, depositAmount, IERC4626(component).maxDeposit(address(node))
-            );
+            revert ExceedsMaxComponentDeposit(component, depositAmount, IERC4626(component).maxDeposit(address(node)));
         }
 
         // Execute deposit and check correct shares received
@@ -60,17 +64,17 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
         uint256 sharesAfter = IERC4626(component).balanceOf(address(node));
         if (sharesAfter < sharesBefore) {
-            revert ErrorsLib.InsufficientSharesReturned(component, 0, expectedShares);
+            revert InsufficientSharesReturned(component, 0, expectedShares);
         } else {
             sharesReturned = sharesAfter - sharesBefore;
         }
 
         if ((sharesReturned + tolerance) < expectedShares) {
-            revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, expectedShares);
+            revert InsufficientSharesReturned(component, sharesReturned, expectedShares);
         }
 
         if ((sharesReturned + tolerance) < minSharesOut) {
-            revert ErrorsLib.InsufficientSharesReturned(component, sharesReturned, minSharesOut);
+            revert InsufficientSharesReturned(component, sharesReturned, minSharesOut);
         }
 
         emit InvestedInComponent(node, component, depositAmount);
@@ -91,7 +95,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     {
         assetsReturned = _liquidate(node, component, shares);
         if ((assetsReturned + tolerance) < minAssetsOut) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, minAssetsOut);
+            revert InsufficientAssetsReturned(component, assetsReturned, minAssetsOut);
         }
 
         emit LiquidatedFromComponent(node, component, assetsReturned);
@@ -129,7 +133,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
         assetsReturned = _liquidate(node, component, componentShares);
 
         if ((assetsReturned + tolerance) < minAssetsOut) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, minAssetsOut);
+            revert InsufficientAssetsReturned(component, assetsReturned, minAssetsOut);
         }
 
         // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
@@ -207,12 +211,12 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     function _liquidate(address node, address component, uint256 shares) internal returns (uint256 assetsReturned) {
         // Validate share value
         if (shares == 0 || shares > IERC4626(component).balanceOf(address(node))) {
-            revert ErrorsLib.InvalidShareValue(component, shares);
+            revert InvalidShareValue(component, shares);
         }
 
         // Check component redeem limits
         if (shares > IERC4626(component).maxRedeem(address(node))) {
-            revert ErrorsLib.ExceedsMaxComponentRedeem(component, shares, IERC4626(component).maxRedeem(address(node)));
+            revert ExceedsMaxComponentRedeem(component, shares, IERC4626(component).maxRedeem(address(node)));
         }
 
         address asset = IERC4626(node).asset();
@@ -223,13 +227,13 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
         uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
         if (balanceAfter < balanceBefore) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
+            revert InsufficientAssetsReturned(component, 0, assets);
         } else {
             assetsReturned = balanceAfter - balanceBefore;
         }
 
         if ((assetsReturned + tolerance) < assets) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReturned, assets);
+            revert InsufficientAssetsReturned(component, assetsReturned, assets);
         }
 
         return assetsReturned;

@@ -349,7 +349,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.IncorrectRequestId.selector, 1));
+        vm.expectRevert(abi.encodeWithSelector(ERC7540Router.IncorrectRequestId.selector, 1));
         router7540.investInAsyncComponent(address(node), address(liquidityPool));
         vm.stopPrank();
     }
@@ -456,7 +456,7 @@ contract ERC7540RouterTest is BaseTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.InsufficientSharesReturned.selector, address(liquidityPool), 0, claimableShares
+                ERC7540Router.InsufficientSharesReturned.selector, address(liquidityPool), 0, claimableShares
             )
         );
         router7540.mintClaimableShares(address(node), address(liquidityPool));
@@ -509,7 +509,7 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.ExceedsAvailableShares.selector, address(node), address(liquidityPool), currentShares + 1
+                ERC7540Router.ExceedsAvailableShares.selector, address(node), address(liquidityPool), currentShares + 1
             )
         );
         router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), currentShares + 1);
@@ -607,7 +607,7 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.ExceedsAvailableAssets.selector, address(node), address(liquidityPool), maxWithdraw + 1
+                ERC7540Router.ExceedsAvailableAssets.selector, address(node), address(liquidityPool), maxWithdraw + 1
             )
         );
         router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), maxWithdraw + 1);
@@ -653,7 +653,7 @@ contract ERC7540RouterTest is BaseTest {
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.InsufficientAssetsReturned.selector, address(liquidityPool), 0, withdrawAmount
+                ERC7540Router.InsufficientAssetsReturned.selector, address(liquidityPool), 0, withdrawAmount
             )
         );
         router7540.executeAsyncWithdrawal(address(node), address(liquidityPool), withdrawAmount);
@@ -689,7 +689,7 @@ contract ERC7540RouterTest is BaseTest {
         );
 
         vm.prank(rebalancer);
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.IncorrectRequestId.selector, 1));
+        vm.expectRevert(abi.encodeWithSelector(ERC7540Router.IncorrectRequestId.selector, 1));
         router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), 10 ether);
     }
 
