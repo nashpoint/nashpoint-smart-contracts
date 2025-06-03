@@ -11,7 +11,6 @@ import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 
 import {BaseQuoter} from "../libraries/BaseQuoter.sol";
-import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
@@ -21,6 +20,9 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 /// @author ODND Studios
 contract QuoterV1 is IQuoterV1, BaseQuoter {
     using MathLib for uint256;
+
+    /* ERRORS */
+    error InvalidInput(int256 reserveImpact);
 
     /* CONSTANTS */
     int256 internal constant SCALING_FACTOR = -5e18;
@@ -163,7 +165,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     {
         // checks if a negative number
         if (reserveImpact < 0) {
-            revert ErrorsLib.InvalidInput(reserveImpact);
+            revert InvalidInput(reserveImpact);
 
             // else if reserve exceeds target after deposit no swing factor is applied
         } else if (uint256(reserveImpact) >= targetReserveRatio) {

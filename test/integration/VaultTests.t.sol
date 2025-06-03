@@ -186,7 +186,7 @@ contract VaultTests is BaseTest {
 
         vm.assertGt(mockQuoterHarness.getSwingFactor(1e16, maxSwingFactor, targetReserveRatio), 0);
 
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidInput.selector, -1e16));
+        vm.expectRevert(abi.encodeWithSelector(QuoterV1.InvalidInput.selector, -1e16));
         mockQuoterHarness.getSwingFactor(-1e16, maxSwingFactor, targetReserveRatio);
 
         // assert swing factor is zero if reserve target is met

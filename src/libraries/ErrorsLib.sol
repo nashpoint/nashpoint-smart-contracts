@@ -127,9 +127,6 @@ library ErrorsLib {
     /// @notice Thrown when the target node is invalid
     error InvalidNode();
 
-    /// @notice Thrown when the input to getSwingFactoris invalid.
-    error InvalidInput(int256 reserveImpact);
-
     /// @notice Thrown when the reserve ratio is below target
     error ReserveBelowTargetRatio();
 
