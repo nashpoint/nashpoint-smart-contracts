@@ -11,8 +11,6 @@ import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IE
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "../interfaces/IERC7540.sol";
 import {IERC7575} from "../interfaces/IERC7575.sol";
 
-import {ErrorsLib} from "../libraries/ErrorsLib.sol";
-import {EventsLib} from "../libraries/EventsLib.sol";
 import {MathLib} from "../libraries/MathLib.sol";
 
 /**
@@ -28,6 +26,13 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     event RequestedAsyncWithdrawal(address indexed node, address indexed component, uint256 shares);
     event AsyncWithdrawalExecuted(address indexed node, address indexed component, uint256 assetsReceived);
     event FulfilledRedeemRequest(address indexed node, address indexed component, uint256 assets);
+
+    /* ERRORS */
+    error IncorrectRequestId(uint256 requestId);
+    error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
+    error ExceedsAvailableShares(address node, address component, uint256 shares);
+    error ExceedsAvailableAssets(address node, address component, uint256 assets);
+    error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {
@@ -95,7 +100,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
 
         uint256 requestId = _requestDeposit(node, component, depositAmount);
         if (requestId != REQUEST_ID) {
-            revert ErrorsLib.IncorrectRequestId(requestId);
+            revert IncorrectRequestId(requestId);
         }
 
         emit InvestedInAsyncComponent(node, component, depositAmount);
@@ -124,13 +129,13 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
 
         uint256 balanceAfter = IERC20(share).balanceOf(address(node));
         if (balanceAfter < balanceBefore) {
-            revert ErrorsLib.InsufficientSharesReturned(component, 0, claimableShares);
+            revert InsufficientSharesReturned(component, 0, claimableShares);
         } else {
             sharesReceived = balanceAfter - balanceBefore;
         }
 
         if ((sharesReceived + tolerance) < claimableShares) {
-            revert ErrorsLib.InsufficientSharesReturned(component, sharesReceived, claimableShares);
+            revert InsufficientSharesReturned(component, sharesReceived, claimableShares);
         }
 
         emit MintedClaimableShares(node, component, sharesReceived);
@@ -150,12 +155,12 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     {
         address shareToken = IERC7575(component).share();
         if (shares > IERC20(shareToken).balanceOf(address(node))) {
-            revert ErrorsLib.ExceedsAvailableShares(node, component, shares);
+            revert ExceedsAvailableShares(node, component, shares);
         }
 
         uint256 requestId = _requestRedeem(node, component, shares);
         if (requestId != REQUEST_ID) {
-            revert ErrorsLib.IncorrectRequestId(requestId);
+            revert IncorrectRequestId(requestId);
         }
 
         emit RequestedAsyncWithdrawal(node, component, shares);
@@ -297,7 +302,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
         returns (uint256 assetsReceived)
     {
         if (assets > IERC7575(component).maxWithdraw(address(node))) {
-            revert ErrorsLib.ExceedsAvailableAssets(node, component, assets);
+            revert ExceedsAvailableAssets(node, component, assets);
         }
 
         address asset = IERC7575(node).asset();
@@ -307,13 +312,13 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
 
         uint256 balanceAfter = IERC20(asset).balanceOf(address(node));
         if (balanceAfter < balanceBefore) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, 0, assets);
+            revert InsufficientAssetsReturned(component, 0, assets);
         } else {
             assetsReceived = balanceAfter - balanceBefore;
         }
 
         if ((assetsReceived + tolerance) < assets) {
-            revert ErrorsLib.InsufficientAssetsReturned(component, assetsReceived, assets);
+            revert InsufficientAssetsReturned(component, assetsReceived, assets);
         }
 
         emit AsyncWithdrawalExecuted(node, component, assetsReceived);
