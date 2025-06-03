@@ -328,7 +328,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.ExceedsMaxComponentDeposit.selector,
+                ERC4626Router.ExceedsMaxComponentDeposit.selector,
                 address(testComponent),
                 investmentSize,
                 investmentSize - 1
@@ -440,7 +440,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(rebalancer);
-        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.InvalidShareValue.selector, address(testComponent), 0));
+        vm.expectRevert(abi.encodeWithSelector(ERC4626Router.InvalidShareValue.selector, address(testComponent), 0));
         router4626.liquidate(address(node), address(testComponent), 0, 0);
     }
 
@@ -468,7 +468,7 @@ contract ERC4626RouterTest is BaseTest {
         uint256 shares = testComponent.balanceOf(address(node));
         vm.prank(rebalancer);
         vm.expectRevert(
-            abi.encodeWithSelector(ErrorsLib.InvalidShareValue.selector, address(testComponent), shares + 1)
+            abi.encodeWithSelector(ERC4626Router.InvalidShareValue.selector, address(testComponent), shares + 1)
         );
         router4626.liquidate(address(node), address(testComponent), shares + 1, 0);
     }
@@ -506,7 +506,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.prank(rebalancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ErrorsLib.InsufficientAssetsReturned.selector,
+                ERC4626Router.InsufficientAssetsReturned.selector,
                 address(testComponent),
                 expectedAssets,
                 expectedAssets + 100

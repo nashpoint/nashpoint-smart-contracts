@@ -20,10 +20,10 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
     /* ERRORS */
     error ExceedsMaxComponentDeposit(address component, uint256 depositAmount, uint256 maxDeposit);
+    error ExceedsMaxComponentRedeem(address component, uint256 shares, uint256 maxRedeem);
     error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
     error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
     error InvalidShareValue(address component, uint256 shares);
-    error ExceedsMaxComponentRedeem(address component, uint256 shares, uint256 maxRedeem);    
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {
@@ -52,9 +52,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
 
         // Check component deposit limits
         if (depositAmount > IERC4626(component).maxDeposit(address(node))) {
-            revert ExceedsMaxComponentDeposit(
-                component, depositAmount, IERC4626(component).maxDeposit(address(node))
-            );
+            revert ExceedsMaxComponentDeposit(component, depositAmount, IERC4626(component).maxDeposit(address(node)));
         }
 
         // Execute deposit and check correct shares received

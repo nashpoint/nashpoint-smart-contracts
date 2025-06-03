@@ -28,11 +28,11 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     event FulfilledRedeemRequest(address indexed node, address indexed component, uint256 assets);
 
     /* ERRORS */
-    error IncorrectRequestId(uint256 requestId);
     error InsufficientSharesReturned(address component, uint256 sharesReturned, uint256 expectedShares);
+    error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
     error ExceedsAvailableShares(address node, address component, uint256 shares);
     error ExceedsAvailableAssets(address node, address component, uint256 assets);
-    error InsufficientAssetsReturned(address component, uint256 assetsReturned, uint256 expectedAssets);
+    error IncorrectRequestId(uint256 requestId);
 
     /* CONSTRUCTOR */
     constructor(address registry_) BaseRouter(registry_) {
