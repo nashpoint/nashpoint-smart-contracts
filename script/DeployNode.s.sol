@@ -42,10 +42,12 @@ contract DeployTestEnv is Script {
     address constant farmUsdcCompoundV3Address = 0x7b33c028fdcd6425c60b7d2A1a54eC10bFdF14B8; // compound
     address constant farmUsdcAaveV3Address = 0x803Ae650Bc7c40b03Fe1C33F2a787E81f1c4819c; // aave
     address constant revertUsdcV3VaultAddress = 0x74E6AFeF5705BEb126C6d3Bf46f8fad8F3e07825; // revert
+    address constant cfgUsdcJTRSY = 0x16C796208c6E2d397Ec49D69D207a9cB7d072f04; // centrifuge
 
-    address constant factory = 0xBf748c4b72F295ec796BDE1209057F837ecc683c;
-    address constant quoter = 0x1EcCf86A82c4Cc13971c06CE8d8418a88a9Ab70A;
-    address constant router4626 = 0x3e6abee646A2160a7C8dF5e4e8bfA43F8D0b2Da1;
+    address constant factory = 0x23A665cc55a61E67CB21E3767A57166e8137BD07;
+    address constant quoter = 0x1Dee3b1aD836Da4b409905a74ebD94e4AFD90Cb5;
+    address constant router4626 = 0x35219B12B097Cd0d465c9030FA625a2FD73E8FB5;
+    address constant router7540 = 0xf324e3e5fC7deb011d54c4AF1A558A90e1Af5e00;
 
     uint256 privateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
     address hotWallet = vm.envAddress("METAMASK_HOT_WALLET");
@@ -54,23 +56,70 @@ contract DeployTestEnv is Script {
         SALT = bytes32(abi.encodePacked(block.timestamp));
         uint64 targetReserveRatio = 0.1 ether;
 
-        address[] memory addresses = _toArraySix(
-            yUsdcaAddress,
-            fUsdcAddress,
-            sdUSDCV3Address,
-            farmUsdcCompoundV3Address,
+        address[] memory addresses = _toArraySix(            
             farmUsdcAaveV3Address,
-            revertUsdcV3VaultAddress
+            farmUsdcCompoundV3Address,            
+            fUsdcAddress,
+            sdUSDCV3Address,            
+            revertUsdcV3VaultAddress,
+            cfgUsdcJTRSY
         );
 
-        ComponentAllocation[] memory componentAllocations =
-            _setEvenComponentAllocations(targetReserveRatio, uint64(addresses.length), 0.01 ether);
+        ComponentAllocation[] memory componentAllocations = new ComponentAllocation[](6);
+
+        // farmUsdcAaveV3Address
+        componentAllocations[0] = ComponentAllocation({
+            targetWeight: 0.2 ether,
+            maxDelta: 0.01 ether,
+            router: address(router4626),
+            isComponent: true
+        });
+
+        // farmUsdcCompoundV3Address
+        componentAllocations[1] = ComponentAllocation({
+            targetWeight: 0.15 ether,
+            maxDelta: 0.01 ether,
+            router: address(router4626),
+            isComponent: true
+        });
+
+        // fUsdcAddress
+        componentAllocations[2] = ComponentAllocation({
+            targetWeight: 0.15 ether,
+            maxDelta: 0.01 ether,
+            router: address(router4626),
+            isComponent: true
+        });
+
+        // sdUSDCV3Address
+        componentAllocations[3] = ComponentAllocation({
+            targetWeight: 0.15 ether,
+            maxDelta: 0.01 ether,
+            router: address(router4626),
+            isComponent: true
+        });
+
+        // revertUsdcV3VaultAddress
+        componentAllocations[4] = ComponentAllocation({
+            targetWeight: 0.15 ether,
+            maxDelta: 0.01 ether,
+            router: address(router4626),
+            isComponent: true
+        });
+
+        // cfgUsdcJTRSY
+        componentAllocations[5] = ComponentAllocation({
+            targetWeight: 0.1 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
 
         vm.startBroadcast();
 
         INodeFactory(factory).deployFullNode(
-            "USDC Node",
-            "nUSDC",
+            "TEST NODE",
+            "tNODE",
             usdc,
             hotWallet,
             addresses,
