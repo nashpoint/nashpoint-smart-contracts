@@ -29,4 +29,4 @@ jobs:
         id: fmt
 
       - name: Run tests
-        run: forge test --vv
+        run: forge test -vv
