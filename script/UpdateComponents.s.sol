@@ -23,14 +23,14 @@ contract UpdateComponents is Script {
     function run() external {
         uint256 privateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(privateKey);
-        
+
         console2.log("Updating component allocations for Node:", deployedNodeAddress);
         console2.log("Using deployer address:", deployer);
 
         vm.startBroadcast(privateKey);
 
         // Update component allocations
-        liveNode.updateComponentAllocation(farmUsdcAaveV3Address, 0.1000 ether, 0.01 ether, deployedRouter4626);
+        liveNode.updateComponentAllocation(farmUsdcAaveV3Address, 0.1 ether, 0.01 ether, deployedRouter4626);
         console2.log("Updated Harvest (Aave) allocation to 10.00%");
 
         liveNode.updateComponentAllocation(cfgUsdcJTRSY, 0.2043 ether, 0.01 ether, deployedRouter7540);
