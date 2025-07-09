@@ -56,11 +56,11 @@ contract DeployTestEnv is Script {
         SALT = bytes32(abi.encodePacked(block.timestamp));
         uint64 targetReserveRatio = 0.1 ether;
 
-        address[] memory addresses = _toArraySix(            
+        address[] memory addresses = _toArraySix(
             farmUsdcAaveV3Address,
-            farmUsdcCompoundV3Address,            
+            farmUsdcCompoundV3Address,
             fUsdcAddress,
-            sdUSDCV3Address,            
+            sdUSDCV3Address,
             revertUsdcV3VaultAddress,
             cfgUsdcJTRSY
         );
