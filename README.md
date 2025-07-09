@@ -82,6 +82,26 @@ Install dependencies:
 forge install openzeppelin/openzeppelin-contracts@v5.2.0 paulrberg/prb-math@v4.1.0 --no-commit
 ```
 
+Install pre-commit:
+
+- On MacOS
+
+```
+brew install pre-commit
+```
+
+- Using pip
+
+```
+pip install pre-commit
+```
+
+and activate it:
+
+```
+pre-commit install
+```
+
 #### Building
 Compile the contracts:
 ```
