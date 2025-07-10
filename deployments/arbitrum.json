@@ -1,0 +1,13 @@
+{
+    "QuoterV1": "0x23d933b27E73e949453156A1A31c18633A81411a",
+    "NodeRegistry": "0xc3d09B30a04BEBb2D942e060de4B4197e94296f7",
+    "NodeFactory": "0x60fEd0751f5B3aA4a904FFA5728b4aEfb990dD72",
+    "Nodes": {
+        "RWAFI": {
+            "Node": "0x6ca200319A0D4127a7a473d6891B86f34e312F42",
+            "Escrow": "0xFEcAb9770B952eb373e627Befc82Fe03298c2062"
+        }
+    },
+    "ERC4626Router": "0x7124a7DF6D804FCba0B0A06fF63a0cC831c6b0e6",
+    "ERC7540Router": "0x6a200b1Bafc7183741809B35E1B0DE9E4f4c0828"
+}
