@@ -28,7 +28,7 @@ jobs:
         run: lcov --extract lcov.info "src/*" --output-file lcov_clean.info --ignore-errors inconsistent
 
       - name: Generate HTML coverage report
-        run: genhtml -o coverage_html lcov_clean.info --ignore-errors inconsistent
+        run: genhtml -o coverage_html lcov_clean.info --ignore-errors inconsistent --prefix=$(pwd)
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4
