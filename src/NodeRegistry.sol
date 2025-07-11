@@ -35,12 +35,11 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     /* EXTERNAL */
-    /// @inheritdoc INodeRegistry
     function initialize(
-        address[] calldata factories_,
-        address[] calldata routers_,
-        address[] calldata quoters_,
-        address[] calldata rebalancers_,
+        address[] memory factories_,
+        address[] memory routers_,
+        address[] memory quoters_,
+        address[] memory rebalancers_,
         address feeAddress_,
         uint64 managementFee_,
         uint64 executionFee_,
@@ -108,7 +107,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
 
     /* INTERNAL */
 
-    function _initializeRoles(address[] calldata addrs, RegistryType role) internal {
+    function _initializeRoles(address[] memory addrs, RegistryType role) internal {
         for (uint256 i = 0; i < addrs.length; i++) {
             if (addrs[i] == address(0)) revert ErrorsLib.ZeroAddress();
             roles[addrs[i]][role] = true;
