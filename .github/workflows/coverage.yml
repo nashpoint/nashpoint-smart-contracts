@@ -25,7 +25,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y lcov
 
       - name: Filter out everything except src folder
-        run: lcov --extract lcov.info "src/*" --output-file lcov_clean.info --ignore-errors inconsistent
+        run: lcov --extract lcov.info "$(pwd)/src/*" --output-file lcov_clean.info --ignore-errors inconsistent
 
       - name: Generate HTML coverage report
         run: genhtml -o coverage_html lcov_clean.info --ignore-errors inconsistent --prefix=$(pwd)
