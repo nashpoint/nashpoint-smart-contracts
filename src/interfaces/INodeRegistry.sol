@@ -24,10 +24,10 @@ interface INodeRegistry {
      * @param rebalancers_ Array of rebalancer addresses to initialize
      */
     function initialize(
-        address[] calldata factories_,
-        address[] calldata routers_,
-        address[] calldata quoters_,
-        address[] calldata rebalancers_,
+        address[] memory factories_,
+        address[] memory routers_,
+        address[] memory quoters_,
+        address[] memory rebalancers_,
         address feeAddress_,
         uint64 managementFee_,
         uint64 executionFee_,
