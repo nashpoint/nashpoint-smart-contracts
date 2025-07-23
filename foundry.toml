@@ -20,3 +20,6 @@ via-ir = true
 [fuzz]
 runs = 10
 
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" } 
+
