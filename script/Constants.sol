@@ -1,0 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.28;
+
+address constant PROTOCOL_OWNER = 0x69C2d63BC4Fcd16CD616D22089B58de3796E1F5c;
+address constant RWAFI_OWNER = 0x8d1A519326724b18A6F5877a082aae19394D0f67;

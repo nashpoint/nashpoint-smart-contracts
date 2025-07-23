@@ -9,5 +9,6 @@
         }
     },
     "ERC4626Router": "0x7124a7DF6D804FCba0B0A06fF63a0cC831c6b0e6",
-    "ERC7540Router": "0x6a200b1Bafc7183741809B35E1B0DE9E4f4c0828"
+    "ERC7540Router": "0x6a200b1Bafc7183741809B35E1B0DE9E4f4c0828",
+    "ProxyAdmin": "0xca28ca01bba5d72eabb46a48caf46c3055ae9f4b"
 }
