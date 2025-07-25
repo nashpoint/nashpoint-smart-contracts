@@ -55,8 +55,6 @@ contract AaveVault is Test {
         vm.startPrank(RWAFI_OWNER);
         // set aave vault with the same config as harvest
         rwafi.addComponent(AAVE_VAULT, cH.targetWeight + cG.targetWeight, cH.maxDelta, cH.router);
-        // harvest is set to zero
-        rwafi.updateComponentAllocation(AAVE_HARVEST, 0, 0, cH.router);
         // owner allows to rebalance itself
         rwafi.addRebalancer(RWAFI_OWNER);
         // increase rebalancing window to do reallocation
@@ -91,5 +89,6 @@ contract AaveVault is Test {
         vm.stopPrank();
 
         assertEq(balanceAfter, balanceBefore);
+        assertTrue(rwafi.validateComponentRatios());
     }
 }
