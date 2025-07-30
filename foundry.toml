@@ -9,6 +9,11 @@ optimizer = true
 optimizer-runs = 200
 via-ir = false
 
+ffi = true
+fs_permissions = [
+  { access = "read", path = "./deployments" }
+]
+
 [profile.deploy]
 evm_version = "cancun"
 solc = "0.8.28"
