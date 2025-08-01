@@ -1,49 +1,56 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {console} from "forge-std/console.sol";
+import {Test} from "forge-std/Test.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 
 import {MerklRouter} from "src/routers/MerklRouter.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 
 import {IMerklDistributor} from "src/interfaces/IMerklDistributor.sol";
-import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
+import {INode} from "src/interfaces/INode.sol";
+import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
 
-import {BaseTest} from "test/BaseTest.sol";
-
-contract MerklRouterTest is BaseTest {
-    bytes32 mockRoot = 0x4d8e6cef729b576d577e6dd40383ab461472b2d477302b4dbf910cbc6c429a79;
-    bytes32[][] nodeProof = [[bytes32(0xc329c5302d76bcadef989a9b0f28504575c95e9dc247f8996ad8e77c3516db3f)]];
-    bytes32[][] userProof = [[bytes32(0xcd4d844b9a99cec07647b40f587c042921a4a390adbbd9e49a742d076ce094ba)]];
+contract MerklRouterTest is Test {
+    bytes32 mockRoot = 0xd7200a1a96be8339675248229d31a058bf36dd9de5e35e0121e67ed450c3ef70;
+    bytes32[][] nodeProof = [[bytes32(0x0bc553d11c9227090608e994aa16037932e9514339fb2d383df609703c10d087)]];
+    bytes32[][] userProof = [[bytes32(0x16282b5a8ebfc3908febe125027aeabefde42d14f6872d2853164ce4b16a242d)]];
     uint256 nodeAmount = 1300000000;
     uint256 userAmount = 700000000;
+
+    INode node = INode(0x6ca200319A0D4127a7a473d6891B86f34e312F42);
+    address protocolOwner = 0x69C2d63BC4Fcd16CD616D22089B58de3796E1F5c;
+    address nodeOwner = 0x8d1A519326724b18A6F5877a082aae19394D0f67;
+
+    address user = address(0x1234);
 
     MerklRouter merklRouter;
     IMerklDistributor distributor;
 
-    function setUp() public override {
+    function setUp() external {
         string memory ARBITRUM_RPC_URL = vm.envString("ARBITRUM_RPC_URL");
         uint256 arbitrumFork = vm.createFork(ARBITRUM_RPC_URL, 362881136);
         vm.selectFork(arbitrumFork);
-        super.setUp();
+
+        deal(user, 1 ether);
+
+        INodeRegistry registry = INodeRegistry(node.registry());
 
         merklRouter = new MerklRouter(address(registry));
         distributor = IMerklDistributor(merklRouter.distributor());
 
-        vm.startPrank(owner);
+        vm.prank(protocolOwner);
         registry.setRegistryType(address(merklRouter), RegistryType.ROUTER, true);
+
+        vm.prank(nodeOwner);
         node.addRouter(address(merklRouter));
-        vm.stopPrank();
 
         // warp forward to ensure not rebalancing
         vm.warp(block.timestamp + 1 days);
     }
 
     function test_claim() external {
-        assertEq(address(node), 0x10B1bA5AfB39786747ca55797509d0AA9e0774C6);
-        assertEq(user, 0x6CA6d1e2D5347Bfab1d91e883F1915560e09129D);
         // make sure those things match
         assertEq(distributor.tree().merkleRoot, distributor.getMerkleRoot());
 
@@ -53,7 +60,6 @@ contract MerklRouterTest is BaseTest {
         assertEq(distributor.getMerkleRoot(), mockRoot);
 
         IERC20Metadata underlying = IERC20Metadata(node.asset());
-        assertEq(address(underlying), 0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
         deal(address(underlying), address(distributor), 100_000e6);
 
         uint256 merklUnderlyingBalanceBefore = underlying.balanceOf(address(distributor));
@@ -81,7 +87,7 @@ contract MerklRouterTest is BaseTest {
         // test MerklRouter claiming to the Node itself
         {
             uint256 nodeBalanceBefore = underlying.balanceOf(address(node));
-            vm.startPrank(rebalancer);
+            vm.startPrank(nodeOwner);
             node.startRebalance();
 
             uint256[] memory amounts = new uint256[](1);
@@ -155,14 +161,14 @@ contract MerklRouterTest is BaseTest {
 // }
 
 // const node = leafHash(
-//     '0x10B1bA5AfB39786747ca55797509d0AA9e0774C6',
-//     '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+//     '0x6ca200319A0D4127a7a473d6891B86f34e312F42',
+//     '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
 //     1300000000n,
 // );
 
 // const user = leafHash(
-//     '0x6CA6d1e2D5347Bfab1d91e883F1915560e09129D',
-//     '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+//     '0x0000000000000000000000000000000000001234',
+//     '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
 //     700000000n,
 // );
 
