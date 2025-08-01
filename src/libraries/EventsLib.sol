@@ -108,4 +108,7 @@ library EventsLib {
 
     /// @notice Emitted when tokens are rescued from the node
     event RescueTokens(address token, address recipient, uint256 amount);
+
+    /// @notice Emitted when tokens are claimed from Merkl
+    event MerklRewardsClaimed(address indexed node, address[] tokens, uint256[] amounts);
 }
