@@ -45,7 +45,7 @@ contract BaseTest is Test {
     address public randomUser;
     address public rebalancer;
     address public vaultSeeder;
-    address public testPoolManager;
+    address internal testPoolManager;
     address public protocolFeesAddress;
     uint256 public constant INITIAL_BALANCE = 1_000_000 ether;
     bytes32 public constant SALT = bytes32(uint256(1));
