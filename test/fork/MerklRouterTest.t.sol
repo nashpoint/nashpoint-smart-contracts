@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 
 import {MerklRouter} from "src/routers/MerklRouter.sol";
-import {EventsLib} from "src/libraries/EventsLib.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
 import {IMerklDistributor} from "src/interfaces/IMerklDistributor.sol";
 import {INode} from "src/interfaces/INode.sol";
@@ -50,7 +50,19 @@ contract MerklRouterTest is Test {
         vm.warp(block.timestamp + 1 days);
     }
 
-    function test_claim() external {
+    function test_claim_fail_not_node() external {
+        vm.prank(protocolOwner);
+        vm.expectRevert(ErrorsLib.InvalidNode.selector);
+        merklRouter.claim(address(0x98), new address[](0), new uint256[](0), new bytes32[][](0));
+    }
+
+    function test_claim_fail_not_rebalancer() external {
+        vm.prank(protocolOwner);
+        vm.expectRevert(ErrorsLib.NotRebalancer.selector);
+        merklRouter.claim(address(node), new address[](0), new uint256[](0), new bytes32[][](0));
+    }
+
+    function test_claim_success() external {
         // make sure those things match
         assertEq(distributor.tree().merkleRoot, distributor.getMerkleRoot());
 
@@ -94,7 +106,7 @@ contract MerklRouterTest is Test {
             amounts[0] = nodeAmount;
 
             vm.expectEmit(true, true, true, true);
-            emit EventsLib.MerklRewardsClaimed(address(node), tokens, amounts);
+            emit MerklRouter.MerklRewardsClaimed(address(node), tokens, amounts);
             merklRouter.claim(address(node), tokens, amounts, nodeProof);
 
             uint256 nodeBalanceAfter = underlying.balanceOf(address(node));

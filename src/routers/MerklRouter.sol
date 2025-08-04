@@ -8,7 +8,6 @@ import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {IMerklDistributor} from "src/interfaces/IMerklDistributor.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
-import {EventsLib} from "src/libraries/EventsLib.sol";
 
 contract MerklRouter is ReentrancyGuard {
     /* IMMUTABLES */
@@ -18,6 +17,10 @@ contract MerklRouter is ReentrancyGuard {
 
     /// @notice The address of the NodeRegistry
     INodeRegistry public immutable registry;
+
+    /* EVENTS */
+    /// @notice Emitted when tokens are claimed from Merkl
+    event MerklRewardsClaimed(address indexed node, address[] tokens, uint256[] amounts);
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
@@ -49,6 +52,6 @@ contract MerklRouter is ReentrancyGuard {
         }
         INode(node).execute(distributor, abi.encodeCall(IMerklDistributor.claim, (users, tokens, amounts, proofs)));
 
-        emit EventsLib.MerklRewardsClaimed(node, tokens, amounts);
+        emit MerklRewardsClaimed(node, tokens, amounts);
     }
 }
