@@ -17,6 +17,14 @@ abstract contract ERC4626BaseTest is BaseTest {
     // overwrite to setup the testing of arbitrary ERC4626 component
     function _setupErc4626Test() internal virtual {}
 
+    // overwrite to alter some state after increasing block.timestamp
+    function _warpHook() internal virtual {}
+
+    function _warp(uint256 time) internal {
+        vm.warp(block.timestamp + time);
+        _warpHook();
+    }
+
     function setUp() public override {
         string memory ARBITRUM_RPC_URL = vm.envString("ARBITRUM_RPC_URL");
         arbitrumFork = vm.createFork(ARBITRUM_RPC_URL, blockNumber);
@@ -25,7 +33,7 @@ abstract contract ERC4626BaseTest is BaseTest {
         _setupErc4626Test();
 
         // warp forward to ensure not rebalancing
-        vm.warp(block.timestamp + 1 days);
+        _warp(1 days);
 
         vm.startPrank(owner);
         // remove mock ERC4626 vault
@@ -101,7 +109,7 @@ abstract contract ERC4626BaseTest is BaseTest {
         router4626.invest(address(node), address(erc4626Vault), 0);
         vm.stopPrank();
 
-        vm.warp(block.timestamp + 16 weeks);
+        _warp(16 weeks);
 
         uint256 userShares = node.balanceOf(address(user));
 
@@ -140,7 +148,7 @@ abstract contract ERC4626BaseTest is BaseTest {
         router4626.invest(address(node), address(erc4626Vault), 0);
         vm.stopPrank();
 
-        vm.warp(block.timestamp + 16 weeks);
+        _warp(16 weeks);
 
         // user make a redeem request
         vm.startPrank(user);
