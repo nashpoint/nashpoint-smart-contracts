@@ -23,7 +23,7 @@ jobs:
           echo "ARBITRUM_RPC_URL=${{ secrets.ARBITRUM_RPC_URL }}" >> $GITHUB_ENV
 
       - name: Run coverage
-        run: forge coverage --report lcov --no-match-contract "(EthereumForkTest|ArbitrumForkTest|MorphoVaultForTest|SiloVaultForkTest|EulerVaultForTest|DolomiteForkTest)"
+        run: forge coverage --report lcov --no-match-contract "(EthereumForkTest|ArbitrumForkTest|MorphoVaultForTest|SiloVaultForkTest|EulerVaultForTest|DolomiteForkTest|OneInchV6RouterTest)"
 
       - name: Install lcov
         run: sudo apt-get update && sudo apt-get install -y lcov
