@@ -7,7 +7,7 @@ import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/interfaces/IE
 import {MerklRouter} from "src/routers/MerklRouter.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
-import {IMerklDistributor} from "src/interfaces/IMerklDistributor.sol";
+import {IMerklDistributor} from "src/interfaces/external/IMerklDistributor.sol";
 import {INode} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
