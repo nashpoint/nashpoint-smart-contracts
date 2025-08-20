@@ -11,6 +11,8 @@ interface IFluidDistributor {
     error NothingToClaim();
     error MsgSenderNotRecipient();
 
+    function claimed(address user, bytes32 positionId) external view returns (uint256);
+
     function claim(
         address recipient_,
         uint256 cumulativeAmount_,
