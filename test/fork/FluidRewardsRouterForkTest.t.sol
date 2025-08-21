@@ -57,7 +57,12 @@ contract FluidRewardsRouterForkTest is Test {
         proof[12] = 0xe15dfe8689eb1e01ccb5e563a054304ea019a3536976f75c9c6ca32d716c7926;
     }
 
-    function test_fluidRewardsRouterDeployment() external view {
+    function test_revert_deploy_zero_address_distributor() external {
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        new FluidRewardsRouter(address(registry), address(0));
+    }
+
+    function test_deploy_success() external view {
         assertEq(fluidRewardsRouter.distributor(), fluidDistributor);
         assertEq(address(fluidRewardsRouter.registry()), address(registry));
     }

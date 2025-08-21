@@ -66,20 +66,27 @@ contract IncentraRouterForkTest is Test {
         return campaignRewards;
     }
 
-    function test_incentraRouterDeployment() external view {
+    function test_revert_deploy_zero_address_distributor() external {
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        new IncentraRouter(address(registry), address(0));
+    }
+
+    function test_deploy_success() external view {
         assertEq(incentraRouter.distributor(), incentraDistributor);
         assertEq(address(incentraRouter.registry()), address(registry));
     }
 
-    function test_claim_revert() external {
-        vm.startPrank(randomUser);
-        vm.expectRevert(ErrorsLib.NotRebalancer.selector);
-        incentraRouter.claim(address(node), new address[](0), _payload());
-        vm.stopPrank();
-
+    function test_claim_fail_not_node() external {
         vm.startPrank(rebalancer);
         vm.expectRevert(ErrorsLib.InvalidNode.selector);
         incentraRouter.claim(randomUser, new address[](0), _payload());
+        vm.stopPrank();
+    }
+
+    function test_claim_fail_not_rebalancer() external {
+        vm.startPrank(randomUser);
+        vm.expectRevert(ErrorsLib.NotRebalancer.selector);
+        incentraRouter.claim(address(node), new address[](0), _payload());
         vm.stopPrank();
     }
 

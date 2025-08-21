@@ -12,10 +12,10 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 
 /**
- * @title ComponentRouter
+ * @title BaseComponentRouter
  * @author ODND Studios
  */
-abstract contract ComponentRouter is IRouter, RegistryAccessControl {
+abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     /* IMMUTABLES */
     uint256 constant WAD = 1e18;
 
