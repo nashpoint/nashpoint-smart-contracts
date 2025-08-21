@@ -21,6 +21,8 @@ interface IIncentraDistributor {
 }
 
 interface IRewardContract {
+    // NOTE: Incentra doesn't use custom errors - possible reverts will be easily debugged
+
     // claim same-chain rewards, send rewards token to earner
     function claim(address earner) external;
 
