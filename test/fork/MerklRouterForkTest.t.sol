@@ -12,7 +12,7 @@ import {INode} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
 
-contract MerklRouterTest is Test {
+contract MerklRouterForkTest is Test {
     bytes32 mockRoot = 0xd7200a1a96be8339675248229d31a058bf36dd9de5e35e0121e67ed450c3ef70;
     bytes32[][] nodeProof = [[bytes32(0x0bc553d11c9227090608e994aa16037932e9514339fb2d383df609703c10d087)]];
     bytes32[][] userProof = [[bytes32(0x16282b5a8ebfc3908febe125027aeabefde42d14f6872d2853164ce4b16a242d)]];

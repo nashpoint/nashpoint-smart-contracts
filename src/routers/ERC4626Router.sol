@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {BaseRouter} from "../libraries/BaseRouter.sol";
+import {ComponentRouter} from "../libraries/ComponentRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -12,7 +12,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * @title ERC4626Router
  * @author ODND Studios
  */
-contract ERC4626Router is BaseRouter, ReentrancyGuard {
+contract ERC4626Router is ComponentRouter, ReentrancyGuard {
     /* EVENTS */
     event InvestedInComponent(address indexed node, address indexed component, uint256 assets);
     event LiquidatedFromComponent(address indexed node, address indexed component, uint256 assets);
@@ -25,7 +25,7 @@ contract ERC4626Router is BaseRouter, ReentrancyGuard {
     error InvalidShareValue(address component, uint256 shares);
 
     /* CONSTRUCTOR */
-    constructor(address registry_) BaseRouter(registry_) {
+    constructor(address registry_) ComponentRouter(registry_) {
         tolerance = 1;
     }
 

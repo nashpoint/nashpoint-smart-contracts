@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {BaseRouter} from "../libraries/BaseRouter.sol";
+import {ComponentRouter} from "../libraries/ComponentRouter.sol";
 import {INode} from "../interfaces/INode.sol";
 import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
 
@@ -17,7 +17,7 @@ import {MathLib} from "../libraries/MathLib.sol";
  * @title ERC7540Router
  * @author ODND Studios
  */
-contract ERC7540Router is BaseRouter, ReentrancyGuard {
+contract ERC7540Router is ComponentRouter, ReentrancyGuard {
     uint256 internal constant REQUEST_ID = 0;
 
     /* EVENTS */
@@ -35,7 +35,7 @@ contract ERC7540Router is BaseRouter, ReentrancyGuard {
     error IncorrectRequestId(uint256 requestId);
 
     /* CONSTRUCTOR */
-    constructor(address registry_) BaseRouter(registry_) {
+    constructor(address registry_) ComponentRouter(registry_) {
         tolerance = 1;
     }
 

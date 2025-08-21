@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import {console2} from "forge-std/Test.sol";
 import {BaseTest} from "../../BaseTest.sol";
 
-import {BaseRouter} from "src/libraries/BaseRouter.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
