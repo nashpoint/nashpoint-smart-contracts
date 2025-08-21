@@ -1,25 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
-import {IRouter} from "../interfaces/IRouter.sol";
-import {INode} from "../interfaces/INode.sol";
-import {INodeRegistry} from "../interfaces/INodeRegistry.sol";
-import {MathLib} from "./MathLib.sol";
-import {ErrorsLib} from "./ErrorsLib.sol";
-import {EventsLib} from "./EventsLib.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import {IRouter} from "src/interfaces/IRouter.sol";
+import {INode} from "src/interfaces/INode.sol";
+import {MathLib} from "src/libraries/MathLib.sol";
+import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
+import {EventsLib} from "src/libraries/EventsLib.sol";
 
 /**
- * @title BaseRouter
+ * @title BaseComponentRouter
  * @author ODND Studios
  */
-abstract contract BaseRouter is IRouter {
+abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     /* IMMUTABLES */
-    /// @notice The address of the NodeRegistry
-    INodeRegistry public immutable registry;
-    uint256 immutable WAD = 1e18;
+    uint256 constant WAD = 1e18;
 
     /* STORAGE */
     /// @notice Mapping of whitelisted component addresses
@@ -34,39 +32,7 @@ abstract contract BaseRouter is IRouter {
     uint256 public tolerance;
 
     /* CONSTRUCTOR */
-    constructor(address registry_) {
-        if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
-        registry = INodeRegistry(registry_);
-    }
-
-    /* MODIFIERS */
-    /// @dev Reverts if the caller is not a rebalancer for the node
-    modifier onlyNodeRebalancer(address node) {
-        if (!registry.isNode(node)) revert ErrorsLib.InvalidNode();
-        if (!INode(node).isRebalancer(msg.sender)) revert ErrorsLib.NotRebalancer();
-        _;
-    }
-
-    /// @dev Reverts if the caller is not a valid node
-    modifier onlyNode() {
-        if (!registry.isNode(msg.sender)) revert ErrorsLib.InvalidNode();
-        _;
-    }
-
-    /// @dev Reverts if the caller is not the registry owner
-    modifier onlyRegistryOwner() {
-        if (msg.sender != Ownable(address(registry)).owner()) revert ErrorsLib.NotRegistryOwner();
-        _;
-    }
-
-    /// @dev Reverts if the component is not a valid component on the node
-    modifier onlyNodeComponent(address node, address component) {
-        // Validate component is part of the node
-        if (!INode(node).isComponent(component)) {
-            revert ErrorsLib.InvalidComponent();
-        }
-        _;
-    }
+    constructor(address registry_) RegistryAccessControl(registry_) {}
 
     /*//////////////////////////////////////////////////////////////
                          REGISTRY OWNER FUNCTIONS

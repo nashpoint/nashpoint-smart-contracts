@@ -4,37 +4,21 @@ pragma solidity 0.8.28;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {INode} from "src/interfaces/INode.sol";
-import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
-import {IMerklDistributor} from "src/interfaces/IMerklDistributor.sol";
-
+import {IMerklDistributor} from "src/interfaces/external/IMerklDistributor.sol";
+import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
-contract MerklRouter is ReentrancyGuard {
+contract MerklRouter is ReentrancyGuard, RegistryAccessControl {
     /* IMMUTABLES */
-
     /// @notice The address of the Merkl Distributor
     address public constant distributor = 0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae;
-
-    /// @notice The address of the NodeRegistry
-    INodeRegistry public immutable registry;
 
     /* EVENTS */
     /// @notice Emitted when tokens are claimed from Merkl
     event MerklRewardsClaimed(address indexed node, address[] tokens, uint256[] amounts);
 
     /* CONSTRUCTOR */
-    constructor(address registry_) {
-        if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
-        registry = INodeRegistry(registry_);
-    }
-
-    /* MODIFIERS */
-    /// @dev Reverts if the caller is not a rebalancer for the node
-    modifier onlyNodeRebalancer(address node) {
-        if (!registry.isNode(node)) revert ErrorsLib.InvalidNode();
-        if (!INode(node).isRebalancer(msg.sender)) revert ErrorsLib.NotRebalancer();
-        _;
-    }
+    constructor(address registry_) RegistryAccessControl(registry_) {}
 
     /* FUNCTIONS */
     /// @notice Claims rewards from Merkl

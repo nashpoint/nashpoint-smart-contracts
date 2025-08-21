@@ -3,7 +3,6 @@ pragma solidity 0.8.28;
 
 import {BaseTest} from "../../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
-import {BaseRouter} from "src/libraries/BaseRouter.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ComponentAllocation} from "src/interfaces/INode.sol";
