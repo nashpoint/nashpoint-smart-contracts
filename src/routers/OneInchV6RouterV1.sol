@@ -7,10 +7,10 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 
 import {INode} from "src/interfaces/INode.sol";
 import {IAggregationRouterV6} from "src/interfaces/IAggregationRouterV6.sol";
-import {BaseRouter} from "src/libraries/BaseRouter.sol";
+import {BaseComponentRouter} from "src/libraries/BaseComponentRouter.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
-contract OneInchV6Router is BaseRouter, ReentrancyGuard {
+contract OneInchV6RouterV1 is BaseComponentRouter, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /* IMMUTABLES */
@@ -20,11 +20,22 @@ contract OneInchV6Router is BaseRouter, ReentrancyGuard {
 
     /* EVENTS */
 
-    // TODO:
+    /// @notice Emitted when an incentive token is whitelisted or blacklisted
+    /// @param incentive The address of the incentive token
+    /// @param status True if whitelisted, false if blacklisted
     event IncentiveWhitelisted(address indexed incentive, bool status);
+
+    /// @notice Emitted when an executor address is whitelisted or blacklisted
+    /// @param executor The address of the executor
+    /// @param status True if whitelisted, false if blacklisted
     event ExecutorWhitelisted(address indexed executor, bool status);
 
-    /// @notice Emitted when incentive is swapped into underlying token
+    /// @notice Emitted when incentive tokens are successfully swapped into underlying assets
+    /// @param node The address of the node that performed the swap
+    /// @param incentive The address of the incentive token that was swapped
+    /// @param incentiveAmount The amount of incentive tokens that were swapped
+    /// @param assetAmount The amount of underlying assets received from the swap
+    /// @param assetAmountAfterFee The amount of underlying assets after execution fees are deducted
     event Compounded(
         address indexed node,
         address indexed incentive,
@@ -35,25 +46,36 @@ contract OneInchV6Router is BaseRouter, ReentrancyGuard {
 
     /* Errors */
 
-    // TODO:
+    /// @notice Thrown when the executor is not whitelisted
     error ExecutorNotWhitelisted();
+
+    /// @notice Thrown when the incentive token is not whitelisted
     error IncentiveNotWhitelisted();
+
+    /// @notice Thrown when the incentive token is the same as the node's asset
     error IncentiveIsAsset();
+
+    /// @notice Thrown when the incentive token is a component of the node
     error IncentiveIsComponent();
+
+    /// @notice Thrown when the swap operation doesn't spend the full incentive amount
     error IncentiveIncompleteSwap();
+
+    /// @notice Thrown when the node doesn't have sufficient incentive tokens
     error IncentiveInsufficientAmount();
 
     /* STORAGE */
 
-    // TODO:
+    /// @notice Mapping to track whitelisted incentive tokens
+    /// @dev incentive address => whitelist status
     mapping(address => bool) isIncentiveWhitelisted;
+
+    /// @notice Mapping to track whitelisted executor addresses
+    /// @dev executor address => whitelist status
     mapping(address => bool) isExecutorWhitelisted;
 
     /* CONSTRUCTOR */
-    constructor(address registry_) BaseRouter(registry_) {
-        // TODO:
-        tolerance = 1;
-    }
+    constructor(address registry_) BaseComponentRouter(registry_) {}
 
     /* FUNCTIONS */
 
@@ -76,9 +98,16 @@ contract OneInchV6Router is BaseRouter, ReentrancyGuard {
     function setExecutorWhitelistStatus(address executor, bool status) external onlyRegistryOwner {
         if (executor == address(0)) revert ErrorsLib.ZeroAddress();
         isExecutorWhitelisted[executor] = status;
-        emit IncentiveWhitelisted(executor, status);
+        emit ExecutorWhitelisted(executor, status);
     }
 
+    /// @notice Swaps incentive tokens to underlying assets using 1inch Aggregation Router v6
+    /// @param node The address of the node contract
+    /// @param incentive The address of the incentive token to swap
+    /// @param incentiveAmount The amount of incentive tokens to swap
+    /// @param minAssetsOut The minimum amount of assets to receive from the swap
+    /// @param executor The address of the executor that will receive the incentive tokens
+    /// @param swapCalldata The calldata for the 1inch swap operation
     function swap(
         address node,
         address incentive,
@@ -94,8 +123,6 @@ contract OneInchV6Router is BaseRouter, ReentrancyGuard {
         require(isIncentiveWhitelisted[incentive], IncentiveNotWhitelisted());
         require(isExecutorWhitelisted[executor], ExecutorNotWhitelisted());
         require(IERC20(incentive).balanceOf(node) >= incentiveAmount, IncentiveInsufficientAmount());
-
-        _validateAmounts(incentive, incentiveAmount, asset, minAssetsOut);
 
         // approve spending incentive by 1inch router
         _safeApprove(node, incentive, ONE_INCH_AGGREGATION_ROUTER_V6, incentiveAmount);
@@ -121,16 +148,8 @@ contract OneInchV6Router is BaseRouter, ReentrancyGuard {
         (uint256 returnAmount, uint256 spentAmount) = abi.decode(result, (uint256, uint256));
         require(spentAmount == incentiveAmount, IncentiveIncompleteSwap());
 
-        // TODO: is it possible to updateTotalAssets before subtracting the fee?
-
         uint256 returnAmountAfterFee = _subtractExecutionFee(returnAmount, node);
 
         emit Compounded(node, incentive, incentiveAmount, returnAmount, returnAmountAfterFee);
     }
-
-    // TODO: convert to USD and using the tolerance check acceptable deviation
-    // can revert
-    function _validateAmounts(address incentive, uint256 incentiveAmount, address asset, uint256 assetAmount)
-        internal
-    {}
 }

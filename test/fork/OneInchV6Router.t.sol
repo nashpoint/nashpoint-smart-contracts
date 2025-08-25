@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {OneInchV6Router} from "src/routers/OneInchV6Router.sol";
+import {OneInchV6RouterV1} from "src/routers/OneInchV6RouterV1.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
 
@@ -11,8 +11,8 @@ import {BaseTest} from "test/BaseTest.sol";
 
 import {console} from "forge-std/console.sol";
 
-contract OneInchV6RouterTest is BaseTest {
-    OneInchV6Router oneInchRouter;
+contract OneInchV6RouterV1Test is BaseTest {
+    OneInchV6RouterV1 oneInchRouter;
 
     // https://arbiscan.io/tx/0x379b2163be1da23a064e7b7f941766384e6195379baf494dd047a934a5f36dee
     // ARB
@@ -29,7 +29,7 @@ contract OneInchV6RouterTest is BaseTest {
         vm.createSelectFork(ARBITRUM_RPC_URL, 368629098);
         super.setUp();
 
-        oneInchRouter = new OneInchV6Router(address(registry));
+        oneInchRouter = new OneInchV6RouterV1(address(registry));
         // whitelist oneInchRouter
         vm.startPrank(owner);
         registry.setRegistryType(address(oneInchRouter), RegistryType.ROUTER, true);
@@ -58,19 +58,19 @@ contract OneInchV6RouterTest is BaseTest {
 
     // function test_swap_fail_forbidden_to_swap_underlying() external {
     //     vm.startPrank(rebalancer);
-    //     vm.expectRevert(OneInchV6Router.ForbiddenToSwap.selector);
+    //     vm.expectRevert(OneInchV6RouterV1.ForbiddenToSwap.selector);
     //     oneInchRouter.swap(address(node), address(asset), "");
     // }
 
     // function test_swap_fail_forbidden_to_swap_component_share() external {
     //     vm.startPrank(rebalancer);
-    //     vm.expectRevert(OneInchV6Router.ForbiddenToSwap.selector);
+    //     vm.expectRevert(OneInchV6RouterV1.ForbiddenToSwap.selector);
     //     oneInchRouter.swap(address(node), address(vault), "");
     // }
 
     // function test_swap_fail_no_incentive() external {
     //     vm.startPrank(rebalancer);
-    //     vm.expectRevert(OneInchV6Router.ZeroValueSwap.selector);
+    //     vm.expectRevert(OneInchV6RouterV1.ZeroValueSwap.selector);
     //     oneInchRouter.swap(address(node), address(incentive), "");
     // }
 
@@ -78,7 +78,7 @@ contract OneInchV6RouterTest is BaseTest {
     //     incentive.mint(address(node), 1000e18);
 
     //     vm.startPrank(rebalancer);
-    //     vm.expectRevert(OneInchV6Router.ZeroValueSwap.selector);
+    //     vm.expectRevert(OneInchV6RouterV1.ZeroValueSwap.selector);
     //     oneInchRouter.swap(address(node), address(incentive), _encodeSwap(1000e18, 1100e18, randomUser));
     // }
 
@@ -86,7 +86,7 @@ contract OneInchV6RouterTest is BaseTest {
     //     incentive.mint(address(node), 1000e18);
 
     //     vm.startPrank(rebalancer);
-    //     vm.expectRevert(OneInchV6Router.IncompleteIncentiveSwap.selector);
+    //     vm.expectRevert(OneInchV6RouterV1.IncompleteIncentiveSwap.selector);
     //     oneInchRouter.swap(address(node), address(incentive), _encodeSwap(1000e18 - 1, 1100e18, address(oneInchRouter)));
     // }
 
@@ -100,7 +100,7 @@ contract OneInchV6RouterTest is BaseTest {
     //     );
 
     //     vm.startPrank(rebalancer);
-    //     vm.expectRevert(OneInchV6Router.ZeroValueSwap.selector);
+    //     vm.expectRevert(OneInchV6RouterV1.ZeroValueSwap.selector);
     //     oneInchRouter.swap(address(node), address(incentive), _encodeSwap(1000e18, 1100e18, address(oneInchRouter)));
 
     //     vm.clearMockedCalls();
@@ -125,7 +125,7 @@ contract OneInchV6RouterTest is BaseTest {
         uint256 fee = actualReturnAmount / 10;
 
         vm.expectEmit(true, true, true, true);
-        emit OneInchV6Router.Compounded(
+        emit OneInchV6RouterV1.Compounded(
             address(node), address(incentive), incentiveAmount, actualReturnAmount, actualReturnAmount - fee
         );
         oneInchRouter.swap(address(node), incentive, incentiveAmount, minReturnAmount, executor, swapCalldata);
