@@ -13,5 +13,6 @@
     "MerklRouter": "0x14d5cB7737e8ED0e276eA1b3B9205c6287232083",
     "FluidRewardsRouter": "0xBd92dc054B5A7d52919540bB9C8ED8421D59D6CA",
     "IncentraRouter": "0x84C4f1dD8ef621AF20f41698f71DF618C5b86F4c",
-    "ProxyAdmin": "0xca28ca01bba5d72eabb46a48caf46c3055ae9f4b"
+    "ProxyAdmin": "0xca28ca01bba5d72eabb46a48caf46c3055ae9f4b",
+    "OneInchV6RouterV1": "0x8Bdb2F4fea061c002201e4AD55E0CB1120cFE32F"
 }
