@@ -85,7 +85,9 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
 
         _nodeState[msg.sender].pendingRedeemRequest += shares;
 
-        IERC20(stToken).safeTransferFrom(msg.sender, address(this), shares);
+        _spendAllowance(msg.sender, address(this), shares);
+        _transfer(msg.sender, address(this), shares);
+
         IERC20(stToken).safeIncreaseAllowance(address(subRedManagement), shares);
         subRedManagement.redeem(stToken, asset, shares, block.timestamp + 1);
 

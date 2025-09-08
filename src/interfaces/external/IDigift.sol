@@ -37,6 +37,22 @@ interface ISubRedManagement {
     function management() external view returns (address);
     function subscribe(address stToken, address currencyToken, uint256 amount, uint256 deadline) external;
     function redeem(address stToken, address currencyToken, uint256 quantity, uint256 deadline) external;
+    function settleSubscriber(
+        address stToken,
+        address[] memory investorList,
+        uint256[] memory quantityList,
+        address[] memory currencyTokenList,
+        uint256[] memory amountList,
+        uint256[] memory feeList
+    ) external;
+    function settleRedemption(
+        address stToken,
+        address[] memory investorList,
+        uint256[] memory quantityList,
+        address[] memory currencyTokenList,
+        uint256[] memory amountList,
+        uint256[] memory feeList
+    ) external;
 }
 
 interface IDFeedPriceOracle {
@@ -59,4 +75,10 @@ interface IDFeedPriceOracle {
             // always zero
             uint80 answeredInRound
         );
+}
+
+interface ISecurityToken {
+    function issue(address investor, uint256 value) external;
+    function redeem(address investor, uint256 value) external;
+    function balanceOf(address who) external view returns (uint256);
 }
