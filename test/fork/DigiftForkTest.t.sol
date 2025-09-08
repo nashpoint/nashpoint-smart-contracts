@@ -65,12 +65,6 @@ contract DigiftForkTest is BaseTest {
             abi.encodeWithSelector(IManagement.isWhiteContract.selector, address(digiftWrapper)),
             abi.encode(true)
         );
-        // Node should be whitelisted as well otherwise it is not possible to transfer stTokens from it
-        vm.mockCall(
-            subRedManagement.management(),
-            abi.encodeWithSelector(IManagement.isWhiteInvestor.selector, address(node)),
-            abi.encode(true)
-        );
         // allow us minting of stToken to SubRedManagement and settle subscription
         vm.mockCall(
             subRedManagement.management(),
