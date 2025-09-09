@@ -86,10 +86,17 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         if (owner != msg.sender) revert OwnerNotSender();
     }
 
+    function _nothingPending() internal {
+        State memory nodeState = _nodeState[msg.sender];
+        if (nodeState.pendingDepositRequest != 0) revert DepositRequestPending();
+        if (nodeState.maxMint != 0) revert DepositRequestNotClaimed();
+        if (nodeState.pendingRedeemRequest != 0) revert RedeemRequestPending();
+        if (nodeState.maxWithdraw != 0) revert RedeemRequestNotClaimed();
+    }
+
     function requestDeposit(uint256 assets, address controller, address owner) external onlyNode returns (uint256) {
         _actionValidation(assets, controller, owner);
-        if (_nodeState[msg.sender].pendingDepositRequest != 0) revert DepositRequestPending();
-        if (_nodeState[msg.sender].maxMint != 0) revert DepositRequestNotClaimed();
+        _nothingPending();
 
         _nodeState[msg.sender].pendingDepositRequest += assets;
 
@@ -103,8 +110,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
 
     function requestRedeem(uint256 shares, address controller, address owner) external onlyNode returns (uint256) {
         _actionValidation(shares, controller, owner);
-        if (_nodeState[msg.sender].pendingRedeemRequest != 0) revert RedeemRequestPending();
-        if (_nodeState[msg.sender].maxWithdraw != 0) revert RedeemRequestNotClaimed();
+        _nothingPending();
 
         _nodeState[msg.sender].pendingRedeemRequest += shares;
 
