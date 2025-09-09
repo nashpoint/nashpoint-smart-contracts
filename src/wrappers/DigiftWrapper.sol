@@ -25,6 +25,29 @@ struct State {
 contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     using SafeERC20 for IERC20;
 
+    // =============================
+    //            Errors
+    // =============================
+    error ZeroAmount();
+    error ControllerNotSender();
+    error OwnerNotSender();
+    error DepositRequestPending();
+    error DepositRequestNotClaimed();
+    error RedeemRequestPending();
+    error RedeemRequestNotClaimed();
+    error DepositRequestNotFulfilled();
+    error RedeemRequestNotFulfilled();
+    error MintAllSharesOnly();
+    error WithdrawAllAssetsOnly();
+    error NothingToSettle();
+    error Unsupported();
+
+    // =============================
+    //            Events
+    // =============================
+    event DepositSettled(address indexed node, uint256 shares, uint256 assets);
+    event RedeemSettled(address indexed node, uint256 shares, uint256 assets);
+
     uint256 private constant REQUEST_ID = 0;
 
     address public immutable asset;
@@ -58,15 +81,15 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     }
 
     function _actionValidation(uint256 amount, address controller, address owner) internal {
-        require(amount > 0, "Zero amount");
-        require(controller == msg.sender, "Controller should be sender");
-        require(owner == msg.sender, "Owner should be sender");
+        if (amount == 0) revert ZeroAmount();
+        if (controller != msg.sender) revert ControllerNotSender();
+        if (owner != msg.sender) revert OwnerNotSender();
     }
 
     function requestDeposit(uint256 assets, address controller, address owner) external onlyNode returns (uint256) {
         _actionValidation(assets, controller, owner);
-        require(_nodeState[msg.sender].pendingDepositRequest == 0, "Non fulfilled deposit request");
-        require(_nodeState[msg.sender].maxMint == 0, "Not claimed deposit request");
+        if (_nodeState[msg.sender].pendingDepositRequest != 0) revert DepositRequestPending();
+        if (_nodeState[msg.sender].maxMint != 0) revert DepositRequestNotClaimed();
 
         _nodeState[msg.sender].pendingDepositRequest += assets;
 
@@ -80,8 +103,8 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
 
     function requestRedeem(uint256 shares, address controller, address owner) external onlyNode returns (uint256) {
         _actionValidation(shares, controller, owner);
-        require(_nodeState[msg.sender].pendingRedeemRequest == 0, "Non fulfilled redeem request");
-        require(_nodeState[msg.sender].maxWithdraw == 0, "Not claimed redeem request");
+        if (_nodeState[msg.sender].pendingRedeemRequest != 0) revert RedeemRequestPending();
+        if (_nodeState[msg.sender].maxWithdraw != 0) revert RedeemRequestNotClaimed();
 
         _nodeState[msg.sender].pendingRedeemRequest += shares;
 
@@ -97,8 +120,8 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
 
     function mint(uint256 shares, address receiver, address controller) public onlyNode returns (uint256 assets) {
         _actionValidation(shares, controller, receiver);
-        require(_nodeState[msg.sender].claimableDepositRequest > 0, "Non fulfilled deposit request");
-        require(_nodeState[msg.sender].maxMint == shares, "Can mint only all shares");
+        if (_nodeState[msg.sender].claimableDepositRequest == 0) revert DepositRequestNotFulfilled();
+        if (_nodeState[msg.sender].maxMint != shares) revert MintAllSharesOnly();
 
         assets = _nodeState[msg.sender].claimableDepositRequest;
 
@@ -124,8 +147,8 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     {
         _actionValidation(assets, controller, receiver);
 
-        require(_nodeState[msg.sender].claimableRedeemRequest > 0, "Non fulfilled redeem request");
-        require(_nodeState[msg.sender].maxWithdraw == assets, "Can withdraw only all assets");
+        if (_nodeState[msg.sender].claimableRedeemRequest == 0) revert RedeemRequestNotFulfilled();
+        if (_nodeState[msg.sender].maxWithdraw != assets) revert WithdrawAllAssetsOnly();
 
         shares = _nodeState[msg.sender].claimableRedeemRequest;
 
@@ -147,21 +170,23 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     }
 
     function settleDeposit(address node, uint256 shares, uint256 assets) external onlyNodeRebalancer(node) {
-        require(_nodeState[node].pendingDepositRequest > 0, "Nothing to settle");
+        if (_nodeState[node].pendingDepositRequest == 0) revert NothingToSettle();
         _nodeState[node].claimableDepositRequest = _nodeState[node].pendingDepositRequest;
         _nodeState[node].pendingDepositRequest = 0;
         _nodeState[node].maxMint = shares;
         _nodeState[node].pendingDepositReimbursement = assets;
         // TODO: we need to protect from malicious or buggy rebalancer
+        emit DepositSettled(node, shares, assets);
     }
 
     function settleRedeem(address node, uint256 shares, uint256 assets) external onlyNodeRebalancer(node) {
-        require(_nodeState[node].pendingRedeemRequest > 0, "Nothing to settle");
+        if (_nodeState[node].pendingRedeemRequest == 0) revert NothingToSettle();
         _nodeState[node].claimableRedeemRequest = _nodeState[node].pendingRedeemRequest;
         _nodeState[node].pendingRedeemRequest = 0;
         _nodeState[node].maxWithdraw = assets;
         _nodeState[node].pendingRedeemReimbursement = shares;
         // TODO: we need to protect from malicious or buggy rebalancer
+        emit RedeemSettled(node, shares, assets);
     }
 
     function pendingDepositRequest(uint256, address controller) external view returns (uint256) {
@@ -224,50 +249,50 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     // Unsupported functions
 
     function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
-        revert();
+        revert Unsupported();
     }
 
     function deposit(uint256 assets, address receiver) public returns (uint256 shares) {
-        revert();
+        revert Unsupported();
     }
 
     function mint(uint256 shares, address receiver) external returns (uint256 assets) {
-        revert();
+        revert Unsupported();
     }
 
     function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
-        revert();
+        revert Unsupported();
     }
 
     function previewDeposit(uint256) external pure returns (uint256) {
-        revert();
+        revert Unsupported();
     }
 
     function previewMint(uint256) external pure returns (uint256) {
-        revert();
+        revert Unsupported();
     }
 
     function previewWithdraw(uint256) external pure returns (uint256) {
-        revert();
+        revert Unsupported();
     }
 
     function previewRedeem(uint256) external pure returns (uint256) {
-        revert();
+        revert Unsupported();
     }
 
     function maxRedeem(address controller) public view returns (uint256 maxShares) {
-        revert();
+        revert Unsupported();
     }
 
     function maxDeposit(address controller) public view returns (uint256 maxAssets) {
-        revert();
+        revert Unsupported();
     }
 
     function setOperator(address operator, bool approved) external returns (bool) {
-        revert();
+        revert Unsupported();
     }
 
     function isOperator(address controller, address operator) external view returns (bool) {
-        revert();
+        revert Unsupported();
     }
 }
