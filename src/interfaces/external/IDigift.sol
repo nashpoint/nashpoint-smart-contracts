@@ -81,4 +81,5 @@ interface ISecurityToken {
     function issue(address investor, uint256 value) external;
     function redeem(address investor, uint256 value) external;
     function balanceOf(address who) external view returns (uint256);
+    function decimals() external view returns (uint8);
 }

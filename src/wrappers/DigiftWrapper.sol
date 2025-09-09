@@ -8,8 +8,8 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {ISubRedManagement, IDFeedPriceOracle} from "src/interfaces/external/IDigift.sol";
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
-import {IERC7540} from "src/interfaces/IERC7540.sol";
-import {IERC7575} from "src/interfaces/IERC7575.sol";
+import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
+import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
 struct State {
     uint256 maxMint;
@@ -137,7 +137,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         if (assetsToReimburse > 0) {
             IERC20(asset).safeTransfer(msg.sender, assetsToReimburse);
         }
-        emit Deposit(controller, receiver, assets, shares);
+        emit Deposit(controller, receiver, assets - assetsToReimburse, shares);
     }
 
     function withdraw(uint256 assets, address receiver, address controller)
@@ -162,11 +162,11 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         _burn(address(this), sharesToBurn);
 
         if (sharesToReimburse > 0) {
-            transfer(msg.sender, sharesToReimburse);
+            _transfer(address(this), msg.sender, sharesToReimburse);
         }
 
         IERC20(asset).safeTransfer(msg.sender, assets);
-        emit Withdraw(msg.sender, receiver, controller, assets, shares);
+        emit Withdraw(msg.sender, receiver, controller, assets, shares - sharesToReimburse);
     }
 
     function settleDeposit(address node, uint256 shares, uint256 assets) external onlyNodeRebalancer(node) {
@@ -206,8 +206,8 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     }
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        // TODO:
-        return false;
+        return interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC7575).interfaceId
+            || interfaceId == type(IERC7540Deposit).interfaceId || interfaceId == type(IERC7540Redeem).interfaceId;
     }
 
     function totalAssets() external view returns (uint256) {
