@@ -21,6 +21,8 @@ contract DigiftForkTest is BaseTest {
 
     address manager = makeAddr("manager");
 
+    address usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
+
     ISubRedManagement constant subRedManagement = ISubRedManagement(0x3DAd21A73a63bBd186f57f733d271623467b6c78);
     IDFeedPriceOracle constant dFeedPriceOracle = IDFeedPriceOracle(0x67aE0CAAC7f6995d8B24d415F584e5625cdEe048);
     ISecurityToken constant stToken = ISecurityToken(0x37EC21365dC39B0b74ea7b6FabFfBcB277568AC4);
@@ -40,6 +42,7 @@ contract DigiftForkTest is BaseTest {
 
         digiftWrapper = new DigiftWrapper(
             address(asset),
+            usdcPriceOracle,
             address(stToken),
             address(subRedManagement),
             address(dFeedPriceOracle),
@@ -349,7 +352,7 @@ contract DigiftForkTest is BaseTest {
 
         _updateTotalAssets();
 
-        assertApproxEqAbs(node.totalAssets(), balance, 2);
+        assertApproxEqAbs(node.totalAssets(), balance, 4);
     }
 
     function test_withdraw_partialRedeemWithReimbursement() external {

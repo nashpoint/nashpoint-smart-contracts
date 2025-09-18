@@ -8,6 +8,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {ISubRedManagement, IDFeedPriceOracle} from "src/interfaces/external/IDigift.sol";
+import {IPriceOracle} from "src/interfaces/external/IPriceOracle.sol";
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
@@ -50,6 +51,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     error PriceNotInRange(uint256 lastValue, uint256 currentValue);
     error StalePriceData(uint256 lastUpdate, uint256 currentTimestamp);
     error NotManager(address caller);
+    error BadPriceOracle(address oracle);
 
     // =============================
     //            Events
@@ -70,6 +72,8 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
 
     address public immutable asset;
     uint8 internal immutable _assetDecimals;
+    IPriceOracle public immutable assetPriceOracle;
+    uint8 internal immutable _assetPriceOracleDecimals;
 
     address public immutable stToken;
     uint8 internal immutable _stTokenDecimals;
@@ -95,6 +99,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
 
     constructor(
         address asset_,
+        address assetPriceOracle_,
         address stToken_,
         address subRedManagement_,
         address dFeedPriceOracle_,
@@ -106,6 +111,8 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
         uint64 priceUpdateDeviation_
     ) RegistryAccessControl(registry_) ERC20(name_, symbol_) {
         asset = asset_;
+        assetPriceOracle = IPriceOracle(assetPriceOracle_);
+        _assetPriceOracleDecimals = IPriceOracle(assetPriceOracle_).decimals();
         stToken = stToken_;
         _assetDecimals = IERC20Metadata(asset_).decimals();
         _stTokenDecimals = IERC20Metadata(stToken_).decimals();
@@ -187,8 +194,17 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
 
     function _getPrice() internal view returns (uint256) {
         (, int256 answer,, uint256 updatedAt,) = dFeedPriceOracle.latestRoundData();
+        require(answer > 0, BadPriceOracle(address(dFeedPriceOracle)));
         uint256 price = uint256(answer);
         require(MathLib._withinRange(lastPrice, price, priceDeviation), PriceNotInRange(lastPrice, price));
+        require(block.timestamp - updatedAt <= priceUpdateDeviation, StalePriceData(updatedAt, block.timestamp));
+        return price;
+    }
+
+    function _getAssetPrice() internal view returns (uint256) {
+        (, int256 answer,, uint256 updatedAt,) = assetPriceOracle.latestRoundData();
+        require(answer > 0, BadPriceOracle(address(assetPriceOracle)));
+        uint256 price = uint256(answer);
         require(block.timestamp - updatedAt <= priceUpdateDeviation, StalePriceData(updatedAt, block.timestamp));
         return price;
     }
@@ -386,15 +402,13 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     }
 
     function _convertToShares(uint256 assets, uint256 stTokenPrice) internal view returns (uint256 shares) {
-        // TODO: asset price should be fetched as well
-        // for USDC assume not it's 1 USD;
-        return assets * 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals) / (stTokenPrice * 10 ** (_assetDecimals));
+        return assets * 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals) / (stTokenPrice * 10 ** (_assetDecimals))
+            * _getAssetPrice() / 10 ** _assetPriceOracleDecimals;
     }
 
     function _convertToAssets(uint256 shares, uint256 stTokenPrice) internal view returns (uint256 assets) {
-        // TODO: asset price should be fetched as well
-        // for USDC assume not it's 1 USD;
-        return shares * stTokenPrice * 10 ** (_assetDecimals) / 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals);
+        return (shares * stTokenPrice * 10 ** (_assetDecimals) / 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals))
+            * 10 ** _assetPriceOracleDecimals / _getAssetPrice();
     }
 
     function maxMint(address controller) public view returns (uint256) {
