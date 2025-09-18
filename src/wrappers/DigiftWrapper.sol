@@ -3,16 +3,18 @@ pragma solidity 0.8.28;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {ISubRedManagement, IDFeedPriceOracle} from "src/interfaces/external/IDigift.sol";
-import {IPriceOracle} from "src/interfaces/external/IPriceOracle.sol";
-import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
+import {IPriceOracle} from "src/interfaces/external/IPriceOracle.sol";
+
+import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
+import {MathLib} from "src/libraries/MathLib.sol";
 
 struct State {
     uint256 maxMint;
@@ -50,7 +52,9 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     error InsufficientAssetBalance(uint256 internalBalance, uint256 actualBalance);
     error PriceNotInRange(uint256 lastValue, uint256 currentValue);
     error StalePriceData(uint256 lastUpdate, uint256 currentTimestamp);
+    error NotNode();
     error NotManager(address caller);
+    error NotWhitelistedNode(address node);
     error BadPriceOracle(address oracle);
 
     // =============================
@@ -61,8 +65,9 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     event SettlementDeviationChange(uint64 oldValue, uint64 newValue);
     event PriceDeviationChange(uint64 oldValue, uint64 newValue);
     event PriceUpdateDeviationChange(uint64 oldValue, uint64 newValue);
-    event NotInRange(address node, uint256 expectedValue, uint256 actualValue);
-    event ManagerWhitelistChange(address manager, bool whitelisted);
+    event NotInRange(address indexed node, uint256 expectedValue, uint256 actualValue);
+    event ManagerWhitelistChange(address indexed manager, bool whitelisted);
+    event NodeWhitelistChange(address indexed node, bool whitelisted);
     event LastPriceUpdate(uint256 price);
 
     /* IMMUTABLES */
@@ -96,6 +101,8 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     mapping(address node => State state) internal _nodeState;
 
     mapping(address manager => bool whitelisted) public managerWhitelisted;
+
+    mapping(address node => bool whitelisted) public nodeWhitelisted;
 
     constructor(
         address asset_,
@@ -170,8 +177,19 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
         emit ManagerWhitelistChange(manager, whitelisted);
     }
 
+    function setNode(address node, bool whitelisted) external onlyRegistryOwner {
+        require(registry.isNode(node), NotNode());
+        nodeWhitelisted[node] = whitelisted;
+        emit NodeWhitelistChange(node, whitelisted);
+    }
+
     modifier onlyManager() {
         require(managerWhitelisted[msg.sender] == true, NotManager(msg.sender));
+        _;
+    }
+
+    modifier onlyWhitelistedNode() {
+        require(nodeWhitelisted[msg.sender] == true, NotWhitelistedNode(msg.sender));
         _;
     }
 
@@ -211,7 +229,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
 
     function requestDeposit(uint256 assets, address controller, address owner)
         external
-        onlyNode
+        onlyWhitelistedNode
         whenNotPaused
         returns (uint256)
     {
@@ -232,7 +250,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
 
     function requestRedeem(uint256 shares, address controller, address owner)
         external
-        onlyNode
+        onlyWhitelistedNode
         whenNotPaused
         returns (uint256)
     {
@@ -257,7 +275,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
 
     function mint(uint256 shares, address receiver, address controller)
         public
-        onlyNode
+        onlyWhitelistedNode
         whenNotPaused
         returns (uint256 assets)
     {
@@ -279,6 +297,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
 
         // if assets are partially used => send back to the node
         if (assetsToReimburse > 0) {
+            assetBalance -= assetsToReimburse;
             IERC20(asset).safeTransfer(msg.sender, assetsToReimburse);
         }
         emit Deposit(controller, receiver, assets - assetsToReimburse, shares);
@@ -286,7 +305,7 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
 
     function withdraw(uint256 assets, address receiver, address controller)
         external
-        onlyNode
+        onlyWhitelistedNode
         whenNotPaused
         returns (uint256 shares)
     {

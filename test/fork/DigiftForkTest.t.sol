@@ -60,6 +60,7 @@ contract DigiftForkTest is BaseTest {
         node.addRouter(address(router7540));
         node.addComponent(address(digiftWrapper), ALLOCATION, 0.01 ether, address(router7540));
         digiftWrapper.setManager(manager, true);
+        digiftWrapper.setNode(address(node), true);
         vm.stopPrank();
 
         vm.prank(rebalancer);
