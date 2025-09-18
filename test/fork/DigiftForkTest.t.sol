@@ -19,6 +19,8 @@ contract DigiftForkTest is BaseTest {
     uint64 ALLOCATION = 0.9 ether;
     uint256 INVEST_AMOUNT = DEPOSIT_AMOUNT * ALLOCATION / 1e18;
 
+    address manager = makeAddr("manager");
+
     ISubRedManagement constant subRedManagement = ISubRedManagement(0x3DAd21A73a63bBd186f57f733d271623467b6c78);
     IDFeedPriceOracle constant dFeedPriceOracle = IDFeedPriceOracle(0x67aE0CAAC7f6995d8B24d415F584e5625cdEe048);
     ISecurityToken constant stToken = ISecurityToken(0x37EC21365dC39B0b74ea7b6FabFfBcB277568AC4);
@@ -29,7 +31,6 @@ contract DigiftForkTest is BaseTest {
 
         _userDeposits(user, DEPOSIT_AMOUNT);
 
-        // warp forward to ensure not rebalancing
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
@@ -44,13 +45,18 @@ contract DigiftForkTest is BaseTest {
             address(dFeedPriceOracle),
             address(registry),
             "stToken Wrapper",
-            "wst"
+            "wst",
+            // 0.1%
+            1e15,
+            1e15,
+            4 days
         );
 
         vm.startPrank(owner);
         router7540.setWhitelistStatus(address(digiftWrapper), true);
         node.addRouter(address(router7540));
         node.addComponent(address(digiftWrapper), ALLOCATION, 0.01 ether, address(router7540));
+        digiftWrapper.setManager(manager, true);
         vm.stopPrank();
 
         vm.prank(rebalancer);
@@ -162,7 +168,7 @@ contract DigiftForkTest is BaseTest {
         vm.expectEmit(true, true, true, true);
         emit DigiftWrapper.DepositSettled(address(node), sharesToMint, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
         vm.stopPrank();
 
@@ -184,8 +190,10 @@ contract DigiftForkTest is BaseTest {
 
         assertEq(digiftWrapper.balanceOf(address(node)), 0, "Node has no shares of digift wrapper");
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         vm.expectEmit(true, true, true, true);
         emit IERC7575.Deposit(address(node), address(node), depositAmount, sharesToMint);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
@@ -215,7 +223,7 @@ contract DigiftForkTest is BaseTest {
         vm.expectEmit(true, true, true, true);
         emit DigiftWrapper.DepositSettled(address(node), partialShares, assetsToReimburse);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), partialShares, assetsToReimburse);
         vm.stopPrank();
 
@@ -250,8 +258,10 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
 
         assertEq(node.totalAssets(), balance);
@@ -280,8 +290,10 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
@@ -292,7 +304,7 @@ contract DigiftForkTest is BaseTest {
         vm.expectEmit(true, true, true, true);
         emit DigiftWrapper.RedeemSettled(address(node), 0, assetsToReturn);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
         vm.stopPrank();
 
@@ -311,8 +323,10 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
@@ -320,9 +334,11 @@ contract DigiftForkTest is BaseTest {
 
         _settleRedemption(0, assetsToReturn, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
 
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         vm.expectEmit(true, true, true, true);
         emit IERC7575.Withdraw(address(node), address(node), address(node), assetsToReturn, toLiquidate);
         router7540.executeAsyncWithdrawal(address(node), address(digiftWrapper), assetsToReturn);
@@ -343,8 +359,10 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
@@ -361,7 +379,7 @@ contract DigiftForkTest is BaseTest {
 
         _settleRedemption(sharesToReimburse, partialAssets, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         vm.expectEmit(true, true, true, true);
         emit DigiftWrapper.RedeemSettled(address(node), sharesToReimburse, partialAssets);
         digiftWrapper.settleRedeem(address(node), sharesToReimburse, partialAssets);
@@ -420,7 +438,7 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
         vm.stopPrank();
 
@@ -453,8 +471,10 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
@@ -473,15 +493,17 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
         _liquidate(toLiquidate);
         _settleRedemption(0, assetsToReturn, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
         vm.stopPrank();
 
@@ -520,7 +542,7 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
         vm.stopPrank();
 
@@ -561,15 +583,17 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
         _liquidate(toLiquidate);
         _settleRedemption(0, assetsToReturn, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
         vm.stopPrank();
 
@@ -580,13 +604,13 @@ contract DigiftForkTest is BaseTest {
 
     function test_settleDeposit_NothingToSettle() external {
         vm.expectRevert(DigiftWrapper.NothingToSettle.selector);
-        vm.prank(rebalancer);
+        vm.prank(manager);
         digiftWrapper.settleDeposit(address(node), 1000e6, 0);
     }
 
     function test_settleRedeem_NothingToSettle() external {
         vm.expectRevert(DigiftWrapper.NothingToSettle.selector);
-        vm.prank(rebalancer);
+        vm.prank(manager);
         digiftWrapper.settleRedeem(address(node), 1000e6, 0);
     }
 
@@ -603,7 +627,7 @@ contract DigiftForkTest is BaseTest {
         vm.expectEmit(true, true, true, true);
         emit DigiftWrapper.DepositSettled(address(node), sharesToMint, 0);
 
-        vm.prank(rebalancer);
+        vm.prank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
     }
 
@@ -615,8 +639,10 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
@@ -626,7 +652,7 @@ contract DigiftForkTest is BaseTest {
         vm.expectEmit(true, true, true, true);
         emit DigiftWrapper.RedeemSettled(address(node), 0, assetsToReturn);
 
-        vm.prank(rebalancer);
+        vm.prank(manager);
         digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
     }
 
@@ -708,8 +734,10 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
@@ -731,8 +759,10 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(partialShares, assetsToReimburse, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), partialShares, assetsToReimburse);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
@@ -753,16 +783,20 @@ contract DigiftForkTest is BaseTest {
 
         _settleSubscription(sharesToMint, 0, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.mintClaimableShares(address(node), address(digiftWrapper));
         vm.stopPrank();
 
         _liquidate(toLiquidate);
         _settleRedemption(0, assetsToReturn, 0);
 
-        vm.startPrank(rebalancer);
+        vm.startPrank(manager);
         digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
+        vm.stopPrank();
+        vm.startPrank(rebalancer);
         router7540.executeAsyncWithdrawal(address(node), address(digiftWrapper), assetsToReturn);
         vm.stopPrank();
 

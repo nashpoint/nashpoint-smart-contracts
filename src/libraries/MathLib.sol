@@ -5,6 +5,8 @@ pragma solidity 0.8.28;
 /// @dev    Standard math utilities missing in the Solidity language.
 /// @author Modified from Centrifuge Liquidity Pools v2.0 (libraries/MathLib.sol)
 library MathLib {
+    uint256 constant WAD = 1e18;
+
     enum Rounding {
         Down, // Toward negative infinity
         Up, // Toward infinity
@@ -117,5 +119,15 @@ library MathLib {
 
     function max(uint256 a, uint256 b) internal pure returns (uint256) {
         return a > b ? a : b;
+    }
+
+    function _withinRange(uint256 expectedValue, uint256 actualValue, uint256 allowedDeviation)
+        internal
+        pure
+        returns (bool)
+    {
+        uint256 upperBound = expectedValue * (WAD + allowedDeviation) / WAD;
+        uint256 lowerBound = expectedValue * (WAD - allowedDeviation) / WAD;
+        return lowerBound <= actualValue && actualValue <= upperBound;
     }
 }

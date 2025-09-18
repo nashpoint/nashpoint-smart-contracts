@@ -75,6 +75,20 @@ interface IDFeedPriceOracle {
             // always zero
             uint80 answeredInRound
         );
+
+    function latestRoundData()
+        external
+        view
+        returns (
+            // always zero
+            uint80 roundId,
+            int256 answer,
+            // same as updatedAt
+            uint256 startedAt,
+            uint256 updatedAt,
+            // always zero
+            uint80 answeredInRound
+        );
 }
 
 interface ISecurityToken {

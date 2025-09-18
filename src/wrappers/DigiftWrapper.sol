@@ -5,9 +5,11 @@ import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {ISubRedManagement, IDFeedPriceOracle} from "src/interfaces/external/IDigift.sol";
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
+import {MathLib} from "src/libraries/MathLib.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
 
@@ -20,9 +22,10 @@ struct State {
     uint256 pendingRedeemReimbursement;
     uint256 claimableDepositRequest;
     uint256 claimableRedeemRequest;
+    uint256 priceOnRequest;
 }
 
-contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
+contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC7575 {
     using SafeERC20 for IERC20;
 
     // =============================
@@ -41,12 +44,27 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     error WithdrawAllAssetsOnly();
     error NothingToSettle();
     error Unsupported();
+    error InvalidPercentage();
+    error InsufficientStTokenBalance(uint256 internalBalance, uint256 actualBalance);
+    error InsufficientAssetBalance(uint256 internalBalance, uint256 actualBalance);
+    error PriceNotInRange(uint256 lastValue, uint256 currentValue);
+    error StalePriceData(uint256 lastUpdate, uint256 currentTimestamp);
+    error NotManager(address caller);
 
     // =============================
     //            Events
     // =============================
     event DepositSettled(address indexed node, uint256 shares, uint256 assets);
     event RedeemSettled(address indexed node, uint256 shares, uint256 assets);
+    event SettlementDeviationChange(uint64 oldValue, uint64 newValue);
+    event PriceDeviationChange(uint64 oldValue, uint64 newValue);
+    event PriceUpdateDeviationChange(uint64 oldValue, uint64 newValue);
+    event NotInRange(address node, uint256 expectedValue, uint256 actualValue);
+    event ManagerWhitelistChange(address manager, bool whitelisted);
+    event LastPriceUpdate(uint256 price);
+
+    /* IMMUTABLES */
+    uint256 constant WAD = 1e18;
 
     uint256 private constant REQUEST_ID = 0;
 
@@ -60,7 +78,20 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     IDFeedPriceOracle public immutable dFeedPriceOracle;
     uint8 internal immutable _dFeedPriceOracleDecimals;
 
+    /* STATE */
+
+    uint64 public settlementDeviation;
+    uint64 public priceDeviation;
+    uint64 public priceUpdateDeviation;
+
+    uint256 lastPrice;
+
+    uint256 public stTokenBalance;
+    uint256 public assetBalance;
+
     mapping(address node => State state) internal _nodeState;
+
+    mapping(address manager => bool whitelisted) public managerWhitelisted;
 
     constructor(
         address asset_,
@@ -69,7 +100,10 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         address dFeedPriceOracle_,
         address registry_,
         string memory name_,
-        string memory symbol_
+        string memory symbol_,
+        uint64 settlementDeviation_,
+        uint64 priceDeviation_,
+        uint64 priceUpdateDeviation_
     ) RegistryAccessControl(registry_) ERC20(name_, symbol_) {
         asset = asset_;
         stToken = stToken_;
@@ -78,27 +112,99 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         subRedManagement = ISubRedManagement(subRedManagement_);
         dFeedPriceOracle = IDFeedPriceOracle(dFeedPriceOracle_);
         _dFeedPriceOracleDecimals = IDFeedPriceOracle(dFeedPriceOracle_).decimals();
+        settlementDeviation = settlementDeviation_;
+        priceDeviation = priceDeviation_;
+        priceUpdateDeviation = priceUpdateDeviation_;
+        // initialize price cache
+        lastPrice = dFeedPriceOracle.getPrice();
     }
 
     function _actionValidation(uint256 amount, address controller, address owner) internal {
-        if (amount == 0) revert ZeroAmount();
-        if (controller != msg.sender) revert ControllerNotSender();
-        if (owner != msg.sender) revert OwnerNotSender();
+        require(amount > 0, ZeroAmount());
+        require(controller == msg.sender, ControllerNotSender());
+        require(owner == msg.sender, OwnerNotSender());
     }
 
     function _nothingPending() internal {
         State memory nodeState = _nodeState[msg.sender];
-        if (nodeState.pendingDepositRequest != 0) revert DepositRequestPending();
-        if (nodeState.maxMint != 0) revert DepositRequestNotClaimed();
-        if (nodeState.pendingRedeemRequest != 0) revert RedeemRequestPending();
-        if (nodeState.maxWithdraw != 0) revert RedeemRequestNotClaimed();
+        require(nodeState.pendingDepositRequest == 0, DepositRequestPending());
+        require(nodeState.maxMint == 0, DepositRequestNotClaimed());
+        require(nodeState.pendingRedeemRequest == 0, RedeemRequestPending());
+        require(nodeState.maxWithdraw == 0, RedeemRequestNotClaimed());
     }
 
-    function requestDeposit(uint256 assets, address controller, address owner) external onlyNode returns (uint256) {
+    function setSettlementDeviation(uint64 value) external onlyRegistryOwner {
+        require(value <= WAD, InvalidPercentage());
+        emit SettlementDeviationChange(settlementDeviation, value);
+        settlementDeviation = value;
+    }
+
+    function setPriceDeviation(uint64 value) external onlyRegistryOwner {
+        require(value <= WAD, InvalidPercentage());
+        emit PriceDeviationChange(priceDeviation, value);
+        priceDeviation = value;
+    }
+
+    function setPriceUpdateDeviation(uint64 value) external onlyRegistryOwner {
+        emit PriceUpdateDeviationChange(priceUpdateDeviation, value);
+        priceUpdateDeviation = value;
+    }
+
+    function pause() external onlyRegistryOwner {
+        _pause();
+    }
+
+    function unpause() external onlyRegistryOwner {
+        _unpause();
+    }
+
+    function setManager(address manager, bool whitelisted) external onlyRegistryOwner {
+        managerWhitelisted[manager] = whitelisted;
+        emit ManagerWhitelistChange(manager, whitelisted);
+    }
+
+    modifier onlyManager() {
+        require(managerWhitelisted[msg.sender] == true, NotManager(msg.sender));
+        _;
+    }
+
+    function forceUpdateLastPrice() external onlyRegistryOwner {
+        uint256 price = dFeedPriceOracle.getPrice();
+        lastPrice = price;
+        emit LastPriceUpdate(price);
+    }
+
+    function updateLastPrice() external onlyManager {
+        _getAndUpdatePrice();
+    }
+
+    function _getAndUpdatePrice() internal returns (uint256) {
+        uint256 price = _getPrice();
+        lastPrice = price;
+        emit LastPriceUpdate(price);
+        return price;
+    }
+
+    function _getPrice() internal view returns (uint256) {
+        (, int256 answer,, uint256 updatedAt,) = dFeedPriceOracle.latestRoundData();
+        uint256 price = uint256(answer);
+        require(MathLib._withinRange(lastPrice, price, priceDeviation), PriceNotInRange(lastPrice, price));
+        require(block.timestamp - updatedAt <= priceUpdateDeviation, StalePriceData(updatedAt, block.timestamp));
+        return price;
+    }
+
+    function requestDeposit(uint256 assets, address controller, address owner)
+        external
+        onlyNode
+        whenNotPaused
+        returns (uint256)
+    {
         _actionValidation(assets, controller, owner);
         _nothingPending();
 
-        _nodeState[msg.sender].pendingDepositRequest += assets;
+        _nodeState[msg.sender].pendingDepositRequest = assets;
+        uint256 price = _getAndUpdatePrice();
+        _nodeState[msg.sender].priceOnRequest = price;
 
         IERC20(asset).safeTransferFrom(msg.sender, address(this), assets);
         IERC20(asset).safeIncreaseAllowance(address(subRedManagement), assets);
@@ -108,14 +214,23 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         return REQUEST_ID;
     }
 
-    function requestRedeem(uint256 shares, address controller, address owner) external onlyNode returns (uint256) {
+    function requestRedeem(uint256 shares, address controller, address owner)
+        external
+        onlyNode
+        whenNotPaused
+        returns (uint256)
+    {
         _actionValidation(shares, controller, owner);
         _nothingPending();
 
-        _nodeState[msg.sender].pendingRedeemRequest += shares;
+        _nodeState[msg.sender].pendingRedeemRequest = shares;
+        uint256 price = _getAndUpdatePrice();
+        _nodeState[msg.sender].priceOnRequest = price;
 
         _spendAllowance(msg.sender, address(this), shares);
         _transfer(msg.sender, address(this), shares);
+        // stTokens are transferred to subRedManagement - we need to reduce internal accounting
+        stTokenBalance -= shares;
 
         IERC20(stToken).safeIncreaseAllowance(address(subRedManagement), shares);
         subRedManagement.redeem(stToken, asset, shares, block.timestamp + 1);
@@ -124,10 +239,17 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         return REQUEST_ID;
     }
 
-    function mint(uint256 shares, address receiver, address controller) public onlyNode returns (uint256 assets) {
+    function mint(uint256 shares, address receiver, address controller)
+        public
+        onlyNode
+        whenNotPaused
+        returns (uint256 assets)
+    {
         _actionValidation(shares, controller, receiver);
-        if (_nodeState[msg.sender].claimableDepositRequest == 0) revert DepositRequestNotFulfilled();
-        if (_nodeState[msg.sender].maxMint != shares) revert MintAllSharesOnly();
+        require(_nodeState[msg.sender].claimableDepositRequest > 0, DepositRequestNotFulfilled());
+        require(_nodeState[msg.sender].maxMint == shares, MintAllSharesOnly());
+
+        _getAndUpdatePrice();
 
         assets = _nodeState[msg.sender].claimableDepositRequest;
 
@@ -149,12 +271,15 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     function withdraw(uint256 assets, address receiver, address controller)
         external
         onlyNode
+        whenNotPaused
         returns (uint256 shares)
     {
         _actionValidation(assets, controller, receiver);
 
-        if (_nodeState[msg.sender].claimableRedeemRequest == 0) revert RedeemRequestNotFulfilled();
-        if (_nodeState[msg.sender].maxWithdraw != assets) revert WithdrawAllAssetsOnly();
+        require(_nodeState[msg.sender].claimableRedeemRequest > 0, RedeemRequestNotFulfilled());
+        require(_nodeState[msg.sender].maxWithdraw == assets, WithdrawAllAssetsOnly());
+
+        _getAndUpdatePrice();
 
         shares = _nodeState[msg.sender].claimableRedeemRequest;
 
@@ -164,6 +289,9 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         _nodeState[msg.sender].claimableRedeemRequest = 0;
         _nodeState[msg.sender].maxWithdraw = 0;
         _nodeState[msg.sender].pendingRedeemReimbursement = 0;
+
+        // assets are moved to node - we need to reduce internal accounting
+        assetBalance -= assets;
 
         _burn(address(this), sharesToBurn);
 
@@ -175,23 +303,52 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
         emit Withdraw(msg.sender, receiver, controller, assets, shares - sharesToReimburse);
     }
 
-    function settleDeposit(address node, uint256 shares, uint256 assets) external onlyNodeRebalancer(node) {
-        if (_nodeState[node].pendingDepositRequest == 0) revert NothingToSettle();
+    function _sufficientBalances(uint256 shares, uint256 assets) internal {
+        uint256 stTokenBalanceActual = IERC20(stToken).balanceOf(address(this));
+        stTokenBalance += shares;
+        require(
+            stTokenBalance <= stTokenBalanceActual, InsufficientStTokenBalance(stTokenBalance, stTokenBalanceActual)
+        );
+        uint256 assetBalanceActual = IERC20(asset).balanceOf(address(this));
+        assetBalance += assets;
+        require(assetBalance <= assetBalanceActual, InsufficientAssetBalance(assetBalance, assetBalanceActual));
+    }
+
+    function settleDeposit(address node, uint256 shares, uint256 assets) external onlyManager whenNotPaused {
+        require(_nodeState[node].pendingDepositRequest > 0, NothingToSettle());
+        uint256 effectiveAssets = _nodeState[node].pendingDepositRequest - assets;
+        uint256 expectedShares = _convertToShares(effectiveAssets, _nodeState[node].priceOnRequest);
+        if (!MathLib._withinRange(expectedShares, shares, settlementDeviation)) {
+            emit NotInRange(node, expectedShares, shares);
+            _pause();
+            return;
+        }
+
+        _sufficientBalances(shares, assets);
         _nodeState[node].claimableDepositRequest = _nodeState[node].pendingDepositRequest;
         _nodeState[node].pendingDepositRequest = 0;
         _nodeState[node].maxMint = shares;
         _nodeState[node].pendingDepositReimbursement = assets;
-        // TODO: we need to protect from malicious or buggy rebalancer
+        _nodeState[node].priceOnRequest = 0;
         emit DepositSettled(node, shares, assets);
     }
 
-    function settleRedeem(address node, uint256 shares, uint256 assets) external onlyNodeRebalancer(node) {
-        if (_nodeState[node].pendingRedeemRequest == 0) revert NothingToSettle();
+    function settleRedeem(address node, uint256 shares, uint256 assets) external onlyManager whenNotPaused {
+        require(_nodeState[node].pendingRedeemRequest > 0, NothingToSettle());
+        uint256 effectiveShares = _nodeState[node].pendingRedeemRequest - shares;
+        uint256 expectedAssets = _convertToAssets(effectiveShares, _nodeState[node].priceOnRequest);
+        if (!MathLib._withinRange(expectedAssets, assets, settlementDeviation)) {
+            emit NotInRange(node, expectedAssets, assets);
+            _pause();
+            return;
+        }
+
+        _sufficientBalances(shares, assets);
         _nodeState[node].claimableRedeemRequest = _nodeState[node].pendingRedeemRequest;
         _nodeState[node].pendingRedeemRequest = 0;
         _nodeState[node].maxWithdraw = assets;
         _nodeState[node].pendingRedeemReimbursement = shares;
-        // TODO: we need to protect from malicious or buggy rebalancer
+        _nodeState[node].priceOnRequest = 0;
         emit RedeemSettled(node, shares, assets);
     }
 
@@ -221,16 +378,20 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, IERC7540, IERC7575 {
     }
 
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        // TODO: check for the stale update data and big diff ?
-        uint256 stTokenPrice = dFeedPriceOracle.getPrice();
+        return _convertToShares(assets, _getPrice());
+    }
+
+    function convertToAssets(uint256 shares) public view returns (uint256 assets) {
+        return _convertToAssets(shares, _getPrice());
+    }
+
+    function _convertToShares(uint256 assets, uint256 stTokenPrice) internal view returns (uint256 shares) {
         // TODO: asset price should be fetched as well
         // for USDC assume not it's 1 USD;
         return assets * 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals) / (stTokenPrice * 10 ** (_assetDecimals));
     }
 
-    function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        // TODO: check for the stale update data and big diff ?
-        uint256 stTokenPrice = dFeedPriceOracle.getPrice();
+    function _convertToAssets(uint256 shares, uint256 stTokenPrice) internal view returns (uint256 assets) {
         // TODO: asset price should be fetched as well
         // for USDC assume not it's 1 USD;
         return shares * stTokenPrice * 10 ** (_assetDecimals) / 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals);
