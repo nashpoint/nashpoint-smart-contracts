@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 
 import {DigiftEventVerifier} from "src/wrappers/DigiftEventVerifier.sol";
 
+import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+
 contract DigiftEventVerifierTest is Test {
     function test_settleSubscriber_verification_arbitrum() external {
         // https://arbiscan.io/tx/0x3ecd63558a9686ef23d38b6e64cecf44f8c70677c13cd37733765cb6d351d7d7
@@ -13,7 +15,11 @@ contract DigiftEventVerifierTest is Test {
         vm.roll(BLOCK_NUMBER + 16);
         vm.setBlockhash(BLOCK_NUMBER, 0xc6d17a0778ff5e61f77066f2653965d2f300b53379f0640d446ff79a5b658e6a);
 
-        DigiftEventVerifier verifier = new DigiftEventVerifier();
+        address investor = 0x8E0B8eB1F9033C5923D55a206D3C4B37932bf432;
+        vm.mockCall(address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, investor), abi.encode(true));
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
 
         bytes memory HEADER_RLP =
             hex"f90223a0616ac97aa5ac3093362bfcb9f1cdfc8e187bf5be75057529d8c22e4ff57a5887a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d4934794a4b000000000000000000073657175656e636572a09671cd2fd092a203cda2b8b4abac6db1aec21b8a977b144dbeff78045e61299ea0a93dbfab45674abb3d34cb5054c12d0494fd1f95cc20547abed5204b86b724c0a09347df060a85407b05d358fc8397e7e4cb146401dd7b5a540ca8f311b6e1938db901000014000840000010000000000000002000220100000000100000100104100011040000400000000000800000c1800000000040030041200900802000002000000000020106010808010000080001000000000c0a100000102104200000000081004040200210040000010a042000088000014004000046040000001000080000014000021204200001000010000000010000000000000000001000000000000022000410040060000000804200800401080020040000000000400000000000040084200200000004080000000042000000002000020020400000000010003a4000900040000000000008000000022000020020000100004348000000200100020184167d093b8704000000000000831294cb8468bff837a011689e6b40281e6c81779879ee37fa96b51db4dce19de693928af0f7d050dad0a00000000000024f29000000000163e84a00000000000000280000000000000000880000000000203af883989680";
@@ -34,7 +40,7 @@ contract DigiftEventVerifierTest is Test {
         assertFalse(verifier.usedLogs(0x855771fa11a17f805046968b9c0454536ef8dec5a659f4756cb094c8cc3596ac));
 
         // investor in our case will be node. Here we just mock the correct msg.sender
-        vm.startPrank(0x8E0B8eB1F9033C5923D55a206D3C4B37932bf432);
+        vm.startPrank(investor);
         (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
             DigiftEventVerifier.Args(
                 BLOCK_NUMBER,
@@ -59,7 +65,11 @@ contract DigiftEventVerifierTest is Test {
         vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), BLOCK_NUMBER + 16);
         vm.roll(BLOCK_NUMBER + 16);
 
-        DigiftEventVerifier verifier = new DigiftEventVerifier();
+        address investor = 0x54b930e2f72472773234B9edaeBA3f7a971fc4a8;
+        vm.mockCall(address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, investor), abi.encode(true));
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
 
         bytes memory HEADER_RLP =
             hex"f90286a008da7dd2d5ea5e167ce5738587f608f08d6c109307227b5a319da89b63515d97a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347944838b106fce9647bdf1e7877bf73ce8b0bad5f97a06a86ee858000ab9a88ab70512801cf8f2db46178878ec1bf53712fd27d1941f5a07fed869c22bdade885291249d6d41342c43b50a32cb7ac0147009a18a440a4e0a0579cf4d3eabf1048b449bf99fb602b21c117d3aea9ad61241cf2e5a498d1ff95b9010057693775752bfedfe64b6dbfc3f39d6ffb71bfb37c7f4aaa1b2519f1757bbdd7ad7fb7b0fccf88e67bbfeaf999ceedddc7bf9f3adfa2a4f919a3a3ef7efcf7bbc5f6fbf707dff9fdebe9f7ec9d5fb1f7f97d7fbff377ed326d877ccde17e868ff6afe37edaff8f7aa10cddf76eae6ee1223bd3fe5cb86effddc9de5f5b1f5fff9bfabf3f71c8e72f6971761815bbfdd6dc93da5bf5ddf4cfd42f6c7ee95edeff4fcde5eee7fbebfa1b7f5fe61dfef6fefbe6e5d437f4c28e3ffde6f97c7cff71c757bd4f51f9efedeff7163267e639cf23eff677f59e05f4dfddbc7eb9efefbff09fadeeca3ef74757e7d7ddb3f73ae8dd7ffeb3f77cafcf3e5b794fdadffbb98084016589e58402adf96d8401c76fd48468d3a94398546974616e2028746974616e6275696c6465722e78797a29a0bcd5366da96c2165c602991566303504ce37dd4deb98d5b032081662f2dd53b9880000000000000000840f2790f9a052a6237987125991ca5554c2b8af60309f1440150e259f7d46960482a47b0c14830c00008404ce0000a07728053fdf13a74d92690506b8f22f165923a4db62f47710d63ad5f22f9666cda0e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -86,7 +96,7 @@ contract DigiftEventVerifierTest is Test {
         assertFalse(verifier.usedLogs(0xff3ca9d1ee7ced11686dfb7cec7d4096289a6e6d7582ddb6e2b57d77420d7b4a));
 
         // investor in our case will be node. Here we just mock the correct msg.sender
-        vm.startPrank(0x54b930e2f72472773234B9edaeBA3f7a971fc4a8);
+        vm.startPrank(investor);
         (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
             DigiftEventVerifier.Args(
                 BLOCK_NUMBER,

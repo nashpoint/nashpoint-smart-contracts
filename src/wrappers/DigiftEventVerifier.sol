@@ -1,17 +1,32 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
+
 import {MerkleTrie} from "optimism/libraries/trie/MerkleTrie.sol";
 import {RLPReader} from "optimism/libraries/rlp/RLPReader.sol";
 import {Bytes} from "optimism/libraries/Bytes.sol";
 
-contract DigiftEventVerifier {
+contract DigiftEventVerifier is RegistryAccessControl {
     bytes32 public constant SETTLE_SUBSCRIBER_TOPIC =
         keccak256("SettleSubscriber(address,address,address[],uint256[],address[],uint256[],uint256[])");
     bytes32 public constant SETTLE_REDEMPTION_TOPIC =
         keccak256("SettleRedemption(address,address,address[],uint256[],address[],uint256[],uint256[])");
 
     mapping(bytes32 => bool) public usedLogs;
+    mapping(uint256 => bytes32) public blockHashes;
+
+    constructor(address registry_) RegistryAccessControl(registry_) {}
+
+    event Verified(
+        address indexed investor,
+        address indexed stToken,
+        address indexed currencyToken,
+        uint256 stTokenAmount,
+        uint256 currencyTokenAmount,
+        bytes32 blockHash,
+        bytes32 logHash
+    );
 
     struct Args {
         uint256 blockNumber;
@@ -33,11 +48,23 @@ contract DigiftEventVerifier {
         RLPReader.RLPItem[] log;
     }
 
-    function verifySettlementEvent(Args calldata args) external returns (uint256, uint256) {
+    function setBlockHash(bytes32 blockHash, uint256 blockNumber) external {
+        blockHashes[blockNumber] = blockHash;
+    }
+
+    function _getBlockHash(uint256 blockNumber) internal returns (bytes32) {
+        bytes32 blockHash = blockhash(blockNumber);
+        if (blockHash == 0) {
+            blockHash = blockHashes[blockNumber];
+        }
+        require(blockHash != 0, "missed window");
+        return blockHash;
+    }
+
+    function verifySettlementEvent(Args calldata args) external onlyNode returns (uint256, uint256) {
         Vars memory vars;
         vars.blockHash = keccak256(args.headerRlp);
-        require(blockhash(args.blockNumber) != 0, "missed window");
-        require(blockhash(args.blockNumber) == vars.blockHash, "bad header");
+        require(_getBlockHash(args.blockNumber) == vars.blockHash, "bad header");
         require(
             args.eventSignature == SETTLE_REDEMPTION_TOPIC || args.eventSignature == SETTLE_SUBSCRIBER_TOPIC,
             "Incorrect eventSignature"
@@ -82,8 +109,20 @@ contract DigiftEventVerifier {
             require(!usedLogs[vars.logHash], "log already used");
             usedLogs[vars.logHash] = true;
 
+            emit Verified(
+                msg.sender,
+                args.securityToken,
+                args.currencyToken,
+                quantityList[vars.investorIndex],
+                amountList[vars.investorIndex],
+                vars.blockHash,
+                vars.logHash
+            );
+
             return (quantityList[vars.investorIndex], amountList[vars.investorIndex]);
         }
+
+        revert("no event");
     }
 
     function _hashLog(bytes32 blockHash, bytes32 receiptsRoot, bytes memory txIndexPath, uint256 logIndex)
