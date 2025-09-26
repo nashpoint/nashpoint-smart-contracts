@@ -347,4 +347,124 @@ contract DigiftEventVerifierTest is Test {
             )
         );
     }
+
+    function test_verifySettlementEvent_BadHeader() external {
+        Vars memory vars = _getMainnetParams();
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
+        vm.roll(vars.blockNumber + 16);
+
+        // Mock the node registry to return true for the investor
+        vm.mockCall(
+            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, vars.investor), abi.encode(true)
+        );
+
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        // Impersonate the investor (node) to simulate the correct msg.sender
+        vm.startPrank(vars.investor);
+
+        vm.expectRevert(DigiftEventVerifier.BadHeader.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.Args(
+                vars.blockNumber,
+                hex"01",
+                vars.txIndex,
+                vars.proof,
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                vars.stToken,
+                vars.asset
+            )
+        );
+    }
+
+    function test_verifySettlementEvent_NoEvent() external {
+        Vars memory vars = _getMainnetParams();
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
+        vm.roll(vars.blockNumber + 16);
+
+        // Mock the node registry to return true for the investor
+        vm.mockCall(
+            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, vars.investor), abi.encode(true)
+        );
+        // Mock to test wrong investor
+        vm.mockCall(
+            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, address(this)), abi.encode(true)
+        );
+
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        // Impersonate the investor (node) to simulate the correct msg.sender
+        vm.startPrank(vars.investor);
+
+        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.Args(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                vars.proof,
+                // wrong signature
+                DigiftEventVerifier.EventType.SUBSCRIBE,
+                vars.subRedManager,
+                vars.stToken,
+                vars.asset
+            )
+        );
+
+        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.Args(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                vars.proof,
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                // wrong stToken
+                address(0x1234),
+                vars.asset
+            )
+        );
+
+        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.Args(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                vars.proof,
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                vars.stToken,
+                // wrong currencyToken
+                address(0x1234)
+            )
+        );
+
+        vm.stopPrank();
+
+        // investor is this testing contract - we will not find any transfer of stToken fot it
+        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.Args(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                vars.proof,
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                vars.stToken,
+                vars.asset
+            )
+        );
+    }
 }
