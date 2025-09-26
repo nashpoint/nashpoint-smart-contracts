@@ -40,9 +40,6 @@ contract DigiftEventVerifier is RegistryAccessControl {
     /// @notice Thrown when block hash verification fails
     error BadHeader();
 
-    /// @notice Thrown when event signature is incorrect
-    error IncorrectEventSignature();
-
     /// @notice Thrown when log has already been used (double-spending)
     error LogAlreadyUsed();
 
@@ -77,6 +74,13 @@ contract DigiftEventVerifier is RegistryAccessControl {
         bytes32 logHash
     );
 
+    /**
+     * @notice Emitted when a block hash is set for historical block verification
+     * @param blockNumber The block number for which the hash was set
+     * @param blockHash The hash of the block that was stored
+     */
+    event BlockHashSet(uint256 indexed blockNumber, bytes32 blockHash);
+
     // ============ Structs ============
 
     /**
@@ -85,7 +89,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
      * @param headerRlp RLP-encoded block header for verification
      * @param txIndex Transaction index path in the Merkle trie
      * @param proof Merkle proof for the transaction receipt
-     * @param eventSignature The event signature to match (SettleSubscriber or SettleRedemption)
+     * @param eventType Subscribe or Redeem
      * @param emittingAddress The contract address that emitted the event
      * @param securityToken The security token address to match in the event
      * @param currencyToken The currency token address to match in the event
@@ -95,7 +99,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
         bytes headerRlp;
         bytes txIndex;
         bytes[] proof;
-        bytes32 eventSignature;
+        EventType eventType;
         address emittingAddress;
         address securityToken;
         address currencyToken;
@@ -104,6 +108,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
     /**
      * @notice Internal variables used during event verification
      * @param blockHash The hash of the block containing the event
+     * @param eventSignature The event signature to match (SettleSubscriber or SettleRedemption)
      * @param receiptsRoot The receipts root from the block header
      * @param logHash Unique hash of the log entry to prevent double-spending
      * @param investorIndex Index of the investor in the event data arrays
@@ -112,11 +117,17 @@ contract DigiftEventVerifier is RegistryAccessControl {
      */
     struct Vars {
         bytes32 blockHash;
+        bytes32 eventSignature;
         bytes32 receiptsRoot;
         bytes32 logHash;
         uint256 investorIndex;
         RLPReader.RLPItem[] logs;
         RLPReader.RLPItem[] log;
+    }
+
+    enum EventType {
+        SUBSCRIBE,
+        REDEEM
     }
 
     // ============ Constructor ============
@@ -139,6 +150,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
      */
     function setBlockHash(uint256 blockNumber, bytes32 blockHash) external onlyRegistryOwner {
         blockHashes[blockNumber] = blockHash;
+        emit BlockHashSet(blockNumber, blockHash);
     }
 
     /**
@@ -158,14 +170,10 @@ contract DigiftEventVerifier is RegistryAccessControl {
 
         // Calculate the block hash from the provided header RLP
         vars.blockHash = keccak256(args.headerRlp);
+        vars.eventSignature = args.eventType == EventType.SUBSCRIBE ? SETTLE_SUBSCRIBER_TOPIC : SETTLE_REDEMPTION_TOPIC;
 
         // Verify the block hash matches the stored or current block hash
         if (_getBlockHash(args.blockNumber) != vars.blockHash) revert BadHeader();
-
-        // Ensure the event signature is either SettleSubscriber or SettleRedemption
-        if (args.eventSignature != SETTLE_REDEMPTION_TOPIC && args.eventSignature != SETTLE_SUBSCRIBER_TOPIC) {
-            revert IncorrectEventSignature();
-        }
 
         // Extract the receipts root from the block header (index 5 in RLP-encoded header)
         vars.receiptsRoot = bytes32(RLPReader.readBytes(RLPReader.readList(args.headerRlp)[5]));
@@ -187,7 +195,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
             // Extract and validate the log topics (indexed parameters)
             RLPReader.RLPItem[] memory topics = RLPReader.readList(vars.log[1]);
             if (topics.length != 2) continue; // Expected: [eventSignature, stToken]
-            if (bytes32(RLPReader.readBytes(topics[0])) != args.eventSignature) continue;
+            if (bytes32(RLPReader.readBytes(topics[0])) != vars.eventSignature) continue;
 
             // Decode the log data (non-indexed parameters)
             // Structure: (stToken, investorList, quantityList, currencyTokenList, amountList, timestamp)

@@ -70,7 +70,7 @@ contract DigiftEventVerifierTest is Test {
                 HEADER_RLP, // RLP-encoded block header
                 INDEX_RLP, // Transaction index within the block
                 PROOF, // Merkle proof
-                verifier.SETTLE_SUBSCRIBER_TOPIC(), // Event topic for subscriber settlement
+                DigiftEventVerifier.EventType.SUBSCRIBE, // Event topic for subscriber settlement
                 0x3DAd21A73a63bBd186f57f733d271623467b6c78, // SubRedManagement contract address
                 0x37EC21365dC39B0b74ea7b6FabFfBcB277568AC4, // stToken contract address
                 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 // Asset contract address
@@ -99,21 +99,83 @@ contract DigiftEventVerifierTest is Test {
      * Reference transaction: https://etherscan.io/tx/0x685fd4738de2ad844bebc499cc23fb662e88d2d94bd5d1fc5427545a090afc46
      */
     function test_settleRedemtion_verification_ethereum() external {
-        uint256 BLOCK_NUMBER = 23431653;
-        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), BLOCK_NUMBER + 16);
-        vm.roll(BLOCK_NUMBER + 16);
-
-        // The investor address that will be verified as a node
-        address investor = 0x54b930e2f72472773234B9edaeBA3f7a971fc4a8;
+        Vars memory vars = _getMainnetParams();
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
+        vm.roll(vars.blockNumber + 16);
 
         // Mock the node registry to return true for the investor
-        vm.mockCall(address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, investor), abi.encode(true));
+        vm.mockCall(
+            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, vars.investor), abi.encode(true)
+        );
 
         // Mock the owner function to return this contract
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
 
         // Deploy the verifier contract
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        bytes32 logHash = 0xff3ca9d1ee7ced11686dfb7cec7d4096289a6e6d7582ddb6e2b57d77420d7b4a;
+
+        assertFalse(verifier.usedLogs(logHash));
+
+        // Impersonate the investor (node) to simulate the correct msg.sender
+        vm.startPrank(vars.investor);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftEventVerifier.Verified(
+            vars.investor, vars.stToken, vars.asset, 0, 447273310000, blockhash(vars.blockNumber), logHash
+        );
+
+        // Verify the redemption settlement event using Merkle proof
+        (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
+            DigiftEventVerifier.Args(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                vars.proof,
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                vars.stToken,
+                vars.asset
+            )
+        );
+
+        // Verify the correct token amounts were extracted from the event
+        assertEq(stTokenAmount, 0); // No stToken amount for redemption
+        assertEq(assetAmount, 447273310000); // 447.27331 USDC (6 decimals)
+
+        // Verify the log is now marked as used (prevents replay attacks)
+        assertTrue(verifier.usedLogs(logHash));
+
+        // cannot reuse the event
+        vm.expectRevert(DigiftEventVerifier.LogAlreadyUsed.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.Args(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                vars.proof,
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                vars.stToken,
+                vars.asset
+            )
+        );
+    }
+
+    struct Vars {
+        uint256 blockNumber;
+        bytes header;
+        bytes txIndex;
+        bytes[] proof;
+        address subRedManager;
+        address stToken;
+        address asset;
+        address investor;
+    }
+
+    function _getMainnetParams() internal pure returns (Vars memory) {
+        uint256 BLOCK_NUMBER = 23431653;
 
         // RLP-encoded block header containing the transaction
         bytes memory HEADER_RLP =
@@ -140,22 +202,109 @@ contract DigiftEventVerifierTest is Test {
             hex"f9048c20b9048802f90484018401c1ae34b9010000000000400000000000000000020000000000800000000000000000040000400000000000000000000080000000080000000000000000000000000000000000000000000000000008000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000080000000100000000000008000000010000000000000080000000010000000000200000000000000004040000000020400000000000000000080000000002000000000000000000000000002000000000000000000000000000000000000088000000000000000000000000000000000000000000000000020000f90378f89b94a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000003797c46db697c24a983222c335f17ba28e8c5b69a000000000000000000000000054b930e2f72472773234b9edaeba3f7a971fc4a8a00000000000000000000000000000000000000000000000000000006823911730f9025c943797c46db697c24a983222c335f17ba28e8c5b69f842a0078201b4fddebeb020e52d5999827843599e0ae133d7f8ad82564d44515b0952a00000000000000000000000003797c46db697c24a983222c335f17ba28e8c5b69b90200000000000000000000000000c06036793272219179f846ef6bfc3b16e820df0b00000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000054b930e2f72472773234b9edaeba3f7a971fc4a8000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000682391173000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000f87a94bb4716a4a47342aad4f162ebc34af8414360cdc5f842a0442e715f626346e8c54381002da614f62bee8d27386535b2521ec8540898556ea0a36332793ed6efa8dc6f64e750e43a71bedd67aa8361d528ce4e05ecf516041ea00000000000000000000000000000000000000000000000000000000000000000"
         );
 
-        assertFalse(verifier.usedLogs(0xff3ca9d1ee7ced11686dfb7cec7d4096289a6e6d7582ddb6e2b57d77420d7b4a));
+        return Vars(
+            BLOCK_NUMBER,
+            HEADER_RLP,
+            INDEX_RLP,
+            PROOF,
+            0x3797C46db697c24a983222c335F17Ba28e8c5b69,
+            0xC06036793272219179F846eF6bfc3B16E820Df0B,
+            0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,
+            0x54b930e2f72472773234B9edaeBA3f7a971fc4a8
+        );
+    }
+
+    /**
+     * @notice Test setBlockHash function and event emission
+     * @dev Verifies that the setBlockHash function works correctly and emits the BlockHashSet event
+     */
+    function test_setBlockHash_event() external {
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        uint256 blockNumber = 12345;
+        bytes32 blockHash = bytes32(uint256(0x1234567890abcdef));
+
+        // Expect the BlockHashSet event to be emitted
+        vm.expectEmit(true, false, false, false);
+        emit DigiftEventVerifier.BlockHashSet(blockNumber, blockHash);
+
+        // Call setBlockHash function
+        verifier.setBlockHash(blockNumber, blockHash);
+
+        // Verify the block hash was stored correctly
+        assertEq(verifier.blockHashes(blockNumber), blockHash);
+    }
+
+    /**
+     * @notice Test setBlockHash access control
+     * @dev Verifies that only the registry owner can call setBlockHash
+     */
+    function test_setBlockHash_accessControl() external {
+        // Mock the owner function to return a different address (not this contract)
+        address owner = address(0x123);
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(owner));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        uint256 blockNumber = 12345;
+        bytes32 blockHash = bytes32(uint256(0x1234567890abcdef));
+
+        // Expect revert when non-owner tries to call setBlockHash
+        vm.expectRevert();
+        verifier.setBlockHash(blockNumber, blockHash);
+    }
+
+    /**
+     * @notice Test _getBlockHash fallback to stored block hashes
+     * @dev Verifies that when blockhash() returns 0, the function falls back to stored blockHashes
+     */
+    function test_getBlockHash_fallbackToStored() external {
+        Vars memory vars = _getMainnetParams();
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
+        // miss the window
+        vm.roll(vars.blockNumber + 257);
+
+        // Mock the node registry to return true for the investor
+        vm.mockCall(
+            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, vars.investor), abi.encode(true)
+        );
+
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        bytes32 blockHash = keccak256(vars.header);
+        // set block hash by registry owner
+        verifier.setBlockHash(vars.blockNumber, blockHash);
+
+        bytes32 logHash = 0xff3ca9d1ee7ced11686dfb7cec7d4096289a6e6d7582ddb6e2b57d77420d7b4a;
+
+        assertFalse(verifier.usedLogs(logHash));
 
         // Impersonate the investor (node) to simulate the correct msg.sender
-        vm.startPrank(investor);
+        vm.startPrank(vars.investor);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftEventVerifier.Verified(vars.investor, vars.stToken, vars.asset, 0, 447273310000, blockHash, logHash);
 
         // Verify the redemption settlement event using Merkle proof
         (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
             DigiftEventVerifier.Args(
-                BLOCK_NUMBER, // Block number containing the transaction
-                HEADER_RLP, // RLP-encoded block header
-                INDEX_RLP, // Transaction index within the block
-                PROOF, // Merkle proof path
-                verifier.SETTLE_REDEMPTION_TOPIC(), // Event topic for redemption settlement
-                0x3797C46db697c24a983222c335F17Ba28e8c5b69, // Digift contract address
-                0xC06036793272219179F846eF6bfc3B16E820Df0B, // Token contract address
-                0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 // Asset contract address (USDC)
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                vars.proof,
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                vars.stToken,
+                vars.asset
             )
         );
 
@@ -164,6 +313,38 @@ contract DigiftEventVerifierTest is Test {
         assertEq(assetAmount, 447273310000); // 447.27331 USDC (6 decimals)
 
         // Verify the log is now marked as used (prevents replay attacks)
-        assertTrue(verifier.usedLogs(0xff3ca9d1ee7ced11686dfb7cec7d4096289a6e6d7582ddb6e2b57d77420d7b4a));
+        assertTrue(verifier.usedLogs(logHash));
+    }
+
+    /**
+     * @notice Test _getBlockHash MissedWindow revert
+     * @dev Verifies that when both blockhash() and stored blockHashes return 0, MissedWindow is reverted
+     */
+    function test_getBlockHash_missedWindow() external {
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
+        uint256 currentBlock = block.number;
+        uint256 oldBlockNumber = currentBlock - 300; // Far enough in past so blockhash() returns 0
+
+        address investor = address(0x123);
+        vm.mockCall(address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, investor), abi.encode(true));
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        vm.startPrank(investor);
+        // This should revert with MissedWindow since no block hash is available
+        vm.expectRevert(DigiftEventVerifier.MissedWindow.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.Args(
+                oldBlockNumber,
+                hex"01",
+                hex"01",
+                new bytes[](0),
+                DigiftEventVerifier.EventType.REDEEM,
+                address(0),
+                address(0),
+                address(0)
+            )
+        );
     }
 }
