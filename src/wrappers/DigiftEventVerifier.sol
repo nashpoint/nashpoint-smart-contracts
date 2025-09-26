@@ -194,7 +194,6 @@ contract DigiftEventVerifier is RegistryAccessControl {
 
             // Extract and validate the log topics (indexed parameters)
             RLPReader.RLPItem[] memory topics = RLPReader.readList(vars.log[1]);
-            if (topics.length != 2) continue; // Expected: [eventSignature, stToken]
             if (bytes32(RLPReader.readBytes(topics[0])) != vars.eventSignature) continue;
 
             // Decode the log data (non-indexed parameters)

@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {DigiftEventVerifier} from "src/wrappers/DigiftEventVerifier.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
-contract DigiftEventVerifierTest is Test {
+contract DigiftEventVerifierForkTest is Test {
     /**
      * @notice Test settlement subscriber verification on Arbitrum network
      * @dev Verifies that a Digift settlement event can be properly verified using Merkle proofs
