@@ -84,7 +84,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
 
     ISubRedManagement public immutable subRedManagement;
 
-    DigiftEventVerifier digiftEventVerifier;
+    DigiftEventVerifier public immutable digiftEventVerifier;
 
     /* STATE */
 
@@ -440,6 +440,22 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
             subRedManagement.redeem(stToken, asset, pendingShares, block.timestamp + 1);
             emit DigiftRedeemed(pendingShares);
         }
+    }
+
+    function accumulatedDeposit() external view returns (uint256) {
+        return _globalState.accumulatedDeposit;
+    }
+
+    function accumulatedRedemption() external view returns (uint256) {
+        return _globalState.accumulatedRedemption;
+    }
+
+    function globalPendingDepositRequest() external view returns (uint256) {
+        return _globalState.pendingDepositRequest;
+    }
+
+    function globalPendingRedeemRequest() external view returns (uint256) {
+        return _globalState.pendingRedeemRequest;
     }
 
     function pendingDepositRequest(uint256, address controller) external view returns (uint256) {

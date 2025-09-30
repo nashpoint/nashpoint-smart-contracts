@@ -6,10 +6,12 @@ import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {BaseTest} from "test/BaseTest.sol";
+import {DigiftEventVerifier} from "src/wrappers/digift/DigiftEventVerifier.sol";
 import {DigiftWrapperFactory} from "src/wrappers/digift/DigiftWrapperFactory.sol";
 import {DigiftWrapper} from "src/wrappers/digift/DigiftWrapper.sol";
 import {ISubRedManagement, IDFeedPriceOracle, IManagement, ISecurityToken} from "src/interfaces/external/IDigift.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
+import {INode} from "src/interfaces/INode.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -105,6 +107,46 @@ contract DigiftForkTest is BaseTest {
         vm.stopPrank();
     }
 
+    function _forward() internal {
+        vm.startPrank(manager);
+        digiftWrapper.forwardRequestsToDigift();
+        vm.stopPrank();
+    }
+
+    function _settleDeposit(INode node, uint256 shares, uint256 assets) internal {
+        DigiftEventVerifier.OffchainArgs memory fargs;
+        DigiftEventVerifier.OnchainArgs memory nargs = DigiftEventVerifier.OnchainArgs(
+            DigiftEventVerifier.EventType.SUBSCRIBE, address(subRedManagement), address(stToken), address(asset)
+        );
+        vm.mockCall(
+            digiftEventVerifier,
+            abi.encodeWithSelector(DigiftEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+            abi.encode(shares, assets)
+        );
+        vm.startPrank(manager);
+        address[] memory nodes = new address[](1);
+        nodes[0] = address(node);
+        digiftWrapper.settleDeposit(nodes, fargs);
+        vm.stopPrank();
+    }
+
+    function _settleRedeem(INode node, uint256 assets, uint256 shares) internal {
+        DigiftEventVerifier.OffchainArgs memory fargs;
+        DigiftEventVerifier.OnchainArgs memory nargs = DigiftEventVerifier.OnchainArgs(
+            DigiftEventVerifier.EventType.REDEEM, address(subRedManagement), address(stToken), address(asset)
+        );
+        vm.mockCall(
+            digiftEventVerifier,
+            abi.encodeWithSelector(DigiftEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+            abi.encode(shares, assets)
+        );
+        vm.startPrank(manager);
+        address[] memory nodes = new address[](1);
+        nodes[0] = address(node);
+        digiftWrapper.settleRedeem(nodes, fargs);
+        vm.stopPrank();
+    }
+
     function _updateTotalAssets() internal {
         vm.startPrank(rebalancer);
         node.updateTotalAssets();
@@ -144,528 +186,470 @@ contract DigiftForkTest is BaseTest {
         );
     }
 
-    // function test_investInAsyncComponent_success() external {
-    //     uint256 balance = asset.balanceOf(address(node));
+    function _mint(INode node) internal {
+        vm.startPrank(rebalancer);
+        router7540.mintClaimableShares(address(node), address(digiftWrapper));
+        vm.stopPrank();
+    }
 
-    //     vm.expectEmit(true, true, true, true, address(subRedManagement));
-    //     emit ISubRedManagement.Subscribe(
-    //         address(subRedManagement), address(stToken), address(asset), address(digiftWrapper), INVEST_AMOUNT
-    //     );
-    //     vm.expectEmit(true, true, true, true, address(digiftWrapper));
-    //     emit IERC7540Deposit.DepositRequest(address(node), address(node), 0, address(node), INVEST_AMOUNT);
-    //     uint256 depositAmount = _invest();
-    //     assertEq(depositAmount, INVEST_AMOUNT, "Invested according to allocation");
+    function _withdraw(INode node, uint256 assets) internal {
+        vm.startPrank(rebalancer);
+        router7540.executeAsyncWithdrawal(address(node), address(digiftWrapper), assets);
+        vm.stopPrank();
+    }
 
-    //     assertEq(digiftWrapper.pendingDepositRequest(0, address(node)), INVEST_AMOUNT);
+    function test_deployment_success() external view {
+        assertEq(address(digiftWrapper.subRedManagement()), address(subRedManagement));
+        assertEq(address(digiftWrapper.digiftEventVerifier()), digiftEventVerifier);
+    }
 
-    //     vm.startPrank(address(node));
-    //     assertEq(router7540.getComponentAssets(address(digiftWrapper), false), INVEST_AMOUNT);
-    //     vm.stopPrank();
+    function test_investInAsyncComponent_success() external {
+        uint256 balance = asset.balanceOf(address(node));
 
-    //     assertEq(node.totalAssets(), balance);
+        vm.expectEmit(true, true, true, true, address(digiftWrapper));
+        emit IERC7540Deposit.DepositRequest(address(node), address(node), 0, address(node), INVEST_AMOUNT);
+        uint256 depositAmount = _invest();
+        assertEq(depositAmount, INVEST_AMOUNT, "Invested according to allocation");
 
-    //     _updateTotalAssets();
+        assertEq(digiftWrapper.pendingDepositRequest(0, address(node)), INVEST_AMOUNT);
+        assertEq(digiftWrapper.accumulatedDeposit(), depositAmount, "Accumulated whole deposit amount");
 
-    //     assertEq(node.totalAssets(), balance);
-    // }
+        vm.startPrank(address(node));
+        assertEq(router7540.getComponentAssets(address(digiftWrapper), false), INVEST_AMOUNT);
+        vm.stopPrank();
 
-    // function test_settleDeposit_success() external {
-    //     uint256 depositAmount = _invest();
+        assertEq(node.totalAssets(), balance);
 
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        _updateTotalAssets();
 
-    //     _settleSubscription(sharesToMint, 0, 0);
+        assertEq(node.totalAssets(), balance);
+    }
 
-    //     vm.expectEmit(true, true, true, true);
-    //     emit DigiftWrapper.DepositSettled(address(node), sharesToMint, 0);
+    function test_forwardRequestsToDigift_one_deposit_only() external {
+        uint256 depositAmount = _invest();
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
+        vm.expectEmit(true, true, true, true, address(subRedManagement));
+        emit ISubRedManagement.Subscribe(
+            address(subRedManagement), address(stToken), address(asset), address(digiftWrapper), INVEST_AMOUNT
+        );
+        vm.expectEmit(true, true, true, true, address(digiftWrapper));
+        emit DigiftWrapper.DigiftSubscribed(depositAmount);
+        _forward();
 
-    //     assertEq(digiftWrapper.pendingDepositRequest(0, address(node)), 0, "No pending assets to deposit");
-    //     assertEq(
-    //         digiftWrapper.claimableDepositRequest(0, address(node)),
-    //         INVEST_AMOUNT,
-    //         "All deposit amount is claimable now"
-    //     );
-    //     assertEq(digiftWrapper.maxMint(address(node)), sharesToMint, "maxMint reflects shares to mint");
-    // }
+        assertEq(digiftWrapper.globalPendingDepositRequest(), depositAmount, "Pending whole deposit amount");
+    }
 
-    // function test_mintClaimableShares_success() external {
-    //     uint256 depositAmount = _invest();
+    function test_settleDeposit_success() external {
+        uint256 depositAmount = _invest();
 
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
 
-    //     _settleSubscription(sharesToMint, 0, 0);
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
 
-    //     assertEq(digiftWrapper.balanceOf(address(node)), 0, "Node has no shares of digift wrapper");
+        vm.expectEmit(true, true, true, true);
+        emit DigiftWrapper.DepositSettled(address(node), sharesToMint, 0);
+        _settleDeposit(node, sharesToMint, 0);
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     vm.expectEmit(true, true, true, true);
-    //     emit IERC7575.Deposit(address(node), address(node), depositAmount, sharesToMint);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
+        assertEq(digiftWrapper.globalPendingDepositRequest(), 0, "After settle there is nothing pending");
+        assertEq(digiftWrapper.pendingDepositRequest(0, address(node)), 0, "No pending assets to deposit");
+        assertEq(
+            digiftWrapper.claimableDepositRequest(0, address(node)),
+            INVEST_AMOUNT,
+            "All deposit amount is claimable now"
+        );
+        assertEq(digiftWrapper.maxMint(address(node)), sharesToMint, "maxMint reflects shares to mint");
+    }
 
-    //     assertEq(digiftWrapper.balanceOf(address(node)), sharesToMint, "Shares are minted to node");
-    //     assertEq(digiftWrapper.pendingDepositRequest(0, address(node)), 0, "No pending assets to deposit");
-    //     assertEq(digiftWrapper.claimableDepositRequest(0, address(node)), 0, "Everything is claimed");
-    //     assertEq(digiftWrapper.maxMint(address(node)), 0, "Nothing to mint");
-    // }
+    function test_mintClaimableShares_success() external {
+        uint256 depositAmount = _invest();
 
-    // function test_mintClaimableShares_partialMintWithReimbursement() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 initialNodeAssetBalance = asset.balanceOf(address(node));
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
 
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
 
-    //     // 80% of expected shares
-    //     uint256 partialShares = sharesToMint * 8 / 10;
-    //     uint256 assetsUsed = digiftWrapper.convertToAssets(partialShares);
-    //     uint256 assetsToReimburse = depositAmount - assetsUsed;
+        assertEq(digiftWrapper.balanceOf(address(node)), 0, "Node has no shares of digift wrapper");
 
-    //     _settleSubscription(partialShares, assetsToReimburse, 0);
+        _settleDeposit(node, sharesToMint, 0);
 
-    //     assertEq(digiftWrapper.balanceOf(address(node)), 0, "Node has no shares initially");
+        vm.expectEmit(true, true, true, true);
+        emit IERC7575.Deposit(address(node), address(node), depositAmount, sharesToMint);
+        _mint(node);
 
-    //     vm.expectEmit(true, true, true, true);
-    //     emit DigiftWrapper.DepositSettled(address(node), partialShares, assetsToReimburse);
+        assertEq(digiftWrapper.balanceOf(address(node)), sharesToMint, "Shares are minted to node");
+        assertEq(digiftWrapper.pendingDepositRequest(0, address(node)), 0, "No pending assets to deposit");
+        assertEq(digiftWrapper.claimableDepositRequest(0, address(node)), 0, "Everything is claimed");
+        assertEq(digiftWrapper.maxMint(address(node)), 0, "Nothing to mint");
+    }
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), partialShares, assetsToReimburse);
-    //     vm.stopPrank();
+    function test_mintClaimableShares_partialMintWithReimbursement() external {
+        uint256 depositAmount = _invest();
+        uint256 initialNodeAssetBalance = asset.balanceOf(address(node));
 
-    //     assertEq(digiftWrapper.pendingDepositRequest(0, address(node)), 0, "No pending assets to deposit");
-    //     assertEq(
-    //         digiftWrapper.claimableDepositRequest(0, address(node)), depositAmount, "All deposit amount is claimable"
-    //     );
-    //     assertEq(digiftWrapper.maxMint(address(node)), partialShares, "maxMint reflects partial shares");
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
 
-    //     vm.startPrank(rebalancer);
-    //     vm.expectEmit(true, true, true, true);
-    //     emit IERC7575.Deposit(address(node), address(node), assetsUsed, partialShares);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
+        // 80% of expected shares
+        uint256 partialShares = sharesToMint * 8 / 10;
+        uint256 assetsUsed = digiftWrapper.convertToAssets(partialShares);
+        uint256 assetsToReimburse = depositAmount - assetsUsed;
 
-    //     assertEq(digiftWrapper.balanceOf(address(node)), partialShares, "Partial shares are minted to node");
-    //     assertEq(digiftWrapper.claimableDepositRequest(0, address(node)), 0, "Everything is claimed");
-    //     assertEq(digiftWrapper.maxMint(address(node)), 0, "Nothing to mint");
+        _forward();
+        _settleSubscription(partialShares, assetsToReimburse, 0);
 
-    //     uint256 finalNodeAssetBalance = asset.balanceOf(address(node));
-    //     uint256 expectedFinalBalance = initialNodeAssetBalance + assetsToReimburse;
-    //     assertEq(finalNodeAssetBalance, expectedFinalBalance, "Node received asset reimbursement");
-    // }
+        assertEq(digiftWrapper.balanceOf(address(node)), 0, "Node has no shares initially");
 
-    // function test_requestAsyncWithdrawal_success() external {
-    //     uint256 balance = asset.balanceOf(address(node));
+        vm.expectEmit(true, true, true, true);
+        emit DigiftWrapper.DepositSettled(address(node), partialShares, assetsToReimburse);
+        _settleDeposit(node, partialShares, assetsToReimburse);
 
-    //     uint256 depositAmount = _invest();
+        assertEq(digiftWrapper.pendingDepositRequest(0, address(node)), 0, "No pending assets to deposit");
+        assertEq(
+            digiftWrapper.claimableDepositRequest(0, address(node)), depositAmount, "All deposit amount is claimable"
+        );
+        assertEq(digiftWrapper.maxMint(address(node)), partialShares, "maxMint reflects partial shares");
+
+        vm.expectEmit(true, true, true, true);
+        emit IERC7575.Deposit(address(node), address(node), assetsUsed, partialShares);
+        _mint(node);
+
+        assertEq(digiftWrapper.balanceOf(address(node)), partialShares, "Partial shares are minted to node");
+        assertEq(digiftWrapper.claimableDepositRequest(0, address(node)), 0, "Everything is claimed");
+        assertEq(digiftWrapper.maxMint(address(node)), 0, "Nothing to mint");
+
+        uint256 finalNodeAssetBalance = asset.balanceOf(address(node));
+        uint256 expectedFinalBalance = initialNodeAssetBalance + assetsToReimburse;
+        assertEq(finalNodeAssetBalance, expectedFinalBalance, "Node received asset reimbursement");
+    }
 
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 toLiquidate = sharesToMint / 2;
+    function test_requestAsyncWithdrawal_success() external {
+        uint256 balance = asset.balanceOf(address(node));
+
+        uint256 depositAmount = _invest();
 
-    //     _settleSubscription(sharesToMint, 0, 0);
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
+        assertEq(node.totalAssets(), balance);
 
-    //     assertEq(node.totalAssets(), balance);
+        vm.expectEmit(true, true, true, true, address(digiftWrapper));
+        emit IERC7540Redeem.RedeemRequest(address(node), address(node), 0, address(node), toLiquidate);
+        _liquidate(toLiquidate);
+
+        assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), toLiquidate);
+        assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), 0);
+
+        _updateTotalAssets();
 
-    //     vm.expectEmit(true, true, true, true, address(subRedManagement));
-    //     emit ISubRedManagement.Redeem(
-    //         address(subRedManagement), address(stToken), address(asset), address(digiftWrapper), toLiquidate
-    //     );
-    //     vm.expectEmit(true, true, true, true, address(digiftWrapper));
-    //     emit IERC7540Redeem.RedeemRequest(address(node), address(node), 0, address(node), toLiquidate);
-    //     _liquidate(toLiquidate);
+        assertApproxEqAbs(node.totalAssets(), balance, 2);
+    }
+
+    function test_forwardRequestsToDigift_one_redeem_only() external {
+        uint256 depositAmount = _invest();
+
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
 
-    //     assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), toLiquidate);
-    //     assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), 0);
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
 
-    //     _updateTotalAssets();
-
-    //     assertApproxEqAbs(node.totalAssets(), balance, 2);
-    // }
-
-    // function test_settleRedeem_success() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 toLiquidate = sharesToMint / 2;
-    //     uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
-
-    //     _settleSubscription(sharesToMint, 0, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
-
-    //     _liquidate(toLiquidate);
-
-    //     _settleRedemption(0, assetsToReturn, 0);
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit DigiftWrapper.RedeemSettled(address(node), 0, assetsToReturn);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
-    //     vm.stopPrank();
-
-    //     assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), 0);
-    //     assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), toLiquidate);
-    //     assertEq(digiftWrapper.maxWithdraw(address(node)), assetsToReturn);
-    // }
-
-    // function test_withdraw_success() external {
-    //     uint256 balance = asset.balanceOf(address(node));
-
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 toLiquidate = sharesToMint / 2;
-    //     uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
-
-    //     _settleSubscription(sharesToMint, 0, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
-
-    //     _liquidate(toLiquidate);
-
-    //     _settleRedemption(0, assetsToReturn, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
-
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     vm.expectEmit(true, true, true, true);
-    //     emit IERC7575.Withdraw(address(node), address(node), address(node), assetsToReturn, toLiquidate);
-    //     router7540.executeAsyncWithdrawal(address(node), address(digiftWrapper), assetsToReturn);
-
-    //     assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), 0);
-    //     assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), 0);
-    //     assertEq(digiftWrapper.maxWithdraw(address(node)), 0);
-
-    //     _updateTotalAssets();
-
-    //     assertApproxEqAbs(node.totalAssets(), balance, 4);
-    // }
-
-    // function test_withdraw_partialRedeemWithReimbursement() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 initialNodeShareBalance = digiftWrapper.balanceOf(address(node));
-
-    //     _settleSubscription(sharesToMint, 0, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
-
-    //     assertEq(digiftWrapper.balanceOf(address(node)), sharesToMint, "Node has shares initially");
-
-    //     uint256 sharesToRedeem = sharesToMint;
-    //     _liquidate(sharesToRedeem);
-
-    //     uint256 expectedAssets = digiftWrapper.convertToAssets(sharesToRedeem);
-    //     // 80% of expected assets
-    //     uint256 partialAssets = expectedAssets * 8 / 10;
-    //     uint256 sharesUsed = digiftWrapper.convertToShares(partialAssets);
-    //     uint256 sharesToReimburse = sharesToRedeem - sharesUsed;
-
-    //     _settleRedemption(sharesToReimburse, partialAssets, 0);
-
-    //     vm.startPrank(manager);
-    //     vm.expectEmit(true, true, true, true);
-    //     emit DigiftWrapper.RedeemSettled(address(node), sharesToReimburse, partialAssets);
-    //     digiftWrapper.settleRedeem(address(node), sharesToReimburse, partialAssets);
-    //     vm.stopPrank();
-
-    //     assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), 0, "No pending shares to redeem");
-    //     assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), sharesToRedeem, "All shares are claimable");
-    //     assertEq(digiftWrapper.maxWithdraw(address(node)), partialAssets, "maxWithdraw reflects partial assets");
-
-    //     vm.startPrank(rebalancer);
-    //     vm.expectEmit(true, true, true, true);
-    //     emit IERC7575.Withdraw(address(node), address(node), address(node), partialAssets, sharesUsed);
-    //     router7540.executeAsyncWithdrawal(address(node), address(digiftWrapper), partialAssets);
-    //     vm.stopPrank();
-
-    //     assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), 0, "Everything is claimed");
-    //     assertEq(digiftWrapper.maxWithdraw(address(node)), 0, "Nothing to withdraw");
-
-    //     uint256 finalNodeShareBalance = digiftWrapper.balanceOf(address(node));
-    //     uint256 expectedFinalShareBalance = initialNodeShareBalance + sharesToReimburse;
-    //     assertEq(finalNodeShareBalance, expectedFinalShareBalance, "Node received share reimbursement");
-    // }
+        vm.expectEmit(true, true, true, true, address(subRedManagement));
+        emit ISubRedManagement.Redeem(
+            address(subRedManagement), address(stToken), address(asset), address(digiftWrapper), toLiquidate
+        );
+        _forward();
+    }
+
+    function test_settleRedeem_success() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+        uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
+        _forward();
+        _settleRedemption(0, assetsToReturn, 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftWrapper.RedeemSettled(address(node), 0, assetsToReturn);
+        _settleRedeem(node, assetsToReturn, 0);
+
+        assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), 0);
+        assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), toLiquidate);
+        assertEq(digiftWrapper.maxWithdraw(address(node)), assetsToReturn);
+    }
+
+    function test_withdraw_success() external {
+        uint256 balance = asset.balanceOf(address(node));
+
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+        uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
+        _forward();
+        _settleRedemption(0, assetsToReturn, 0);
+        _settleRedeem(node, assetsToReturn, 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit IERC7575.Withdraw(address(node), address(node), address(node), assetsToReturn, toLiquidate);
+        _withdraw(node, assetsToReturn);
+
+        assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), 0);
+        assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), 0);
+        assertEq(digiftWrapper.maxWithdraw(address(node)), 0);
+
+        _updateTotalAssets();
+
+        assertApproxEqAbs(node.totalAssets(), balance, 4);
+    }
+
+    function test_withdraw_partialRedeemWithReimbursement() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 initialNodeShareBalance = digiftWrapper.balanceOf(address(node));
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+
+        assertEq(digiftWrapper.balanceOf(address(node)), sharesToMint, "Node has shares initially");
+
+        uint256 sharesToRedeem = sharesToMint;
+        _liquidate(sharesToRedeem);
+
+        uint256 expectedAssets = digiftWrapper.convertToAssets(sharesToRedeem);
+        // 80% of expected assets
+        uint256 partialAssets = expectedAssets * 8 / 10;
+        uint256 sharesUsed = digiftWrapper.convertToShares(partialAssets);
+        uint256 sharesToReimburse = sharesToRedeem - sharesUsed;
+
+        _forward();
+        _settleRedemption(sharesToReimburse, partialAssets, 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftWrapper.RedeemSettled(address(node), sharesToReimburse, partialAssets);
+        _settleRedeem(node, partialAssets, sharesToReimburse);
+
+        assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), 0, "No pending shares to redeem");
+        assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), sharesToRedeem, "All shares are claimable");
+        assertEq(digiftWrapper.maxWithdraw(address(node)), partialAssets, "maxWithdraw reflects partial assets");
+
+        vm.expectEmit(true, true, true, true);
+        emit IERC7575.Withdraw(address(node), address(node), address(node), partialAssets, sharesUsed);
+        _withdraw(node, partialAssets);
+
+        assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), 0, "Everything is claimed");
+        assertEq(digiftWrapper.maxWithdraw(address(node)), 0, "Nothing to withdraw");
+
+        uint256 finalNodeShareBalance = digiftWrapper.balanceOf(address(node));
+        uint256 expectedFinalShareBalance = initialNodeShareBalance + sharesToReimburse;
+        assertEq(finalNodeShareBalance, expectedFinalShareBalance, "Node received share reimbursement");
+    }
 
     // =============================
     //      Custom Error Tests
     // =============================
 
-    // function test_requestDeposit_ZeroAmount() external {
-    //     vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestDeposit(0, address(node), address(node));
-    // }
+    function test_requestDeposit_ZeroAmount() external {
+        vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestDeposit(0, address(node), address(node));
+    }
 
-    // function test_requestDeposit_ControllerNotSender() external {
-    //     vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(this), address(node));
-    // }
+    function test_requestDeposit_ControllerNotSender() external {
+        vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(this), address(node));
+    }
 
-    // function test_requestDeposit_OwnerNotSender() external {
-    //     vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(node), address(this));
-    // }
+    function test_requestDeposit_OwnerNotSender() external {
+        vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(node), address(this));
+    }
 
-    // function test_requestDeposit_DepositRequestPending() external {
-    //     _invest();
-    //     vm.expectRevert(DigiftWrapper.DepositRequestPending.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
-    // }
+    function test_requestDeposit_DepositRequestPending() external {
+        _invest();
+        vm.expectRevert(DigiftWrapper.DepositRequestPending.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
+    }
 
-    // function test_requestDeposit_DepositRequestNotClaimed() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+    function test_requestDeposit_DepositRequestNotClaimed() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
 
-    //     _settleSubscription(sharesToMint, 0, 0);
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
+        vm.expectRevert(DigiftWrapper.DepositRequestNotClaimed.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
+    }
 
-    //     vm.expectRevert(DigiftWrapper.DepositRequestNotClaimed.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
-    // }
+    function test_requestRedeem_ZeroAmount() external {
+        vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestRedeem(0, address(node), address(node));
+    }
 
-    // function test_requestRedeem_ZeroAmount() external {
-    //     vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestRedeem(0, address(node), address(node));
-    // }
+    function test_requestRedeem_ControllerNotSender() external {
+        vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestRedeem(1000e6, address(this), address(node));
+    }
 
-    // function test_requestRedeem_ControllerNotSender() external {
-    //     vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestRedeem(1000e6, address(this), address(node));
-    // }
+    function test_requestRedeem_OwnerNotSender() external {
+        vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestRedeem(1000e6, address(node), address(this));
+    }
 
-    // function test_requestRedeem_OwnerNotSender() external {
-    //     vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestRedeem(1000e6, address(node), address(this));
-    // }
+    function test_requestRedeem_RedeemRequestPending() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
 
-    // function test_requestRedeem_RedeemRequestPending() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(sharesToMint / 2);
 
-    //     _settleSubscription(sharesToMint, 0, 0);
+        vm.expectRevert(DigiftWrapper.RedeemRequestPending.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestRedeem(1000e6, address(node), address(node));
+    }
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
+    function test_requestRedeem_RedeemRequestNotClaimed() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+        uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
 
-    //     _liquidate(sharesToMint / 2);
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
+        _forward();
+        _settleRedemption(0, assetsToReturn, 0);
+        _settleRedeem(node, assetsToReturn, 0);
 
-    //     vm.expectRevert(DigiftWrapper.RedeemRequestPending.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestRedeem(1000e6, address(node), address(node));
-    // }
+        vm.expectRevert(DigiftWrapper.RedeemRequestNotClaimed.selector);
+        vm.prank(address(node));
+        digiftWrapper.requestRedeem(1000e6, address(node), address(node));
+    }
 
-    // function test_requestRedeem_RedeemRequestNotClaimed() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 toLiquidate = sharesToMint / 2;
-    //     uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
+    function test_mint_ZeroAmount() external {
+        vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
+        vm.prank(address(node));
+        digiftWrapper.mint(0, address(node), address(node));
+    }
 
-    //     _settleSubscription(sharesToMint, 0, 0);
+    function test_mint_ControllerNotSender() external {
+        vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
+        vm.prank(address(node));
+        digiftWrapper.mint(1000e6, address(node), address(this));
+    }
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
+    function test_mint_OwnerNotSender() external {
+        vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
+        vm.prank(address(node));
+        digiftWrapper.mint(1000e6, address(this), address(node));
+    }
 
-    //     _liquidate(toLiquidate);
-    //     _settleRedemption(0, assetsToReturn, 0);
+    function test_mint_DepositRequestNotFulfilled() external {
+        vm.expectRevert(DigiftWrapper.DepositRequestNotFulfilled.selector);
+        vm.prank(address(node));
+        digiftWrapper.mint(1000e6, address(node), address(node));
+    }
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
-    //     vm.stopPrank();
+    function test_mint_MintAllSharesOnly() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
 
-    //     vm.expectRevert(DigiftWrapper.RedeemRequestNotClaimed.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.requestRedeem(1000e6, address(node), address(node));
-    // }
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
 
-    // function test_mint_ZeroAmount() external {
-    //     vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.mint(0, address(node), address(node));
-    // }
+        vm.expectRevert(DigiftWrapper.MintAllSharesOnly.selector);
+        vm.prank(address(node));
+        digiftWrapper.mint(sharesToMint / 2, address(node), address(node));
+    }
 
-    // function test_mint_ControllerNotSender() external {
-    //     vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.mint(1000e6, address(node), address(this));
-    // }
+    function test_withdraw_ZeroAmount() external {
+        vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
+        vm.prank(address(node));
+        digiftWrapper.withdraw(0, address(node), address(node));
+    }
 
-    // function test_mint_OwnerNotSender() external {
-    //     vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.mint(1000e6, address(this), address(node));
-    // }
+    function test_withdraw_ControllerNotSender() external {
+        vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
+        vm.prank(address(node));
+        digiftWrapper.withdraw(1000e6, address(node), address(this));
+    }
 
-    // function test_mint_DepositRequestNotFulfilled() external {
-    //     vm.expectRevert(DigiftWrapper.DepositRequestNotFulfilled.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.mint(1000e6, address(node), address(node));
-    // }
+    function test_withdraw_OwnerNotSender() external {
+        vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
+        vm.prank(address(node));
+        digiftWrapper.withdraw(1000e6, address(this), address(node));
+    }
 
-    // function test_mint_MintAllSharesOnly() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+    function test_withdraw_RedeemRequestNotFulfilled() external {
+        vm.expectRevert(DigiftWrapper.RedeemRequestNotFulfilled.selector);
+        vm.prank(address(node));
+        digiftWrapper.withdraw(1000e6, address(node), address(node));
+    }
 
-    //     _settleSubscription(sharesToMint, 0, 0);
+    function test_withdraw_WithdrawAllAssetsOnly() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+        uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
+        _forward();
+        _settleRedemption(0, assetsToReturn, 0);
+        _settleRedeem(node, assetsToReturn, 0);
 
-    //     vm.expectRevert(DigiftWrapper.MintAllSharesOnly.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.mint(sharesToMint / 2, address(node), address(node));
-    // }
+        vm.expectRevert(DigiftWrapper.WithdrawAllAssetsOnly.selector);
+        vm.prank(address(node));
+        digiftWrapper.withdraw(assetsToReturn / 2, address(node), address(node));
+    }
 
-    // function test_withdraw_ZeroAmount() external {
-    //     vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.withdraw(0, address(node), address(node));
-    // }
+    function test_settleDeposit_NothingToSettle() external {
+        vm.expectRevert(DigiftWrapper.NothingToSettle.selector);
+        _settleDeposit(node, 1000e6, 0);
+    }
 
-    // function test_withdraw_ControllerNotSender() external {
-    //     vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.withdraw(1000e6, address(node), address(this));
-    // }
-
-    // function test_withdraw_OwnerNotSender() external {
-    //     vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.withdraw(1000e6, address(this), address(node));
-    // }
-
-    // function test_withdraw_RedeemRequestNotFulfilled() external {
-    //     vm.expectRevert(DigiftWrapper.RedeemRequestNotFulfilled.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.withdraw(1000e6, address(node), address(node));
-    // }
-
-    // function test_withdraw_WithdrawAllAssetsOnly() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 toLiquidate = sharesToMint / 2;
-    //     uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
-
-    //     _settleSubscription(sharesToMint, 0, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
-
-    //     _liquidate(toLiquidate);
-    //     _settleRedemption(0, assetsToReturn, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
-    //     vm.stopPrank();
-
-    //     vm.expectRevert(DigiftWrapper.WithdrawAllAssetsOnly.selector);
-    //     vm.prank(address(node));
-    //     digiftWrapper.withdraw(assetsToReturn / 2, address(node), address(node));
-    // }
-
-    // function test_settleDeposit_NothingToSettle() external {
-    //     vm.expectRevert(DigiftWrapper.NothingToSettle.selector);
-    //     vm.prank(manager);
-    //     digiftWrapper.settleDeposit(address(node), 1000e6, 0);
-    // }
-
-    // function test_settleRedeem_NothingToSettle() external {
-    //     vm.expectRevert(DigiftWrapper.NothingToSettle.selector);
-    //     vm.prank(manager);
-    //     digiftWrapper.settleRedeem(address(node), 1000e6, 0);
-    // }
-
-    // =============================
-    //      Event Tests
-    // =============================
-
-    // function test_settleDeposit_emits_DepositSettled() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-
-    //     _settleSubscription(sharesToMint, 0, 0);
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit DigiftWrapper.DepositSettled(address(node), sharesToMint, 0);
-
-    //     vm.prank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    // }
-
-    // function test_settleRedeem_emits_RedeemSettled() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 toLiquidate = sharesToMint / 2;
-    //     uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
-
-    //     _settleSubscription(sharesToMint, 0, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
-
-    //     _liquidate(toLiquidate);
-    //     _settleRedemption(0, assetsToReturn, 0);
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit DigiftWrapper.RedeemSettled(address(node), 0, assetsToReturn);
-
-    //     vm.prank(manager);
-    //     digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
-    // }
+    function test_settleRedeem_NothingToSettle() external {
+        vm.expectRevert(DigiftWrapper.NothingToSettle.selector);
+        _settleRedeem(node, 1000e6, 0);
+    }
 
     // =============================
     //      Unsupported Function Tests
@@ -735,90 +719,73 @@ contract DigiftForkTest is BaseTest {
     //      View Function Tests
     // =============================
 
-    // function test_totalAssets_initialState() external view {
-    //     assertEq(digiftWrapper.totalAssets(), 0, "Total assets should be 0 initially");
-    // }
+    function test_totalAssets_initialState() external view {
+        assertEq(digiftWrapper.totalAssets(), 0, "Total assets should be 0 initially");
+    }
 
-    // function test_totalAssets_afterMinting() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+    function test_totalAssets_afterMinting() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
 
-    //     _settleSubscription(sharesToMint, 0, 0);
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
+        // After minting shares, totalAssets should equal convertToAssets(totalSupply())
+        uint256 totalSupply = digiftWrapper.totalSupply();
+        uint256 expectedTotalAssets = digiftWrapper.convertToAssets(totalSupply);
+        uint256 actualTotalAssets = digiftWrapper.totalAssets();
 
-    //     // After minting shares, totalAssets should equal convertToAssets(totalSupply())
-    //     uint256 totalSupply = digiftWrapper.totalSupply();
-    //     uint256 expectedTotalAssets = digiftWrapper.convertToAssets(totalSupply);
-    //     uint256 actualTotalAssets = digiftWrapper.totalAssets();
+        assertEq(actualTotalAssets, expectedTotalAssets, "totalAssets should match convertToAssets(totalSupply())");
+        assertEq(totalSupply, sharesToMint, "Total supply should equal minted shares");
+    }
 
-    //     assertEq(actualTotalAssets, expectedTotalAssets, "totalAssets should match convertToAssets(totalSupply())");
-    //     assertEq(totalSupply, sharesToMint, "Total supply should equal minted shares");
-    // }
+    function test_totalAssets_afterPartialMint() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 partialShares = sharesToMint * 8 / 10;
+        uint256 assetsUsed = digiftWrapper.convertToAssets(partialShares);
+        uint256 assetsToReimburse = depositAmount - assetsUsed;
 
-    // function test_totalAssets_afterPartialMint() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 partialShares = sharesToMint * 8 / 10;
-    //     uint256 assetsUsed = digiftWrapper.convertToAssets(partialShares);
-    //     uint256 assetsToReimburse = depositAmount - assetsUsed;
+        _forward();
+        _settleSubscription(partialShares, assetsToReimburse, 0);
+        _settleDeposit(node, partialShares, assetsToReimburse);
+        _mint(node);
 
-    //     _settleSubscription(partialShares, assetsToReimburse, 0);
+        // After partial minting, totalAssets should reflect the partial shares
+        uint256 totalSupply = digiftWrapper.totalSupply();
+        uint256 expectedTotalAssets = digiftWrapper.convertToAssets(totalSupply);
+        uint256 actualTotalAssets = digiftWrapper.totalAssets();
 
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), partialShares, assetsToReimburse);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
+        assertEq(actualTotalAssets, expectedTotalAssets, "totalAssets should match convertToAssets(totalSupply())");
+        assertEq(totalSupply, partialShares, "Total supply should equal partial minted shares");
+    }
 
-    //     // After partial minting, totalAssets should reflect the partial shares
-    //     uint256 totalSupply = digiftWrapper.totalSupply();
-    //     uint256 expectedTotalAssets = digiftWrapper.convertToAssets(totalSupply);
-    //     uint256 actualTotalAssets = digiftWrapper.totalAssets();
+    function test_totalAssets_afterWithdrawal() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+        uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
 
-    //     assertEq(actualTotalAssets, expectedTotalAssets, "totalAssets should match convertToAssets(totalSupply())");
-    //     assertEq(totalSupply, partialShares, "Total supply should equal partial minted shares");
-    // }
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
+        _forward();
+        _settleRedemption(0, assetsToReturn, 0);
+        _settleRedeem(node, assetsToReturn, 0);
+        _withdraw(node, assetsToReturn);
 
-    // function test_totalAssets_afterWithdrawal() external {
-    //     uint256 depositAmount = _invest();
-    //     uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
-    //     uint256 toLiquidate = sharesToMint / 2;
-    //     uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
+        // After withdrawal, totalAssets should reflect remaining shares
+        uint256 totalSupply = digiftWrapper.totalSupply();
+        uint256 expectedTotalAssets = digiftWrapper.convertToAssets(totalSupply);
+        uint256 actualTotalAssets = digiftWrapper.totalAssets();
 
-    //     _settleSubscription(sharesToMint, 0, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleDeposit(address(node), sharesToMint, 0);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.mintClaimableShares(address(node), address(digiftWrapper));
-    //     vm.stopPrank();
-
-    //     _liquidate(toLiquidate);
-    //     _settleRedemption(0, assetsToReturn, 0);
-
-    //     vm.startPrank(manager);
-    //     digiftWrapper.settleRedeem(address(node), 0, assetsToReturn);
-    //     vm.stopPrank();
-    //     vm.startPrank(rebalancer);
-    //     router7540.executeAsyncWithdrawal(address(node), address(digiftWrapper), assetsToReturn);
-    //     vm.stopPrank();
-
-    //     // After withdrawal, totalAssets should reflect remaining shares
-    //     uint256 totalSupply = digiftWrapper.totalSupply();
-    //     uint256 expectedTotalAssets = digiftWrapper.convertToAssets(totalSupply);
-    //     uint256 actualTotalAssets = digiftWrapper.totalAssets();
-
-    //     assertEq(actualTotalAssets, expectedTotalAssets, "totalAssets should match convertToAssets(totalSupply())");
-    //     assertEq(totalSupply, sharesToMint - toLiquidate, "Total supply should equal remaining shares");
-    // }
+        assertEq(actualTotalAssets, expectedTotalAssets, "totalAssets should match convertToAssets(totalSupply())");
+        assertEq(totalSupply, sharesToMint - toLiquidate, "Total supply should equal remaining shares");
+    }
 
     function test_decimals() external view {
         uint8 expectedDecimals = stToken.decimals();
