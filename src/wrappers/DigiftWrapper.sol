@@ -5,8 +5,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 import {ISubRedManagement, IDFeedPriceOracle} from "src/interfaces/external/IDigift.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
@@ -16,7 +15,9 @@ import {IPriceOracle} from "src/interfaces/external/IPriceOracle.sol";
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
 
-struct State {
+import {DigiftEventVerifier} from "src/wrappers/DigiftEventVerifier.sol";
+
+struct NodeState {
     uint256 maxMint;
     uint256 maxWithdraw;
     uint256 pendingDepositRequest;
@@ -25,11 +26,18 @@ struct State {
     uint256 pendingRedeemReimbursement;
     uint256 claimableDepositRequest;
     uint256 claimableRedeemRequest;
-    uint256 priceOnRequest;
 }
 
-contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC7575 {
+struct GlobalState {
+    uint256 accumulatedDeposit;
+    uint256 accumulatedRedemption;
+    uint256 pendingDepositRequest;
+    uint256 pendingRedeemRequest;
+}
+
+contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IERC7575 {
     using SafeERC20 for IERC20;
+    using MathLib for uint256;
 
     // =============================
     //            Errors
@@ -62,34 +70,37 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     // =============================
     event DepositSettled(address indexed node, uint256 shares, uint256 assets);
     event RedeemSettled(address indexed node, uint256 shares, uint256 assets);
-    event SettlementDeviationChange(uint64 oldValue, uint64 newValue);
     event PriceDeviationChange(uint64 oldValue, uint64 newValue);
     event PriceUpdateDeviationChange(uint64 oldValue, uint64 newValue);
     event NotInRange(address indexed node, uint256 expectedValue, uint256 actualValue);
     event ManagerWhitelistChange(address indexed manager, bool whitelisted);
     event NodeWhitelistChange(address indexed node, bool whitelisted);
     event LastPriceUpdate(uint256 price);
+    event DigiftSubscribed(uint256 assets);
+    event DigiftRedeemed(uint256 shares);
 
     /* IMMUTABLES */
     uint256 constant WAD = 1e18;
 
     uint256 private constant REQUEST_ID = 0;
 
-    address public immutable asset;
-    uint8 internal immutable _assetDecimals;
-    IPriceOracle public immutable assetPriceOracle;
-    uint8 internal immutable _assetPriceOracleDecimals;
-
-    address public immutable stToken;
-    uint8 internal immutable _stTokenDecimals;
-
     ISubRedManagement public immutable subRedManagement;
-    IDFeedPriceOracle public immutable dFeedPriceOracle;
-    uint8 internal immutable _dFeedPriceOracleDecimals;
+
+    DigiftEventVerifier digiftEventVerifier;
 
     /* STATE */
 
-    uint64 public settlementDeviation;
+    address public asset;
+    uint8 internal _assetDecimals;
+    IPriceOracle public assetPriceOracle;
+    uint8 internal _assetPriceOracleDecimals;
+
+    address public stToken;
+    uint8 internal _stTokenDecimals;
+
+    IDFeedPriceOracle public dFeedPriceOracle;
+    uint8 internal _dFeedPriceOracleDecimals;
+
     uint64 public priceDeviation;
     uint64 public priceUpdateDeviation;
 
@@ -98,35 +109,55 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     uint256 public stTokenBalance;
     uint256 public assetBalance;
 
-    mapping(address node => State state) internal _nodeState;
+    GlobalState internal _globalState;
+
+    mapping(address node => NodeState state) internal _nodeState;
 
     mapping(address manager => bool whitelisted) public managerWhitelisted;
 
     mapping(address node => bool whitelisted) public nodeWhitelisted;
 
-    constructor(
+    struct SettleDepositVars {
+        uint256 globalPendingDepositRequest;
+        uint256 totalPendingDepositRequestCheck;
+        uint256 totalSharesToMint;
+        uint256 totalAssetsToReimburse;
+    }
+
+    struct SettleRedeemVars {
+        uint256 globalPendingRedeemRequest;
+        uint256 totalPendingRedeemRequestCheck;
+        uint256 totalAssetsToReturn;
+        uint256 totalSharesToReimburse;
+    }
+
+    constructor(address subRedManagement_, address registry_, address digiftEventVerifier_)
+        RegistryAccessControl(registry_)
+    {
+        subRedManagement = ISubRedManagement(subRedManagement_);
+        digiftEventVerifier = DigiftEventVerifier(digiftEventVerifier_);
+    }
+
+    function initialize(
         address asset_,
         address assetPriceOracle_,
         address stToken_,
-        address subRedManagement_,
         address dFeedPriceOracle_,
-        address registry_,
         string memory name_,
         string memory symbol_,
-        uint64 settlementDeviation_,
         uint64 priceDeviation_,
         uint64 priceUpdateDeviation_
-    ) RegistryAccessControl(registry_) ERC20(name_, symbol_) {
+    ) external initializer {
+        __ERC20_init(name_, symbol_);
+
         asset = asset_;
         assetPriceOracle = IPriceOracle(assetPriceOracle_);
         _assetPriceOracleDecimals = IPriceOracle(assetPriceOracle_).decimals();
         stToken = stToken_;
         _assetDecimals = IERC20Metadata(asset_).decimals();
         _stTokenDecimals = IERC20Metadata(stToken_).decimals();
-        subRedManagement = ISubRedManagement(subRedManagement_);
         dFeedPriceOracle = IDFeedPriceOracle(dFeedPriceOracle_);
         _dFeedPriceOracleDecimals = IDFeedPriceOracle(dFeedPriceOracle_).decimals();
-        settlementDeviation = settlementDeviation_;
         priceDeviation = priceDeviation_;
         priceUpdateDeviation = priceUpdateDeviation_;
         // initialize price cache
@@ -140,17 +171,11 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     }
 
     function _nothingPending() internal {
-        State memory nodeState = _nodeState[msg.sender];
+        NodeState memory nodeState = _nodeState[msg.sender];
         require(nodeState.pendingDepositRequest == 0, DepositRequestPending());
         require(nodeState.maxMint == 0, DepositRequestNotClaimed());
         require(nodeState.pendingRedeemRequest == 0, RedeemRequestPending());
         require(nodeState.maxWithdraw == 0, RedeemRequestNotClaimed());
-    }
-
-    function setSettlementDeviation(uint64 value) external onlyRegistryOwner {
-        require(value <= WAD, InvalidPercentage());
-        emit SettlementDeviationChange(settlementDeviation, value);
-        settlementDeviation = value;
     }
 
     function setPriceDeviation(uint64 value) external onlyRegistryOwner {
@@ -162,14 +187,6 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     function setPriceUpdateDeviation(uint64 value) external onlyRegistryOwner {
         emit PriceUpdateDeviationChange(priceUpdateDeviation, value);
         priceUpdateDeviation = value;
-    }
-
-    function pause() external onlyRegistryOwner {
-        _pause();
-    }
-
-    function unpause() external onlyRegistryOwner {
-        _unpause();
     }
 
     function setManager(address manager, bool whitelisted) external onlyRegistryOwner {
@@ -200,14 +217,9 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     }
 
     function updateLastPrice() external onlyManager {
-        _getAndUpdatePrice();
-    }
-
-    function _getAndUpdatePrice() internal returns (uint256) {
         uint256 price = _getPrice();
         lastPrice = price;
         emit LastPriceUpdate(price);
-        return price;
     }
 
     function _getPrice() internal view returns (uint256) {
@@ -230,91 +242,164 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
     function requestDeposit(uint256 assets, address controller, address owner)
         external
         onlyWhitelistedNode
-        whenNotPaused
         returns (uint256)
     {
         _actionValidation(assets, controller, owner);
         _nothingPending();
 
         _nodeState[msg.sender].pendingDepositRequest = assets;
-        uint256 price = _getAndUpdatePrice();
-        _nodeState[msg.sender].priceOnRequest = price;
+        _globalState.accumulatedDeposit += assets;
 
         IERC20(asset).safeTransferFrom(msg.sender, address(this), assets);
-        IERC20(asset).safeIncreaseAllowance(address(subRedManagement), assets);
-        subRedManagement.subscribe(stToken, asset, assets, block.timestamp + 1);
 
         emit DepositRequest(controller, owner, REQUEST_ID, msg.sender, assets);
         return REQUEST_ID;
     }
 
+    function settleDeposit(address[] calldata nodes, DigiftEventVerifier.OffchainArgs calldata verifyArgs)
+        external
+        onlyManager
+    {
+        (uint256 shares, uint256 assets) = digiftEventVerifier.verifySettlementEvent(
+            verifyArgs,
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.SUBSCRIBE, address(subRedManagement), stToken, asset
+            )
+        );
+        SettleDepositVars memory vars;
+        vars.globalPendingDepositRequest = _globalState.pendingDepositRequest;
+        require(vars.globalPendingDepositRequest > 0, NothingToSettle());
+
+        for (uint256 i; i < nodes.length; i++) {
+            NodeState storage node = _nodeState[nodes[i]];
+
+            uint256 nodePendingDepositRequest = node.pendingDepositRequest;
+            uint256 assetsToReimburse = nodePendingDepositRequest.mulDiv(assets, vars.globalPendingDepositRequest);
+            uint256 sharesToMint = nodePendingDepositRequest.mulDiv(shares, vars.globalPendingDepositRequest);
+
+            vars.totalPendingDepositRequestCheck += nodePendingDepositRequest;
+            vars.totalSharesToMint += sharesToMint;
+            vars.totalAssetsToReimburse += assetsToReimburse;
+
+            // to avoid dust accumulation
+            if (i == nodes.length - 1) {
+                if (vars.totalSharesToMint < shares || vars.totalAssetsToReimburse < assets) {
+                    sharesToMint += shares - vars.totalSharesToMint;
+                    assetsToReimburse += assets - vars.totalAssetsToReimburse;
+                }
+            }
+
+            node.claimableDepositRequest = nodePendingDepositRequest;
+            node.pendingDepositRequest = 0;
+            node.maxMint = sharesToMint;
+            node.pendingDepositReimbursement = assetsToReimburse;
+
+            emit DepositSettled(nodes[i], sharesToMint, assetsToReimburse);
+        }
+
+        require(vars.totalPendingDepositRequestCheck == vars.globalPendingDepositRequest, "Not all nodes are settled");
+        _globalState.pendingDepositRequest = 0;
+    }
+
+    function mint(uint256 shares, address receiver, address controller)
+        public
+        onlyWhitelistedNode
+        returns (uint256 assets)
+    {
+        _actionValidation(shares, controller, receiver);
+        NodeState storage node = _nodeState[msg.sender];
+        require(node.claimableDepositRequest > 0, DepositRequestNotFulfilled());
+        require(node.maxMint == shares, MintAllSharesOnly());
+
+        assets = node.claimableDepositRequest;
+
+        uint256 assetsToReimburse = node.pendingDepositReimbursement;
+
+        node.claimableDepositRequest = 0;
+        node.maxMint = 0;
+        node.pendingDepositReimbursement = 0;
+
+        _mint(msg.sender, shares);
+
+        // if assets are partially used => send back to the node
+        if (assetsToReimburse > 0) {
+            IERC20(asset).safeTransfer(msg.sender, assetsToReimburse);
+        }
+        emit Deposit(controller, receiver, assets - assetsToReimburse, shares);
+    }
+
     function requestRedeem(uint256 shares, address controller, address owner)
         external
         onlyWhitelistedNode
-        whenNotPaused
         returns (uint256)
     {
         _actionValidation(shares, controller, owner);
         _nothingPending();
 
         _nodeState[msg.sender].pendingRedeemRequest = shares;
-        uint256 price = _getAndUpdatePrice();
-        _nodeState[msg.sender].priceOnRequest = price;
+        _globalState.accumulatedRedemption += shares;
 
         _spendAllowance(msg.sender, address(this), shares);
         _transfer(msg.sender, address(this), shares);
-        // stTokens are transferred to subRedManagement - we need to reduce internal accounting
-        stTokenBalance -= shares;
-
-        IERC20(stToken).safeIncreaseAllowance(address(subRedManagement), shares);
-        subRedManagement.redeem(stToken, asset, shares, block.timestamp + 1);
 
         emit RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
 
-    function mint(uint256 shares, address receiver, address controller)
-        public
-        onlyWhitelistedNode
-        whenNotPaused
-        returns (uint256 assets)
+    function settleRedeem(address[] calldata nodes, DigiftEventVerifier.OffchainArgs calldata verifyArgs)
+        external
+        onlyManager
     {
-        _actionValidation(shares, controller, receiver);
-        require(_nodeState[msg.sender].claimableDepositRequest > 0, DepositRequestNotFulfilled());
-        require(_nodeState[msg.sender].maxMint == shares, MintAllSharesOnly());
+        (uint256 shares, uint256 assets) = digiftEventVerifier.verifySettlementEvent(
+            verifyArgs,
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM, address(subRedManagement), stToken, asset
+            )
+        );
+        SettleRedeemVars memory vars;
+        vars.globalPendingRedeemRequest = _globalState.pendingRedeemRequest;
+        require(vars.globalPendingRedeemRequest > 0, NothingToSettle());
 
-        _getAndUpdatePrice();
+        for (uint256 i; i < nodes.length; i++) {
+            NodeState storage node = _nodeState[nodes[i]];
 
-        assets = _nodeState[msg.sender].claimableDepositRequest;
+            uint256 nodePendingRedeemRequest = node.pendingRedeemRequest;
+            uint256 assetsToReturn = nodePendingRedeemRequest.mulDiv(assets, vars.globalPendingRedeemRequest);
+            uint256 sharesToReimburse = nodePendingRedeemRequest.mulDiv(shares, vars.globalPendingRedeemRequest);
 
-        uint256 assetsToReimburse = _nodeState[msg.sender].pendingDepositReimbursement;
+            vars.totalPendingRedeemRequestCheck += nodePendingRedeemRequest;
+            vars.totalAssetsToReturn += assetsToReturn;
+            vars.totalSharesToReimburse += sharesToReimburse;
 
-        _nodeState[msg.sender].claimableDepositRequest = 0;
-        _nodeState[msg.sender].maxMint = 0;
-        _nodeState[msg.sender].pendingDepositReimbursement = 0;
+            // to avoid dust accumulation
+            if (i == nodes.length - 1) {
+                if (vars.totalAssetsToReturn < assets || vars.totalSharesToReimburse < shares) {
+                    assetsToReturn += assets - vars.totalAssetsToReturn;
+                    sharesToReimburse += shares - vars.totalSharesToReimburse;
+                }
+            }
 
-        _mint(msg.sender, shares);
+            node.claimableRedeemRequest = nodePendingRedeemRequest;
+            node.pendingRedeemRequest = 0;
+            node.maxWithdraw = assetsToReturn;
+            node.pendingRedeemReimbursement = sharesToReimburse;
 
-        // if assets are partially used => send back to the node
-        if (assetsToReimburse > 0) {
-            assetBalance -= assetsToReimburse;
-            IERC20(asset).safeTransfer(msg.sender, assetsToReimburse);
+            emit RedeemSettled(nodes[i], sharesToReimburse, assetsToReturn);
         }
-        emit Deposit(controller, receiver, assets - assetsToReimburse, shares);
+
+        require(vars.totalPendingRedeemRequestCheck == vars.globalPendingRedeemRequest, "Not all nodes are settled");
+        _globalState.pendingRedeemRequest = 0;
     }
 
     function withdraw(uint256 assets, address receiver, address controller)
         external
         onlyWhitelistedNode
-        whenNotPaused
         returns (uint256 shares)
     {
         _actionValidation(assets, controller, receiver);
 
         require(_nodeState[msg.sender].claimableRedeemRequest > 0, RedeemRequestNotFulfilled());
         require(_nodeState[msg.sender].maxWithdraw == assets, WithdrawAllAssetsOnly());
-
-        _getAndUpdatePrice();
 
         shares = _nodeState[msg.sender].claimableRedeemRequest;
 
@@ -338,53 +423,27 @@ contract DigiftWrapper is ERC20, RegistryAccessControl, Pausable, IERC7540, IERC
         emit Withdraw(msg.sender, receiver, controller, assets, shares - sharesToReimburse);
     }
 
-    function _sufficientBalances(uint256 shares, uint256 assets) internal {
-        uint256 stTokenBalanceActual = IERC20(stToken).balanceOf(address(this));
-        stTokenBalance += shares;
-        require(
-            stTokenBalance <= stTokenBalanceActual, InsufficientStTokenBalance(stTokenBalance, stTokenBalanceActual)
-        );
-        uint256 assetBalanceActual = IERC20(asset).balanceOf(address(this));
-        assetBalance += assets;
-        require(assetBalance <= assetBalanceActual, InsufficientAssetBalance(assetBalance, assetBalanceActual));
-    }
+    function forwardRequestsToDigift() external onlyManager {
+        require(_globalState.pendingDepositRequest == 0, DepositRequestPending());
+        require(_globalState.pendingRedeemRequest == 0, RedeemRequestPending());
 
-    function settleDeposit(address node, uint256 shares, uint256 assets) external onlyManager whenNotPaused {
-        require(_nodeState[node].pendingDepositRequest > 0, NothingToSettle());
-        uint256 effectiveAssets = _nodeState[node].pendingDepositRequest - assets;
-        uint256 expectedShares = _convertToShares(effectiveAssets, _nodeState[node].priceOnRequest);
-        if (!MathLib._withinRange(expectedShares, shares, settlementDeviation)) {
-            emit NotInRange(node, expectedShares, shares);
-            _pause();
-            return;
+        uint256 pendingAssets = _globalState.accumulatedDeposit;
+        if (pendingAssets > 0) {
+            _globalState.accumulatedDeposit = 0;
+            _globalState.pendingDepositRequest = pendingAssets;
+            IERC20(asset).safeIncreaseAllowance(address(subRedManagement), pendingAssets);
+            subRedManagement.subscribe(stToken, asset, pendingAssets, block.timestamp + 1);
+            emit DigiftSubscribed(pendingAssets);
         }
 
-        _sufficientBalances(shares, assets);
-        _nodeState[node].claimableDepositRequest = _nodeState[node].pendingDepositRequest;
-        _nodeState[node].pendingDepositRequest = 0;
-        _nodeState[node].maxMint = shares;
-        _nodeState[node].pendingDepositReimbursement = assets;
-        _nodeState[node].priceOnRequest = 0;
-        emit DepositSettled(node, shares, assets);
-    }
-
-    function settleRedeem(address node, uint256 shares, uint256 assets) external onlyManager whenNotPaused {
-        require(_nodeState[node].pendingRedeemRequest > 0, NothingToSettle());
-        uint256 effectiveShares = _nodeState[node].pendingRedeemRequest - shares;
-        uint256 expectedAssets = _convertToAssets(effectiveShares, _nodeState[node].priceOnRequest);
-        if (!MathLib._withinRange(expectedAssets, assets, settlementDeviation)) {
-            emit NotInRange(node, expectedAssets, assets);
-            _pause();
-            return;
+        uint256 pendingShares = _globalState.accumulatedRedemption;
+        if (pendingShares > 0) {
+            _globalState.accumulatedRedemption = 0;
+            _globalState.pendingRedeemRequest = pendingShares;
+            IERC20(stToken).safeIncreaseAllowance(address(subRedManagement), pendingShares);
+            subRedManagement.redeem(stToken, asset, pendingShares, block.timestamp + 1);
+            emit DigiftRedeemed(pendingShares);
         }
-
-        _sufficientBalances(shares, assets);
-        _nodeState[node].claimableRedeemRequest = _nodeState[node].pendingRedeemRequest;
-        _nodeState[node].pendingRedeemRequest = 0;
-        _nodeState[node].maxWithdraw = assets;
-        _nodeState[node].pendingRedeemReimbursement = shares;
-        _nodeState[node].priceOnRequest = 0;
-        emit RedeemSettled(node, shares, assets);
     }
 
     function pendingDepositRequest(uint256, address controller) external view returns (uint256) {

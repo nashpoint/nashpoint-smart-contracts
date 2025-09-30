@@ -1,5 +1,6 @@
 forge-std/=lib/forge-std/src/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin-upgradeable/contracts/=lib/openzeppelin-contracts-upgradeable/contracts/
 @prb/math/=lib/prb-math/src/
 ds-test/=lib/forge-std/lib/ds-test/src/
 optimism/=lib/optimism/packages/contracts-bedrock/src/

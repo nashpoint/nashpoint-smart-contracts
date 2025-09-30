@@ -84,21 +84,27 @@ contract DigiftEventVerifier is RegistryAccessControl {
     // ============ Structs ============
 
     /**
-     * @notice Parameters for verifying a settlement event
+     * @notice Offchain parameters for verifying a settlement event
      * @param blockNumber The block number containing the settlement event
      * @param headerRlp RLP-encoded block header for verification
      * @param txIndex Transaction index path in the Merkle trie
      * @param proof Merkle proof for the transaction receipt
+     */
+    struct OffchainArgs {
+        uint256 blockNumber;
+        bytes headerRlp;
+        bytes txIndex;
+        bytes[] proof;
+    }
+
+    /**
+     * @notice Onchain parameters for verifying a settlement event
      * @param eventType Subscribe or Redeem
      * @param emittingAddress The contract address that emitted the event
      * @param securityToken The security token address to match in the event
      * @param currencyToken The currency token address to match in the event
      */
-    struct Args {
-        uint256 blockNumber;
-        bytes headerRlp;
-        bytes txIndex;
-        bytes[] proof;
+    struct OnchainArgs {
         EventType eventType;
         address emittingAddress;
         address securityToken;
@@ -158,31 +164,36 @@ contract DigiftEventVerifier is RegistryAccessControl {
      * @dev This function allows nodes to claim settlement events by providing cryptographic
      *      proofs that the event occurred on the DigiFT protocol. It validates the event
      *      against the block header and prevents double-spending by tracking used log hashes.
-     * @param args The verification parameters including block data, proofs, and event details
+     * @param fargs Offchain verification parameters including block data, proofs, and event details
+     * @param nargs Onchain verification parameters including emitting address, event type and tokens
      * @return stTokenAmount The amount of security tokens in the settlement
      * @return currencyTokenAmount The amount of currency tokens in the settlement
      * @dev Only callable by registered nodes
      * @dev Reverts if the event signature is invalid, block header doesn't match,
      *      or if the log has already been used (double-spending protection)
      */
-    function verifySettlementEvent(Args calldata args) external onlyNode returns (uint256, uint256) {
+    function verifySettlementEvent(OffchainArgs calldata fargs, OnchainArgs calldata nargs)
+        external
+        onlyNode
+        returns (uint256, uint256)
+    {
         Vars memory vars;
 
         // Calculate the block hash from the provided header RLP
-        vars.blockHash = keccak256(args.headerRlp);
-        vars.eventSignature = args.eventType == EventType.SUBSCRIBE ? SETTLE_SUBSCRIBER_TOPIC : SETTLE_REDEMPTION_TOPIC;
+        vars.blockHash = keccak256(fargs.headerRlp);
+        vars.eventSignature = nargs.eventType == EventType.SUBSCRIBE ? SETTLE_SUBSCRIBER_TOPIC : SETTLE_REDEMPTION_TOPIC;
 
         // Verify the block hash matches the stored or current block hash
-        if (_getBlockHash(args.blockNumber) != vars.blockHash) revert BadHeader();
+        if (_getBlockHash(fargs.blockNumber) != vars.blockHash) revert BadHeader();
 
         // Extract the receipts root from the block header (index 5 in RLP-encoded header)
-        vars.receiptsRoot = bytes32(RLPReader.readBytes(RLPReader.readList(args.headerRlp)[5]));
+        vars.receiptsRoot = bytes32(RLPReader.readBytes(RLPReader.readList(fargs.headerRlp)[5]));
 
         // Get the transaction receipt using Merkle proof and extract logs
         // The receipt structure is: [status, cumulativeGasUsed, logsBloom, logs]
         // We need index 3 which contains the logs array
         vars.logs = RLPReader.readList(
-            RLPReader.readList(_stripTypedPrefix(MerkleTrie.get(args.txIndex, args.proof, vars.receiptsRoot)))[3]
+            RLPReader.readList(_stripTypedPrefix(MerkleTrie.get(fargs.txIndex, fargs.proof, vars.receiptsRoot)))[3]
         );
 
         // Iterate through all logs in the transaction receipt
@@ -190,7 +201,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
             vars.log = RLPReader.readList(vars.logs[i]);
 
             // Check if this log was emitted by the expected contract address
-            if (address(bytes20(RLPReader.readBytes(vars.log[0]))) != args.emittingAddress) continue;
+            if (address(bytes20(RLPReader.readBytes(vars.log[0]))) != nargs.emittingAddress) continue;
 
             // Extract and validate the log topics (indexed parameters)
             RLPReader.RLPItem[] memory topics = RLPReader.readList(vars.log[1]);
@@ -209,7 +220,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
             );
 
             // Verify the security token matches
-            if (stToken != args.securityToken) continue;
+            if (stToken != nargs.securityToken) continue;
 
             // Find the caller's index in the investor list
             vars.investorIndex = type(uint256).max;
@@ -222,18 +233,18 @@ contract DigiftEventVerifier is RegistryAccessControl {
             if (vars.investorIndex == type(uint256).max) continue; // Caller not in investor list
 
             // Verify the currency token matches for this investor
-            if (currencyTokenList[vars.investorIndex] != args.currencyToken) continue;
+            if (currencyTokenList[vars.investorIndex] != nargs.currencyToken) continue;
 
             // Generate unique log hash to prevent double-spending
-            vars.logHash = _hashLog(vars.blockHash, vars.receiptsRoot, args.txIndex, i);
+            vars.logHash = _hashLog(vars.blockHash, vars.receiptsRoot, fargs.txIndex, i);
             if (usedLogs[vars.logHash]) revert LogAlreadyUsed();
             usedLogs[vars.logHash] = true;
 
             // Emit verification event with settlement details
             emit Verified(
                 msg.sender,
-                args.securityToken,
-                args.currencyToken,
+                nargs.securityToken,
+                nargs.currencyToken,
                 quantityList[vars.investorIndex],
                 amountList[vars.investorIndex],
                 vars.blockHash,
