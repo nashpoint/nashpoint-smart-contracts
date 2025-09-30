@@ -15,7 +15,7 @@ import {IPriceOracle} from "src/interfaces/external/IPriceOracle.sol";
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
 import {MathLib} from "src/libraries/MathLib.sol";
 
-import {DigiftEventVerifier} from "src/wrappers/DigiftEventVerifier.sol";
+import {DigiftEventVerifier} from "./DigiftEventVerifier.sol";
 
 struct NodeState {
     uint256 maxMint;
@@ -56,8 +56,6 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     error NothingToSettle();
     error Unsupported();
     error InvalidPercentage();
-    error InsufficientStTokenBalance(uint256 internalBalance, uint256 actualBalance);
-    error InsufficientAssetBalance(uint256 internalBalance, uint256 actualBalance);
     error PriceNotInRange(uint256 lastValue, uint256 currentValue);
     error StalePriceData(uint256 lastUpdate, uint256 currentTimestamp);
     error NotNode();
@@ -72,7 +70,6 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     event RedeemSettled(address indexed node, uint256 shares, uint256 assets);
     event PriceDeviationChange(uint64 oldValue, uint64 newValue);
     event PriceUpdateDeviationChange(uint64 oldValue, uint64 newValue);
-    event NotInRange(address indexed node, uint256 expectedValue, uint256 actualValue);
     event ManagerWhitelistChange(address indexed manager, bool whitelisted);
     event NodeWhitelistChange(address indexed node, bool whitelisted);
     event LastPriceUpdate(uint256 price);
@@ -107,7 +104,6 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     uint256 lastPrice;
 
     uint256 public stTokenBalance;
-    uint256 public assetBalance;
 
     GlobalState internal _globalState;
 
@@ -116,6 +112,17 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     mapping(address manager => bool whitelisted) public managerWhitelisted;
 
     mapping(address node => bool whitelisted) public nodeWhitelisted;
+
+    struct InitArgs {
+        string name;
+        string symbol;
+        address asset;
+        address assetPriceOracle;
+        address stToken;
+        address dFeedPriceOracle;
+        uint64 priceDeviation;
+        uint64 priceUpdateDeviation;
+    }
 
     struct SettleDepositVars {
         uint256 globalPendingDepositRequest;
@@ -138,28 +145,19 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
         digiftEventVerifier = DigiftEventVerifier(digiftEventVerifier_);
     }
 
-    function initialize(
-        address asset_,
-        address assetPriceOracle_,
-        address stToken_,
-        address dFeedPriceOracle_,
-        string memory name_,
-        string memory symbol_,
-        uint64 priceDeviation_,
-        uint64 priceUpdateDeviation_
-    ) external initializer {
-        __ERC20_init(name_, symbol_);
+    function initialize(InitArgs calldata args) external initializer {
+        __ERC20_init(args.name, args.symbol);
 
-        asset = asset_;
-        assetPriceOracle = IPriceOracle(assetPriceOracle_);
-        _assetPriceOracleDecimals = IPriceOracle(assetPriceOracle_).decimals();
-        stToken = stToken_;
-        _assetDecimals = IERC20Metadata(asset_).decimals();
-        _stTokenDecimals = IERC20Metadata(stToken_).decimals();
-        dFeedPriceOracle = IDFeedPriceOracle(dFeedPriceOracle_);
-        _dFeedPriceOracleDecimals = IDFeedPriceOracle(dFeedPriceOracle_).decimals();
-        priceDeviation = priceDeviation_;
-        priceUpdateDeviation = priceUpdateDeviation_;
+        asset = args.asset;
+        assetPriceOracle = IPriceOracle(args.assetPriceOracle);
+        _assetPriceOracleDecimals = IPriceOracle(args.assetPriceOracle).decimals();
+        stToken = args.stToken;
+        _assetDecimals = IERC20Metadata(args.asset).decimals();
+        _stTokenDecimals = IERC20Metadata(args.stToken).decimals();
+        dFeedPriceOracle = IDFeedPriceOracle(args.dFeedPriceOracle);
+        _dFeedPriceOracleDecimals = IDFeedPriceOracle(args.dFeedPriceOracle).decimals();
+        priceDeviation = args.priceDeviation;
+        priceUpdateDeviation = args.priceUpdateDeviation;
         // initialize price cache
         lastPrice = dFeedPriceOracle.getPrice();
     }
@@ -409,9 +407,6 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
         _nodeState[msg.sender].claimableRedeemRequest = 0;
         _nodeState[msg.sender].maxWithdraw = 0;
         _nodeState[msg.sender].pendingRedeemReimbursement = 0;
-
-        // assets are moved to node - we need to reduce internal accounting
-        assetBalance -= assets;
 
         _burn(address(this), sharesToBurn);
 

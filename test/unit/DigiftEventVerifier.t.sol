@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {DigiftEventVerifier} from "src/wrappers/DigiftEventVerifier.sol";
+import {DigiftEventVerifier} from "src/wrappers/digift/DigiftEventVerifier.sol";
 
 contract DigiftEventVerifierHarness is DigiftEventVerifier {
     constructor(address registry_) DigiftEventVerifier(registry_) {}
