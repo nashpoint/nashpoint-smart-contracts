@@ -11,10 +11,16 @@ contract DigiftWrapperFactory is UpgradeableBeacon {
 
     constructor(address implementation, address owner) UpgradeableBeacon(implementation, owner) {}
 
-    function deploy(DigiftWrapper.InitArgs calldata initArgs) external onlyOwner {
+    function deploy(DigiftWrapper.InitArgs calldata initArgs)
+        external
+        onlyOwner
+        returns (DigiftWrapper digiftWrapper)
+    {
         address digiftWrapper =
             address(new BeaconProxy(address(this), abi.encodeWithSelector(DigiftWrapper.initialize.selector, initArgs)));
 
         emit Deployed(digiftWrapper);
+
+        return DigiftWrapper(digiftWrapper);
     }
 }

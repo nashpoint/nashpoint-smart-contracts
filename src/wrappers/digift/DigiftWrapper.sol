@@ -62,6 +62,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     error NotManager(address caller);
     error NotWhitelistedNode(address node);
     error BadPriceOracle(address oracle);
+    error NotAllNodesSettled();
 
     // =============================
     //            Events
@@ -295,7 +296,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
             emit DepositSettled(nodes[i], sharesToMint, assetsToReimburse);
         }
 
-        require(vars.totalPendingDepositRequestCheck == vars.globalPendingDepositRequest, "Not all nodes are settled");
+        require(vars.totalPendingDepositRequestCheck == vars.globalPendingDepositRequest, NotAllNodesSettled());
         _globalState.pendingDepositRequest = 0;
     }
 
@@ -385,7 +386,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
             emit RedeemSettled(nodes[i], sharesToReimburse, assetsToReturn);
         }
 
-        require(vars.totalPendingRedeemRequestCheck == vars.globalPendingRedeemRequest, "Not all nodes are settled");
+        require(vars.totalPendingRedeemRequestCheck == vars.globalPendingRedeemRequest, NotAllNodesSettled());
         _globalState.pendingRedeemRequest = 0;
     }
 
