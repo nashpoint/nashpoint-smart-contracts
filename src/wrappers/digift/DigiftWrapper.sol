@@ -102,7 +102,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     uint64 public priceDeviation;
     uint64 public priceUpdateDeviation;
 
-    uint256 lastPrice;
+    uint256 public lastPrice;
 
     uint256 public stTokenBalance;
 
