@@ -11,7 +11,7 @@ import {DigiftWrapperFactory} from "src/wrappers/digift/DigiftWrapperFactory.sol
 import {DigiftWrapper} from "src/wrappers/digift/DigiftWrapper.sol";
 import {ISubRedManagement, IDFeedPriceOracle, IManagement, ISecurityToken} from "src/interfaces/external/IDigift.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
-import {INode} from "src/interfaces/INode.sol";
+import {ComponentAllocation, INode} from "src/interfaces/INode.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -19,6 +19,8 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 contract DigiftForkTest is BaseTest {
     DigiftWrapper digiftWrapper;
     address digiftEventVerifier = makeAddr("digiftEventVerifier");
+
+    INode node2;
 
     uint256 DEPOSIT_AMOUNT = 1000e6;
     uint64 ALLOCATION = 0.9 ether;
@@ -36,21 +38,12 @@ contract DigiftForkTest is BaseTest {
         vm.createSelectFork(vm.envString("ARBITRUM_RPC_URL"), 375510069);
         super.setUp();
 
-        _userDeposits(user, DEPOSIT_AMOUNT);
-
-        vm.warp(block.timestamp + 1 days);
-
-        vm.startPrank(owner);
-        // remove mock ERC4626 vault
-        node.removeComponent(address(vault), false);
-        vm.stopPrank();
-
         address digiftWrapperImpl =
             address(new DigiftWrapper(address(subRedManagement), address(registry), digiftEventVerifier));
 
-        DigiftWrapperFactory factory = new DigiftWrapperFactory(digiftWrapperImpl, address(this));
+        DigiftWrapperFactory dFactory = new DigiftWrapperFactory(digiftWrapperImpl, address(this));
 
-        digiftWrapper = factory.deploy(
+        digiftWrapper = dFactory.deploy(
             DigiftWrapper.InitArgs(
                 "stToken Wrapper",
                 "wst",
@@ -60,20 +53,13 @@ contract DigiftForkTest is BaseTest {
                 address(dFeedPriceOracle),
                 // 0.1%
                 1e15,
-                4 days
+                10 days
             )
         );
 
         vm.startPrank(owner);
         router7540.setWhitelistStatus(address(digiftWrapper), true);
-        node.addRouter(address(router7540));
-        node.addComponent(address(digiftWrapper), ALLOCATION, 0.01 ether, address(router7540));
-        digiftWrapper.setManager(manager, true);
-        digiftWrapper.setNode(address(node), true);
         vm.stopPrank();
-
-        vm.prank(rebalancer);
-        node.startRebalance();
 
         // DififtWrapper is whitelisted
         vm.mockCall(
@@ -92,6 +78,61 @@ contract DigiftForkTest is BaseTest {
             abi.encodeWithSelector(IManagement.isContractManager.selector, address(this)),
             abi.encode(true)
         );
+
+        // create Node2 and invest into DigiftWrapper
+        vm.startPrank(owner);
+        ComponentAllocation[] memory allocations = new ComponentAllocation[](1);
+        allocations[0] = ComponentAllocation({
+            targetWeight: 0.9 ether,
+            maxDelta: 0.01 ether,
+            router: address(router7540),
+            isComponent: true
+        });
+        (node2,) = factory.deployFullNode(
+            "Test Node 2",
+            "TNODE2",
+            address(asset),
+            owner,
+            _toArray(address(digiftWrapper)),
+            allocations,
+            0.1 ether,
+            address(rebalancer),
+            address(quoter),
+            bytes32(uint256(2))
+        );
+        node2.setMaxDepositSize(1e36);
+        digiftWrapper.setNode(address(node2), true);
+
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        node2.startRebalance();
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        node.addRouter(address(router7540));
+        // remove mock ERC4626 vault
+        node.removeComponent(address(vault), false);
+        node.addComponent(address(digiftWrapper), ALLOCATION, 0.01 ether, address(router7540));
+        digiftWrapper.setManager(manager, true);
+        digiftWrapper.setNode(address(node), true);
+        digiftWrapper.setNode(address(node2), true);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        node2.startRebalance();
+
+        vm.startPrank(user2);
+        asset.approve(address(node2), DEPOSIT_AMOUNT / 3);
+        node2.deposit(DEPOSIT_AMOUNT / 3, user2);
+        vm.stopPrank();
+
+        _userDeposits(user, DEPOSIT_AMOUNT);
     }
 
     function _invest() internal returns (uint256) {
@@ -101,9 +142,22 @@ contract DigiftForkTest is BaseTest {
         return depositAmount;
     }
 
+    function _invest2() internal returns (uint256) {
+        vm.startPrank(rebalancer);
+        uint256 depositAmount = router7540.investInAsyncComponent(address(node2), address(digiftWrapper));
+        vm.stopPrank();
+        return depositAmount;
+    }
+
     function _liquidate(uint256 amount) internal {
         vm.startPrank(rebalancer);
         router7540.requestAsyncWithdrawal(address(node), address(digiftWrapper), amount);
+        vm.stopPrank();
+    }
+
+    function _liquidate2(uint256 amount) internal {
+        vm.startPrank(rebalancer);
+        router7540.requestAsyncWithdrawal(address(node2), address(digiftWrapper), amount);
         vm.stopPrank();
     }
 
@@ -237,6 +291,9 @@ contract DigiftForkTest is BaseTest {
         _forward();
 
         assertEq(digiftWrapper.globalPendingDepositRequest(), depositAmount, "Pending whole deposit amount");
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.DepositRequestPending.selector));
+        _forward();
     }
 
     function test_settleDeposit_success() external {
@@ -333,6 +390,7 @@ contract DigiftForkTest is BaseTest {
         _forward();
         _settleSubscription(sharesToMint, 0, 0);
         _settleDeposit(node, sharesToMint, 0);
+
         _mint(node);
 
         assertEq(node.totalAssets(), balance);
@@ -343,6 +401,7 @@ contract DigiftForkTest is BaseTest {
 
         assertEq(digiftWrapper.pendingRedeemRequest(0, address(node)), toLiquidate);
         assertEq(digiftWrapper.claimableRedeemRequest(0, address(node)), 0);
+        assertEq(digiftWrapper.accumulatedRedemption(), toLiquidate);
 
         _updateTotalAssets();
 
@@ -365,6 +424,10 @@ contract DigiftForkTest is BaseTest {
         emit ISubRedManagement.Redeem(
             address(subRedManagement), address(stToken), address(asset), address(digiftWrapper), toLiquidate
         );
+        _forward();
+        assertEq(digiftWrapper.globalPendingRedeemRequest(), toLiquidate);
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.RedeemRequestPending.selector));
         _forward();
     }
 
@@ -808,5 +871,133 @@ contract DigiftForkTest is BaseTest {
             digiftWrapper.supportsInterface(bytes4(keccak256("UnknownInterface()"))),
             "Must not support unknown interfaces"
         );
+    }
+    // _forward();
+    // _settleSubscription(sharesToMint, 0, 0);
+    // _settleDeposit(node, sharesToMint, 0);
+    // _mint(node);
+    // _liquidate(toLiquidate);
+    // _forward();
+    // _settleRedemption(0, assetsToReturn, 0);
+    // _settleRedeem(node, assetsToReturn, 0);
+    // _withdraw(node, assetsToReturn);
+
+    function test_two_nodes_deposits() external {
+        uint256 dAmount1 = _invest();
+        uint256 dAmount2 = _invest2();
+
+        uint256 shares1 = digiftWrapper.convertToShares(dAmount1);
+        uint256 shares2 = digiftWrapper.convertToShares(dAmount2);
+
+        uint256 sharesSum = shares1 + shares2;
+
+        assertEq(digiftWrapper.accumulatedDeposit(), dAmount1 + dAmount2, "Accumulated deposit");
+
+        _forward();
+        _settleSubscription(sharesSum, 0, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotAllNodesSettled.selector));
+        _settleDeposit(node, shares1, 0);
+
+        {
+            DigiftEventVerifier.OffchainArgs memory fargs;
+            DigiftEventVerifier.OnchainArgs memory nargs = DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.SUBSCRIBE, address(subRedManagement), address(stToken), address(asset)
+            );
+            vm.mockCall(
+                digiftEventVerifier,
+                abi.encodeWithSelector(DigiftEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+                abi.encode(shares1 + shares2, 0)
+            );
+            vm.startPrank(manager);
+            address[] memory nodes = new address[](2);
+            nodes[0] = address(node);
+            nodes[1] = address(node2);
+            // check correct dust handling
+            vm.expectEmit(true, true, true, true);
+            emit DigiftWrapper.DepositSettled(address(node), shares1 - 1, 0);
+            vm.expectEmit(true, true, true, true);
+            emit DigiftWrapper.DepositSettled(address(node2), shares2 + 1, 0);
+            digiftWrapper.settleDeposit(nodes, fargs);
+            vm.stopPrank();
+        }
+    }
+
+    function test_two_nodes_redeems() external {
+        uint256 dAmount1 = _invest();
+        uint256 dAmount2 = _invest2();
+
+        uint256 shares1 = digiftWrapper.convertToShares(dAmount1);
+        uint256 shares2 = digiftWrapper.convertToShares(dAmount2);
+
+        uint256 sharesSum = shares1 + shares2;
+
+        uint256 assets1 = digiftWrapper.convertToAssets(shares1);
+        uint256 assets2 = digiftWrapper.convertToAssets(shares2);
+        // imitate small loss to impact dust
+        uint256 assetsToReturn = digiftWrapper.convertToAssets(sharesSum) - 1;
+
+        assertEq(assets1 + (assets2 + 1), assetsToReturn, "Assets to return");
+
+        _forward();
+        _settleSubscription(sharesSum, 0, 0);
+
+        {
+            DigiftEventVerifier.OffchainArgs memory fargs;
+            DigiftEventVerifier.OnchainArgs memory nargs = DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.SUBSCRIBE, address(subRedManagement), address(stToken), address(asset)
+            );
+            vm.mockCall(
+                digiftEventVerifier,
+                abi.encodeWithSelector(DigiftEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+                abi.encode(shares1 + shares2, 0)
+            );
+            vm.startPrank(manager);
+            address[] memory nodes = new address[](2);
+            nodes[0] = address(node);
+            nodes[1] = address(node2);
+            // check correct dust handling
+            vm.expectEmit(true, true, true, true);
+            emit DigiftWrapper.DepositSettled(address(node), shares1 - 1, 0);
+            vm.expectEmit(true, true, true, true);
+            emit DigiftWrapper.DepositSettled(address(node2), shares2 + 1, 0);
+            digiftWrapper.settleDeposit(nodes, fargs);
+            vm.stopPrank();
+        }
+
+        _mint(node);
+        _mint(node2);
+        _liquidate(shares1 - 1);
+        _liquidate2(shares2 + 1);
+
+        _forward();
+
+        _settleRedemption(0, assetsToReturn, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotAllNodesSettled.selector));
+        _settleRedeem(node, assets2, 0);
+
+        {
+            DigiftEventVerifier.OffchainArgs memory fargs;
+            DigiftEventVerifier.OnchainArgs memory nargs = DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM, address(subRedManagement), address(stToken), address(asset)
+            );
+            vm.mockCall(
+                digiftEventVerifier,
+                abi.encodeWithSelector(DigiftEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+                abi.encode(0, assetsToReturn)
+            );
+            vm.startPrank(manager);
+            address[] memory nodes = new address[](2);
+            nodes[0] = address(node);
+            nodes[1] = address(node2);
+            // check correct dust handling
+            vm.expectEmit(true, true, true, true);
+            emit DigiftWrapper.RedeemSettled(address(node), 0, assets1);
+            vm.expectEmit(true, true, true, true);
+            emit DigiftWrapper.RedeemSettled(address(node2), 0, assets2 + 1);
+            digiftWrapper.settleRedeem(nodes, fargs);
+            vm.stopPrank();
+        }
     }
 }

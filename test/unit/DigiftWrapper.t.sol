@@ -17,8 +17,18 @@ import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
+contract DigiftWrapperHarness is DigiftWrapper {
+    constructor(address subRedManagement_, address registry_, address digiftEventVerifier_)
+        DigiftWrapper(subRedManagement_, registry_, digiftEventVerifier_)
+    {}
+
+    function getAssetPrice() external view returns (uint256) {
+        return _getAssetPrice();
+    }
+}
+
 contract DigiftForkTest is BaseTest {
-    DigiftWrapper digiftWrapper;
+    DigiftWrapperHarness digiftWrapper;
     address digiftEventVerifier = makeAddr("digiftEventVerifier");
 
     uint256 DEPOSIT_AMOUNT = 1000e6;
@@ -45,7 +55,8 @@ contract DigiftForkTest is BaseTest {
         node.removeComponent(address(vault), false);
         vm.stopPrank();
 
-        address digiftWrapperImpl = address(new DigiftWrapper(subRedManagement, address(registry), digiftEventVerifier));
+        address digiftWrapperImpl =
+            address(new DigiftWrapperHarness(subRedManagement, address(registry), digiftEventVerifier));
 
         DigiftWrapperFactory factory = new DigiftWrapperFactory(digiftWrapperImpl, address(this));
 
@@ -55,17 +66,21 @@ contract DigiftForkTest is BaseTest {
         vm.mockCall(address(stToken), abi.encodeWithSelector(IDFeedPriceOracle.decimals.selector), abi.encode(18));
         vm.mockCall(dFeedPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.getPrice.selector), abi.encode(2e10));
 
-        digiftWrapper = factory.deploy(
-            DigiftWrapper.InitArgs(
-                "stToken Wrapper",
-                "wst",
-                address(asset),
-                usdcPriceOracle,
-                address(stToken),
-                address(dFeedPriceOracle),
-                // 0.1%
-                1e15,
-                4 days
+        digiftWrapper = DigiftWrapperHarness(
+            address(
+                factory.deploy(
+                    DigiftWrapper.InitArgs(
+                        "stToken Wrapper",
+                        "wst",
+                        address(asset),
+                        usdcPriceOracle,
+                        address(stToken),
+                        address(dFeedPriceOracle),
+                        // 0.1%
+                        1e15,
+                        4 days
+                    )
+                )
             )
         );
 
@@ -226,5 +241,62 @@ contract DigiftForkTest is BaseTest {
             abi.encodeWithSelector(DigiftWrapper.PriceNotInRange.selector, digiftWrapper.lastPrice(), 30e13)
         );
         digiftWrapper.updateLastPrice();
+    }
+
+    function test_getAssetPrice() external {
+        vm.mockCall(
+            usdcPriceOracle,
+            abi.encodeWithSelector(IDFeedPriceOracle.latestRoundData.selector),
+            abi.encode(0, 1e8, 0, block.timestamp, 0)
+        );
+        assertEq(digiftWrapper.getAssetPrice(), 1e8);
+
+        vm.mockCall(
+            usdcPriceOracle,
+            abi.encodeWithSelector(IDFeedPriceOracle.latestRoundData.selector),
+            abi.encode(0, 0, 0, block.timestamp, 0)
+        );
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.BadPriceOracle.selector, usdcPriceOracle));
+        digiftWrapper.getAssetPrice();
+
+        vm.mockCall(
+            usdcPriceOracle,
+            abi.encodeWithSelector(IDFeedPriceOracle.latestRoundData.selector),
+            abi.encode(0, 1e8, 0, block.timestamp - 5 days, 0)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(DigiftWrapper.StalePriceData.selector, block.timestamp - 5 days, block.timestamp)
+        );
+        digiftWrapper.getAssetPrice();
+    }
+
+    function test_onlyManager() external {
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
+        digiftWrapper.updateLastPrice();
+
+        DigiftEventVerifier.OffchainArgs memory offchainArgs;
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
+        digiftWrapper.settleDeposit(new address[](0), offchainArgs);
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
+        digiftWrapper.settleRedeem(new address[](0), offchainArgs);
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
+        digiftWrapper.forwardRequestsToDigift();
+    }
+
+    function test_onlyWhitelistedNode() external {
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotWhitelistedNode.selector, address(this)));
+        digiftWrapper.requestDeposit(1, address(this), address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotWhitelistedNode.selector, address(this)));
+        digiftWrapper.mint(1, address(this), address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotWhitelistedNode.selector, address(this)));
+        digiftWrapper.requestRedeem(1, address(this), address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotWhitelistedNode.selector, address(this)));
+        digiftWrapper.withdraw(1, address(this), address(this));
     }
 }
