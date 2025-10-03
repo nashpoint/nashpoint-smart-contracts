@@ -306,7 +306,8 @@ contract DigiftEventVerifier is RegistryAccessControl {
         if (b.length == 0) revert ZeroBytes();
         uint8 t = uint8(b[0]);
         // EIP-2718 typed receipts: 0x01 (EIP-2930), 0x02 (EIP-1559), 0x03 (EIP-4844), etc.
-        if (t == 0x01 || t == 0x02 || t == 0x03) {
+        // TransactionType only goes up to 0x7f: https://eips.ethereum.org/EIPS/eip-2718#rationale
+        if (t < 0x80) {
             out = Bytes.slice(b, 1);
         } else {
             out = b;

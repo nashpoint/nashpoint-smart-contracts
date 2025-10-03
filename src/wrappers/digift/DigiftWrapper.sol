@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 import {ISubRedManagement, IDFeedPriceOracle} from "src/interfaces/external/IDigift.sol";
@@ -58,7 +59,7 @@ struct GlobalState {
  * @title DigiftWrapper
  * @notice ERC7540-compatible wrapper for Digift stToken operations
  */
-contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IERC7575 {
+contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, RegistryAccessControl, IERC7540, IERC7575 {
     using SafeERC20 for IERC20;
     using MathLib for uint256;
 
@@ -336,6 +337,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
      */
     function initialize(InitArgs calldata args) external initializer {
         __ERC20_init(args.name, args.symbol);
+        __ReentrancyGuard_init();
 
         // Set up asset token and its oracle
         asset = args.asset;
@@ -528,6 +530,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     function requestDeposit(uint256 assets, address controller, address owner)
         external
         onlyWhitelistedNode
+        nonReentrant
         returns (uint256)
     {
         _actionValidation(assets, controller, owner);
@@ -550,6 +553,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
      */
     function settleDeposit(address[] calldata nodes, DigiftEventVerifier.OffchainArgs calldata verifyArgs)
         external
+        nonReentrant
         onlyManager
     {
         // Verify the Digift settlement event and get shares/assets amounts
@@ -612,6 +616,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     function mint(uint256 shares, address receiver, address controller)
         public
         onlyWhitelistedNode
+        nonReentrant
         returns (uint256 assets)
     {
         _actionValidation(shares, controller, receiver);
@@ -655,6 +660,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     function requestRedeem(uint256 shares, address controller, address owner)
         external
         onlyWhitelistedNode
+        nonReentrant
         returns (uint256)
     {
         _actionValidation(shares, controller, owner);
@@ -678,6 +684,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
      */
     function settleRedeem(address[] calldata nodes, DigiftEventVerifier.OffchainArgs calldata verifyArgs)
         external
+        nonReentrant
         onlyManager
     {
         // Verify the Digift redemption event and get shares/assets amounts
@@ -740,6 +747,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
     function withdraw(uint256 assets, address receiver, address controller)
         external
         onlyWhitelistedNode
+        nonReentrant
         returns (uint256 shares)
     {
         _actionValidation(assets, controller, receiver);
@@ -779,7 +787,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
      * @dev Subscribes accumulated deposits and redeems accumulated redemptions
      * @dev Only callable by whitelisted managers when no pending requests exist
      */
-    function forwardRequestsToDigift() external onlyManager {
+    function forwardRequestsToDigift() external onlyManager nonReentrant {
         // Ensure no pending requests exist before forwarding
         require(_globalState.pendingDepositRequest == 0, DepositRequestPending());
         require(_globalState.pendingRedeemRequest == 0, RedeemRequestPending());
@@ -920,7 +928,7 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
      * @return shares The equivalent number of shares
      */
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        return _convertToShares(assets, _getPrice());
+        return _convertToShares(assets, _getAssetPrice(), _getPrice());
     }
 
     /**
@@ -930,31 +938,41 @@ contract DigiftWrapper is ERC20Upgradeable, RegistryAccessControl, IERC7540, IER
      * @return assets The equivalent amount of assets
      */
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        return _convertToAssets(shares, _getPrice());
+        return _convertToAssets(shares, _getAssetPrice(), _getPrice());
     }
 
     /**
      * @notice Internal function to convert assets to shares
      * @dev Handles decimal precision and price conversions
      * @param assets The amount of assets to convert
+     * @param assetPrice The current asset price
      * @param stTokenPrice The current stToken price
      * @return shares The equivalent number of shares
      */
-    function _convertToShares(uint256 assets, uint256 stTokenPrice) internal view returns (uint256 shares) {
+    function _convertToShares(uint256 assets, uint256 assetPrice, uint256 stTokenPrice)
+        internal
+        view
+        returns (uint256 shares)
+    {
         return assets * 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals) / (stTokenPrice * 10 ** (_assetDecimals))
-            * _getAssetPrice() / 10 ** _assetPriceOracleDecimals;
+            * assetPrice / 10 ** _assetPriceOracleDecimals;
     }
 
     /**
      * @notice Internal function to convert shares to assets
      * @dev Handles decimal precision and price conversions
      * @param shares The number of shares to convert
+     * @param assetPrice The current asset price
      * @param stTokenPrice The current stToken price
      * @return assets The equivalent amount of assets
      */
-    function _convertToAssets(uint256 shares, uint256 stTokenPrice) internal view returns (uint256 assets) {
+    function _convertToAssets(uint256 shares, uint256 assetPrice, uint256 stTokenPrice)
+        internal
+        view
+        returns (uint256 assets)
+    {
         return (shares * stTokenPrice * 10 ** (_assetDecimals) / 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals))
-            * 10 ** _assetPriceOracleDecimals / _getAssetPrice();
+            * 10 ** _assetPriceOracleDecimals / assetPrice;
     }
 
     /**
