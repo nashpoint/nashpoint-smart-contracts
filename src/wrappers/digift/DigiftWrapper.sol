@@ -491,7 +491,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         uint256 price = uint256(answer);
 
         // Check if price is within acceptable deviation from last known price
-        require(MathLib._withinRange(lastPrice, price, priceDeviation), PriceNotInRange(lastPrice, price));
+        require(MathLib.withinRange(lastPrice, price, priceDeviation), PriceNotInRange(lastPrice, price));
 
         // Check if price data is not stale
         require(block.timestamp - updatedAt <= priceUpdateDeviation, StalePriceData(updatedAt, block.timestamp));
@@ -954,13 +954,14 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         view
         returns (uint256 shares)
     {
-        return assets * 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals) / (stTokenPrice * 10 ** (_assetDecimals))
-            * assetPrice / 10 ** _assetPriceOracleDecimals;
+        uint256 num = MathLib.pow10(_stTokenDecimals + _dFeedPriceOracleDecimals);
+        uint256 den = MathLib.pow10(_assetPriceOracleDecimals + _assetDecimals);
+        return assets.mulDiv(num, stTokenPrice).mulDiv(assetPrice, den);
     }
 
     /**
      * @notice Internal function to convert shares to assets
-     * @dev Handles decimal precision and price conversions
+     * @dev Handles decimal precis              ion and price conversions
      * @param shares The number of shares to convert
      * @param assetPrice The current asset price
      * @param stTokenPrice The current stToken price
@@ -971,8 +972,10 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         view
         returns (uint256 assets)
     {
-        return (shares * stTokenPrice * 10 ** (_assetDecimals) / 10 ** (_stTokenDecimals + _dFeedPriceOracleDecimals))
-            * 10 ** _assetPriceOracleDecimals / assetPrice;
+        uint256 num = MathLib.pow10(_assetPriceOracleDecimals);
+        // TODO: ensure no underflow? + Fuzz tests
+        uint256 den = MathLib.pow10(_stTokenDecimals + _dFeedPriceOracleDecimals - _assetDecimals);
+        return shares.mulDiv(stTokenPrice, den).mulDiv(num, assetPrice);
     }
 
     /**

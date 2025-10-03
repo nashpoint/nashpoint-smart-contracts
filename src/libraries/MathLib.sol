@@ -121,7 +121,7 @@ library MathLib {
         return a > b ? a : b;
     }
 
-    function _withinRange(uint256 expectedValue, uint256 actualValue, uint256 allowedDeviation)
+    function withinRange(uint256 expectedValue, uint256 actualValue, uint256 allowedDeviation)
         internal
         pure
         returns (bool)
@@ -129,5 +129,9 @@ library MathLib {
         uint256 upperBound = expectedValue * (WAD + allowedDeviation) / WAD;
         uint256 lowerBound = expectedValue * (WAD - allowedDeviation) / WAD;
         return lowerBound <= actualValue && actualValue <= upperBound;
+    }
+
+    function pow10(uint8 n) internal pure returns (uint256) {
+        return 10 ** n;
     }
 }
