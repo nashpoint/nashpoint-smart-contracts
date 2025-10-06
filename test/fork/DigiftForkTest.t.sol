@@ -1000,4 +1000,20 @@ contract DigiftForkTest is BaseTest {
             vm.stopPrank();
         }
     }
+
+    function test_fuzz_convertToAssets_convertToShares(uint256 shares) external view {
+        shares = bound(shares, 1, 1e36);
+        uint256 assets = digiftWrapper.convertToAssets(shares);
+        uint256 calculatedShares = digiftWrapper.convertToShares(assets);
+        // since stToken has 18 decimals and USDC only 6 decimals
+        uint256 realisticLoss = digiftWrapper.convertToShares(1) * 2;
+        assertApproxEqAbs(shares, calculatedShares, realisticLoss, "convertToAssets => convertToShares without loss");
+    }
+
+    function test_fuzz_convertToShares_convertToAssets(uint256 assets) external view {
+        assets = bound(assets, 1, 1e36);
+        uint256 shares = digiftWrapper.convertToShares(assets);
+        uint256 calculatedAssets = digiftWrapper.convertToAssets(shares);
+        assertApproxEqAbs(assets, calculatedAssets, 2, "convertToShares => convertToAssets without loss");
+    }
 }

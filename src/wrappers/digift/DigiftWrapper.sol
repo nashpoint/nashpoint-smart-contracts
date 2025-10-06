@@ -272,7 +272,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         address stToken;
         /// @notice Address of the Digift price oracle
         address dFeedPriceOracle;
-        /// @notice Maximum price deviation allowed (in basis points)
+        /// @notice Maximum price deviation allowed
         uint64 priceDeviation;
         /// @notice Maximum time deviation for price updates (in seconds)
         uint64 priceUpdateDeviation;
@@ -347,6 +347,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
 
         // Set up stToken and its oracle
         stToken = args.stToken;
+        // currently all Security Tokens have 18 decimals
         _stTokenDecimals = IERC20Metadata(args.stToken).decimals();
         dFeedPriceOracle = IDFeedPriceOracle(args.dFeedPriceOracle);
         _dFeedPriceOracleDecimals = IDFeedPriceOracle(args.dFeedPriceOracle).decimals();
@@ -395,7 +396,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /**
      * @notice Set the maximum price deviation allowed
      * @dev Only callable by registry owner, value must be <= WAD (100%)
-     * @param value The new price deviation threshold (in basis points)
+     * @param value The new price deviation threshold
      */
     function setPriceDeviation(uint64 value) external onlyRegistryOwner {
         require(value <= WAD, InvalidPercentage());
@@ -961,7 +962,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
 
     /**
      * @notice Internal function to convert shares to assets
-     * @dev Handles decimal precis              ion and price conversions
+     * @dev Handles decimal precision and price conversions
      * @param shares The number of shares to convert
      * @param assetPrice The current asset price
      * @param stTokenPrice The current stToken price
@@ -973,7 +974,8 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         returns (uint256 assets)
     {
         uint256 num = MathLib.pow10(_assetPriceOracleDecimals);
-        // TODO: ensure no underflow? + Fuzz tests
+        // since stTokenDecimals is 18 there might be no underflow.
+        // _assetDecimals can be max 18, but right now only USDC (6 decimals) is supported by DigiFT.
         uint256 den = MathLib.pow10(_stTokenDecimals + _dFeedPriceOracleDecimals - _assetDecimals);
         return shares.mulDiv(stTokenPrice, den).mulDiv(num, assetPrice);
     }
