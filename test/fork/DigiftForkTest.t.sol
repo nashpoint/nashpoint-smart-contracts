@@ -53,7 +53,11 @@ contract DigiftForkTest is BaseTest {
                 address(dFeedPriceOracle),
                 // 0.1%
                 1e15,
-                10 days
+                10 days,
+                // set 100 USDC instead of 1000
+                100e6,
+                // set 1 stToken instead of 10
+                1e18
             )
         );
 
@@ -532,8 +536,8 @@ contract DigiftForkTest is BaseTest {
     //      Custom Error Tests
     // =============================
 
-    function test_requestDeposit_ZeroAmount() external {
-        vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
+    function test_requestDeposit_BelowLimit() external {
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.BelowLimit.selector, 100e6, 0));
         vm.prank(address(node));
         digiftWrapper.requestDeposit(0, address(node), address(node));
     }
@@ -570,8 +574,8 @@ contract DigiftForkTest is BaseTest {
         digiftWrapper.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
     }
 
-    function test_requestRedeem_ZeroAmount() external {
-        vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
+    function test_requestRedeem_BelowLimit() external {
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.BelowLimit.selector, 1e18, 0));
         vm.prank(address(node));
         digiftWrapper.requestRedeem(0, address(node), address(node));
     }
@@ -579,13 +583,13 @@ contract DigiftForkTest is BaseTest {
     function test_requestRedeem_ControllerNotSender() external {
         vm.expectRevert(DigiftWrapper.ControllerNotSender.selector);
         vm.prank(address(node));
-        digiftWrapper.requestRedeem(1000e6, address(this), address(node));
+        digiftWrapper.requestRedeem(1000e18, address(this), address(node));
     }
 
     function test_requestRedeem_OwnerNotSender() external {
         vm.expectRevert(DigiftWrapper.OwnerNotSender.selector);
         vm.prank(address(node));
-        digiftWrapper.requestRedeem(1000e6, address(node), address(this));
+        digiftWrapper.requestRedeem(1000e18, address(node), address(this));
     }
 
     function test_requestRedeem_RedeemRequestPending() external {
@@ -623,8 +627,9 @@ contract DigiftForkTest is BaseTest {
         digiftWrapper.requestRedeem(1000e6, address(node), address(node));
     }
 
-    function test_mint_ZeroAmount() external {
-        vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
+    function test_mint_BelowLimit() external {
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.BelowLimit.selector, 1, 0));
+
         vm.prank(address(node));
         digiftWrapper.mint(0, address(node), address(node));
     }
@@ -660,8 +665,8 @@ contract DigiftForkTest is BaseTest {
         digiftWrapper.mint(sharesToMint / 2, address(node), address(node));
     }
 
-    function test_withdraw_ZeroAmount() external {
-        vm.expectRevert(DigiftWrapper.ZeroAmount.selector);
+    function test_withdraw_BelowLimit() external {
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.BelowLimit.selector, 1, 0));
         vm.prank(address(node));
         digiftWrapper.withdraw(0, address(node), address(node));
     }

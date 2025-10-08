@@ -67,8 +67,8 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     //            Errors
     // =============================
 
-    /// @notice Thrown when amount is zero
-    error ZeroAmount();
+    /// @notice Thrown when amount is not sufficient
+    error BelowLimit(uint256 minAmount, uint256 actualAmount);
 
     /// @notice Thrown when controller is not the message sender
     error ControllerNotSender();
@@ -152,6 +152,16 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /// @param shares The number of shares redeemed
     /// @param assets The amount of assets returned
     event RedeemSettled(address indexed node, uint256 shares, uint256 assets);
+
+    /// @notice Emitted when minimum deposit amount is updated
+    /// @param oldValue The previous minimum deposit amount
+    /// @param newValue The new minimum deposit amount
+    event MinDepositAmountChange(uint256 oldValue, uint256 newValue);
+
+    /// @notice Emitted when minimum redeem amount is updated
+    /// @param oldValue The previous minimum redeem amount
+    /// @param newValue The new minimum redeem amount
+    event MinRedeemAmountChange(uint256 oldValue, uint256 newValue);
 
     /// @notice Emitted when price deviation threshold is changed
     /// @param oldValue The previous price deviation value
@@ -238,6 +248,12 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /// @notice Last cached price from Digift oracle
     uint256 public lastPrice;
 
+    /// @notice Minimum amount of assets required for a deposit request
+    uint256 public minDepositAmount;
+
+    /// @notice Minimum amount of shares required for a redeem request
+    uint256 public minRedeemAmount;
+
     /// @notice Global state tracking accumulated deposits and redemptions
     GlobalState internal _globalState;
 
@@ -276,6 +292,10 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         uint64 priceDeviation;
         /// @notice Maximum time deviation for price updates (in seconds)
         uint64 priceUpdateDeviation;
+        /// @notice Minimum deposit amount allowed for node actions
+        uint256 minDepositAmount;
+        /// @notice Minimum redeem amount allowed for node actions
+        uint256 minRedeemAmount;
     }
 
     /**
@@ -356,37 +376,11 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         priceDeviation = args.priceDeviation;
         priceUpdateDeviation = args.priceUpdateDeviation;
 
+        minDepositAmount = args.minDepositAmount;
+        minRedeemAmount = args.minRedeemAmount;
+
         // Initialize price cache with current Digift price
         lastPrice = dFeedPriceOracle.getPrice();
-    }
-
-    // =============================
-    //         Internal Functions
-    // =============================
-
-    /**
-     * @notice Validates action parameters for deposit/redemption operations
-     * @dev Ensures amount is positive and caller is authorized
-     * @param amount The amount to validate
-     * @param controller The controller address
-     * @param owner The owner address
-     */
-    function _actionValidation(uint256 amount, address controller, address owner) internal {
-        require(amount > 0, ZeroAmount());
-        require(controller == msg.sender, ControllerNotSender());
-        require(owner == msg.sender, OwnerNotSender());
-    }
-
-    /**
-     * @notice Checks that no pending operations exist for the calling node
-     * @dev Prevents multiple concurrent operations from the same node
-     */
-    function _nothingPending() internal {
-        NodeState memory nodeState = _nodeState[msg.sender];
-        require(nodeState.pendingDepositRequest == 0, DepositRequestPending());
-        require(nodeState.maxMint == 0, DepositRequestNotClaimed());
-        require(nodeState.pendingRedeemRequest == 0, RedeemRequestPending());
-        require(nodeState.maxWithdraw == 0, RedeemRequestNotClaimed());
     }
 
     // =============================
@@ -437,6 +431,26 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         emit NodeWhitelistChange(node, whitelisted);
     }
 
+    /**
+     * @notice Update the minimum deposit amount requirement
+     * @dev Only callable by registry owner
+     * @param value The new minimum deposit amount
+     */
+    function setMinDepositAmount(uint256 value) external onlyRegistryOwner {
+        emit MinDepositAmountChange(minDepositAmount, value);
+        minDepositAmount = value;
+    }
+
+    /**
+     * @notice Update the minimum redeem amount requirement
+     * @dev Only callable by registry owner
+     * @param value The new minimum redeem amount
+     */
+    function setMinRedeemAmount(uint256 value) external onlyRegistryOwner {
+        emit MinRedeemAmountChange(minRedeemAmount, value);
+        minRedeemAmount = value;
+    }
+
     // =============================
     //            Modifiers
     // =============================
@@ -454,6 +468,34 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      */
     modifier onlyWhitelistedNode() {
         require(nodeWhitelisted[msg.sender] == true, NotWhitelistedNode(msg.sender));
+        _;
+    }
+
+    /**
+     * @notice Checks that no pending operations exist for the calling node
+     * @dev Prevents multiple concurrent operations from the same node
+     */
+    modifier nothingPending() {
+        NodeState memory nodeState = _nodeState[msg.sender];
+        require(nodeState.pendingDepositRequest == 0, DepositRequestPending());
+        require(nodeState.maxMint == 0, DepositRequestNotClaimed());
+        require(nodeState.pendingRedeemRequest == 0, RedeemRequestPending());
+        require(nodeState.maxWithdraw == 0, RedeemRequestNotClaimed());
+        _;
+    }
+
+    /**
+     * @notice Validates action parameters for deposit/redemption operations
+     * @dev Ensures amount is positive and caller is authorized
+     * @param minAmount The minimum amount allowed for action
+     * @param amount The amount to validate
+     * @param controller The controller address
+     * @param owner The owner address
+     */
+    modifier actionValidation(uint256 minAmount, uint256 amount, address controller, address owner) {
+        require(amount >= minAmount, BelowLimit(minAmount, amount));
+        require(controller == msg.sender, ControllerNotSender());
+        require(owner == msg.sender, OwnerNotSender());
         _;
     }
 
@@ -531,12 +573,11 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     function requestDeposit(uint256 assets, address controller, address owner)
         external
         onlyWhitelistedNode
+        nothingPending
+        actionValidation(minDepositAmount, assets, controller, owner)
         nonReentrant
         returns (uint256)
     {
-        _actionValidation(assets, controller, owner);
-        _nothingPending();
-
         _nodeState[msg.sender].pendingDepositRequest = assets;
         _globalState.accumulatedDeposit += assets;
 
@@ -617,10 +658,10 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     function mint(uint256 shares, address receiver, address controller)
         public
         onlyWhitelistedNode
+        actionValidation(1, shares, controller, receiver)
         nonReentrant
         returns (uint256 assets)
     {
-        _actionValidation(shares, controller, receiver);
         NodeState storage node = _nodeState[msg.sender];
 
         // Ensure deposit request has been fulfilled and exact shares are minted
@@ -661,12 +702,11 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     function requestRedeem(uint256 shares, address controller, address owner)
         external
         onlyWhitelistedNode
+        nothingPending
+        actionValidation(minRedeemAmount, shares, controller, owner)
         nonReentrant
         returns (uint256)
     {
-        _actionValidation(shares, controller, owner);
-        _nothingPending();
-
         _nodeState[msg.sender].pendingRedeemRequest = shares;
         _globalState.accumulatedRedemption += shares;
 
@@ -748,11 +788,10 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     function withdraw(uint256 assets, address receiver, address controller)
         external
         onlyWhitelistedNode
+        actionValidation(1, assets, controller, receiver)
         nonReentrant
         returns (uint256 shares)
     {
-        _actionValidation(assets, controller, receiver);
-
         // Ensure redemption request has been fulfilled and exact assets are withdrawn
         require(_nodeState[msg.sender].claimableRedeemRequest > 0, RedeemRequestNotFulfilled());
         require(_nodeState[msg.sender].maxWithdraw == assets, WithdrawAllAssetsOnly());

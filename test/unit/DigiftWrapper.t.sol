@@ -78,7 +78,9 @@ contract DigiftForkTest is BaseTest {
                         address(dFeedPriceOracle),
                         // 0.1%
                         1e15,
-                        4 days
+                        4 days,
+                        1000e6,
+                        10e18
                     )
                 )
             )
@@ -170,6 +172,40 @@ contract DigiftForkTest is BaseTest {
 
         vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotNode.selector));
         digiftWrapper.setNode(address(0x1234), true);
+    }
+
+    function test_setMinDepositAmount() external {
+        assertEq(digiftWrapper.minDepositAmount(), 1000e6);
+
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
+        digiftWrapper.setMinDepositAmount(2000e6);
+
+        vm.startPrank(owner);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftWrapper.MinDepositAmountChange(1000e6, 2000e6);
+        digiftWrapper.setMinDepositAmount(2000e6);
+
+        assertEq(digiftWrapper.minDepositAmount(), 2000e6);
+
+        vm.stopPrank();
+    }
+
+    function test_setMinRedeemAmount() external {
+        assertEq(digiftWrapper.minRedeemAmount(), 10e18);
+
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
+        digiftWrapper.setMinRedeemAmount(20e18);
+
+        vm.startPrank(owner);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftWrapper.MinRedeemAmountChange(10e18, 20e18);
+        digiftWrapper.setMinRedeemAmount(20e18);
+
+        assertEq(digiftWrapper.minRedeemAmount(), 20e18);
+
+        vm.stopPrank();
     }
 
     function test_forceUpdateLastPrice() external {
