@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract PriceOracle is Ownable {
+contract PriceOracleMock is Ownable {
     uint80 public roundId;
     int256 public answer;
     uint256 public startedAt;

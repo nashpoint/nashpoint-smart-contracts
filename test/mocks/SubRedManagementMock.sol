@@ -32,7 +32,7 @@ contract SubRedManagementMock is Ownable {
     );
 
     mapping(address => bool) public managers;
-    mapping(address => bool) public nodes;
+    mapping(address => bool) public whitelist;
 
     constructor() Ownable(msg.sender) {}
 
@@ -40,12 +40,12 @@ contract SubRedManagementMock is Ownable {
         managers[manager] = allowed;
     }
 
-    function setNode(address node, bool allowed) external onlyOwner {
-        nodes[node] = allowed;
+    function setWhitelist(address user, bool allowed) external onlyOwner {
+        whitelist[user] = allowed;
     }
 
-    modifier onlyNode() {
-        require(nodes[msg.sender], "Not whitelisted node");
+    modifier onlyWhitelisted() {
+        require(whitelist[msg.sender], "Not whitelisted");
         _;
     }
 
@@ -54,13 +54,19 @@ contract SubRedManagementMock is Ownable {
         _;
     }
 
-    function subscribe(address stToken, address currencyToken, uint256 amount, uint256 deadline) external onlyNode {
+    function subscribe(address stToken, address currencyToken, uint256 amount, uint256 deadline)
+        external
+        onlyWhitelisted
+    {
         require(amount > 0, "The subscription amount cannot be zero");
         IERC20(currencyToken).safeTransferFrom(msg.sender, address(this), amount);
         emit Subscribe(address(this), stToken, currencyToken, msg.sender, amount);
     }
 
-    function redeem(address stToken, address currencyToken, uint256 quantity, uint256 deadline) external onlyNode {
+    function redeem(address stToken, address currencyToken, uint256 quantity, uint256 deadline)
+        external
+        onlyWhitelisted
+    {
         require(quantity > 0, "quantity > 0");
         IERC20(stToken).safeTransferFrom(msg.sender, address(this), quantity);
         emit Redeem(address(this), stToken, currencyToken, msg.sender, quantity);
