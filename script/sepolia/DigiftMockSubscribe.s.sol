@@ -8,7 +8,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {DigiftWrapper} from "src/wrappers/digift/DigiftWrapper.sol";
 import {ERC20MockOwnable} from "test/mocks/ERC20MockOwnable.sol";
 
-// source .env && FOUNDRY_PROFILE=deploy forge script script/sepolia/DigiftMockSubscribe.s.sol:DigiftMockSubscribe --rpc-url ${ETH_SEPOLIA_RPC_URL} -vvv --broadcast --legacy --with-gas-price 30000000000
+// source .env && FOUNDRY_PROFILE=deploy forge script script/sepolia/DigiftMockSubscribe.s.sol:DigiftMockSubscribe --rpc-url ${ETH_SEPOLIA_RPC_URL} -vvv --broadcast --legacy --with-gas-price 10000000000
 
 contract DigiftMockSubscribe is Script {
     using stdJson for string;

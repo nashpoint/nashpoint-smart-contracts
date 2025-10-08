@@ -12,7 +12,7 @@ import {ERC20MockOwnable} from "test/mocks/ERC20MockOwnable.sol";
 import {SubRedManagementMock} from "test/mocks/SubRedManagementMock.sol";
 import {PriceOracleMock} from "test/mocks/PriceOracleMock.sol";
 
-// source .env && FOUNDRY_PROFILE=deploy forge script script/sepolia/DeployDigiftMockTesting.s.sol:DeployDigiftMockTesting --rpc-url ${ETH_SEPOLIA_RPC_URL} --broadcast --legacy -vvv --with-gas-price 30000000000
+// source .env && FOUNDRY_PROFILE=deploy forge script script/sepolia/DeployDigiftMockTesting.s.sol:DeployDigiftMockTesting --rpc-url ${ETH_SEPOLIA_RPC_URL} --broadcast --legacy -vvv --with-gas-price 9000000000
 
 contract DeployDigiftMockTesting is Script {
     function run() external {
@@ -26,7 +26,13 @@ contract DeployDigiftMockTesting is Script {
         DigiftEventVerifier eventVerifier = new DigiftEventVerifier(address(nodeRegistry));
         SubRedManagementMock subRedManagement = new SubRedManagementMock();
         PriceOracleMock assetPriceOracle = new PriceOracleMock(8);
-        PriceOracleMock dFeedPriceOracle = new PriceOracleMock(8);
+        PriceOracleMock dFeedPriceOracle = new PriceOracleMock(18);
+
+        assetPriceOracle.setLatestRoundData(
+            18446744073709556890, 99974000, 1759880855, 1759880855, 18446744073709556890
+        );
+        dFeedPriceOracle.setLatestRoundData(0, 232620000000000000000, 1759892248, 1759892248, 0);
+
         address digiftWrapperImpl =
             address(new DigiftWrapper(address(subRedManagement), address(nodeRegistry), address(eventVerifier)));
 
@@ -55,10 +61,11 @@ contract DeployDigiftMockTesting is Script {
         digiftWrapper.setManager(deployer, true);
         digiftWrapper.setNode(deployer, true);
 
-        assetPriceOracle.setLatestRoundData(
-            18446744073709556890, 99974000, 1759880855, 1759880855, 18446744073709556890
-        );
-        dFeedPriceOracle.setLatestRoundData(0, 232620000000000000000, 1759892248, 1759892248, 0);
+        subRedManagement.setManager(deployer, true);
+        subRedManagement.setWhitelist(address(digiftWrapper), true);
+
+        eventVerifier.setWhitelist(address(digiftWrapper), true);
+
         vm.stopBroadcast();
 
         console.log("nodeRegistry");

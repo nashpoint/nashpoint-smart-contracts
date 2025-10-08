@@ -7,11 +7,10 @@ import {stdJson} from "forge-std/StdJson.sol";
 
 import {DigiftWrapper} from "src/wrappers/digift/DigiftWrapper.sol";
 import {ERC20MockOwnable} from "test/mocks/ERC20MockOwnable.sol";
-import {SubRedManagementMock} from "test/mocks/SubRedManagementMock.sol";
 
-// source .env && FOUNDRY_PROFILE=deploy forge script script/sepolia/DigiftMockWhitelist.s.sol:DigiftMockWhitelist --rpc-url ${ETH_SEPOLIA_RPC_URL} -vvv --broadcast --legacy --with-gas-price 30000000000
+// source .env && FOUNDRY_PROFILE=deploy forge script script/sepolia/DigiftMockMint.s.sol:DigiftMockMint --rpc-url ${ETH_SEPOLIA_RPC_URL} -vvv --broadcast --legacy --with-gas-price 10000000000
 
-contract DigiftMockWhitelist is Script {
+contract DigiftMockMint is Script {
     using stdJson for string;
 
     function run() external {
@@ -20,11 +19,10 @@ contract DigiftMockWhitelist is Script {
 
         string memory json = vm.readFile("deployments/sepolia-mock.json");
         DigiftWrapper digiftWrapper = DigiftWrapper(json.readAddress(".digiftWrapper"));
-        SubRedManagementMock subRedManagement = SubRedManagementMock(json.readAddress(".subRedManagement"));
 
         vm.startBroadcast(privateKey);
-        subRedManagement.setManager(deployer, true);
-        subRedManagement.setWhitelist(address(digiftWrapper), true);
+        uint256 shares = digiftWrapper.maxMint(deployer);
+        digiftWrapper.mint(shares, deployer, deployer);
         vm.stopBroadcast();
     }
 }
