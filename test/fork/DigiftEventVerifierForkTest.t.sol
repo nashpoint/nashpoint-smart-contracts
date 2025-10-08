@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {DigiftEventVerifier} from "src/wrappers/digift/DigiftEventVerifier.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
 contract DigiftEventVerifierForkTest is Test {
@@ -30,14 +31,13 @@ contract DigiftEventVerifierForkTest is Test {
         // The investor address that will be verified as a node
         address investor = 0x8E0B8eB1F9033C5923D55a206D3C4B37932bf432;
 
-        // Mock the node registry to return true for the investor
-        vm.mockCall(address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, investor), abi.encode(true));
-
         // Mock the owner function to return this contract
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
 
         // Deploy the verifier contract
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        verifier.setWhitelist(investor, true);
 
         // RLP-encoded block header containing the transaction
         bytes memory HEADER_RLP =
@@ -105,16 +105,13 @@ contract DigiftEventVerifierForkTest is Test {
         vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
         vm.roll(vars.blockNumber + 16);
 
-        // Mock the node registry to return true for the investor
-        vm.mockCall(
-            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, vars.investor), abi.encode(true)
-        );
-
         // Mock the owner function to return this contract
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
 
         // Deploy the verifier contract
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        verifier.setWhitelist(vars.investor, true);
 
         bytes32 logHash = 0xff3ca9d1ee7ced11686dfb7cec7d4096289a6e6d7582ddb6e2b57d77420d7b4a;
 
@@ -250,6 +247,62 @@ contract DigiftEventVerifierForkTest is Test {
     }
 
     /**
+     * @notice Test setWhitelist emits the WhitelistChange event
+     * @dev Verifies both enabling and disabling a Digift wrapper trigger event emission
+     */
+    function test_setWhitelist_event() external {
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        address wrapper = address(0xBEEF);
+
+        vm.expectEmit(true, false, false, true, address(verifier));
+        emit DigiftEventVerifier.WhitelistChange(wrapper, true);
+        verifier.setWhitelist(wrapper, true);
+
+        vm.expectEmit(true, false, false, true, address(verifier));
+        emit DigiftEventVerifier.WhitelistChange(wrapper, false);
+        verifier.setWhitelist(wrapper, false);
+    }
+
+    /**
+     * @notice Test setWhitelist access control and owner success path
+     * @dev Ensures only the registry owner can update the whitelist
+     */
+    function test_setWhitelist_accessControl() external {
+        address owner = address(0x123);
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(owner));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        address wrapper = address(0xBEEF);
+
+        vm.expectRevert(ErrorsLib.NotRegistryOwner.selector);
+        verifier.setWhitelist(wrapper, true);
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, false, false, true, address(verifier));
+        emit DigiftEventVerifier.WhitelistChange(wrapper, true);
+        verifier.setWhitelist(wrapper, true);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test verifySettlementEvent whitelist requirement
+     * @dev Verifies calls from non-whitelisted addresses revert with NotWhitelisted
+     */
+    function test_verifySettlementEvent_notWhitelisted() external {
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        vm.expectRevert(DigiftEventVerifier.NotWhitelisted.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(0, hex"01", hex"01", new bytes[](0)),
+            DigiftEventVerifier.OnchainArgs(DigiftEventVerifier.EventType.REDEEM, address(0), address(0), address(0))
+        );
+    }
+
+    /**
      * @notice Test _getBlockHash fallback to stored block hashes
      * @dev Verifies that when blockhash() returns 0, the function falls back to stored blockHashes
      */
@@ -259,16 +312,12 @@ contract DigiftEventVerifierForkTest is Test {
         // miss the window
         vm.roll(vars.blockNumber + 257);
 
-        // Mock the node registry to return true for the investor
-        vm.mockCall(
-            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, vars.investor), abi.encode(true)
-        );
-
         // Mock the owner function to return this contract
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
 
         // Deploy the verifier contract
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        verifier.setWhitelist(vars.investor, true);
 
         bytes32 blockHash = keccak256(vars.header);
         // set block hash by registry owner
@@ -310,10 +359,10 @@ contract DigiftEventVerifierForkTest is Test {
         uint256 oldBlockNumber = currentBlock - 300; // Far enough in past so blockhash() returns 0
 
         address investor = address(0x123);
-        vm.mockCall(address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, investor), abi.encode(true));
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
 
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        verifier.setWhitelist(investor, true);
 
         vm.startPrank(investor);
         // This should revert with MissedWindow since no block hash is available
@@ -329,16 +378,12 @@ contract DigiftEventVerifierForkTest is Test {
         vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
         vm.roll(vars.blockNumber + 16);
 
-        // Mock the node registry to return true for the investor
-        vm.mockCall(
-            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, vars.investor), abi.encode(true)
-        );
-
         // Mock the owner function to return this contract
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
 
         // Deploy the verifier contract
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        verifier.setWhitelist(vars.investor, true);
 
         // Impersonate the investor (node) to simulate the correct msg.sender
         vm.startPrank(vars.investor);
@@ -357,20 +402,13 @@ contract DigiftEventVerifierForkTest is Test {
         vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
         vm.roll(vars.blockNumber + 16);
 
-        // Mock the node registry to return true for the investor
-        vm.mockCall(
-            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, vars.investor), abi.encode(true)
-        );
-        // Mock to test wrong investor
-        vm.mockCall(
-            address(this), abi.encodeWithSelector(INodeRegistry.isNode.selector, address(this)), abi.encode(true)
-        );
-
         // Mock the owner function to return this contract
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
 
         // Deploy the verifier contract
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        verifier.setWhitelist(vars.investor, true);
+        verifier.setWhitelist(address(this), true);
 
         // Impersonate the investor (node) to simulate the correct msg.sender
         vm.startPrank(vars.investor);

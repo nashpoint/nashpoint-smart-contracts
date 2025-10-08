@@ -29,6 +29,9 @@ contract DigiftEventVerifier is RegistryAccessControl {
 
     // ============ State Variables ============
 
+    /// @notice Tracks DigiftWrapper addresses authorised to call `verifySettlementEvent`
+    mapping(address => bool) whitelist;
+
     /// @notice Mapping to track used log hashes to prevent double-spending
     mapping(bytes32 => bool) public usedLogs;
 
@@ -52,7 +55,15 @@ contract DigiftEventVerifier is RegistryAccessControl {
     /// @notice Thrown when input bytes are empty
     error ZeroBytes();
 
+    /// @notice Thrown when an unapproved DigiftWrapper calls a whitelisted function
+    error NotWhitelisted();
+
     // ============ Events ============
+
+    /// @notice Emitted when a DigiftWrapper address gains or loses verification rights
+    /// @param digiftWrapper DigiftWrapper contract whose status changed
+    /// @param status Whether the wrapper is approved (`true`) or revoked (`false`)
+    event WhitelistChange(address indexed digiftWrapper, bool status);
 
     /**
      * @notice Emitted when a settlement event is successfully verified
@@ -147,6 +158,17 @@ contract DigiftEventVerifier is RegistryAccessControl {
     // ============ External Functions ============
 
     /**
+     * @notice Adds or removes a Digift wrapper from the verification whitelist
+     * @param digiftWrapper Digift wrapper contract to update
+     * @param status Pass `true` to grant access or `false` to revoke it
+     * @dev Restricted to the registry owner
+     */
+    function setWhitelist(address digiftWrapper, bool status) external onlyRegistryOwner {
+        whitelist[digiftWrapper] = status;
+        emit WhitelistChange(digiftWrapper, status);
+    }
+
+    /**
      * @notice Sets a block hash for historical block verification
      * @dev This function allows setting block hashes for blocks that are no longer
      *      available through the blockhash() opcode (older than 256 blocks)
@@ -168,15 +190,16 @@ contract DigiftEventVerifier is RegistryAccessControl {
      * @param nargs Onchain verification parameters including emitting address, event type and tokens
      * @return stTokenAmount The amount of security tokens in the settlement
      * @return currencyTokenAmount The amount of currency tokens in the settlement
-     * @dev Only callable by registered nodes
+     * @dev Only callable by whitelisted DigiftWrapper
      * @dev Reverts if the event signature is invalid, block header doesn't match,
      *      or if the log has already been used (double-spending protection)
      */
     function verifySettlementEvent(OffchainArgs calldata fargs, OnchainArgs calldata nargs)
         external
-        onlyNode
         returns (uint256, uint256)
     {
+        require(whitelist[msg.sender], NotWhitelisted());
+
         Vars memory vars;
 
         // Calculate the block hash from the provided header RLP
