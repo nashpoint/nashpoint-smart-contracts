@@ -714,9 +714,68 @@ contract DigiftForkTest is BaseTest {
         _settleDeposit(node, 1000e6, 0);
     }
 
+    function test_settleDeposit_NoPendingDepositRequest() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+
+        DigiftEventVerifier.OffchainArgs memory fargs;
+        DigiftEventVerifier.OnchainArgs memory nargs = DigiftEventVerifier.OnchainArgs(
+            DigiftEventVerifier.EventType.SUBSCRIBE, address(subRedManagement), address(stToken), address(asset)
+        );
+        vm.mockCall(
+            digiftEventVerifier,
+            abi.encodeWithSelector(DigiftEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+            abi.encode(sharesToMint, 0)
+        );
+        vm.startPrank(manager);
+        address[] memory nodes = new address[](2);
+        // pass two times the same node
+        nodes[0] = address(node);
+        nodes[1] = address(node);
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NoPendingDepositRequest.selector, address(node)));
+        digiftWrapper.settleDeposit(nodes, fargs);
+        vm.stopPrank();
+    }
+
     function test_settleRedeem_NothingToSettle() external {
         vm.expectRevert(DigiftWrapper.NothingToSettle.selector);
         _settleRedeem(node, 1000e6, 0);
+    }
+
+    function test_settleRedeem_NoPendingRedeemRequest() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftWrapper.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+        uint256 assetsToReturn = digiftWrapper.convertToAssets(toLiquidate);
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
+        _forward();
+        _settleRedemption(0, assetsToReturn, 0);
+
+        DigiftEventVerifier.OffchainArgs memory fargs;
+        DigiftEventVerifier.OnchainArgs memory nargs = DigiftEventVerifier.OnchainArgs(
+            DigiftEventVerifier.EventType.REDEEM, address(subRedManagement), address(stToken), address(asset)
+        );
+        vm.mockCall(
+            digiftEventVerifier,
+            abi.encodeWithSelector(DigiftEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+            abi.encode(0, assetsToReturn)
+        );
+        vm.startPrank(manager);
+        // pass two times the same node
+        address[] memory nodes = new address[](2);
+        nodes[0] = address(node);
+        nodes[1] = address(node);
+        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NoPendingRedeemRequest.selector, address(node)));
+        digiftWrapper.settleRedeem(nodes, fargs);
+        vm.stopPrank();
     }
 
     // =============================

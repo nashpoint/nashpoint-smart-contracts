@@ -103,6 +103,14 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /// @notice Thrown when there's nothing to settle
     error NothingToSettle();
 
+    /// @notice Thrown when there is no pending deposit request for a node
+    /// @param node The node address without a pending deposit request
+    error NoPendingDepositRequest(address node);
+
+    /// @notice Thrown when there is no pending redeem request for a node
+    /// @param node The node address without a pending redeem request
+    error NoPendingRedeemRequest(address node);
+
     /// @notice Thrown when function is not supported
     error Unsupported();
 
@@ -615,6 +623,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
             NodeState storage node = _nodeState[nodes[i]];
 
             uint256 nodePendingDepositRequest = node.pendingDepositRequest;
+            require(nodePendingDepositRequest > 0, NoPendingDepositRequest(nodes[i]));
 
             // Calculate proportional shares and assets for this node
             uint256 assetsToReimburse = nodePendingDepositRequest.mulDiv(assets, vars.globalPendingDepositRequest);
@@ -745,6 +754,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
             NodeState storage node = _nodeState[nodes[i]];
 
             uint256 nodePendingRedeemRequest = node.pendingRedeemRequest;
+            require(nodePendingRedeemRequest > 0, NoPendingRedeemRequest(nodes[i]));
 
             // Calculate proportional assets and shares for this node
             uint256 assetsToReturn = nodePendingRedeemRequest.mulDiv(assets, vars.globalPendingRedeemRequest);
