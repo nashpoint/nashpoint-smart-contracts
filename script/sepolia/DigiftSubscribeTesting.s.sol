@@ -22,8 +22,9 @@ contract DigiftSubscribeTesting is Script {
         ERC20MockOwnable usdc = ERC20MockOwnable(json.readAddress(".usdc"));
 
         vm.startBroadcast(privateKey);
-        usdc.approve(address(digiftWrapper), 1000e6);
-        digiftWrapper.requestDeposit(1000e6, deployer, deployer);
+        uint256 amount = uint256(1000000000) * uint256(11) / uint256(7);
+        usdc.approve(address(digiftWrapper), amount);
+        digiftWrapper.requestDeposit(amount, deployer, deployer);
         digiftWrapper.forwardRequestsToDigift();
         vm.stopBroadcast();
     }
