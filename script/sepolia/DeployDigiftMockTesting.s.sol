@@ -29,9 +29,9 @@ contract DeployDigiftMockTesting is Script {
         PriceOracleMock dFeedPriceOracle = new PriceOracleMock(18);
 
         assetPriceOracle.setLatestRoundData(
-            18446744073709556890, 99974000, 1759880855, 1759880855, 18446744073709556890
+            18446744073709556890, 99974000, block.timestamp, block.timestamp, 18446744073709556890
         );
-        dFeedPriceOracle.setLatestRoundData(0, 232620000000000000000, 1759892248, 1759892248, 0);
+        dFeedPriceOracle.setLatestRoundData(0, 232620000000000000000, block.timestamp, block.timestamp, 0);
 
         address digiftWrapperImpl =
             address(new DigiftWrapper(address(subRedManagement), address(nodeRegistry), address(eventVerifier)));

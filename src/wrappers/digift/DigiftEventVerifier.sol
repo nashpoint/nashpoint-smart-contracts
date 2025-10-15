@@ -30,13 +30,13 @@ contract DigiftEventVerifier is RegistryAccessControl {
     // ============ State Variables ============
 
     /// @notice Tracks DigiftWrapper addresses authorised to call `verifySettlementEvent`
-    mapping(address => bool) whitelist;
+    mapping(address node => bool status) whitelist;
 
     /// @notice Mapping to track used log hashes to prevent double-spending
-    mapping(bytes32 => bool) public usedLogs;
+    mapping(bytes32 logHash => bool used) public usedLogs;
 
     /// @notice Mapping to store block hashes for historical block verification
-    mapping(uint256 => bytes32) public blockHashes;
+    mapping(uint256 blockNumber => bytes32 blockHash) public blockHashes;
 
     // ============ Errors ============
 
