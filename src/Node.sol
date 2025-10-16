@@ -426,8 +426,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             request.sharesAdjusted += adjustedShares;
             sharesExiting += adjustedShares;
         }
-
-        IERC20(address(this)).safeTransferFrom(owner, address(escrow), shares);
+        _transfer(owner, address(escrow), shares);
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
@@ -493,6 +492,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
+        // slither-disable-next-line arbitrary-send-erc20
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
         return shares;
@@ -511,6 +511,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
+        // slither-disable-next-line arbitrary-send-erc20
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
         return assets;
