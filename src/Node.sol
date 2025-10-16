@@ -79,6 +79,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
         registry = registry_;
         asset = asset_;
+        nodeOwnerFeeAddress = owner;
         _setTargetReserveRatio(targetReserveRatio_);
         _setInitialComponents(components_, componentAllocations_);
     }
@@ -310,12 +311,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function startRebalance() external onlyRebalancer {
-        if (!_validateComponentRatios()) {
-            revert ErrorsLib.InvalidComponentRatios();
-        }
-        if (block.timestamp < lastRebalance + rebalanceWindow + rebalanceCooldown) revert ErrorsLib.CooldownActive();
+        if (!_validateComponentRatios()) revert ErrorsLib.InvalidComponentRatios();
+        if (isCacheValid()) revert ErrorsLib.CooldownActive();
+
         lastRebalance = uint64(block.timestamp);
         _updateTotalAssets();
+        _payManagementFees();
+        _updateLastPayment();
 
         emit EventsLib.RebalanceStarted(block.timestamp, rebalanceWindow);
     }
@@ -335,27 +337,30 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function payManagementFees() external onlyOwnerOrRebalancer onlyWhenNotRebalancing returns (uint256 feeForPeriod) {
-        if (nodeOwnerFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
-
         _updateTotalAssets();
+        feeForPeriod = _payManagementFees();
+        if (feeForPeriod > 0) {
+            _updateLastPayment();
+        }
+    }
 
-        unchecked {
-            feeForPeriod =
-                (annualManagementFee * cacheTotalAssets * (block.timestamp - lastPayment)) / (SECONDS_PER_YEAR * WAD);
+    function _payManagementFees() internal returns (uint256 feeForPeriod) {
+        feeForPeriod = uint256(annualManagementFee).mulDiv(
+            cacheTotalAssets * (block.timestamp - lastPayment), SECONDS_PER_YEAR * WAD
+        );
 
-            if (feeForPeriod > 0) {
-                uint256 protocolFeeAmount = feeForPeriod * INodeRegistry(registry).protocolManagementFee() / WAD;
-                uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
+        if (feeForPeriod > 0) {
+            uint256 protocolFeeAmount = feeForPeriod.mulDiv(INodeRegistry(registry).protocolManagementFee(), WAD);
+            uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
 
-                if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
-                    revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
-                }
-
-                cacheTotalAssets -= feeForPeriod;
-                lastPayment = uint64(block.timestamp);
-                IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
-                IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
+            if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
+                revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
             }
+
+            cacheTotalAssets -= feeForPeriod;
+            IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
+            IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
+            emit EventsLib.ManagementFeePaid(nodeOwnerFeeAddress, nodeOwnerFeeAmount, protocolFeeAmount);
         }
     }
 
@@ -366,6 +371,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
         cacheTotalAssets -= executionFee;
         IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
+        emit EventsLib.ExecutionFeeTaken(executionFee);
     }
 
     function updateTotalAssets() external onlyOwnerOrRebalancer {
@@ -621,9 +627,18 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         return address(this);
     }
 
+    /// @inheritdoc INode
+    function getLiquidationsQueue() external view returns (address[] memory) {
+        return liquidationsQueue;
+    }
+
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    function _updateLastPayment() internal {
+        lastPayment = uint64(block.timestamp);
+    }
 
     function _fulfillRedeemFromReserve(address controller) internal {
         Request storage request = requests[controller];
@@ -677,6 +692,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             assets += IRouter(router).getComponentAssets(component, false);
         }
         cacheTotalAssets = assets;
+        emit EventsLib.TotalAssetsUpdated(assets);
     }
 
     function _validateController(address controller) internal view {

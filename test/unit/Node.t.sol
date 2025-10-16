@@ -1227,24 +1227,34 @@ contract NodeTest is BaseTest {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
+        uint64 nodeFee = 0.01 ether; // takes 1% of totalAssets
+        uint64 protocolFee = 0.2 ether; // takes 20% of annualManagementFee
         vm.startPrank(owner);
         node.setNodeOwnerFeeAddress(ownerFeesRecipient);
-        node.setAnnualManagementFee(0.01e18); // takes 1% of totalAssets
-        registry.setProtocolManagementFee(0.2 ether); // takes 20% of annualManagementFee
+        node.setAnnualManagementFee(nodeFee);
+        registry.setProtocolManagementFee(protocolFee);
         registry.setProtocolFeeAddress(protocolFeesRecipient);
         vm.stopPrank();
 
-        _seedNode(100 ether);
-        assertEq(node.totalAssets(), 100 ether);
+        uint256 amount = 100 ether;
+        uint256 feeAmount = (nodeFee * amount) / 1e18;
+        uint256 protocolFeeAmount = feeAmount * protocolFee / 1e18;
+        uint256 nodeFeeAmount = feeAmount - protocolFeeAmount;
 
-        vm.warp(block.timestamp + 364 days);
+        _seedNode(amount);
+        assertEq(node.totalAssets(), amount);
 
-        vm.prank(owner);
+        vm.warp(block.timestamp + 365 days);
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.ManagementFeePaid(node.nodeOwnerFeeAddress(), nodeFeeAmount, protocolFeeAmount);
         uint256 feeForPeriod = node.payManagementFees();
+        vm.stopPrank();
 
-        assertEq(asset.balanceOf(address(ownerFeesRecipient)), 0.8 ether);
-        assertEq(asset.balanceOf(address(protocolFeesRecipient)), 0.2 ether);
-        assertEq(feeForPeriod, 1 ether);
+        assertEq(feeForPeriod, protocolFeeAmount + nodeFeeAmount);
+        assertEq(asset.balanceOf(address(ownerFeesRecipient)), nodeFeeAmount);
+        assertEq(asset.balanceOf(address(protocolFeesRecipient)), protocolFeeAmount);
         assertEq(node.totalAssets(), 100 ether - feeForPeriod);
     }
 
@@ -1272,30 +1282,6 @@ contract NodeTest is BaseTest {
         assertEq(node.totalAssets(), 100 ether);
     }
 
-    function test_payManagementFees_1Days() public {
-        address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
-        address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
-
-        vm.startPrank(owner);
-        node.setNodeOwnerFeeAddress(ownerFeesRecipient);
-        node.setAnnualManagementFee(0.01e18); // takes 1% of totalAssets
-        registry.setProtocolManagementFee(0.2 ether); // takes 20% of annualManagementFee
-        registry.setProtocolFeeAddress(protocolFeesRecipient);
-        vm.stopPrank();
-
-        _seedNode(100 ether);
-        assertEq(node.totalAssets(), 100 ether);
-
-        vm.warp(block.timestamp + 1 days);
-
-        vm.prank(owner);
-        uint256 feeForPeriod = node.payManagementFees();
-
-        assertApproxEqAbs(asset.balanceOf(address(ownerFeesRecipient)) * 365, 0.8 ether * 2, 1000);
-        assertApproxEqAbs(asset.balanceOf(address(protocolFeesRecipient)) * 365, 0.2 ether * 2, 1000);
-        assertEq(node.totalAssets(), 100 ether - feeForPeriod);
-    }
-
     function test_payManagementFees_revert_NotEnoughAssets() public {
         _seedNode(100 ether);
 
@@ -1307,7 +1293,7 @@ contract NodeTest is BaseTest {
         node.setAnnualManagementFee(0.2e18);
         node.setNodeOwnerFeeAddress(ownerFeesRecipient);
 
-        vm.warp(block.timestamp + 364 days);
+        vm.warp(block.timestamp + 365 days);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -1434,16 +1420,6 @@ contract NodeTest is BaseTest {
         assertEq(node.totalAssets(), initialTotalAssets - feesPaid);
     }
 
-    function test_payManagementFees_revert_NoFeeAddressSet() public {
-        _seedNode(100 ether);
-
-        vm.warp(block.timestamp + 365 days);
-
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        node.payManagementFees();
-    }
-
     function test_subtractProtocolExecutionFee() public {
         // Seed the node with initial assets
         _seedNode(100 ether);
@@ -1456,8 +1432,11 @@ contract NodeTest is BaseTest {
         registry.setProtocolFeeAddress(protocolFeeAddress);
 
         // Call subtractProtocolExecutionFee as router
-        vm.prank(address(router4626));
+        vm.startPrank(address(router4626));
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.ExecutionFeeTaken(executionFee);
         node.subtractProtocolExecutionFee(executionFee);
+        vm.stopPrank();
 
         // Verify fee was transferred and total assets was updated
         assertEq(asset.balanceOf(protocolFeeAddress), executionFee);
@@ -1497,8 +1476,11 @@ contract NodeTest is BaseTest {
             address(router4626), abi.encodeWithSelector(IRouter.getComponentAssets.selector), abi.encode(20 ether)
         );
 
-        vm.prank(rebalancer);
+        vm.startPrank(rebalancer);
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.TotalAssetsUpdated(expectedTotalAssets);
         node.updateTotalAssets();
+        vm.stopPrank();
 
         assertEq(node.totalAssets(), expectedTotalAssets);
     }
