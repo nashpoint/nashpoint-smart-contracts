@@ -2384,12 +2384,30 @@ contract NodeTest is BaseTest {
         address operator = makeAddr("operator");
 
         vm.startPrank(user);
-        node.approve(address(node), 1 ether);
+        node.approve(operator, 1 ether);
         node.setOperator(operator, true);
         vm.stopPrank();
 
         vm.prank(operator);
         node.requestRedeem(1 ether, user, user);
+    }
+
+    function test_validateOwner_ERC20InsufficientAllowance() public {
+        _seedNode(100 ether);
+        _userDeposits(user, 100 ether);
+
+        address operator = makeAddr("operator");
+
+        vm.startPrank(user);
+        node.setOperator(operator, true);
+        vm.stopPrank();
+
+        vm.startPrank(operator);
+        vm.expectRevert(
+            abi.encodeWithSignature("ERC20InsufficientAllowance(address,uint256,uint256)", operator, 0, 1 ether)
+        );
+        node.requestRedeem(1 ether, user, user);
+        vm.stopPrank();
     }
 
     function test_componentAllocationAndValidation(uint64 comp1, uint64 comp2) public {

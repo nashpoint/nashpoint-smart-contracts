@@ -406,7 +406,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function requestRedeem(uint256 shares, address controller, address owner) external nonReentrant returns (uint256) {
-        _validateOwner(owner);
+        _validateOwner(owner, shares);
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
@@ -701,10 +701,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
     }
 
-    function _validateOwner(address owner) internal view {
+    function _validateOwner(address owner, uint256 shares) internal {
         if (owner == address(0)) revert ErrorsLib.ZeroAddress();
         if (owner != msg.sender && !isOperator[owner][msg.sender]) {
             revert ErrorsLib.InvalidOwner();
+        }
+        if (owner != msg.sender) {
+            _spendAllowance(owner, msg.sender, shares);
         }
     }
 
