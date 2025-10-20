@@ -64,12 +64,12 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
-        if (registry_ == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(registry_);
         registry = registry_;
     }
 
     function initialize(NodeInitArgs memory args, address escrow_) external initializer {
-        if (args.asset == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(args.asset);
         if (args.components.length != args.componentAllocations.length) revert ErrorsLib.LengthMismatch();
         asset = args.asset;
         nodeOwnerFeeAddress = args.owner;
@@ -80,9 +80,8 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         __ReentrancyGuard_init();
 
         for (uint256 i; i < args.components.length; ++i) {
-            address router = args.componentAllocations[i].router;
-            if (!isRouter[router]) {
-                _addRouter(router);
+            if (!isRouter[args.componentAllocations[i].router]) {
+                _addRouter(args.componentAllocations[i].router);
             }
         }
         _setQuoter(args.quoter);
@@ -112,34 +111,56 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @notice Reverts if the sender is not a router
     modifier onlyRouter() {
-        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
+        _onlyRouter();
         _;
+    }
+
+    function _onlyRouter() internal view {
+        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
     }
 
     /// @notice Reverts if the sender is not a rebalancer
     modifier onlyRebalancer() {
-        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+        _onlyRebalancer();
         _;
+    }
+
+    function _onlyRebalancer() internal view {
+        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
     }
 
     /// @notice Reverts if the sender is not the owner or a rebalancer
     modifier onlyOwnerOrRebalancer() {
-        if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+        _onlyOwnerOrRebalancer();
         _;
+    }
+
+    function _onlyOwnerOrRebalancer() internal view {
+        if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
     }
 
     /// @notice Reverts if the current block timestamp is outside the rebalance window
     modifier onlyWhenRebalancing() {
-        if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
+        _onlyWhenRebalancing();
         _;
+    }
+
+    function _onlyWhenRebalancing() internal view {
+        if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
     }
 
     /// @notice Reverts if the current block timestamp is within the rebalance window
     modifier onlyWhenNotRebalancing() {
-        if (block.timestamp < lastRebalance + rebalanceWindow) {
-            revert ErrorsLib.RebalanceWindowOpen();
-        }
+        _onlyWhenNotRebalancing();
         _;
+    }
+
+    function _onlyWhenNotRebalancing() internal view {
+        if (block.timestamp < lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowOpen();
+    }
+
+    function _nonZeroAddress(address address_) internal view {
+        if (address_ == address(0)) revert ErrorsLib.ZeroAddress();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -234,7 +255,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     function _addRebalancer(address newRebalancer) internal {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
-        if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(newRebalancer);
         if (!INodeRegistry(registry).isRegistryType(newRebalancer, RegistryType.REBALANCER)) {
             revert ErrorsLib.NotWhitelisted();
         }
@@ -256,7 +277,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     function _setQuoter(address newQuoter) internal {
         if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
-        if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(newQuoter);
         if (!INodeRegistry(registry).isRegistryType(newQuoter, RegistryType.QUOTER)) revert ErrorsLib.NotWhitelisted();
         quoter = IQuoterV1(newQuoter);
         emit EventsLib.QuoterSet(newQuoter);
@@ -268,7 +289,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
         for (uint256 i = 0; i < newQueue.length; i++) {
             address component = newQueue[i];
-            if (component == address(0)) revert ErrorsLib.ZeroAddress();
+            _nonZeroAddress(component);
             if (!_isComponent(component)) revert ErrorsLib.InvalidComponent();
         }
         liquidationsQueue = newQueue;
@@ -297,7 +318,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc INode
     function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external onlyOwner {
-        if (newNodeOwnerFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(newNodeOwnerFeeAddress);
         if (newNodeOwnerFeeAddress == nodeOwnerFeeAddress) revert ErrorsLib.AlreadySet();
         nodeOwnerFeeAddress = newNodeOwnerFeeAddress;
         emit EventsLib.NodeOwnerFeeAddressSet(newNodeOwnerFeeAddress);
@@ -348,7 +369,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         onlyWhenRebalancing
         returns (bytes memory)
     {
-        if (target == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(target);
         bytes memory result = target.functionCall(data);
         emit EventsLib.Execute(target, data, result);
         return result;
@@ -714,12 +735,12 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     function _validateController(address controller) internal view {
-        if (controller == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(controller);
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
     }
 
     function _validateOwner(address owner, uint256 shares) internal {
-        if (owner == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(owner);
         if (owner != msg.sender && !isOperator[owner][msg.sender]) {
             revert ErrorsLib.InvalidOwner();
         }
@@ -753,11 +774,10 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     function _validateNewComponent(address component, address router) internal view {
-        if (component == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(component);
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
         if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
-        if (!IRouter(router).isWhitelisted(component)) revert ErrorsLib.NotWhitelisted();
-        if (!isRouter[router]) revert ErrorsLib.NotWhitelisted();
+        if (!IRouter(router).isWhitelisted(component) || !isRouter[router]) revert ErrorsLib.NotWhitelisted();
     }
 
     function _validateNewRouter(address newRouter) internal view {
