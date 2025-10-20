@@ -165,4 +165,6 @@ library ErrorsLib {
 
     /// @notice Thrown when the swing factor is invalid.
     error InvalidSwingFactor();
+
+    error PolicyEntered();
 }

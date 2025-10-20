@@ -105,6 +105,15 @@ contract NodeRegistry is INodeRegistry, Ownable {
         return roles[addr][type_];
     }
 
+    function isRegistryTypes(address[] memory addr, RegistryType type_) external view returns (bool) {
+        for (uint256 i; i < addr.length; i++) {
+            if (!roles[addr[i]][type_]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /* INTERNAL */
 
     function _initializeRoles(address[] memory addrs, RegistryType role) internal {

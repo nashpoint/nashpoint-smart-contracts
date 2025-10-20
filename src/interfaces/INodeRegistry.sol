@@ -12,7 +12,8 @@ enum RegistryType {
     FACTORY,
     ROUTER,
     QUOTER,
-    REBALANCER
+    REBALANCER,
+    POLICY
 }
 
 interface INodeRegistry {
@@ -64,6 +65,8 @@ interface INodeRegistry {
      * @return bool True if address has role
      */
     function isRegistryType(address addr, RegistryType type_) external view returns (bool);
+
+    function isRegistryTypes(address[] memory addr, RegistryType type_) external view returns (bool);
 
     /**
      * @notice Returns whether the registry has been initialized

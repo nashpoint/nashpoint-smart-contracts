@@ -6,6 +6,7 @@ import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
+import {IPolicy} from "src/interfaces/IPolicy.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
@@ -61,6 +62,9 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     /* SWING PRICING */
     uint64 public maxSwingFactor;
     bool public swingPricingEnabled;
+
+    mapping(bytes4 => address[]) public policies;
+    bool internal _policyEntered;
 
     /* CONSTRUCTOR */
     constructor(address registry_) {
@@ -166,6 +170,14 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     /*//////////////////////////////////////////////////////////////
                             OWNER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    function setPolicies(bytes4 sig, address[] memory policies_) external onlyOwner {
+        if (!INodeRegistry(registry).isRegistryTypes(policies_, RegistryType.POLICY)) {
+            revert ErrorsLib.NotWhitelisted();
+        }
+        policies[sig] = policies_;
+        emit EventsLib.PoliciesChange(sig, policies_);
+    }
 
     /// @inheritdoc INode
     function addComponent(address component, uint64 targetWeight, uint64 maxDelta, address router)
@@ -350,7 +362,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INode
-    function startRebalance() external onlyRebalancer {
+    function startRebalance() external onlyRebalancer nonReentrant {
         if (!_validateComponentRatios()) revert ErrorsLib.InvalidComponentRatios();
         if (isCacheValid()) revert ErrorsLib.CooldownActive();
 
@@ -358,6 +370,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         _updateTotalAssets();
         _payManagementFees();
         _updateLastPayment();
+        _runPolicies();
 
         emit EventsLib.RebalanceStarted(block.timestamp, rebalanceWindow);
     }
@@ -367,21 +380,30 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         external
         onlyRouter
         onlyWhenRebalancing
+        nonReentrant
         returns (bytes memory)
     {
         _nonZeroAddress(target);
         bytes memory result = target.functionCall(data);
+        _runPolicies();
         emit EventsLib.Execute(target, data, result);
         return result;
     }
 
     /// @inheritdoc INode
-    function payManagementFees() external onlyOwnerOrRebalancer onlyWhenNotRebalancing returns (uint256 feeForPeriod) {
+    function payManagementFees()
+        external
+        onlyOwnerOrRebalancer
+        onlyWhenNotRebalancing
+        nonReentrant
+        returns (uint256 feeForPeriod)
+    {
         _updateTotalAssets();
         feeForPeriod = _payManagementFees();
         if (feeForPeriod > 0) {
             _updateLastPayment();
         }
+        _runPolicies();
     }
 
     function _payManagementFees() internal returns (uint256 feeForPeriod) {
@@ -405,29 +427,38 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     /// @inheritdoc INode
-    function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter {
+    function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter nonReentrant {
         if (executionFee > IERC20(asset).balanceOf(address(this))) {
             revert ErrorsLib.NotEnoughAssetsToPayFees(executionFee, IERC20(asset).balanceOf(address(this)));
         }
         cacheTotalAssets -= executionFee;
         IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
+        _runPolicies();
         emit EventsLib.ExecutionFeeTaken(executionFee);
     }
 
-    function updateTotalAssets() external onlyOwnerOrRebalancer {
+    function updateTotalAssets() external onlyOwnerOrRebalancer nonReentrant {
         _updateTotalAssets();
+        _runPolicies();
     }
 
     /// @inheritdoc INode
-    function fulfillRedeemFromReserve(address controller) external onlyRebalancer onlyWhenRebalancing {
+    function fulfillRedeemFromReserve(address controller) external onlyRebalancer onlyWhenRebalancing nonReentrant {
         _fulfillRedeemFromReserve(controller);
+        _runPolicies();
     }
 
     /// @inheritdoc INode
-    function fulfillRedeemBatch(address[] memory controllers) external onlyRebalancer onlyWhenRebalancing {
+    function fulfillRedeemBatch(address[] memory controllers)
+        external
+        onlyRebalancer
+        onlyWhenRebalancing
+        nonReentrant
+    {
         for (uint256 i = 0; i < controllers.length; i++) {
             _fulfillRedeemFromReserve(controllers[i]);
         }
+        _runPolicies();
     }
 
     /// @inheritdoc INode
@@ -436,8 +467,9 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         uint256 assetsToReturn,
         uint256 sharesPending,
         uint256 sharesAdjusted
-    ) external onlyRouter {
+    ) external onlyRouter nonReentrant {
         _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
+        _runPolicies();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -465,6 +497,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         request.sharesAdjusted += adjustedShares;
         sharesExiting += adjustedShares;
         _transfer(owner, address(escrow), shares);
+        _runPolicies();
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
@@ -480,9 +513,10 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     /// @inheritdoc INode
-    function setOperator(address operator, bool approved) external returns (bool success) {
+    function setOperator(address operator, bool approved) external nonReentrant returns (bool success) {
         if (msg.sender == operator) revert ErrorsLib.CannotSetSelfAsOperator();
         isOperator[msg.sender][operator] = approved;
+        _runPolicies();
         emit OperatorSet(msg.sender, operator, approved);
         success = true;
     }
@@ -497,27 +531,33 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
                             ERC-4626 FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver) external nonReentrant returns (uint256 shares) {
         if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
         shares = _calculateSharesAfterSwingPricing(assets);
         _deposit(msg.sender, receiver, assets, shares);
         cacheTotalAssets += assets;
+        _runPolicies();
         return shares;
     }
 
-    function mint(uint256 shares, address receiver) external returns (uint256 assets) {
+    function mint(uint256 shares, address receiver) external nonReentrant returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ExceedsMaxMint();
         }
         assets = _convertToAssets(shares, MathLib.Rounding.Up);
         _deposit(msg.sender, receiver, assets, shares);
         cacheTotalAssets += assets;
+        _runPolicies();
         return assets;
     }
 
-    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address controller)
+        external
+        nonReentrant
+        returns (uint256 shares)
+    {
         if (assets == 0) revert ErrorsLib.ZeroAmount();
         _validateController(controller);
         Request storage request = requests[controller];
@@ -532,11 +572,16 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
         // slither-disable-next-line arbitrary-send-erc20
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
+        _runPolicies();
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
         return shares;
     }
 
-    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address controller)
+        external
+        nonReentrant
+        returns (uint256 assets)
+    {
         if (shares == 0) revert ErrorsLib.ZeroAmount();
         _validateController(controller);
         Request storage request = requests[controller];
@@ -551,6 +596,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
         // slither-disable-next-line arbitrary-send-erc20
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
+        _runPolicies();
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
         return assets;
     }
@@ -619,6 +665,25 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         }
     }
 
+    function transfer(address to, uint256 value) public override(ERC20Upgradeable, IERC20) returns (bool) {
+        super.transfer(to, value);
+        _runPolicies();
+    }
+
+    function approve(address spender, uint256 value) public override(ERC20Upgradeable, IERC20) returns (bool) {
+        super.approve(spender, value);
+        _runPolicies();
+    }
+
+    function transferFrom(address from, address to, uint256 value)
+        public
+        override(ERC20Upgradeable, IERC20)
+        returns (bool)
+    {
+        super.transferFrom(from, to, value);
+        _runPolicies();
+    }
+
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -669,6 +734,10 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     /// @inheritdoc INode
     function getLiquidationsQueue() external view returns (address[] memory) {
         return liquidationsQueue;
+    }
+
+    function getUncachedTotalAssets() external view returns (uint256) {
+        return _getTotalAssets();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -722,14 +791,18 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assetsToReturn, sharesPending);
     }
 
-    function _updateTotalAssets() internal {
-        uint256 assets = IERC20(asset).balanceOf(address(this));
+    function _getTotalAssets() internal view returns (uint256 assets) {
+        assets = IERC20(asset).balanceOf(address(this));
         uint256 len = components.length;
         for (uint256 i = 0; i < len; i++) {
             address component = components[i];
             address router = componentAllocations[component].router;
             assets += IRouter(router).getComponentAssets(component, false);
         }
+    }
+
+    function _updateTotalAssets() internal {
+        uint256 assets = _getTotalAssets();
         cacheTotalAssets = assets;
         emit EventsLib.TotalAssetsUpdated(assets);
     }
@@ -841,5 +914,15 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
         _mint(receiver, shares);
         emit Deposit(caller, receiver, assets, shares);
+    }
+
+    function _runPolicies() internal {
+        if (_policyEntered) revert ErrorsLib.PolicyEntered();
+        _policyEntered = true;
+        address[] memory policies_ = policies[msg.sig];
+        for (uint256 i; i < policies_.length; i++) {
+            IPolicy(policies_[i]).onCheck(msg.data);
+        }
+        _policyEntered = false;
     }
 }

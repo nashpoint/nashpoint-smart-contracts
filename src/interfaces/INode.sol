@@ -331,4 +331,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Returns the liquidation queue
     function getLiquidationsQueue() external view returns (address[] memory);
+
+    function getUncachedTotalAssets() external view returns (uint256);
 }
