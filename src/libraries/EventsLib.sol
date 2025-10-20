@@ -108,4 +108,13 @@ library EventsLib {
 
     /// @notice Emitted when tokens are rescued from the node
     event RescueTokens(address token, address recipient, uint256 amount);
+
+    /// @notice Emitted when management fees are paid out
+    event ManagementFeePaid(address indexed nodeOwner, uint256 nodeOwnerAmount, uint256 protocolFeeAmount);
+
+    /// @notice Emitted when totalAssets has been updated
+    event TotalAssetsUpdated(uint256 amount);
+
+    /// @notice Emitted when execution fee has been taken
+    event ExecutionFeeTaken(uint256 amount);
 }

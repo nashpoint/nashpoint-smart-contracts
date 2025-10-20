@@ -303,4 +303,25 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Returns if an address is a rebalancer
     function isRebalancer(address) external view returns (bool);
+
+    /// @notice Returns annual management fee percentage in wei
+    function annualManagementFee() external view returns (uint64);
+
+    /// @notice Returns block.timestamp of last payment of management fee
+    function lastPayment() external view returns (uint64);
+
+    /// @notice Returns max deposit size
+    function maxDepositSize() external view returns (uint256);
+
+    /// @notice Returns amount of shares leaving the protocol
+    function sharesExiting() external view returns (uint256);
+
+    /// @notice Returns amount of assets cached for operations
+    function cacheTotalAssets() external view returns (uint256);
+
+    /// @notice Returns the address for receiving management fees
+    function nodeOwnerFeeAddress() external view returns (address);
+
+    /// @notice Returns the liquidation queue
+    function getLiquidationsQueue() external view returns (address[] memory);
 }
