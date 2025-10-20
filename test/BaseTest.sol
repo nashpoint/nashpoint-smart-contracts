@@ -15,7 +15,7 @@ import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import {Escrow} from "src/Escrow.sol";
 
-import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
+import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
@@ -103,15 +103,17 @@ contract BaseTest is Test {
         router4626.setWhitelistStatus(address(vault), true);
 
         (node, escrow) = factory.deployFullNode(
-            "Test Node",
-            "TNODE",
-            address(asset),
-            owner,
-            _toArray(address(vault)),
-            _defaultComponentAllocations(1),
-            0.1 ether,
-            address(rebalancer),
-            address(quoter),
+            NodeInitArgs(
+                "Test Node",
+                "TNODE",
+                address(quoter),
+                address(rebalancer),
+                address(asset),
+                owner,
+                _toArray(address(vault)),
+                _defaultComponentAllocations(1),
+                0.1 ether
+            ),
             SALT
         );
 

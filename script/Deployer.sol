@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {Node} from "src/Node.sol";
 import {NodeFactory} from "src/NodeFactory.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 import {QuoterV1} from "src/quoters/QuoterV1.sol";
@@ -20,7 +21,8 @@ contract Deployer is Script {
 
         // Deploy core contracts
         registry = new NodeRegistry{salt: salt}(owner);
-        factory = new NodeFactory{salt: salt}(address(registry));
+        address nodeImplementation = address(new Node{salt: salt}(address(registry)));
+        factory = new NodeFactory{salt: salt}(address(registry), nodeImplementation);
         quoter = new QuoterV1{salt: salt}(address(registry));
         erc4626router = new ERC4626Router{salt: salt}(address(registry));
         erc7540router = new ERC7540Router{salt: salt}(address(registry));

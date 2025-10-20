@@ -28,21 +28,28 @@ struct Request {
     uint256 sharesAdjusted;
 }
 
+struct NodeInitArgs {
+    string name;
+    string symbol;
+    address quoter;
+    address rebalancer;
+    address asset;
+    address owner;
+    address[] components;
+    ComponentAllocation[] componentAllocations;
+    uint64 targetReserveRatio;
+}
+
 /**
  * @title INode
  * @author ODND Studios
  */
 interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
+    function initialize(NodeInitArgs memory args, address escrow) external;
+
     /// @notice Returns the target reserve ratio
     /// @return uint64 The target reserve ratio
     function targetReserveRatio() external view returns (uint64);
-
-    /// @notice Returns whether the node has been initialized
-    function isInitialized() external view returns (bool);
-
-    /// @notice Initializes the Node with escrow and manager contracts
-    /// @param escrow_ The address of the escrow contract
-    function initialize(address escrow_) external;
 
     /// @notice Adds a new component to the node
     /// @param component The address of the component to add

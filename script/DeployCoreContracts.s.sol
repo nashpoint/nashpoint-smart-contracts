@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
+import {Node} from "src/Node.sol";
 import {NodeFactory} from "src/NodeFactory.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 import {QuoterV1} from "src/quoters/QuoterV1.sol";
@@ -102,7 +103,8 @@ contract DeployTestEnv is Script {
         )
     {
         registry = new NodeRegistry(deployer_);
-        factory = new NodeFactory(address(registry));
+        address nodeImplementation = address(new Node(address(registry)));
+        factory = new NodeFactory(address(registry), nodeImplementation);
         quoter = new QuoterV1(address(registry));
         router4626 = new ERC4626Router(address(registry));
         router7540 = new ERC7540Router(address(registry));
