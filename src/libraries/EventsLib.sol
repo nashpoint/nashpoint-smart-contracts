@@ -118,5 +118,9 @@ library EventsLib {
     /// @notice Emitted when execution fee has been taken
     event ExecutionFeeTaken(uint256 amount);
 
-    event PoliciesChange(bytes4 indexed sig, address[] policies);
+    event PoliciesAdded(bytes4[] indexed sigs, address[] policies);
+
+    event PoliciesRemoved(bytes4[] indexed sigs, address[] policies);
+
+    event PoliciesRootUpdate(bytes32 newRoot);
 }

@@ -167,4 +167,6 @@ library ErrorsLib {
     error InvalidSwingFactor();
 
     error PolicyEntered();
+
+    error NotFound(address element);
 }

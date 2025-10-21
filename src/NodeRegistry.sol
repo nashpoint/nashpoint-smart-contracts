@@ -2,6 +2,8 @@
 pragma solidity 0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
@@ -19,6 +21,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
     uint64 public protocolExecutionFee;
     uint64 public protocolMaxSwingFactor;
     mapping(address => mapping(RegistryType => bool)) public roles;
+    bytes32 public policiesRoot;
 
     /* CONSTRUCTOR */
     constructor(address owner_) Ownable(owner_) {}
@@ -55,6 +58,11 @@ contract NodeRegistry is INodeRegistry, Ownable {
         _setProtocolExecutionFee(executionFee_);
         _setProtocolMaxSwingFactor(maxSwingFactor_);
         isInitialized = true;
+    }
+
+    function setPoliciesRoot(bytes32 newRoot) external onlyOwner {
+        policiesRoot = newRoot;
+        emit EventsLib.PoliciesRootUpdate(newRoot);
     }
 
     /// @inheritdoc INodeRegistry
@@ -105,13 +113,18 @@ contract NodeRegistry is INodeRegistry, Ownable {
         return roles[addr][type_];
     }
 
-    function isRegistryTypes(address[] memory addr, RegistryType type_) external view returns (bool) {
-        for (uint256 i; i < addr.length; i++) {
-            if (!roles[addr[i]][type_]) {
-                return false;
-            }
+    function verifyPolicies(
+        bytes32[] calldata proof,
+        bool[] calldata proofFlags,
+        bytes4[] calldata sigs,
+        address[] calldata policies
+    ) external view returns (bool) {
+        if (sigs.length != policies.length) revert ErrorsLib.LengthMismatch();
+        bytes32[] memory leaves = new bytes32[](policies.length);
+        for (uint256 i; i < policies.length; i++) {
+            leaves[i] = _getLeaf(sigs[i], policies[i]);
         }
-        return true;
+        return MerkleProof.multiProofVerify(proof, proofFlags, policiesRoot, leaves);
     }
 
     /* INTERNAL */
@@ -147,5 +160,9 @@ contract NodeRegistry is INodeRegistry, Ownable {
         if (newProtocolMaxSwingFactor >= WAD) revert ErrorsLib.InvalidSwingFactor();
         protocolMaxSwingFactor = newProtocolMaxSwingFactor;
         emit EventsLib.ProtocolMaxSwingFactorSet(newProtocolMaxSwingFactor);
+    }
+
+    function _getLeaf(bytes4 sig, address policy) internal pure returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(sig, policy))));
     }
 }

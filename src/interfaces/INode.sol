@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575, IERC165} from "./IERC7575.sol";
 import {IERC7540Redeem} from "./IERC7540.sol";
 import {IQuoterV1} from "./IQuoterV1.sol";
@@ -31,13 +31,8 @@ struct Request {
 struct NodeInitArgs {
     string name;
     string symbol;
-    address quoter;
-    address rebalancer;
     address asset;
     address owner;
-    address[] components;
-    ComponentAllocation[] componentAllocations;
-    uint64 targetReserveRatio;
 }
 
 /**
@@ -45,7 +40,7 @@ struct NodeInitArgs {
  * @author ODND Studios
  */
 interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
-    function initialize(NodeInitArgs memory args, address escrow) external;
+    function initialize(NodeInitArgs calldata args, address escrow) external;
 
     /// @notice Returns the target reserve ratio
     /// @return uint64 The target reserve ratio
@@ -147,10 +142,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Fulfill a redeem request from the reserve
     /// @param user The address of the user to redeem for
     function fulfillRedeemFromReserve(address user) external;
-
-    /// @notice Fulfill a batch of redeem requests from the reserve
-    /// @param controllers The addresses of the controllers to redeem for
-    function fulfillRedeemBatch(address[] memory controllers) external;
 
     /// @notice Finalizes a redemption request
     /// @dev called by router or rebalancer to update the request state after a redemption
@@ -322,9 +313,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Returns amount of shares leaving the protocol
     function sharesExiting() external view returns (uint256);
-
-    /// @notice Returns amount of assets cached for operations
-    function cacheTotalAssets() external view returns (uint256);
 
     /// @notice Returns the address for receiving management fees
     function nodeOwnerFeeAddress() external view returns (address);

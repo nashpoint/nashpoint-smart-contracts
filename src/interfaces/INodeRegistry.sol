@@ -12,8 +12,7 @@ enum RegistryType {
     FACTORY,
     ROUTER,
     QUOTER,
-    REBALANCER,
-    POLICY
+    REBALANCER
 }
 
 interface INodeRegistry {
@@ -66,7 +65,12 @@ interface INodeRegistry {
      */
     function isRegistryType(address addr, RegistryType type_) external view returns (bool);
 
-    function isRegistryTypes(address[] memory addr, RegistryType type_) external view returns (bool);
+    function verifyPolicies(
+        bytes32[] calldata proof,
+        bool[] calldata proofFlags,
+        bytes4[] calldata sigs,
+        address[] calldata policies
+    ) external view returns (bool);
 
     /**
      * @notice Returns whether the registry has been initialized

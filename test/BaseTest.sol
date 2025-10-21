@@ -102,20 +102,18 @@ contract BaseTest is Test {
 
         router4626.setWhitelistStatus(address(vault), true);
 
-        (node, escrow) = factory.deployFullNode(
-            NodeInitArgs(
-                "Test Node",
-                "TNODE",
-                address(quoter),
-                address(rebalancer),
-                address(asset),
-                owner,
-                _toArray(address(vault)),
-                _defaultComponentAllocations(1),
-                0.1 ether
-            ),
-            SALT
+        bytes[] memory payload = new bytes[](5);
+        payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router4626));
+        payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
+        ComponentAllocation memory allocation = _defaultComponentAllocations(1)[0];
+        payload[2] = abi.encodeWithSelector(
+            INode.addComponent.selector, address(vault), allocation.targetWeight, allocation.maxDelta, allocation.router
         );
+        payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
+        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
+
+        (node, escrow) =
+            factory.deployFullNode(NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, SALT);
 
         node.setMaxDepositSize(1e36);
         vm.stopPrank();

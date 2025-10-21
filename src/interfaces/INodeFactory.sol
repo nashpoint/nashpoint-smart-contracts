@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {INode, NodeInitArgs} from "./INode.sol";
+import {INode, NodeInitArgs, ComponentAllocation} from "./INode.sol";
 
 /**
  * /**
@@ -9,5 +9,7 @@ import {INode, NodeInitArgs} from "./INode.sol";
  * @author ODND Studios
  */
 interface INodeFactory {
-    function deployFullNode(NodeInitArgs memory initArgs, bytes32 salt) external returns (INode node, address escrow);
+    function deployFullNode(NodeInitArgs calldata initArgs, bytes[] calldata payload, bytes32 salt)
+        external
+        returns (INode node, address escrow);
 }
