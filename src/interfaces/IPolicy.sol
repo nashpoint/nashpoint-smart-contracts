@@ -2,5 +2,5 @@
 pragma solidity 0.8.28;
 
 interface IPolicy {
-    function onCheck(bytes calldata data) external view;
+    function onCheck(address caller, bytes calldata data) external view;
 }

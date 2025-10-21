@@ -23,7 +23,7 @@ contract CapPolicy is PolicyBase {
         emit CapChange(node, amount);
     }
 
-    function _executeCheck(bytes4 selector, bytes calldata payload) internal view override {
+    function _executeCheck(address caller, bytes4 selector, bytes calldata payload) internal view override {
         uint256 cap = nodeCap[msg.sender];
         if (cap > 0) {
             uint256 totalAssets = INode(msg.sender).totalAssets();
