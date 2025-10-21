@@ -21,7 +21,6 @@ contract NodeFactory is INodeFactory {
     error ZeroAddress();
     error InvalidName();
     error InvalidSymbol();
-    error LengthMismatch();
 
     /* EVENTS */
     event NodeCreated(address indexed node, address indexed asset, string name, string symbol, address indexed owner);
