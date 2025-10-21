@@ -169,4 +169,6 @@ library ErrorsLib {
     error PolicyEntered();
 
     error NotFound(address element);
+
+    error NotAllowedAction(bytes4 sig);
 }
