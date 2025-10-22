@@ -78,6 +78,8 @@ contract DigiftForkTest is BaseTest {
                         address(dFeedPriceOracle),
                         // 0.1%
                         1e15,
+                        // 1%
+                        1e16,
                         4 days,
                         1000e6,
                         10e18
@@ -112,6 +114,24 @@ contract DigiftForkTest is BaseTest {
         digiftAdapter.setPriceDeviation(1e17);
 
         assertEq(digiftAdapter.priceDeviation(), 1e17);
+    }
+
+    function test_setSettlementDeviation() external {
+        assertEq(digiftAdapter.settlementDeviation(), 1e16);
+
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
+        digiftAdapter.setSettlementDeviation(1);
+
+        vm.startPrank(owner);
+
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.InvalidPercentage.selector));
+        digiftAdapter.setSettlementDeviation(1e19);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftAdapter.SettlementDeviationChange(1e16, 1e17);
+        digiftAdapter.setSettlementDeviation(1e17);
+
+        assertEq(digiftAdapter.settlementDeviation(), 1e17);
     }
 
     function test_setPriceUpdateDeviation() external {

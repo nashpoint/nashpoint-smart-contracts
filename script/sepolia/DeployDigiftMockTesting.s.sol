@@ -47,6 +47,8 @@ contract DeployDigiftMockTesting is Script {
                 address(dFeedPriceOracle),
                 // 0.1%
                 1e15,
+                // 1%
+                1e16,
                 4 days,
                 1000e6,
                 1e18

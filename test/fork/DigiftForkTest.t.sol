@@ -53,6 +53,8 @@ contract DigiftForkTest is BaseTest {
                 address(dFeedPriceOracle),
                 // 0.1%
                 1e15,
+                // 1%
+                1e16,
                 10 days,
                 // set 100 USDC instead of 1000
                 100e6,
@@ -561,6 +563,21 @@ contract DigiftForkTest is BaseTest {
         digiftAdapter.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
     }
 
+    function test_requestDeposit_RedeemRequestPending() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftAdapter.convertToShares(depositAmount);
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(sharesToMint / 2);
+
+        vm.expectRevert(DigiftAdapter.RedeemRequestPending.selector);
+        vm.prank(address(node));
+        digiftAdapter.requestDeposit(1000e6, address(node), address(node));
+    }
+
     function test_requestDeposit_DepositRequestNotClaimed() external {
         uint256 depositAmount = _invest();
         uint256 sharesToMint = digiftAdapter.convertToShares(depositAmount);
@@ -572,6 +589,26 @@ contract DigiftForkTest is BaseTest {
         vm.expectRevert(DigiftAdapter.DepositRequestNotClaimed.selector);
         vm.prank(address(node));
         digiftAdapter.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
+    }
+
+    function test_requestDeposit_RedeemRequestNotClaimed() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftAdapter.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+        uint256 assetsToReturn = digiftAdapter.convertToAssets(toLiquidate);
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
+        _forward();
+        _settleRedemption(0, assetsToReturn, 0);
+        _settleRedeem(node, assetsToReturn, 0);
+
+        vm.expectRevert(DigiftAdapter.RedeemRequestNotClaimed.selector);
+        vm.prank(address(node));
+        digiftAdapter.requestDeposit(1000e6, address(node), address(node));
     }
 
     function test_requestRedeem_BelowLimit() external {
@@ -740,6 +777,44 @@ contract DigiftForkTest is BaseTest {
         vm.stopPrank();
     }
 
+    function test_settleDeposit_SettlementNotInRange() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftAdapter.convertToShares(depositAmount);
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+
+        {
+            uint256 insufficientShares = sharesToMint * 98 / 100;
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    DigiftAdapter.SettlementNotInRange.selector,
+                    depositAmount,
+                    digiftAdapter.convertToAssets(insufficientShares)
+                )
+            );
+            _settleDeposit(node, insufficientShares, 0);
+        }
+        {
+            uint256 insufficientAssets = (depositAmount / 2) * 99 / 100;
+            uint256 insufficientShares = (sharesToMint / 2) * 99 / 100;
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    DigiftAdapter.SettlementNotInRange.selector,
+                    depositAmount,
+                    insufficientAssets + digiftAdapter.convertToAssets(insufficientShares)
+                )
+            );
+            _settleDeposit(node, insufficientShares, insufficientAssets);
+        }
+        {
+            uint256 assets = depositAmount / 2;
+            uint256 shares = sharesToMint / 2;
+            // no revert
+            _settleDeposit(node, shares, assets);
+        }
+    }
+
     function test_settleRedeem_NothingToSettle() external {
         vm.expectRevert(DigiftAdapter.NothingToSettle.selector);
         _settleRedeem(node, 1000e6, 0);
@@ -776,6 +851,51 @@ contract DigiftForkTest is BaseTest {
         vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NoPendingRedeemRequest.selector, address(node)));
         digiftAdapter.settleRedeem(nodes, fargs);
         vm.stopPrank();
+    }
+
+    function test_settleRedeem_SettlementNotInRange() external {
+        uint256 depositAmount = _invest();
+        uint256 sharesToMint = digiftAdapter.convertToShares(depositAmount);
+        uint256 toLiquidate = sharesToMint / 2;
+        uint256 assetsToReturn = digiftAdapter.convertToAssets(toLiquidate);
+
+        _forward();
+        _settleSubscription(sharesToMint, 0, 0);
+        _settleDeposit(node, sharesToMint, 0);
+        _mint(node);
+        _liquidate(toLiquidate);
+        _forward();
+        _settleRedemption(0, assetsToReturn, 0);
+
+        {
+            uint256 insufficientAssets = assetsToReturn * 98 / 100;
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    DigiftAdapter.SettlementNotInRange.selector,
+                    toLiquidate,
+                    digiftAdapter.convertToShares(insufficientAssets)
+                )
+            );
+            _settleRedeem(node, insufficientAssets, 0);
+        }
+        {
+            uint256 insufficientAssets = (assetsToReturn / 2) * 99 / 100;
+            uint256 insufficientShares = (toLiquidate / 2) * 99 / 100;
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    DigiftAdapter.SettlementNotInRange.selector,
+                    toLiquidate,
+                    insufficientShares + digiftAdapter.convertToShares(insufficientAssets)
+                )
+            );
+            _settleRedeem(node, insufficientAssets, insufficientShares);
+        }
+        {
+            uint256 assets = assetsToReturn / 2;
+            uint256 shares = toLiquidate / 2;
+            // no revert
+            _settleRedeem(node, assets, shares);
+        }
     }
 
     // =============================
@@ -936,15 +1056,6 @@ contract DigiftForkTest is BaseTest {
             "Must not support unknown interfaces"
         );
     }
-    // _forward();
-    // _settleSubscription(sharesToMint, 0, 0);
-    // _settleDeposit(node, sharesToMint, 0);
-    // _mint(node);
-    // _liquidate(toLiquidate);
-    // _forward();
-    // _settleRedemption(0, assetsToReturn, 0);
-    // _settleRedeem(node, assetsToReturn, 0);
-    // _withdraw(node, assetsToReturn);
 
     function test_two_nodes_deposits() external {
         uint256 dAmount1 = _invest();
@@ -961,7 +1072,7 @@ contract DigiftForkTest is BaseTest {
         _settleSubscription(sharesSum, 0, 0);
 
         vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotAllNodesSettled.selector));
-        _settleDeposit(node, shares1, 0);
+        _settleDeposit(node, sharesSum, 0);
 
         {
             DigiftEventVerifier.OffchainArgs memory fargs;
@@ -1039,7 +1150,7 @@ contract DigiftForkTest is BaseTest {
         _settleRedemption(0, assetsToReturn, 0);
 
         vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotAllNodesSettled.selector));
-        _settleRedeem(node, assets2, 0);
+        _settleRedeem(node, assetsToReturn, 0);
 
         {
             DigiftEventVerifier.OffchainArgs memory fargs;

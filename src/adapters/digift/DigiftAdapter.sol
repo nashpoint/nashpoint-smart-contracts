@@ -122,6 +122,9 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /// @param currentValue The current price value
     error PriceNotInRange(uint256 lastValue, uint256 currentValue);
 
+    /// @notice Thrown when actual settlement value is not within acceptable range
+    error SettlementNotInRange(uint256 expected, uint256 actual);
+
     /// @notice Thrown when price data is stale
     /// @param lastUpdate Timestamp of last price update
     /// @param currentTimestamp Current block timestamp
@@ -175,6 +178,11 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /// @param oldValue The previous price deviation value
     /// @param newValue The new price deviation value
     event PriceDeviationChange(uint64 oldValue, uint64 newValue);
+
+    /// @notice Emitted when settlement deviation threshold is changed
+    /// @param oldValue The previous prisettlementcsettlemente deviation value
+    /// @param newValue The new settlement deviation value
+    event SettlementDeviationChange(uint64 oldValue, uint64 newValue);
 
     /// @notice Emitted when price update deviation threshold is changed
     /// @param oldValue The previous price update deviation value
@@ -250,6 +258,9 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /// @notice Maximum price deviation allowed (1e18 = 100%)
     uint64 public priceDeviation;
 
+    /// @notice Maximum settlement value deviation allowed (1e18 = 100%)
+    uint64 public settlementDeviation;
+
     /// @notice Maximum time deviation for price updates (in seconds)
     uint64 public priceUpdateDeviation;
 
@@ -298,6 +309,8 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         address dFeedPriceOracle;
         /// @notice Maximum price deviation allowed
         uint64 priceDeviation;
+        /// @notice Maximum settlement value deviation allowed
+        uint64 settlementDeviation;
         /// @notice Maximum time deviation for price updates (in seconds)
         uint64 priceUpdateDeviation;
         /// @notice Minimum deposit amount allowed for node actions
@@ -319,6 +332,8 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         uint256 totalSharesToMint;
         /// @notice Total assets to reimburse across all nodes
         uint256 totalAssetsToReimburse;
+        /// @notice Settlement value
+        uint256 settlementValue;
     }
 
     /**
@@ -334,6 +349,8 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         uint256 totalAssetsToReturn;
         /// @notice Total shares to reimburse across all nodes
         uint256 totalSharesToReimburse;
+        /// @notice Settlement value
+        uint256 settlementValue;
     }
 
     // =============================
@@ -380,8 +397,9 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         dFeedPriceOracle = IDFeedPriceOracle(args.dFeedPriceOracle);
         _dFeedPriceOracleDecimals = IDFeedPriceOracle(args.dFeedPriceOracle).decimals();
 
-        // Set price deviation parameters
+        // Set deviation parameters
         priceDeviation = args.priceDeviation;
+        settlementDeviation = args.settlementDeviation;
         priceUpdateDeviation = args.priceUpdateDeviation;
 
         minDepositAmount = args.minDepositAmount;
@@ -404,6 +422,17 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         require(value <= WAD, InvalidPercentage());
         emit PriceDeviationChange(priceDeviation, value);
         priceDeviation = value;
+    }
+
+    /**
+     * @notice Set the maximum settlement deviation allowed
+     * @dev Only callable by registry owner, value must be <= WAD (100%)
+     * @param value The new settlement deviation threshold
+     */
+    function setSettlementDeviation(uint64 value) external onlyRegistryOwner {
+        require(value <= WAD, InvalidPercentage());
+        emit SettlementDeviationChange(settlementDeviation, value);
+        settlementDeviation = value;
     }
 
     /**
@@ -616,7 +645,13 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
 
         SettleDepositVars memory vars;
         vars.globalPendingDepositRequest = _globalState.pendingDepositRequest;
+        vars.settlementValue = convertToAssets(shares) + assets;
         require(vars.globalPendingDepositRequest > 0, NothingToSettle());
+        // we check that settlement is within expected percentage range
+        require(
+            MathLib.withinRange(vars.globalPendingDepositRequest, vars.settlementValue, settlementDeviation),
+            SettlementNotInRange(vars.globalPendingDepositRequest, vars.settlementValue)
+        );
 
         // Process each node's deposit request
         for (uint256 i; i < nodes.length; i++) {
@@ -747,7 +782,13 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
 
         SettleRedeemVars memory vars;
         vars.globalPendingRedeemRequest = _globalState.pendingRedeemRequest;
+        vars.settlementValue = convertToShares(assets) + shares;
         require(vars.globalPendingRedeemRequest > 0, NothingToSettle());
+        // we check that settlement is within expected percentage range
+        require(
+            MathLib.withinRange(vars.globalPendingRedeemRequest, vars.settlementValue, settlementDeviation),
+            SettlementNotInRange(vars.globalPendingRedeemRequest, vars.settlementValue)
+        );
 
         // Process each node's redemption request
         for (uint256 i; i < nodes.length; i++) {

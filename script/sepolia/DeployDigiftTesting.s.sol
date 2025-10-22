@@ -46,6 +46,8 @@ contract DeployDigiftTesting is Script {
                 dFeedPriceOracle,
                 // 0.1%
                 1e15,
+                // 1%
+                1e16,
                 4 days,
                 1000e6,
                 1e18
