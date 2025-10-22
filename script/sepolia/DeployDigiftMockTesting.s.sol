@@ -3,9 +3,9 @@ pragma solidity 0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
 
-import {DigiftWrapper} from "src/wrappers/digift/DigiftWrapper.sol";
-import {DigiftWrapperFactory} from "src/wrappers/digift/DigiftWrapperFactory.sol";
-import {DigiftEventVerifier} from "src/wrappers/digift/DigiftEventVerifier.sol";
+import {DigiftAdapter} from "src/adapters/digift/DigiftAdapter.sol";
+import {DigiftAdapterFactory} from "src/adapters/digift/DigiftAdapterFactory.sol";
+import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
 
 import {NodeRegistryMock, RegistryType} from "test/mocks/NodeRegistryMock.sol";
 import {ERC20MockOwnable} from "test/mocks/ERC20MockOwnable.sol";
@@ -34,11 +34,11 @@ contract DeployDigiftMockTesting is Script {
         dFeedPriceOracle.setLatestRoundData(0, 232620000000000000000, block.timestamp, block.timestamp, 0);
 
         address digiftWrapperImpl =
-            address(new DigiftWrapper(address(subRedManagement), address(nodeRegistry), address(eventVerifier)));
+            address(new DigiftAdapter(address(subRedManagement), address(nodeRegistry), address(eventVerifier)));
 
-        DigiftWrapperFactory factory = new DigiftWrapperFactory(digiftWrapperImpl, deployer);
-        DigiftWrapper digiftWrapper = factory.deploy(
-            DigiftWrapper.InitArgs(
+        DigiftAdapterFactory factory = new DigiftAdapterFactory(digiftWrapperImpl, deployer);
+        DigiftAdapter digiftWrapper = factory.deploy(
+            DigiftAdapter.InitArgs(
                 "iSNR Wrapper",
                 "wiSNR",
                 address(usdc),

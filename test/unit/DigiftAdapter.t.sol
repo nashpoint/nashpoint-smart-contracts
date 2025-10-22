@@ -6,9 +6,9 @@ import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {BaseTest} from "test/BaseTest.sol";
-import {DigiftEventVerifier} from "src/wrappers/digift/DigiftEventVerifier.sol";
-import {DigiftWrapperFactory} from "src/wrappers/digift/DigiftWrapperFactory.sol";
-import {DigiftWrapper} from "src/wrappers/digift/DigiftWrapper.sol";
+import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
+import {DigiftAdapterFactory} from "src/adapters/digift/DigiftAdapterFactory.sol";
+import {DigiftAdapter} from "src/adapters/digift/DigiftAdapter.sol";
 import {ISubRedManagement, IDFeedPriceOracle, IManagement, ISecurityToken} from "src/interfaces/external/IDigift.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {INode} from "src/interfaces/INode.sol";
@@ -17,9 +17,9 @@ import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
-contract DigiftWrapperHarness is DigiftWrapper {
+contract DigiftAdapterHarness is DigiftAdapter {
     constructor(address subRedManagement_, address registry_, address digiftEventVerifier_)
-        DigiftWrapper(subRedManagement_, registry_, digiftEventVerifier_)
+        DigiftAdapter(subRedManagement_, registry_, digiftEventVerifier_)
     {}
 
     function getAssetPrice() external view returns (uint256) {
@@ -28,7 +28,7 @@ contract DigiftWrapperHarness is DigiftWrapper {
 }
 
 contract DigiftForkTest is BaseTest {
-    DigiftWrapperHarness digiftWrapper;
+    DigiftAdapterHarness digiftAdapter;
     address digiftEventVerifier = makeAddr("digiftEventVerifier");
 
     uint256 DEPOSIT_AMOUNT = 1000e6;
@@ -55,10 +55,10 @@ contract DigiftForkTest is BaseTest {
         node.removeComponent(address(vault), false);
         vm.stopPrank();
 
-        address digiftWrapperImpl =
-            address(new DigiftWrapperHarness(subRedManagement, address(registry), digiftEventVerifier));
+        address digiftAdapterImpl =
+            address(new DigiftAdapterHarness(subRedManagement, address(registry), digiftEventVerifier));
 
-        DigiftWrapperFactory factory = new DigiftWrapperFactory(digiftWrapperImpl, address(this));
+        DigiftAdapterFactory factory = new DigiftAdapterFactory(digiftAdapterImpl, address(this));
 
         vm.mockCall(usdcPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.decimals.selector), abi.encode(8));
         vm.mockCall(dFeedPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.decimals.selector), abi.encode(8));
@@ -66,11 +66,11 @@ contract DigiftForkTest is BaseTest {
         vm.mockCall(address(stToken), abi.encodeWithSelector(IDFeedPriceOracle.decimals.selector), abi.encode(18));
         vm.mockCall(dFeedPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.getPrice.selector), abi.encode(2e10));
 
-        digiftWrapper = DigiftWrapperHarness(
+        digiftAdapter = DigiftAdapterHarness(
             address(
                 factory.deploy(
-                    DigiftWrapper.InitArgs(
-                        "stToken Wrapper",
+                    DigiftAdapter.InitArgs(
+                        "stToken Adapter",
                         "wst",
                         address(asset),
                         usdcPriceOracle,
@@ -87,9 +87,9 @@ contract DigiftForkTest is BaseTest {
         );
 
         vm.startPrank(owner);
-        router7540.setWhitelistStatus(address(digiftWrapper), true);
+        router7540.setWhitelistStatus(address(digiftAdapter), true);
         node.addRouter(address(router7540));
-        node.addComponent(address(digiftWrapper), ALLOCATION, 0.01 ether, address(router7540));
+        node.addComponent(address(digiftAdapter), ALLOCATION, 0.01 ether, address(router7540));
         vm.stopPrank();
 
         vm.prank(rebalancer);
@@ -97,144 +97,144 @@ contract DigiftForkTest is BaseTest {
     }
 
     function test_setPriceDeviation() external {
-        assertEq(digiftWrapper.priceDeviation(), 1e15);
+        assertEq(digiftAdapter.priceDeviation(), 1e15);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
-        digiftWrapper.setPriceDeviation(1);
+        digiftAdapter.setPriceDeviation(1);
 
         vm.startPrank(owner);
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.InvalidPercentage.selector));
-        digiftWrapper.setPriceDeviation(1e19);
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.InvalidPercentage.selector));
+        digiftAdapter.setPriceDeviation(1e19);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.PriceDeviationChange(1e15, 1e17);
-        digiftWrapper.setPriceDeviation(1e17);
+        emit DigiftAdapter.PriceDeviationChange(1e15, 1e17);
+        digiftAdapter.setPriceDeviation(1e17);
 
-        assertEq(digiftWrapper.priceDeviation(), 1e17);
+        assertEq(digiftAdapter.priceDeviation(), 1e17);
     }
 
     function test_setPriceUpdateDeviation() external {
-        assertEq(digiftWrapper.priceUpdateDeviation(), 4 days);
+        assertEq(digiftAdapter.priceUpdateDeviation(), 4 days);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
-        digiftWrapper.setPriceUpdateDeviation(1 days);
+        digiftAdapter.setPriceUpdateDeviation(1 days);
 
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.PriceUpdateDeviationChange(4 days, 1 days);
-        digiftWrapper.setPriceUpdateDeviation(1 days);
+        emit DigiftAdapter.PriceUpdateDeviationChange(4 days, 1 days);
+        digiftAdapter.setPriceUpdateDeviation(1 days);
 
-        assertEq(digiftWrapper.priceUpdateDeviation(), 1 days);
+        assertEq(digiftAdapter.priceUpdateDeviation(), 1 days);
     }
 
     function test_setManager() external {
-        assertEq(digiftWrapper.managerWhitelisted(manager), false);
+        assertEq(digiftAdapter.managerWhitelisted(manager), false);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
-        digiftWrapper.setManager(manager, true);
+        digiftAdapter.setManager(manager, true);
 
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.ManagerWhitelistChange(manager, true);
-        digiftWrapper.setManager(manager, true);
+        emit DigiftAdapter.ManagerWhitelistChange(manager, true);
+        digiftAdapter.setManager(manager, true);
 
-        assertEq(digiftWrapper.managerWhitelisted(manager), true);
+        assertEq(digiftAdapter.managerWhitelisted(manager), true);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.ManagerWhitelistChange(manager, false);
-        digiftWrapper.setManager(manager, false);
+        emit DigiftAdapter.ManagerWhitelistChange(manager, false);
+        digiftAdapter.setManager(manager, false);
 
-        assertEq(digiftWrapper.managerWhitelisted(manager), false);
+        assertEq(digiftAdapter.managerWhitelisted(manager), false);
     }
 
     function test_setNode() external {
-        assertEq(digiftWrapper.nodeWhitelisted(address(node)), false);
+        assertEq(digiftAdapter.nodeWhitelisted(address(node)), false);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
-        digiftWrapper.setNode(address(node), true);
+        digiftAdapter.setNode(address(node), true);
 
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.NodeWhitelistChange(address(node), true);
-        digiftWrapper.setNode(address(node), true);
+        emit DigiftAdapter.NodeWhitelistChange(address(node), true);
+        digiftAdapter.setNode(address(node), true);
 
-        assertEq(digiftWrapper.nodeWhitelisted(address(node)), true);
+        assertEq(digiftAdapter.nodeWhitelisted(address(node)), true);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.NodeWhitelistChange(address(node), false);
-        digiftWrapper.setNode(address(node), false);
+        emit DigiftAdapter.NodeWhitelistChange(address(node), false);
+        digiftAdapter.setNode(address(node), false);
 
-        assertEq(digiftWrapper.nodeWhitelisted(address(node)), false);
+        assertEq(digiftAdapter.nodeWhitelisted(address(node)), false);
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotNode.selector));
-        digiftWrapper.setNode(address(0x1234), true);
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotNode.selector));
+        digiftAdapter.setNode(address(0x1234), true);
     }
 
     function test_setMinDepositAmount() external {
-        assertEq(digiftWrapper.minDepositAmount(), 1000e6);
+        assertEq(digiftAdapter.minDepositAmount(), 1000e6);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
-        digiftWrapper.setMinDepositAmount(2000e6);
+        digiftAdapter.setMinDepositAmount(2000e6);
 
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.MinDepositAmountChange(1000e6, 2000e6);
-        digiftWrapper.setMinDepositAmount(2000e6);
+        emit DigiftAdapter.MinDepositAmountChange(1000e6, 2000e6);
+        digiftAdapter.setMinDepositAmount(2000e6);
 
-        assertEq(digiftWrapper.minDepositAmount(), 2000e6);
+        assertEq(digiftAdapter.minDepositAmount(), 2000e6);
 
         vm.stopPrank();
     }
 
     function test_setMinRedeemAmount() external {
-        assertEq(digiftWrapper.minRedeemAmount(), 10e18);
+        assertEq(digiftAdapter.minRedeemAmount(), 10e18);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
-        digiftWrapper.setMinRedeemAmount(20e18);
+        digiftAdapter.setMinRedeemAmount(20e18);
 
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.MinRedeemAmountChange(10e18, 20e18);
-        digiftWrapper.setMinRedeemAmount(20e18);
+        emit DigiftAdapter.MinRedeemAmountChange(10e18, 20e18);
+        digiftAdapter.setMinRedeemAmount(20e18);
 
-        assertEq(digiftWrapper.minRedeemAmount(), 20e18);
+        assertEq(digiftAdapter.minRedeemAmount(), 20e18);
 
         vm.stopPrank();
     }
 
     function test_forceUpdateLastPrice() external {
-        assertEq(digiftWrapper.lastPrice(), 2e10);
+        assertEq(digiftAdapter.lastPrice(), 2e10);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
-        digiftWrapper.forceUpdateLastPrice();
+        digiftAdapter.forceUpdateLastPrice();
 
         vm.mockCall(dFeedPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.getPrice.selector), abi.encode(3e10));
 
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.LastPriceUpdate(3e10);
-        digiftWrapper.forceUpdateLastPrice();
+        emit DigiftAdapter.LastPriceUpdate(3e10);
+        digiftAdapter.forceUpdateLastPrice();
 
-        assertEq(digiftWrapper.lastPrice(), 3e10);
+        assertEq(digiftAdapter.lastPrice(), 3e10);
     }
 
     function test_updateLastPrice() external {
         vm.prank(owner);
-        digiftWrapper.setManager(manager, true);
+        digiftAdapter.setManager(manager, true);
 
         uint256 newValidPrice = 2e10 + 1;
 
-        assertEq(digiftWrapper.lastPrice(), 2e10);
+        assertEq(digiftAdapter.lastPrice(), 2e10);
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
-        digiftWrapper.updateLastPrice();
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotManager.selector, address(this)));
+        digiftAdapter.updateLastPrice();
 
         vm.mockCall(
             dFeedPriceOracle,
@@ -245,18 +245,18 @@ contract DigiftForkTest is BaseTest {
         vm.startPrank(manager);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftWrapper.LastPriceUpdate(newValidPrice);
-        digiftWrapper.updateLastPrice();
+        emit DigiftAdapter.LastPriceUpdate(newValidPrice);
+        digiftAdapter.updateLastPrice();
 
-        assertEq(digiftWrapper.lastPrice(), newValidPrice);
+        assertEq(digiftAdapter.lastPrice(), newValidPrice);
 
         vm.mockCall(
             dFeedPriceOracle,
             abi.encodeWithSelector(IDFeedPriceOracle.latestRoundData.selector),
             abi.encode(0, 0, 0, block.timestamp, 0)
         );
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.BadPriceOracle.selector, dFeedPriceOracle));
-        digiftWrapper.updateLastPrice();
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.BadPriceOracle.selector, dFeedPriceOracle));
+        digiftAdapter.updateLastPrice();
 
         vm.mockCall(
             dFeedPriceOracle,
@@ -264,9 +264,9 @@ contract DigiftForkTest is BaseTest {
             abi.encode(0, newValidPrice, 0, block.timestamp - 5 days, 0)
         );
         vm.expectRevert(
-            abi.encodeWithSelector(DigiftWrapper.StalePriceData.selector, block.timestamp - 5 days, block.timestamp)
+            abi.encodeWithSelector(DigiftAdapter.StalePriceData.selector, block.timestamp - 5 days, block.timestamp)
         );
-        digiftWrapper.updateLastPrice();
+        digiftAdapter.updateLastPrice();
 
         vm.mockCall(
             dFeedPriceOracle,
@@ -274,9 +274,9 @@ contract DigiftForkTest is BaseTest {
             abi.encode(0, 30e13, 0, block.timestamp, 0)
         );
         vm.expectRevert(
-            abi.encodeWithSelector(DigiftWrapper.PriceNotInRange.selector, digiftWrapper.lastPrice(), 30e13)
+            abi.encodeWithSelector(DigiftAdapter.PriceNotInRange.selector, digiftAdapter.lastPrice(), 30e13)
         );
-        digiftWrapper.updateLastPrice();
+        digiftAdapter.updateLastPrice();
     }
 
     function test_getAssetPrice() external {
@@ -285,15 +285,15 @@ contract DigiftForkTest is BaseTest {
             abi.encodeWithSelector(IDFeedPriceOracle.latestRoundData.selector),
             abi.encode(0, 1e8, 0, block.timestamp, 0)
         );
-        assertEq(digiftWrapper.getAssetPrice(), 1e8);
+        assertEq(digiftAdapter.getAssetPrice(), 1e8);
 
         vm.mockCall(
             usdcPriceOracle,
             abi.encodeWithSelector(IDFeedPriceOracle.latestRoundData.selector),
             abi.encode(0, 0, 0, block.timestamp, 0)
         );
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.BadPriceOracle.selector, usdcPriceOracle));
-        digiftWrapper.getAssetPrice();
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.BadPriceOracle.selector, usdcPriceOracle));
+        digiftAdapter.getAssetPrice();
 
         vm.mockCall(
             usdcPriceOracle,
@@ -301,38 +301,38 @@ contract DigiftForkTest is BaseTest {
             abi.encode(0, 1e8, 0, block.timestamp - 5 days, 0)
         );
         vm.expectRevert(
-            abi.encodeWithSelector(DigiftWrapper.StalePriceData.selector, block.timestamp - 5 days, block.timestamp)
+            abi.encodeWithSelector(DigiftAdapter.StalePriceData.selector, block.timestamp - 5 days, block.timestamp)
         );
-        digiftWrapper.getAssetPrice();
+        digiftAdapter.getAssetPrice();
     }
 
     function test_onlyManager() external {
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
-        digiftWrapper.updateLastPrice();
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotManager.selector, address(this)));
+        digiftAdapter.updateLastPrice();
 
         DigiftEventVerifier.OffchainArgs memory offchainArgs;
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
-        digiftWrapper.settleDeposit(new address[](0), offchainArgs);
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotManager.selector, address(this)));
+        digiftAdapter.settleDeposit(new address[](0), offchainArgs);
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
-        digiftWrapper.settleRedeem(new address[](0), offchainArgs);
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotManager.selector, address(this)));
+        digiftAdapter.settleRedeem(new address[](0), offchainArgs);
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotManager.selector, address(this)));
-        digiftWrapper.forwardRequestsToDigift();
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotManager.selector, address(this)));
+        digiftAdapter.forwardRequestsToDigift();
     }
 
     function test_onlyWhitelistedNode() external {
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotWhitelistedNode.selector, address(this)));
-        digiftWrapper.requestDeposit(1, address(this), address(this));
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotWhitelistedNode.selector, address(this)));
+        digiftAdapter.requestDeposit(1, address(this), address(this));
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotWhitelistedNode.selector, address(this)));
-        digiftWrapper.mint(1, address(this), address(this));
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotWhitelistedNode.selector, address(this)));
+        digiftAdapter.mint(1, address(this), address(this));
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotWhitelistedNode.selector, address(this)));
-        digiftWrapper.requestRedeem(1, address(this), address(this));
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotWhitelistedNode.selector, address(this)));
+        digiftAdapter.requestRedeem(1, address(this), address(this));
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftWrapper.NotWhitelistedNode.selector, address(this)));
-        digiftWrapper.withdraw(1, address(this), address(this));
+        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotWhitelistedNode.selector, address(this)));
+        digiftAdapter.withdraw(1, address(this), address(this));
     }
 }

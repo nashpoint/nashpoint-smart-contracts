@@ -5,7 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 
 import {stdJson} from "forge-std/StdJson.sol";
 
-import {DigiftWrapper} from "src/wrappers/digift/DigiftWrapper.sol";
+import {DigiftAdapter} from "src/adapters/digift/DigiftAdapter.sol";
 import {ERC20MockOwnable} from "test/mocks/ERC20MockOwnable.sol";
 import {SubRedManagementMock} from "test/mocks/SubRedManagementMock.sol";
 
@@ -19,7 +19,7 @@ contract DigiftMockSettleSubscribe is Script {
         address deployer = vm.addr(privateKey);
 
         string memory json = vm.readFile("deployments/sepolia-mock.json");
-        DigiftWrapper digiftWrapper = DigiftWrapper(json.readAddress(".digiftWrapper"));
+        DigiftAdapter digiftWrapper = DigiftAdapter(json.readAddress(".digiftWrapper"));
         SubRedManagementMock subRedManagement = SubRedManagementMock(json.readAddress(".subRedManagement"));
 
         vm.startBroadcast(privateKey);

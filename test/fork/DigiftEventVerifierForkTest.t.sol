@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {DigiftEventVerifier} from "src/wrappers/digift/DigiftEventVerifier.sol";
+import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
@@ -248,21 +248,21 @@ contract DigiftEventVerifierForkTest is Test {
 
     /**
      * @notice Test setWhitelist emits the WhitelistChange event
-     * @dev Verifies both enabling and disabling a Digift wrapper trigger event emission
+     * @dev Verifies both enabling and disabling a Digift adapter trigger event emission
      */
     function test_setWhitelist_event() external {
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
 
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
-        address wrapper = address(0xBEEF);
+        address adapter = address(0xBEEF);
 
         vm.expectEmit(true, false, false, true, address(verifier));
-        emit DigiftEventVerifier.WhitelistChange(wrapper, true);
-        verifier.setWhitelist(wrapper, true);
+        emit DigiftEventVerifier.WhitelistChange(adapter, true);
+        verifier.setWhitelist(adapter, true);
 
         vm.expectEmit(true, false, false, true, address(verifier));
-        emit DigiftEventVerifier.WhitelistChange(wrapper, false);
-        verifier.setWhitelist(wrapper, false);
+        emit DigiftEventVerifier.WhitelistChange(adapter, false);
+        verifier.setWhitelist(adapter, false);
     }
 
     /**
@@ -274,15 +274,15 @@ contract DigiftEventVerifierForkTest is Test {
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(owner));
 
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
-        address wrapper = address(0xBEEF);
+        address adapter = address(0xBEEF);
 
         vm.expectRevert(ErrorsLib.NotRegistryOwner.selector);
-        verifier.setWhitelist(wrapper, true);
+        verifier.setWhitelist(adapter, true);
 
         vm.startPrank(owner);
         vm.expectEmit(true, false, false, true, address(verifier));
-        emit DigiftEventVerifier.WhitelistChange(wrapper, true);
-        verifier.setWhitelist(wrapper, true);
+        emit DigiftEventVerifier.WhitelistChange(adapter, true);
+        verifier.setWhitelist(adapter, true);
         vm.stopPrank();
     }
 

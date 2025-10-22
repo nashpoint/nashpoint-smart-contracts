@@ -29,7 +29,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
 
     // ============ State Variables ============
 
-    /// @notice Tracks DigiftWrapper addresses authorised to call `verifySettlementEvent`
+    /// @notice Tracks DigiftAdapter addresses authorised to call `verifySettlementEvent`
     mapping(address node => bool status) whitelist;
 
     /// @notice Mapping to track used log hashes to prevent double-spending
@@ -55,15 +55,15 @@ contract DigiftEventVerifier is RegistryAccessControl {
     /// @notice Thrown when input bytes are empty
     error ZeroBytes();
 
-    /// @notice Thrown when an unapproved DigiftWrapper calls a whitelisted function
+    /// @notice Thrown when an unapproved DigiftAdapter calls a whitelisted function
     error NotWhitelisted();
 
     // ============ Events ============
 
-    /// @notice Emitted when a DigiftWrapper address gains or loses verification rights
-    /// @param digiftWrapper DigiftWrapper contract whose status changed
-    /// @param status Whether the wrapper is approved (`true`) or revoked (`false`)
-    event WhitelistChange(address indexed digiftWrapper, bool status);
+    /// @notice Emitted when a DigiftAdapter address gains or loses verification rights
+    /// @param digiftAdapter DigiftAdapter contract whose status changed
+    /// @param status Whether the adapter is approved (`true`) or revoked (`false`)
+    event WhitelistChange(address indexed digiftAdapter, bool status);
 
     /**
      * @notice Emitted when a settlement event is successfully verified
@@ -158,14 +158,14 @@ contract DigiftEventVerifier is RegistryAccessControl {
     // ============ External Functions ============
 
     /**
-     * @notice Adds or removes a Digift wrapper from the verification whitelist
-     * @param digiftWrapper Digift wrapper contract to update
+     * @notice Adds or removes a Digift adapter from the verification whitelist
+     * @param digiftAdapter Digift adapter contract to update
      * @param status Pass `true` to grant access or `false` to revoke it
      * @dev Restricted to the registry owner
      */
-    function setWhitelist(address digiftWrapper, bool status) external onlyRegistryOwner {
-        whitelist[digiftWrapper] = status;
-        emit WhitelistChange(digiftWrapper, status);
+    function setWhitelist(address digiftAdapter, bool status) external onlyRegistryOwner {
+        whitelist[digiftAdapter] = status;
+        emit WhitelistChange(digiftAdapter, status);
     }
 
     /**
@@ -190,7 +190,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
      * @param nargs Onchain verification parameters including emitting address, event type and tokens
      * @return stTokenAmount The amount of security tokens in the settlement
      * @return currencyTokenAmount The amount of currency tokens in the settlement
-     * @dev Only callable by whitelisted DigiftWrapper
+     * @dev Only callable by whitelisted DigiftAdapter
      * @dev Reverts if the event signature is invalid, block header doesn't match,
      *      or if the log has already been used (double-spending protection)
      */

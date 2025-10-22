@@ -41,7 +41,7 @@ struct NodeState {
 
 /**
  * @title GlobalState
- * @notice Represents the global state of the wrapper contract
+ * @notice Represents the global state of the adapter contract
  * @dev Tracks accumulated deposits/redemptions and pending requests across all nodes
  */
 struct GlobalState {
@@ -56,10 +56,10 @@ struct GlobalState {
 }
 
 /**
- * @title DigiftWrapper
- * @notice ERC7540-compatible wrapper for Digift stToken operations
+ * @title DigiftAdapter
+ * @notice ERC7540-compatible adapter for Digift stToken operations
  */
-contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, RegistryAccessControl, IERC7540, IERC7575 {
+contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, RegistryAccessControl, IERC7540, IERC7575 {
     using SafeERC20 for IERC20;
     using MathLib for uint256;
 
@@ -280,13 +280,13 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
 
     /**
      * @title InitArgs
-     * @notice Initialization arguments for the DigiftWrapper
+     * @notice Initialization arguments for the DigiftAdapter
      * @dev Contains all necessary parameters to initialize the contract
      */
     struct InitArgs {
-        /// @notice Name of the wrapper token
+        /// @notice Name of the adapter token
         string name;
-        /// @notice Symbol of the wrapper token
+        /// @notice Symbol of the adapter token
         string symbol;
         /// @notice Address of the underlying asset token
         address asset;
@@ -341,7 +341,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     // =============================
 
     /**
-     * @notice Constructor for DigiftWrapper
+     * @notice Constructor for DigiftAdapter
      * @dev Sets up immutable dependencies
      * @param subRedManagement_ Address of the Digift subscription/redemption management contract
      * @param registry_ Address of the registry contract for access control
@@ -359,7 +359,7 @@ contract DigiftWrapper is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     // =============================
 
     /**
-     * @notice Initialize the DigiftWrapper contract
+     * @notice Initialize the DigiftAdapter contract
      * @dev Sets up all token parameters, oracles, and initial price
      * @param args Initialization arguments containing all necessary parameters
      */
