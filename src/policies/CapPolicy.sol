@@ -7,7 +7,7 @@ import {INode} from "src/interfaces/INode.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 
 contract CapPolicy is PolicyBase {
-    mapping(address node => uint256 cap) nodeCap;
+    mapping(address node => uint256 cap) public nodeCap;
 
     event CapChange(address indexed node, uint256 amount);
 

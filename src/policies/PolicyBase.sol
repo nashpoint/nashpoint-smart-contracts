@@ -11,7 +11,7 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
 abstract contract PolicyBase is IPolicy {
     INodeRegistry public immutable registry;
-    mapping(bytes4 sig => bool allowed) actions;
+    mapping(bytes4 sig => bool allowed) public actions;
 
     constructor(address registry_) {
         registry = INodeRegistry(registry_);

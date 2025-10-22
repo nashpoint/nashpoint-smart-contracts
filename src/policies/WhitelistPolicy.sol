@@ -9,7 +9,7 @@ import {INode} from "src/interfaces/INode.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 
 contract WhitelistPolicy is PolicyBase {
-    mapping(address node => mapping(address user => bool whitelisted)) whitelist;
+    mapping(address node => mapping(address user => bool whitelisted)) public whitelist;
 
     event WhitelistAdded(address indexed node, address[] users);
     event WhitelistRemoved(address indexed node, address[] users);

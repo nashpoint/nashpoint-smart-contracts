@@ -8,7 +8,7 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {PolicyLib} from "src/libraries/PolicyLib.sol";
 
 contract TransferPolicy is PolicyBase {
-    mapping(address node => mapping(address user => bool whitelisted)) whitelist;
+    mapping(address node => mapping(address user => bool whitelisted)) public whitelist;
 
     event WhitelistAdded(address indexed node, address[] users);
     event WhitelistRemoved(address indexed node, address[] users);

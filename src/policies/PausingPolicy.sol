@@ -11,9 +11,9 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {PolicyLib} from "src/libraries/PolicyLib.sol";
 
 contract PausingPolicy is PolicyBase {
-    mapping(address node => mapping(address operator => bool enabled)) operators;
-    mapping(address node => mapping(bytes4 sig => bool paused)) sigPause;
-    mapping(address node => bool paused) globalPause;
+    mapping(address node => mapping(address operator => bool enabled)) public operators;
+    mapping(address node => mapping(bytes4 sig => bool paused)) public sigPause;
+    mapping(address node => bool paused) public globalPause;
 
     event OperatorsAdded(address indexed node, address[] operators);
     event OperatorsRemoved(address indexed node, address[] operators);
