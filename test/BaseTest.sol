@@ -239,6 +239,14 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
+    function _userDepositsWithRevert(address user_, uint256 amount_, bytes memory data) internal {
+        vm.startPrank(user_);
+        asset.approve(address(node), amount_);
+        vm.expectRevert(data);
+        node.deposit(amount_, user_);
+        vm.stopPrank();
+    }
+
     function _userRequestsRedeem(address user_, uint256 sharesToRedeem_) internal {
         vm.startPrank(user);
         node.approve(address(node), sharesToRedeem_);
@@ -273,6 +281,21 @@ contract BaseTest is Test {
         node.removeComponent(address(vault), false);
         node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool_), true);
+        vm.stopPrank();
+    }
+
+    function _addPolicies(bytes4[] memory sigs, address[] memory policies) internal {
+        bytes32[] memory proof = new bytes32[](0);
+        bool[] memory proofFlags = new bool[](0);
+
+        vm.startPrank(owner);
+
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, sigs, policies),
+            abi.encode(true)
+        );
+        node.addPolicies(proof, proofFlags, sigs, policies);
         vm.stopPrank();
     }
 }
