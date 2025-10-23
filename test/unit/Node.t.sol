@@ -2263,6 +2263,117 @@ contract NodeTest is BaseTest {
         assertEq(node.getCashAfterRedemptions(), 0);
     }
 
+    function test_addPolicies() external {
+        bytes32[] memory proof = new bytes32[](0);
+        bool[] memory proofFlags = new bool[](0);
+
+        bytes4[] memory firstSigs = new bytes4[](2);
+        firstSigs[0] = 0x00000001;
+        firstSigs[1] = 0x00000002;
+        address[] memory firstPolicies = new address[](2);
+        firstPolicies[0] = address(0x11);
+        firstPolicies[1] = address(0x11);
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
+
+        vm.startPrank(owner);
+
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, firstSigs, firstPolicies),
+            abi.encode(false)
+        );
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
+
+        // assume policies are whitelisted
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, firstSigs, firstPolicies),
+            abi.encode(true)
+        );
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.PoliciesAdded(firstSigs, firstPolicies);
+        node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
+
+        assertEq(node.getPolicies(0x00000001).length, 1);
+        assertEq(node.getPolicies(0x00000002).length, 1);
+        assertEq(node.getPolicies(0x00000001)[0], address(0x11));
+        assertEq(node.getPolicies(0x00000002)[0], address(0x11));
+        assertTrue(node.isSigPolicy(0x00000001, address(0x11)));
+        assertTrue(node.isSigPolicy(0x00000002, address(0x11)));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ErrorsLib.PolicyAlreadyAdded.selector, bytes4(0x00000001), address(0x11))
+        );
+        node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
+
+        bytes4[] memory secondSigs = new bytes4[](1);
+        secondSigs[0] = 0x00000001;
+        address[] memory secondPolicies = new address[](1);
+        secondPolicies[0] = address(0x12);
+
+        // assume policies are whitelisted
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, secondSigs, secondPolicies),
+            abi.encode(true)
+        );
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.PoliciesAdded(secondSigs, secondPolicies);
+        node.addPolicies(proof, proofFlags, secondSigs, secondPolicies);
+
+        assertEq(node.getPolicies(0x00000001).length, 2);
+        assertEq(node.getPolicies(0x00000002).length, 1);
+        assertEq(node.getPolicies(0x00000001)[0], address(0x11));
+        assertEq(node.getPolicies(0x00000001)[1], address(0x12));
+        assertEq(node.getPolicies(0x00000002)[0], address(0x11));
+    }
+
+    function test_removePolicies() external {
+        bytes32[] memory proof = new bytes32[](0);
+        bool[] memory proofFlags = new bool[](0);
+
+        bytes4[] memory sigs = new bytes4[](3);
+        sigs[0] = 0x00000001;
+        sigs[1] = 0x00000001;
+        sigs[2] = 0x00000002;
+        address[] memory policies = new address[](3);
+        policies[0] = address(0x11);
+        policies[1] = address(0x12);
+        policies[2] = address(0x11);
+
+        vm.startPrank(owner);
+
+        // assume policies are whitelisted
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, sigs, policies),
+            abi.encode(true)
+        );
+        node.addPolicies(proof, proofFlags, sigs, policies);
+
+        bytes4[] memory removeSigs = new bytes4[](1);
+        removeSigs[0] = 0x00000001;
+        address[] memory removePolicies = new address[](1);
+        removePolicies[0] = address(0x11);
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.PoliciesRemoved(removeSigs, removePolicies);
+        node.removePolicies(removeSigs, removePolicies);
+
+        assertEq(node.getPolicies(0x00000001).length, 1);
+        assertEq(node.getPolicies(0x00000002).length, 1);
+        assertEq(node.getPolicies(0x00000001)[0], address(0x12));
+        assertEq(node.getPolicies(0x00000002)[0], address(0x11));
+        assertFalse(node.isSigPolicy(0x00000001, address(0x11)));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ErrorsLib.PolicyAlreadyRemoved.selector, removeSigs[0], removePolicies[0])
+        );
+        node.removePolicies(removeSigs, removePolicies);
+    }
+
     // HELPER FUNCTIONS
     function _verifySuccessfulEntry(address user, uint256 assets, uint256 shares) internal view {
         assertEq(asset.balanceOf(address(node)), assets);

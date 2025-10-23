@@ -321,4 +321,17 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function getLiquidationsQueue() external view returns (address[] memory);
 
     function getUncachedTotalAssets() external view returns (uint256);
+
+    function getPolicies(bytes4 sig) external view returns (address[] memory policies);
+
+    function isSigPolicy(bytes4 sig, address policy) external view returns (bool);
+
+    function addPolicies(
+        bytes32[] calldata proof,
+        bool[] calldata proofFlags,
+        bytes4[] calldata sigs,
+        address[] calldata policies_
+    ) external;
+
+    function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external;
 }

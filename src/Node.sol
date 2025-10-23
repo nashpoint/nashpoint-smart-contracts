@@ -64,8 +64,8 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     uint64 public maxSwingFactor;
     bool public swingPricingEnabled;
 
-    mapping(bytes4 => address[]) public policies;
-    mapping(bytes4 => address) public sigPolicy;
+    mapping(bytes4 => address[]) internal policies;
+    mapping(bytes4 => mapping(address => bool)) internal sigPolicy;
     bool internal _policyEntered;
     uint8 internal _decimals;
 
@@ -170,18 +170,18 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
             revert ErrorsLib.NotWhitelisted();
         }
         for (uint256 i; i < sigs.length; i++) {
-            if (sigPolicy[sigs[i]] == policies_[i]) revert ErrorsLib.PolicyAlreadyAdded(sigs[i], policies_[i]);
+            if (sigPolicy[sigs[i]][policies_[i]]) revert ErrorsLib.PolicyAlreadyAdded(sigs[i], policies_[i]);
             policies[sigs[i]].push(policies_[i]);
-            sigPolicy[sigs[i]] = policies_[i];
+            sigPolicy[sigs[i]][policies_[i]] = true;
         }
         emit EventsLib.PoliciesAdded(sigs, policies_);
     }
 
     function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external onlyOwner {
         for (uint256 i; i < sigs.length; i++) {
-            if (sigPolicy[sigs[i]] == policies_[i]) revert ErrorsLib.PolicyAlreadyRemoved(sigs[i], policies_[i]);
+            if (!sigPolicy[sigs[i]][policies_[i]]) revert ErrorsLib.PolicyAlreadyRemoved(sigs[i], policies_[i]);
             _remove(policies[sigs[i]], policies_[i]);
-            delete sigPolicy[sigs[i]];
+            delete sigPolicy[sigs[i]][policies_[i]];
         }
         emit EventsLib.PoliciesRemoved(sigs, policies_);
     }
@@ -710,6 +710,14 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     function getUncachedTotalAssets() external view returns (uint256) {
         return _getTotalAssets();
+    }
+
+    function getPolicies(bytes4 sig) external view returns (address[] memory) {
+        return policies[sig];
+    }
+
+    function isSigPolicy(bytes4 sig, address policy) external view returns (bool) {
+        return sigPolicy[sig][policy];
     }
 
     /*//////////////////////////////////////////////////////////////
