@@ -23,28 +23,28 @@ contract DigiftEventVerifierTest is Test {
         harness = new DigiftEventVerifierHarness(address(this));
     }
 
-    function test_stripTypedPrefix_EIP2930() external {
+    function test_stripTypedPrefix_EIP2930() external view {
         bytes memory input = hex"01deadbeef";
         bytes memory expected = hex"deadbeef";
         bytes memory result = harness.stripTypedPrefix(input);
         assertEq(result, expected);
     }
 
-    function test_stripTypedPrefix_EIP1559() external {
+    function test_stripTypedPrefix_EIP1559() external view {
         bytes memory input = hex"02cafebabe";
         bytes memory expected = hex"cafebabe";
         bytes memory result = harness.stripTypedPrefix(input);
         assertEq(result, expected);
     }
 
-    function test_stripTypedPrefix_EIP4844() external {
+    function test_stripTypedPrefix_EIP4844() external view {
         bytes memory input = hex"03f00dface";
         bytes memory expected = hex"f00dface";
         bytes memory result = harness.stripTypedPrefix(input);
         assertEq(result, expected);
     }
 
-    function test_stripTypedPrefix_nonTyped() external {
+    function test_stripTypedPrefix_nonTyped() external view {
         bytes memory input = hex"deadbeefcafebabe";
         bytes memory result = harness.stripTypedPrefix(input);
         assertEq(result, input);

@@ -11,7 +11,7 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 
 contract NodeRegistryV2 is NodeRegistry {
-    function version() external view returns (uint256) {
+    function version() external pure returns (uint256) {
         return 2;
     }
 }
