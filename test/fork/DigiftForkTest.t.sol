@@ -11,7 +11,7 @@ import {DigiftAdapterFactory} from "src/adapters/digift/DigiftAdapterFactory.sol
 import {DigiftAdapter} from "src/adapters/digift/DigiftAdapter.sol";
 import {ISubRedManagement, IDFeedPriceOracle, IManagement, ISecurityToken} from "src/interfaces/external/IDigift.sol";
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
-import {ComponentAllocation, INode} from "src/interfaces/INode.sol";
+import {ComponentAllocation, INode, NodeInitArgs} from "src/interfaces/INode.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -87,25 +87,19 @@ contract DigiftForkTest is BaseTest {
 
         // create Node2 and invest into DigiftAdapter
         vm.startPrank(owner);
-        ComponentAllocation[] memory allocations = new ComponentAllocation[](1);
-        allocations[0] = ComponentAllocation({
-            targetWeight: 0.9 ether,
-            maxDelta: 0.01 ether,
-            router: address(router7540),
-            isComponent: true
-        });
-        (node2,) = factory.deployFullNode(
-            "Test Node 2",
-            "TNODE2",
-            address(asset),
-            owner,
-            _toArray(address(digiftAdapter)),
-            allocations,
-            0.1 ether,
-            address(rebalancer),
-            address(quoter),
-            bytes32(uint256(2))
+        bytes[] memory payload = new bytes[](5);
+        payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router7540));
+        payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
+        payload[2] = abi.encodeWithSelector(
+            INode.addComponent.selector, address(digiftAdapter), 0.9 ether, 0.01 ether, address(router7540)
         );
+        payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
+        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
+
+        (node2,) = factory.deployFullNode(
+            NodeInitArgs("Test Node 2", "TNODE2", address(asset), owner), payload, keccak256("new salt")
+        );
+
         node2.setMaxDepositSize(1e36);
         digiftAdapter.setNode(address(node2), true);
 
