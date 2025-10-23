@@ -1,0 +1,12 @@
+{
+    "nodeRegistry": "0xA5b9eF53A3f03a48D5Ae91f00dc0E7160ffF1ec6",
+    "usdc": "0x9b540D34D8da55a698a1C4Bc6cD98cbD6a46A098",
+    "iSNR": "0x5168DaE3A11599c11918415Befbd092E66041418",
+    "eventVerifier": "0x1b6Ddc5a3CdA8c67d0f6919E56aBF5C47016D9B5",
+    "subRedManagement": "0xF9338396Bc996dd0c47D360336CE72D68C6B1Ab2",
+    "assetPriceOracle": "0x4136F752b88Ae1b0FBa795B95B6E1a3F1cD47a62",
+    "dFeedPriceOracle": "0xD1c9C04Db86632df501B630b99e5F609a4B4a87e",
+    "digiftWrapper": "0xeEed14F889ec1E501f85773FbC80e66fB2a4531B",
+    "digiftWrapperImpl": "0x3917Ef2A7E5e83b1d5eEB50eE868616f5a751e31",
+    "digiftWrapperFactory": "0xF615a041ae8cdE8612BCe0d8F81A3FFa8EC979BF"
+}

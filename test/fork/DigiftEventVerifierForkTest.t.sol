@@ -1,0 +1,463 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.28;
+
+import {Test} from "forge-std/Test.sol";
+import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
+import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+
+contract DigiftEventVerifierForkTest is Test {
+    /**
+     * @notice Test settlement subscriber verification on Arbitrum network
+     * @dev Verifies that a Digift settlement event can be properly verified using Merkle proofs
+     *
+     * Test scenario:
+     * - Uses real Arbitrum transaction data
+     * - Tests settlement of a subscriber position
+     * - Verifies the event was not previously used
+     * - Confirms correct token amounts are extracted
+     * - Ensures the event is marked as used after verification
+     *
+     * Reference transaction: https://arbiscan.io/tx/0x3ecd63558a9686ef23d38b6e64cecf44f8c70677c13cd37733765cb6d351d7d7
+     */
+    function test_settleSubscriber_verification_arbitrum() external {
+        uint256 BLOCK_NUMBER = 377293115;
+        vm.createSelectFork(vm.envString("ARBITRUM_RPC_URL"), BLOCK_NUMBER + 16);
+        vm.roll(BLOCK_NUMBER + 16);
+
+        // Set the specific block hash for deterministic testing
+        vm.setBlockhash(BLOCK_NUMBER, 0xc6d17a0778ff5e61f77066f2653965d2f300b53379f0640d446ff79a5b658e6a);
+
+        // The investor address that will be verified as a node
+        address investor = 0x8E0B8eB1F9033C5923D55a206D3C4B37932bf432;
+
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        verifier.setWhitelist(investor, true);
+
+        // RLP-encoded block header containing the transaction
+        bytes memory HEADER_RLP =
+            hex"f90223a0616ac97aa5ac3093362bfcb9f1cdfc8e187bf5be75057529d8c22e4ff57a5887a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d4934794a4b000000000000000000073657175656e636572a09671cd2fd092a203cda2b8b4abac6db1aec21b8a977b144dbeff78045e61299ea0a93dbfab45674abb3d34cb5054c12d0494fd1f95cc20547abed5204b86b724c0a09347df060a85407b05d358fc8397e7e4cb146401dd7b5a540ca8f311b6e1938db901000014000840000010000000000000002000220100000000100000100104100011040000400000000000800000c1800000000040030041200900802000002000000000020106010808010000080001000000000c0a100000102104200000000081004040200210040000010a042000088000014004000046040000001000080000014000021204200001000010000000010000000000000000001000000000000022000410040060000000804200800401080020040000000000400000000000040084200200000004080000000042000000002000020020400000000010003a4000900040000000000008000000022000020020000100004348000000200100020184167d093b8704000000000000831294cb8468bff837a011689e6b40281e6c81779879ee37fa96b51db4dce19de693928af0f7d050dad0a00000000000024f29000000000163e84a00000000000000280000000000000000880000000000203af883989680";
+
+        // RLP-encoded transaction index within the block
+        bytes memory INDEX_RLP = hex"03";
+
+        // Merkle proof path for transaction verification
+        bytes[] memory PROOF = new bytes[](3);
+        PROOF[0] = bytes(
+            hex"f851a05daf85d3caaa233b6cf0ab7fff602de00579afd5f843c6433d79826f89c908c180808080808080a0b0f51de7909653fadedb604e425c3ae1245d466325c8296662c289fa327eeeea8080808080808080"
+        );
+        PROOF[1] = bytes(
+            hex"f9015180a0574c5ce367b9120dcfc78cc4369fb4bb936cb47cb1992e66a4f46a0229cdbfeca08f27b7ebcc31033bbb1114b2891293d62b10d484f44775c17c71699785000503a0c44fd9dd16b65555d1bd5bd06961647c1debd2fed6291a5eb4d17d023e2d9728a0becc4006b75a15e47b5a36b6f596465862164eda3c00fd5c192e474db7458e81a0b776c459577b762abbc203b9333c91fc732223d6e2b3344f9218e0c49fbb7501a0c8610e635d418a38e7601a59f57ab01d583354103ccdc8fd327e9bc61a9a33c9a0069fa0f7e48f73d7ca91eacf1bf8d364285ca8200d2a0893a652222b1646c052a034e3c55cd3f1d49c5a32ceb73d02368434eec1c871e0c40329932c089f52ffd6a0487cdd2eae87a69301363bf277f9effad1d3fd81b4a04ff48f7e4b0bda42a9eea089015006c4844d0c5e42284bacb2f82b738d5cb767053aed632c5b8b6704a5a0808080808080"
+        );
+        PROOF[2] = bytes(
+            hex"f909e820b909e402f909e00183064e8fb901000010000040000000000000000000000000020000000000000000000004000000000000000000000000000000c000000000000002000000000000000000000000000000000400080001000008000000000000040000000010000400000000000000400000000004000001020000000080000000040000000000000010000000000000000200000000010000000000000000000000000000000000000000000000000000100400000000000000000004000000000400000000000000000000000000000002000000000000000000020000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000f908d5f9055a94413ec43aa8e4980a1f2671e92c6b1d9fc15eabcde1a066753cd2356569ee081232e3be8909b950e0a76c1f8460c3a5e3c2be32b11bedb905200000000000000000000000003dad21a73a63bbd186f57f733d271623467b6c780000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003a000000000000000000000000000000000000000000000000000000000000004a0000000000000000000000000000000000000000000000000000000000000020449e664ff00000000000000000000000037ec21365dc39b0b74ea7b6fabffbcb277568ac400000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000000010000000000000000000000008e0b8eb1f9033c5923d55a206d3c4b37932bf43200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000025737123bafd100000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000af88d065e77c8cc2239327c5edb3a432268e583100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c3c60521e9ec1032b29fc690f1593a8005c00fca1ec27e3b70ff32e4f3419039804de6d71ae8fb45c9db33152f84534044a64a8f888313ef40223c085eda4816021b057314da103429a89ac545b0493b4b777814c00c98bfb5258ad794fde1a40ba210c1290f19ba3a664e2c0d70aa98e606dc6bc4ab718778811a190c9dc7b950241bbf883c7a7fbb52590d278b4b276d481f5e37271462386bde46e6d0f1f20bbb9d130f02fbc582ace848e70efe73b64cce12d1d962e17d04840ba2570790f526b31b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000b00000000000000000000000015e5b6c483b7b86cf500bead1295c36e84a856d10000000000000000000000000000000000000000000000000000000000000003f89b9437ec21365dc39b0b74ea7b6fabffbcb277568ac4f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000003dad21a73a63bbd186f57f733d271623467b6c78a00000000000000000000000008e0b8eb1f9033c5923d55a206d3c4b37932bf432a00000000000000000000000000000000000000000000000025737123bafd10000f9025c943dad21a73a63bbd186f57f733d271623467b6c78f842a027107ee7622d58a260ded013cac8dea85f6d4c3bf0be25357e4026fff1d79fc5a00000000000000000000000003dad21a73a63bbd186f57f733d271623467b6c78b9020000000000000000000000000037ec21365dc39b0b74ea7b6fabffbcb277568ac400000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000000010000000000000000000000008e0b8eb1f9033c5923d55a206d3c4b37932bf43200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000025737123bafd100000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000af88d065e77c8cc2239327c5edb3a432268e58310000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000f87a94413ec43aa8e4980a1f2671e92c6b1d9fc15eabcdf842a0442e715f626346e8c54381002da614f62bee8d27386535b2521ec8540898556ea0273867cb53ca59714245dee59bf595d771e5b6ce3ac6fed05c7c8b7e6a52a055a00000000000000000000000000000000000000000000000000000000000000000"
+        );
+
+        // Verify that the log has not been used before
+        assertFalse(verifier.usedLogs(0x855771fa11a17f805046968b9c0454536ef8dec5a659f4756cb094c8cc3596ac));
+
+        // Impersonate the investor (node) to simulate the correct msg.sender
+        vm.startPrank(investor);
+        // Verify the settlement event using Merkle proof
+        (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(
+                BLOCK_NUMBER, // Block number containing the transaction
+                HEADER_RLP, // RLP-encoded block header
+                INDEX_RLP, // Transaction index within the block
+                PROOF // Merkle proof
+            ),
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.SUBSCRIBE, // Event topic for subscriber settlement
+                0x3DAd21A73a63bBd186f57f733d271623467b6c78, // SubRedManagement contract address
+                0x37EC21365dC39B0b74ea7b6FabFfBcB277568AC4, // stToken contract address
+                0xaf88d065e77c8cC2239327C5EDb3A432268e5831 // Asset contract address
+            )
+        );
+
+        // Verify the correct token amounts were extracted from the event
+        assertEq(stTokenAmount, 43178000000000000000); // 43.178 stTokens (18 decimals)
+        assertEq(assetAmount, 0); // No asset amount for subscriber settlement
+
+        // Verify the log is now marked as used
+        assertTrue(verifier.usedLogs(0x855771fa11a17f805046968b9c0454536ef8dec5a659f4756cb094c8cc3596ac));
+    }
+
+    /**
+     * @notice Test settlement redemption verification on Ethereum mainnet
+     * @dev Verifies that a Digift redemption settlement event can be properly verified using Merkle proofs
+     *
+     * Test scenario:
+     * - Uses real Ethereum transaction data
+     * - Tests settlement of a redemption position (asset withdrawal)
+     * - Verifies the event was not previously used
+     * - Confirms correct asset amounts are extracted
+     * - Ensures the event is marked as used after verification
+     *
+     * Reference transaction: https://etherscan.io/tx/0x685fd4738de2ad844bebc499cc23fb662e88d2d94bd5d1fc5427545a090afc46
+     */
+    function test_settleRedemtion_verification_ethereum() external {
+        Vars memory vars = _getMainnetParams();
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
+        vm.roll(vars.blockNumber + 16);
+
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        verifier.setWhitelist(vars.investor, true);
+
+        bytes32 logHash = 0xff3ca9d1ee7ced11686dfb7cec7d4096289a6e6d7582ddb6e2b57d77420d7b4a;
+
+        assertFalse(verifier.usedLogs(logHash));
+
+        // Impersonate the investor (node) to simulate the correct msg.sender
+        vm.startPrank(vars.investor);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftEventVerifier.Verified(
+            vars.investor, vars.stToken, vars.asset, 0, 447273310000, blockhash(vars.blockNumber), logHash
+        );
+
+        // Verify the redemption settlement event using Merkle proof
+        (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
+            )
+        );
+
+        // Verify the correct token amounts were extracted from the event
+        assertEq(stTokenAmount, 0); // No stToken amount for redemption
+        assertEq(assetAmount, 447273310000); // 447.27331 USDC (6 decimals)
+
+        // Verify the log is now marked as used (prevents replay attacks)
+        assertTrue(verifier.usedLogs(logHash));
+
+        // cannot reuse the event
+        vm.expectRevert(DigiftEventVerifier.LogAlreadyUsed.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
+            )
+        );
+    }
+
+    struct Vars {
+        uint256 blockNumber;
+        bytes header;
+        bytes txIndex;
+        bytes[] proof;
+        address subRedManager;
+        address stToken;
+        address asset;
+        address investor;
+    }
+
+    function _getMainnetParams() internal pure returns (Vars memory) {
+        uint256 BLOCK_NUMBER = 23431653;
+
+        // RLP-encoded block header containing the transaction
+        bytes memory HEADER_RLP =
+            hex"f90286a008da7dd2d5ea5e167ce5738587f608f08d6c109307227b5a319da89b63515d97a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347944838b106fce9647bdf1e7877bf73ce8b0bad5f97a06a86ee858000ab9a88ab70512801cf8f2db46178878ec1bf53712fd27d1941f5a07fed869c22bdade885291249d6d41342c43b50a32cb7ac0147009a18a440a4e0a0579cf4d3eabf1048b449bf99fb602b21c117d3aea9ad61241cf2e5a498d1ff95b9010057693775752bfedfe64b6dbfc3f39d6ffb71bfb37c7f4aaa1b2519f1757bbdd7ad7fb7b0fccf88e67bbfeaf999ceedddc7bf9f3adfa2a4f919a3a3ef7efcf7bbc5f6fbf707dff9fdebe9f7ec9d5fb1f7f97d7fbff377ed326d877ccde17e868ff6afe37edaff8f7aa10cddf76eae6ee1223bd3fe5cb86effddc9de5f5b1f5fff9bfabf3f71c8e72f6971761815bbfdd6dc93da5bf5ddf4cfd42f6c7ee95edeff4fcde5eee7fbebfa1b7f5fe61dfef6fefbe6e5d437f4c28e3ffde6f97c7cff71c757bd4f51f9efedeff7163267e639cf23eff677f59e05f4dfddbc7eb9efefbff09fadeeca3ef74757e7d7ddb3f73ae8dd7ffeb3f77cafcf3e5b794fdadffbb98084016589e58402adf96d8401c76fd48468d3a94398546974616e2028746974616e6275696c6465722e78797a29a0bcd5366da96c2165c602991566303504ce37dd4deb98d5b032081662f2dd53b9880000000000000000840f2790f9a052a6237987125991ca5554c2b8af60309f1440150e259f7d46960482a47b0c14830c00008404ce0000a07728053fdf13a74d92690506b8f22f165923a4db62f47710d63ad5f22f9666cda0e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+        // RLP-encoded transaction index within the block
+        bytes memory INDEX_RLP = hex"81fa";
+
+        // Merkle proof path for transaction verification (5 levels deep)
+        bytes[] memory PROOF = new bytes[](5);
+        PROOF[0] = bytes(
+            hex"f90131a03eddcf6fbc15c47429953268e6849dc720c4955fbbf6ebbc1ebd9c639e8a6f17a0ee68e7e986319238e084f71f20c9a79a946337dd50e4b15361c4996f193a6a8ca03693a9030bb7013909a6b51a11fa03cae0543554b65dfe6ef890a5beac3a316ba0e42d7096fad00db4d6bd5b7d4a8d588095bb3045403548b4f90e36876e4a2b4ba08ba186c26a6955d8593e0d6840ee917a41d676cde826700bfaba7c62c84ea97ea062852aef9b079b72009222152c94eadd64f36c7fb6b450ed84255ed348125deea010d5455f56add3855591e7a37b4cbcd923a56aebdcb9d9a65761373f54f66192a04620b0895eb0c7b7301789ec524ea61c8d4370d082df5b694728b5d4b5a46bc6a0e5711269594879bfa48ff1596ec2902a86cb380fbaa37174428d4bfa94fba87f8080808080808080"
+        );
+        PROOF[1] = bytes(
+            hex"f871a0e58dd61cabd537ab61ea18ce0e73f9414c8cfa7248dfbf050e33777a3492563da05792bb67998935ea6091e0c8c3f0abab7008e46e0efa589cb508c3c4a090bbb6a0e634405bab52a7e760bf794a66c580b58f4a07f49014273ea4d7abba28e88c688080808080808080808080808080"
+        );
+        PROOF[2] = bytes(
+            hex"f901118080808080808080a07cb78342355cd720159ac13e4de42abe5e4ed2548b8acc5580c9bcf050f4c33aa0822c3eeef81733bcefc983c9e1f0980a9f6ba29f5204cdf844f82ba8ebd400e2a05236432d10cbfca138bb26b854b96fa586a94ad97250c4608d632eac1f135813a08a41bf54e0e8671199d1d980c47d1c9202225360ad1714e86bb414250711fc89a01dd3594e9cb3eac71835d16b7df78cb9f60213944b6bb876095ec57da030f9b5a04d655e75f54d798a2ca363782d7fad45e9d2c10894210730837ee5675d9f8e3da0d173a1a5c3a71feb2eeda00c981e00ba1ae03547ade6986b02069498b22d96b9a08754afc01fed5cd35a9293bd51c1a55a22b8e6eaba07a7a80ce958d7b3becd7b80"
+        );
+        PROOF[3] = bytes(
+            hex"f90211a02a60e7b717ba13897549245d33b199bf16b6bfc1f87048100075dd51ba456e94a0fe5ec1b985176968eef8af0fb01dae9f169bec68e661d109557178cb40d89825a0db050ca54d7d8c957617c2f88bc9d180eea2b2ef344020366af64e02f8ca7c8ba0d7e79dcaea9e47d25d6a480546829b9ec7fd6f481c7dbe7623faa4a91b7c644fa01c16f18754ce94eb6f5c32b11079a90c8c1a030d7ce1a29480380388baac9b3ba0d1f58d236adbce1df2eb3852c2bbda64c8d144a018111dc4ae7137403cf7a29aa0ecf6afd3dd1af725b273b3f0a049fb9abaf305efa949e5a1cf091db1126c1c82a0475d4a2c7d9de76e16dd9215f5f2402f99fefe8bc00053d6f957990224bf0149a06cacac1a0af069574c40d89ae05c4a406a117c0cedc684c0fef9e1b003549ac6a0794dc817fde18ab2c17ad96e2053fd41062e0e6d76d9bfd5ec5fa1d5784fb76da013d4cdc895b9de373d47485f3c567c91551b6653e444027cc0ebafc642f760dda00cb57f782bcb3afc2e9f03ce1f9eb95a19008c1aca35038e355a1ef7b9bf97a9a0745692b7d876564da4851d9abad27762a20821ee7b27572c07d492ffc364f6d4a02ba26355781222b333276b89612ae121c10786bb888886ff7f84bd906bfa43a5a048745ffcf0ad06ae3a80fc386e700b1ac686dd7e02615bbc4bbd91e716e63bbaa013b4466e7ce10b35a8b39b4e76037191a3345abcdc3b5b1258bf8ca4aed780a280"
+        );
+        PROOF[4] = bytes(
+            hex"f9048c20b9048802f90484018401c1ae34b9010000000000400000000000000000020000000000800000000000000000040000400000000000000000000080000000080000000000000000000000000000000000000000000000000008000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000080000000100000000000008000000010000000000000080000000010000000000200000000000000004040000000020400000000000000000080000000002000000000000000000000000002000000000000000000000000000000000000088000000000000000000000000000000000000000000000000020000f90378f89b94a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000003797c46db697c24a983222c335f17ba28e8c5b69a000000000000000000000000054b930e2f72472773234b9edaeba3f7a971fc4a8a00000000000000000000000000000000000000000000000000000006823911730f9025c943797c46db697c24a983222c335f17ba28e8c5b69f842a0078201b4fddebeb020e52d5999827843599e0ae133d7f8ad82564d44515b0952a00000000000000000000000003797c46db697c24a983222c335f17ba28e8c5b69b90200000000000000000000000000c06036793272219179f846ef6bfc3b16e820df0b00000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000054b930e2f72472773234b9edaeba3f7a971fc4a8000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000682391173000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000f87a94bb4716a4a47342aad4f162ebc34af8414360cdc5f842a0442e715f626346e8c54381002da614f62bee8d27386535b2521ec8540898556ea0a36332793ed6efa8dc6f64e750e43a71bedd67aa8361d528ce4e05ecf516041ea00000000000000000000000000000000000000000000000000000000000000000"
+        );
+
+        return Vars(
+            BLOCK_NUMBER,
+            HEADER_RLP,
+            INDEX_RLP,
+            PROOF,
+            0x3797C46db697c24a983222c335F17Ba28e8c5b69,
+            0xC06036793272219179F846eF6bfc3B16E820Df0B,
+            0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,
+            0x54b930e2f72472773234B9edaeBA3f7a971fc4a8
+        );
+    }
+
+    /**
+     * @notice Test setBlockHash function and event emission
+     * @dev Verifies that the setBlockHash function works correctly and emits the BlockHashSet event
+     */
+    function test_setBlockHash_event() external {
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        uint256 blockNumber = 12345;
+        bytes32 blockHash = bytes32(uint256(0x1234567890abcdef));
+
+        // Expect the BlockHashSet event to be emitted
+        vm.expectEmit(true, false, false, false);
+        emit DigiftEventVerifier.BlockHashSet(blockNumber, blockHash);
+
+        // Call setBlockHash function
+        verifier.setBlockHash(blockNumber, blockHash);
+
+        // Verify the block hash was stored correctly
+        assertEq(verifier.blockHashes(blockNumber), blockHash);
+    }
+
+    /**
+     * @notice Test setBlockHash access control
+     * @dev Verifies that only the registry owner can call setBlockHash
+     */
+    function test_setBlockHash_accessControl() external {
+        // Mock the owner function to return a different address (not this contract)
+        address owner = address(0x123);
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(owner));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        uint256 blockNumber = 12345;
+        bytes32 blockHash = bytes32(uint256(0x1234567890abcdef));
+
+        // Expect revert when non-owner tries to call setBlockHash
+        vm.expectRevert();
+        verifier.setBlockHash(blockNumber, blockHash);
+    }
+
+    /**
+     * @notice Test setWhitelist emits the WhitelistChange event
+     * @dev Verifies both enabling and disabling a Digift adapter trigger event emission
+     */
+    function test_setWhitelist_event() external {
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        address adapter = address(0xBEEF);
+
+        vm.expectEmit(true, false, false, true, address(verifier));
+        emit DigiftEventVerifier.WhitelistChange(adapter, true);
+        verifier.setWhitelist(adapter, true);
+
+        vm.expectEmit(true, false, false, true, address(verifier));
+        emit DigiftEventVerifier.WhitelistChange(adapter, false);
+        verifier.setWhitelist(adapter, false);
+    }
+
+    /**
+     * @notice Test setWhitelist access control and owner success path
+     * @dev Ensures only the registry owner can update the whitelist
+     */
+    function test_setWhitelist_accessControl() external {
+        address owner = address(0x123);
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(owner));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        address adapter = address(0xBEEF);
+
+        vm.expectRevert(ErrorsLib.NotRegistryOwner.selector);
+        verifier.setWhitelist(adapter, true);
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, false, false, true, address(verifier));
+        emit DigiftEventVerifier.WhitelistChange(adapter, true);
+        verifier.setWhitelist(adapter, true);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test verifySettlementEvent whitelist requirement
+     * @dev Verifies calls from non-whitelisted addresses revert with NotWhitelisted
+     */
+    function test_verifySettlementEvent_notWhitelisted() external {
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+
+        vm.expectRevert(DigiftEventVerifier.NotWhitelisted.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(0, hex"01", hex"01", new bytes[](0)),
+            DigiftEventVerifier.OnchainArgs(DigiftEventVerifier.EventType.REDEEM, address(0), address(0), address(0))
+        );
+    }
+
+    /**
+     * @notice Test _getBlockHash fallback to stored block hashes
+     * @dev Verifies that when blockhash() returns 0, the function falls back to stored blockHashes
+     */
+    function test_getBlockHash_fallbackToStored() external {
+        Vars memory vars = _getMainnetParams();
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
+        // miss the window
+        vm.roll(vars.blockNumber + 257);
+
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        verifier.setWhitelist(vars.investor, true);
+
+        bytes32 blockHash = keccak256(vars.header);
+        // set block hash by registry owner
+        verifier.setBlockHash(vars.blockNumber, blockHash);
+
+        bytes32 logHash = 0xff3ca9d1ee7ced11686dfb7cec7d4096289a6e6d7582ddb6e2b57d77420d7b4a;
+
+        assertFalse(verifier.usedLogs(logHash));
+
+        // Impersonate the investor (node) to simulate the correct msg.sender
+        vm.startPrank(vars.investor);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftEventVerifier.Verified(vars.investor, vars.stToken, vars.asset, 0, 447273310000, blockHash, logHash);
+
+        // Verify the redemption settlement event using Merkle proof
+        (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
+            )
+        );
+
+        // Verify the correct token amounts were extracted from the event
+        assertEq(stTokenAmount, 0); // No stToken amount for redemption
+        assertEq(assetAmount, 447273310000); // 447.27331 USDC (6 decimals)
+
+        // Verify the log is now marked as used (prevents replay attacks)
+        assertTrue(verifier.usedLogs(logHash));
+    }
+
+    /**
+     * @notice Test _getBlockHash MissedWindow revert
+     * @dev Verifies that when both blockhash() and stored blockHashes return 0, MissedWindow is reverted
+     */
+    function test_getBlockHash_missedWindow() external {
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
+        uint256 currentBlock = block.number;
+        uint256 oldBlockNumber = currentBlock - 300; // Far enough in past so blockhash() returns 0
+
+        address investor = address(0x123);
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        verifier.setWhitelist(investor, true);
+
+        vm.startPrank(investor);
+        // This should revert with MissedWindow since no block hash is available
+        vm.expectRevert(DigiftEventVerifier.MissedWindow.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(oldBlockNumber, hex"01", hex"01", new bytes[](0)),
+            DigiftEventVerifier.OnchainArgs(DigiftEventVerifier.EventType.REDEEM, address(0), address(0), address(0))
+        );
+    }
+
+    function test_verifySettlementEvent_BadHeader() external {
+        Vars memory vars = _getMainnetParams();
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
+        vm.roll(vars.blockNumber + 16);
+
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        verifier.setWhitelist(vars.investor, true);
+
+        // Impersonate the investor (node) to simulate the correct msg.sender
+        vm.startPrank(vars.investor);
+
+        vm.expectRevert(DigiftEventVerifier.BadHeader.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, hex"01", vars.txIndex, vars.proof),
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
+            )
+        );
+    }
+
+    function test_verifySettlementEvent_NoEvent() external {
+        Vars memory vars = _getMainnetParams();
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), vars.blockNumber + 16);
+        vm.roll(vars.blockNumber + 16);
+
+        // Mock the owner function to return this contract
+        vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+
+        // Deploy the verifier contract
+        DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
+        verifier.setWhitelist(vars.investor, true);
+        verifier.setWhitelist(address(this), true);
+
+        // Impersonate the investor (node) to simulate the correct msg.sender
+        vm.startPrank(vars.investor);
+
+        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OnchainArgs(
+                // wrong signature
+                DigiftEventVerifier.EventType.SUBSCRIBE,
+                vars.subRedManager,
+                vars.stToken,
+                vars.asset
+            )
+        );
+
+        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                // wrong stToken
+                address(0x1234),
+                vars.asset
+            )
+        );
+
+        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM,
+                vars.subRedManager,
+                vars.stToken,
+                // wrong currencyToken
+                address(0x1234)
+            )
+        );
+
+        vm.stopPrank();
+
+        // investor is this testing contract - we will not find any transfer of stToken fot it
+        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        verifier.verifySettlementEvent(
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OnchainArgs(
+                DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
+            )
+        );
+    }
+}

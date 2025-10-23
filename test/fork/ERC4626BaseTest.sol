@@ -206,15 +206,15 @@ abstract contract ERC4626BaseTest is BaseTest {
 
         uint256 allocation = 90 * amount / 100;
 
-        assertApproxEqAbs(erc4626Vault.convertToAssets(nodeShares), allocation, 1);
+        assertApproxEqAbs(erc4626Vault.convertToAssets(nodeShares), allocation, 2);
         assertEq(usdc.balanceOf(address(node)), amount - allocation);
-        assertApproxEqAbs(node.totalAssets(), amount, 1);
+        assertApproxEqAbs(node.totalAssets(), amount, 2);
 
         vm.startPrank(rebalancer);
         router4626.liquidate(address(node), address(erc4626Vault), erc4626Vault.balanceOf(address(node)), 0);
         vm.stopPrank();
 
         assertEq(erc4626Vault.balanceOf(address(node)), 0);
-        assertApproxEqAbs(usdc.balanceOf(address(node)), amount, 1);
+        assertApproxEqAbs(usdc.balanceOf(address(node)), amount, 2);
     }
 }

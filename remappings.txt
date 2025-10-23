@@ -1,4 +1,9 @@
 forge-std/=lib/forge-std/src/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin-upgradeable/contracts/=lib/openzeppelin-contracts-upgradeable/contracts/
 @prb/math/=lib/prb-math/src/
 ds-test/=lib/forge-std/lib/ds-test/src/
+optimism/=lib/optimism/packages/contracts-bedrock/src/
+
+src/libraries/Bytes.sol=lib/optimism/packages/contracts-bedrock/src/libraries/Bytes.sol
+src/libraries/rlp/=lib/optimism/packages/contracts-bedrock/src/libraries/rlp/
