@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 import {BaseTest} from "../BaseTest.sol";
 import {stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 
@@ -52,6 +54,18 @@ contract NodeTest is BaseTest {
     function setUp() public override {
         super.setUp();
 
+        address registryImpl = address(new NodeRegistry());
+        testRegistry = NodeRegistry(
+            address(
+                new ERC1967Proxy(
+                    registryImpl,
+                    abi.encodeWithSelector(
+                        NodeRegistry.initialize.selector, owner, protocolFeesAddress, 0, 0, 0.1 ether
+                    )
+                )
+            )
+        );
+
         testToken = new ERC20Mock("Test Token", "TEST");
         testVault = new ERC4626Mock(address(testToken));
         testVault2 = new ERC4626Mock(address(testToken));
@@ -67,20 +81,12 @@ contract NodeTest is BaseTest {
         testComponent3 = address(testVault3);
         liquidityPool = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", testPoolManager);
 
-        testRegistry = new NodeRegistry(owner);
-
         vm.startPrank(owner);
 
-        testRegistry.initialize(
-            _toArray(address(this)), // factory
-            _toArray(testRouter),
-            _toArray(testQuoter),
-            _toArray(testRebalancer),
-            protocolFeesAddress,
-            0,
-            0,
-            0.1 ether
-        );
+        testRegistry.setRegistryType(address(this), RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(address(testRouter), RegistryType.ROUTER, true);
+        testRegistry.setRegistryType(address(testRebalancer), RegistryType.REBALANCER, true);
+        testRegistry.setRegistryType(address(testQuoter), RegistryType.QUOTER, true);
 
         testRegistry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
         router4626.setWhitelistStatus(address(testComponent), true);

@@ -91,9 +91,6 @@ library ErrorsLib {
     /// @notice Thrown when not the factory.
     error NotFactory();
 
-    /// @notice Thrown when not initialized.
-    error NotInitialized();
-
     /// @notice Thrown when already initialized.
     error AlreadyInitialized();
 
@@ -165,6 +162,10 @@ library ErrorsLib {
 
     /// @notice Thrown when the swing factor is invalid.
     error InvalidSwingFactor();
+
+    error PolicyAlreadyAdded(bytes4 sig, address policy);
+
+    error PolicyAlreadyRemoved(bytes4 sig, address policy);
 
     error PolicyEntered();
 

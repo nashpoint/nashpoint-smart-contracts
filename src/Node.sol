@@ -65,6 +65,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     bool public swingPricingEnabled;
 
     mapping(bytes4 => address[]) public policies;
+    mapping(bytes4 => address) public sigPolicy;
     bool internal _policyEntered;
     uint8 internal _decimals;
 
@@ -169,14 +170,18 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
             revert ErrorsLib.NotWhitelisted();
         }
         for (uint256 i; i < sigs.length; i++) {
+            if (sigPolicy[sigs[i]] == policies_[i]) revert ErrorsLib.PolicyAlreadyAdded(sigs[i], policies_[i]);
             policies[sigs[i]].push(policies_[i]);
+            sigPolicy[sigs[i]] = policies_[i];
         }
         emit EventsLib.PoliciesAdded(sigs, policies_);
     }
 
     function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external onlyOwner {
         for (uint256 i; i < sigs.length; i++) {
+            if (sigPolicy[sigs[i]] == policies_[i]) revert ErrorsLib.PolicyAlreadyRemoved(sigs[i], policies_[i]);
             _remove(policies[sigs[i]], policies_[i]);
+            delete sigPolicy[sigs[i]];
         }
         emit EventsLib.PoliciesRemoved(sigs, policies_);
     }

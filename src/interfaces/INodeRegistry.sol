@@ -17,24 +17,6 @@ enum RegistryType {
 
 interface INodeRegistry {
     /**
-     * @notice Initializes the registry with initial contracts
-     * @param factories_ Array of factory addresses to initialize
-     * @param routers_ Array of router addresses to initialize
-     * @param quoters_ Array of quoter addresses to initialize
-     * @param rebalancers_ Array of rebalancer addresses to initialize
-     */
-    function initialize(
-        address[] memory factories_,
-        address[] memory routers_,
-        address[] memory quoters_,
-        address[] memory rebalancers_,
-        address feeAddress_,
-        uint64 managementFee_,
-        uint64 executionFee_,
-        uint64 maxSwingFactor_
-    ) external;
-
-    /**
      * @notice Sets the type of an address
      * @param addr Address to set the type for
      * @param type_ Type to set
@@ -71,12 +53,6 @@ interface INodeRegistry {
         bytes4[] calldata sigs,
         address[] calldata policies
     ) external view returns (bool);
-
-    /**
-     * @notice Returns whether the registry has been initialized
-     * @return bool True if registry is initialized
-     */
-    function isInitialized() external view returns (bool);
 
     /**
      * @notice Returns the address of the protocol fee address

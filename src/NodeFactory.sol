@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {Escrow} from "./Escrow.sol";
 import {NodeInitArgs} from "./Node.sol";
-import {INode, ComponentAllocation} from "./interfaces/INode.sol";
+import {INode} from "./interfaces/INode.sol";
 import {INodeFactory} from "./interfaces/INodeFactory.sol";
 import {INodeRegistry} from "./interfaces/INodeRegistry.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -59,26 +59,4 @@ contract NodeFactory is INodeFactory {
 
         emit NodeCreated(address(node), initArgs.asset, initArgs.name, initArgs.symbol, initArgs.owner);
     }
-
-    // function _setupNode(INode node, NodeSetupArgs calldata setupArgs) internal {
-    //     // add routers
-    //     for (uint256 i; i < setupArgs.components.length; ++i) {
-    //         if (!node.isRouter(setupArgs.componentAllocations[i].router)) {
-    //             node.addRouter(setupArgs.componentAllocations[i].router);
-    //         }
-    //     }
-    //     // set quoter
-    //     node.setQuoter(setupArgs.quoter);
-    //     // add rebalancer
-    //     node.addRebalancer(setupArgs.rebalancer);
-    //     node.updateTargetReserveRatio(setupArgs.targetReserveRatio);
-    //     for (uint256 i; i < setupArgs.components.length; i++) {
-    //         node.addComponent(
-    //             setupArgs.components[i],
-    //             setupArgs.componentAllocations[i].targetWeight,
-    //             setupArgs.componentAllocations[i].maxDelta,
-    //             setupArgs.componentAllocations[i].router
-    //         );
-    //     }
-    // }
 }

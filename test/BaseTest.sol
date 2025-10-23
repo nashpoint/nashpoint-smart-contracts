@@ -2,13 +2,21 @@
 pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
+
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import {Node} from "src/Node.sol";
+import {NodeFactory} from "src/NodeFactory.sol";
+import {NodeRegistry} from "src/NodeRegistry.sol";
+import {QuoterV1} from "src/quoters/QuoterV1.sol";
+import {ERC4626Router} from "src/routers/ERC4626Router.sol";
+import {ERC7540Router} from "src/routers/ERC7540Router.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
-import {Deployer} from "script/Deployer.sol";
 
 import {Node} from "src/Node.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
@@ -16,7 +24,7 @@ import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import {Escrow} from "src/Escrow.sol";
 
 import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol";
-import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
@@ -25,10 +33,9 @@ import {MathLib} from "src/libraries/MathLib.sol";
 contract BaseTest is Test {
     using MathLib for uint256;
 
-    Deployer public deployer;
-    INodeRegistry public registry;
-    INodeFactory public factory;
-    IQuoterV1 public quoter;
+    NodeRegistry public registry;
+    NodeFactory public factory;
+    QuoterV1 public quoter;
     ERC4626Router public router4626;
     ERC7540Router public router7540;
 
@@ -67,14 +74,22 @@ contract BaseTest is Test {
         testPoolManager = makeAddr("testPoolManager");
         protocolFeesAddress = makeAddr("protocolFeesAddress");
 
-        deployer = new Deployer();
-        deployer.deploy(owner);
-
-        registry = INodeRegistry(address(deployer.registry()));
-        factory = INodeFactory(address(deployer.factory()));
-        quoter = IQuoterV1(address(deployer.quoter()));
-        router4626 = deployer.erc4626router();
-        router7540 = deployer.erc7540router();
+        address registryImpl = address(new NodeRegistry());
+        registry = NodeRegistry(
+            address(
+                new ERC1967Proxy(
+                    registryImpl,
+                    abi.encodeWithSelector(
+                        NodeRegistry.initialize.selector, owner, protocolFeesAddress, 0, 0, 0.99 ether
+                    )
+                )
+            )
+        );
+        address nodeImplementation = address(new Node(address(registry)));
+        factory = new NodeFactory(address(registry), nodeImplementation);
+        quoter = new QuoterV1(address(registry));
+        router4626 = new ERC4626Router(address(registry));
+        router7540 = new ERC7540Router(address(registry));
 
         if (block.chainid == 42161) {
             asset = IERC20(usdcArbitrum);
@@ -89,16 +104,11 @@ contract BaseTest is Test {
         }
 
         vm.startPrank(owner);
-        registry.initialize(
-            _toArray(address(factory)),
-            _toArrayTwo(address(router4626), address(router7540)),
-            _toArray(address(quoter)),
-            _toArray(address(rebalancer)),
-            protocolFeesAddress,
-            0,
-            0,
-            0.99 ether
-        );
+        registry.setRegistryType(address(factory), RegistryType.FACTORY, true);
+        registry.setRegistryType(address(router7540), RegistryType.ROUTER, true);
+        registry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
+        registry.setRegistryType(address(rebalancer), RegistryType.REBALANCER, true);
+        registry.setRegistryType(address(quoter), RegistryType.QUOTER, true);
 
         router4626.setWhitelistStatus(address(vault), true);
 

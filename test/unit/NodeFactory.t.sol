@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {BaseTest} from "../BaseTest.sol";
 import {NodeFactory} from "src/NodeFactory.sol";
@@ -57,26 +59,32 @@ contract NodeFactoryTest is BaseTest {
     function setUp() public override {
         super.setUp();
 
+        address registryImpl = address(new NodeRegistry());
+        testRegistry = NodeRegistry(
+            address(
+                new ERC1967Proxy(
+                    registryImpl,
+                    abi.encodeWithSelector(
+                        NodeRegistry.initialize.selector, owner, protocolFeesAddress, 0, 0, 0.99 ether
+                    )
+                )
+            )
+        );
+
         testAsset = new ERC20Mock("Test Asset", "TASSET");
         testQuoter = makeAddr("testQuoter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = new ERC4626Mock(address(testAsset));
-        testRegistry = new NodeRegistry(owner);
         testRouter = new ERC4626Router(address(testRegistry));
         nodeImplementation = address(new Node(address(testRegistry)));
         testFactory = new NodeFactory(address(testRegistry), nodeImplementation);
 
         vm.startPrank(owner);
-        testRegistry.initialize(
-            _toArray(address(testFactory)),
-            _toArray(address(testRouter)),
-            _toArray(testQuoter),
-            _toArray(testRebalancer),
-            protocolFeesAddress,
-            0,
-            0,
-            0.99 ether
-        );
+
+        testRegistry.setRegistryType(address(testFactory), RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(address(testRouter), RegistryType.ROUTER, true);
+        testRegistry.setRegistryType(address(testRebalancer), RegistryType.REBALANCER, true);
+        testRegistry.setRegistryType(address(testQuoter), RegistryType.QUOTER, true);
 
         testRouter.setWhitelistStatus(address(testComponent), true);
 
