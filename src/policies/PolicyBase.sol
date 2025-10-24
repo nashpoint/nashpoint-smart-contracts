@@ -17,6 +17,11 @@ abstract contract PolicyBase is IPolicy {
         registry = INodeRegistry(registry_);
     }
 
+    modifier onlyRegistryOwner() {
+        _onlyRegistryOwner();
+        _;
+    }
+
     modifier onlyNodeOwner(address node) {
         _onlyNode(node);
         _onlyNodeOwner(node);
@@ -42,6 +47,10 @@ abstract contract PolicyBase is IPolicy {
 
     function _onlyNodeOwner(address node) internal view {
         if (Ownable(node).owner() != msg.sender) revert ErrorsLib.NotNodeOwner();
+    }
+
+    function _onlyRegistryOwner() internal view {
+        if (Ownable(address(registry)).owner() != msg.sender) revert ErrorsLib.NotRegistryOwner();
     }
 
     function _extract(bytes calldata data) internal pure returns (bytes4 selector, bytes calldata payload) {

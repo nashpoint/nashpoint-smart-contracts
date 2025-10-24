@@ -26,7 +26,7 @@ abstract contract WhitelistBase is PolicyBase {
         emit WhitelistRemoved(node, users);
     }
 
-    modifier isWhitelisted(address node, address user) {
+    modifier onlyWhitelisted(address node, address user) {
         _isWhitelisted(node, user);
         _;
     }

@@ -7,7 +7,7 @@ import {PolicyLib} from "src/libraries/PolicyLib.sol";
 import {INode} from "src/interfaces/INode.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 
-contract WhitelistPolicy is WhitelistBase {
+contract GatePolicy is WhitelistBase {
     constructor(address registry_) WhitelistBase(registry_) {
         actions[IERC7575.deposit.selector] = true;
         actions[IERC7575.mint.selector] = true;

@@ -30,6 +30,8 @@ contract PolicyBaseHarness is PolicyBase {
         return _extract(data);
     }
 
+    function checkOnlyRegistryOwner() external view onlyRegistryOwner {}
+
     function checkOnlyNodeOwner(address node) external view onlyNodeOwner(node) {}
 
     function checkOnlyNode(address node) external view onlyNode(node) {}
@@ -48,11 +50,14 @@ contract PolicyBaseTest is Test {
     address nodeOwner = address(0x4);
     address notNodeOwner = address(0x5);
 
+    address registryOwner = address(0x6);
+
     PolicyBaseHarness policy;
 
     function setUp() external {
         vm.mockCall(registry, abi.encodeWithSelector(INodeRegistry.isNode.selector, node), abi.encode(true));
         vm.mockCall(registry, abi.encodeWithSelector(INodeRegistry.isNode.selector, notNode), abi.encode(false));
+        vm.mockCall(registry, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(registryOwner));
         vm.mockCall(node, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(nodeOwner));
 
         policy = new PolicyBaseHarness(registry);
@@ -62,6 +67,14 @@ contract PolicyBaseTest is Test {
         assertTrue(policy.actions(ACTION1));
         assertTrue(policy.actions(ACTION2));
         assertFalse(policy.actions(ACTION3));
+    }
+
+    function test_onlyRegistryOwner() external {
+        vm.expectRevert(ErrorsLib.NotRegistryOwner.selector);
+        policy.checkOnlyRegistryOwner();
+
+        vm.prank(registryOwner);
+        policy.checkOnlyRegistryOwner();
     }
 
     function test_onlyNodeOwner() external {

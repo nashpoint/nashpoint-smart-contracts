@@ -8,7 +8,7 @@ import {INode} from "src/interfaces/INode.sol";
 
 import {WhitelistBase} from "src/policies/WhitelistBase.sol";
 
-contract PausingPolicy is WhitelistBase {
+contract NodePausingPolicy is WhitelistBase {
     mapping(address node => mapping(bytes4 sig => bool paused)) public sigPause;
     mapping(address node => bool paused) public globalPause;
 
@@ -41,26 +41,26 @@ contract PausingPolicy is WhitelistBase {
         actions[IERC20.transferFrom.selector] = true;
     }
 
-    function pauseSigs(address node, bytes4[] calldata sigs) external isWhitelisted(node, msg.sender) {
+    function pauseSigs(address node, bytes4[] calldata sigs) external onlyWhitelisted(node, msg.sender) {
         for (uint256 i; i < sigs.length; i++) {
             sigPause[node][sigs[i]] = true;
         }
         emit SelectorsPaused(node, sigs);
     }
 
-    function unpauseSigs(address node, bytes4[] calldata sigs) external isWhitelisted(node, msg.sender) {
+    function unpauseSigs(address node, bytes4[] calldata sigs) external onlyWhitelisted(node, msg.sender) {
         for (uint256 i; i < sigs.length; i++) {
             sigPause[node][sigs[i]] = false;
         }
         emit SelectorsUnpaused(node, sigs);
     }
 
-    function pauseGlobal(address node) external isWhitelisted(node, msg.sender) {
+    function pauseGlobal(address node) external onlyWhitelisted(node, msg.sender) {
         globalPause[node] = true;
         emit GlobalPaused(node);
     }
 
-    function unpauseGlobal(address node) external isWhitelisted(node, msg.sender) {
+    function unpauseGlobal(address node) external onlyWhitelisted(node, msg.sender) {
         globalPause[node] = false;
         emit GlobalUnpaused(node);
     }

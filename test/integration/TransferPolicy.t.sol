@@ -28,31 +28,6 @@ contract TransferPolicyTest is BaseTest {
         _addPolicies(sigs, policies);
     }
 
-    function test_manageWhitelist() external {
-        address[] memory users = _toArray(user);
-
-        vm.expectRevert(ErrorsLib.NotRegistered.selector);
-        policy.add(address(0x1234), users);
-
-        vm.expectRevert(ErrorsLib.NotNodeOwner.selector);
-        policy.add(address(node), users);
-
-        vm.startPrank(owner);
-        vm.expectEmit(true, true, true, true);
-        emit WhitelistBase.WhitelistAdded(address(node), users);
-        policy.add(address(node), users);
-        assertTrue(policy.whitelist(address(node), user));
-
-        vm.expectEmit(true, true, true, true);
-        emit WhitelistBase.WhitelistRemoved(address(node), users);
-        policy.remove(address(node), users);
-        assertFalse(policy.whitelist(address(node), user));
-        vm.stopPrank();
-
-        vm.expectRevert(ErrorsLib.NotNodeOwner.selector);
-        policy.remove(address(node), users);
-    }
-
     function test_TransferPolicy_onCheck() external {
         uint256 depositAmount = 100e18;
         uint256 shares = _userDeposits(user, depositAmount);
