@@ -172,4 +172,6 @@ library ErrorsLib {
     error NotFound(address element);
 
     error NotAllowedAction(bytes4 sig);
+
+    error Forbidden();
 }

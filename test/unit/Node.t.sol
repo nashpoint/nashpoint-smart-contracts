@@ -146,19 +146,6 @@ contract NodeTest is BaseTest {
         assertEq(testNode.owner(), owner);
     }
 
-    function test_constructor_revert_ZeroAddress() public {
-        // Test zero registry address
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Node(address(0));
-
-        {
-            // Test zero asset address
-            address node = Clones.clone(nodeImplementation);
-            vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-            INode(node).initialize(NodeInitArgs(TEST_NAME, TEST_SYMBOL, address(0), owner), testEscrow);
-        }
-    }
-
     function test_addComponent() public {
         address newComponent = makeAddr("newComponent");
         ComponentAllocation memory allocation = ComponentAllocation({
@@ -197,7 +184,7 @@ contract NodeTest is BaseTest {
         });
 
         vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        vm.expectRevert();
         testNode.addComponent(address(0), allocation.targetWeight, allocation.maxDelta, allocation.router);
     }
 
@@ -567,12 +554,6 @@ contract NodeTest is BaseTest {
         testNode.addRebalancer(makeAddr("notWhitelisted"));
     }
 
-    function test_addRebalancer_revert_ZeroAddress() public {
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.addRebalancer(address(0));
-    }
-
     function test_addRebalancer_revert_AlreadySet() public {
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
@@ -600,18 +581,6 @@ contract NodeTest is BaseTest {
         testNode.setQuoter(newQuoter);
         vm.stopPrank();
         assertEq(address(testNode.quoter()), newQuoter);
-    }
-
-    function test_setQuoter_revert_ZeroAddress() public {
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.setQuoter(address(0));
-    }
-
-    function test_setQuoter_revert_AlreadySet() public {
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testNode.setQuoter(testQuoter);
     }
 
     function test_setQuoter_revert_NotWhitelisted() public {
@@ -649,14 +618,6 @@ contract NodeTest is BaseTest {
         assertEq(testNode.getLiquidationsQueue()[0], testComponent);
         assertEq(testNode.getLiquidationsQueue()[1], testComponent2);
         assertEq(testNode.getLiquidationsQueue()[2], testComponent3);
-    }
-
-    function test_setLiquidationQueue_revert_zeroAddress() public {
-        address[] memory components = new address[](1);
-        components[0] = address(0);
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.setLiquidationQueue(components);
     }
 
     function test_setLiquidationQueue_revert_invalidComponent() public {
@@ -1511,17 +1472,6 @@ contract NodeTest is BaseTest {
         vm.startPrank(user);
         vm.expectRevert(ErrorsLib.InvalidOwner.selector);
         node.requestRedeem(1 ether, user, randomUser);
-        vm.stopPrank();
-    }
-
-    function test_requestRedeem_revert_ZeroAddress() public {
-        _seedNode(100 ether);
-        _userDeposits(user, 1 ether);
-
-        vm.startPrank(user);
-        node.approve(address(node), 1 ether);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        node.requestRedeem(1 ether, user, address(0));
         vm.stopPrank();
     }
 

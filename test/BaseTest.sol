@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
 
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {Node} from "src/Node.sol";
@@ -28,10 +29,8 @@ import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
-import {MathLib} from "src/libraries/MathLib.sol";
-
 contract BaseTest is Test {
-    using MathLib for uint256;
+    using Math for uint256;
 
     NodeRegistry public registry;
     NodeFactory public factory;
@@ -203,7 +202,7 @@ contract BaseTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
+        uint256 currentReserveRatio = Math.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
 
         return (currentReserveRatio);
     }

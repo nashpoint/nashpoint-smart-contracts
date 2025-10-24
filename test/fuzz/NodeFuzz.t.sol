@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
@@ -8,7 +10,6 @@ import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 
 contract NodeFuzzTest is BaseTest {
     uint256 public maxDeposit;
@@ -611,7 +612,7 @@ contract NodeFuzzTest is BaseTest {
         node.updateComponentAllocation(address(vault), 0.8 ether, 0, address(router4626));
         vm.stopPrank();
 
-        uint256 expectedVaultAssets = MathLib.mulDiv(userDeposit, 0.8 ether, 1 ether);
+        uint256 expectedVaultAssets = Math.mulDiv(userDeposit, 0.8 ether, 1 ether);
 
         vm.startPrank(rebalancer);
         node.startRebalance();

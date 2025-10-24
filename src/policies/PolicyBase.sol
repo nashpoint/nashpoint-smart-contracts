@@ -39,7 +39,15 @@ abstract contract PolicyBase is IPolicy {
         _executeCheck(caller, selector, payload);
     }
 
+    function receiveUserData(address caller, bytes calldata data) external onlyNode(msg.sender) {
+        _processCallerData(caller, data);
+    }
+
     function _executeCheck(address caller, bytes4 selector, bytes calldata payload) internal view virtual;
+
+    function _processCallerData(address caller, bytes calldata data) internal virtual {
+        revert ErrorsLib.Forbidden();
+    }
 
     function _onlyNode(address node) internal view {
         if (!registry.isNode(node)) revert ErrorsLib.NotRegistered();

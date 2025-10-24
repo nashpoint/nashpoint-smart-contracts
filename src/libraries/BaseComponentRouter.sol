@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {INode} from "src/interfaces/INode.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
@@ -120,13 +120,13 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
         depositAmount = _getInvestmentSize(node, component);
 
         // Validate deposit amount exceeds minimum threshold
-        if (depositAmount < MathLib.mulDiv(totalAssets, INode(node).getComponentAllocation(component).maxDelta, WAD)) {
+        if (depositAmount < Math.mulDiv(totalAssets, INode(node).getComponentAllocation(component).maxDelta, WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
 
         // limit deposit by reserve ratio requirements
         // _validateReserveAboveTargetRatio() ensures currentCash >= idealCashReserve
-        depositAmount = MathLib.min(depositAmount, currentCash - idealCashReserve);
+        depositAmount = Math.min(depositAmount, currentCash - idealCashReserve);
 
         // subtract execution fee for protocol
         depositAmount = _subtractExecutionFee(depositAmount, node);
@@ -156,12 +156,10 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
         uint256 assetsRequested,
         uint256 sharesAdjusted
     ) internal pure returns (uint256 _sharesPending, uint256 _sharesAdjusted) {
-        _sharesPending = MathLib.min(
-            sharesPending, MathLib.mulDiv(sharesPending, assetsReturned, assetsRequested, MathLib.Rounding.Up)
-        );
-        _sharesAdjusted = MathLib.min(
-            sharesAdjusted, MathLib.mulDiv(sharesAdjusted, assetsReturned, assetsRequested, MathLib.Rounding.Up)
-        );
+        _sharesPending =
+            Math.min(sharesPending, Math.mulDiv(sharesPending, assetsReturned, assetsRequested, Math.Rounding.Ceil));
+        _sharesAdjusted =
+            Math.min(sharesAdjusted, Math.mulDiv(sharesAdjusted, assetsReturned, assetsRequested, Math.Rounding.Ceil));
     }
 
     /// @notice Returns the node's cash status.
@@ -176,7 +174,7 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     {
         totalAssets = INode(node).totalAssets();
         currentCash = INode(node).getCashAfterRedemptions();
-        idealCashReserve = MathLib.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
+        idealCashReserve = Math.mulDiv(totalAssets, INode(node).targetReserveRatio(), WAD);
     }
 
     /// @notice Subtracts the execution fee from the transaction amount.

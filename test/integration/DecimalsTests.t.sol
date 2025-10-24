@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
@@ -8,7 +10,6 @@ import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -113,9 +114,7 @@ contract DecimalsTests is BaseTest {
 
         ComponentAllocation memory componentAllocation = decNode.getComponentAllocation(address(testVault6));
 
-        assertEq(
-            testVault6.balanceOf(address(decNode)), MathLib.mulDiv(deposit, componentAllocation.targetWeight, 1e18)
-        );
+        assertEq(testVault6.balanceOf(address(decNode)), Math.mulDiv(deposit, componentAllocation.targetWeight, 1e18));
         assertEq(testToken6.balanceOf(address(testVault6)), testVault6.balanceOf(address(decNode)));
 
         assertEq(decNode.balanceOf(address(user)), deposit);

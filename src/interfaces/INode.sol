@@ -334,4 +334,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     ) external;
 
     function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external;
+
+    function submitPolicyData(bytes4 sig, address policy, bytes calldata data) external;
 }

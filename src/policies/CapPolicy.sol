@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {PolicyBase} from "src/policies/PolicyBase.sol";
-
 import {INode} from "src/interfaces/INode.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
+
+import {PolicyBase} from "src/policies/PolicyBase.sol";
 
 contract CapPolicy is PolicyBase {
     mapping(address node => uint256 cap) public nodeCap;

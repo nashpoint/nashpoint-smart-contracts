@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {BaseComponentRouter} from "../libraries/BaseComponentRouter.sol";
-import {INode} from "../interfaces/INode.sol";
-import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {MathLib} from "../libraries/MathLib.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import {BaseComponentRouter} from "src/libraries/BaseComponentRouter.sol";
+import {INode} from "src/interfaces/INode.sol";
 
 /**
  * @title ERC4626Router
@@ -124,9 +125,8 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
 
         // liquidate either the requested amount or the balance of the component
         // if the requested amount is greater than the balance of the component
-        uint256 componentShares = MathLib.min(
-            IERC4626(component).convertToShares(assetsRequested), IERC20(component).balanceOf(address(node))
-        );
+        uint256 componentShares =
+            Math.min(IERC4626(component).convertToShares(assetsRequested), IERC20(component).balanceOf(address(node)));
 
         // execute the liquidation
         assetsReturned = _liquidate(node, component, componentShares);
@@ -194,7 +194,7 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
         returns (uint256 depositAssets)
     {
         uint256 targetHoldings =
-            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
+            Math.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
         uint256 currentBalance = _getComponentAssets(component, node);
 

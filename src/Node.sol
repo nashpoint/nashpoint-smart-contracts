@@ -10,13 +10,13 @@ import {IPolicy} from "src/interfaces/IPolicy.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 
 import {MulticallUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Arrays} from "@openzeppelin/contracts/utils/Arrays.sol";
@@ -24,7 +24,7 @@ import {Arrays} from "@openzeppelin/contracts/utils/Arrays.sol";
 contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, MulticallUpgradeable {
     using Address for address;
     using SafeERC20 for IERC20;
-    using MathLib for uint256;
+    using Math for uint256;
 
     /* IMMUTABLES & CONSTANTS */
     address public immutable registry;
@@ -72,13 +72,10 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     /* CONSTRUCTOR */
     constructor(address registry_) {
         _disableInitializers();
-        _nonZeroAddress(registry_);
         registry = registry_;
     }
 
     function initialize(NodeInitArgs calldata args, address escrow_) external initializer {
-        _nonZeroAddress(args.asset);
-
         __ERC20_init(args.name, args.symbol);
         // ownership will be transferred in Factory after setting up the Node (routers, component, etc)
         __Ownable_init(msg.sender);
@@ -255,7 +252,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     /// @inheritdoc INode
     function addRebalancer(address newRebalancer) external onlyOwner {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
-        _nonZeroAddress(newRebalancer);
         if (!INodeRegistry(registry).isRegistryType(newRebalancer, RegistryType.REBALANCER)) {
             revert ErrorsLib.NotWhitelisted();
         }
@@ -272,8 +268,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc INode
     function setQuoter(address newQuoter) external onlyOwner {
-        if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
-        _nonZeroAddress(newQuoter);
         if (!INodeRegistry(registry).isRegistryType(newQuoter, RegistryType.QUOTER)) revert ErrorsLib.NotWhitelisted();
         quoter = IQuoterV1(newQuoter);
         emit EventsLib.QuoterSet(newQuoter);
@@ -284,9 +278,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         _validateNoDuplicateComponents(newQueue);
 
         for (uint256 i = 0; i < newQueue.length; i++) {
-            address component = newQueue[i];
-            _nonZeroAddress(component);
-            if (!_isComponent(component)) revert ErrorsLib.InvalidComponent();
+            if (!_isComponent(newQueue[i])) revert ErrorsLib.InvalidComponent();
         }
         liquidationsQueue = newQueue;
         emit EventsLib.LiquidationQueueUpdated(newQueue);
@@ -459,7 +451,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
             uint256 adjustedAssets = quoter.calculateRedeemPenalty(
                 shares, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
             );
-            adjustedShares = MathLib.min(convertToShares(adjustedAssets), shares);
+            adjustedShares = Math.min(convertToShares(adjustedAssets), shares);
         } else {
             adjustedShares = shares;
         }
@@ -509,7 +501,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         }
         shares = _calculateSharesAfterSwingPricing(assets);
         _deposit(msg.sender, receiver, assets, shares);
-        cacheTotalAssets += assets;
         _runPolicies();
         return shares;
     }
@@ -518,9 +509,8 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ExceedsMaxMint();
         }
-        assets = _convertToAssets(shares, MathLib.Rounding.Up);
+        assets = _convertToAssets(shares, Math.Rounding.Ceil);
         _deposit(msg.sender, receiver, assets, shares);
-        cacheTotalAssets += assets;
         _runPolicies();
         return assets;
     }
@@ -538,7 +528,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         uint256 maxShares = maxRedeem(controller);
         if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
 
-        shares = MathLib.mulDiv(assets, maxShares, maxAssets, MathLib.Rounding.Up);
+        shares = Math.mulDiv(assets, maxShares, maxAssets, Math.Rounding.Ceil);
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
@@ -562,7 +552,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         uint256 maxShares = maxRedeem(controller);
         if (shares > maxShares) revert ErrorsLib.ExceedsMaxRedeem();
 
-        assets = MathLib.mulDiv(shares, maxAssets, maxShares);
+        assets = Math.mulDiv(shares, maxAssets, maxShares);
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
@@ -580,12 +570,12 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc INode
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        return _convertToShares(assets, MathLib.Rounding.Down);
+        return _convertToShares(assets, Math.Rounding.Floor);
     }
 
     /// @inheritdoc INode
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        return _convertToAssets(shares, MathLib.Rounding.Down);
+        return _convertToAssets(shares, Math.Rounding.Floor);
     }
 
     /// @inheritdoc INode
@@ -615,7 +605,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc INode
     function previewMint(uint256 shares) external view returns (uint256 assets) {
-        return _convertToAssets(shares, MathLib.Rounding.Up);
+        return _convertToAssets(shares, Math.Rounding.Ceil);
     }
 
     /// @inheritdoc INode
@@ -721,6 +711,15 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     /*//////////////////////////////////////////////////////////////
+                            OTHER USER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function submitPolicyData(bytes4 sig, address policy, bytes calldata data) external {
+        if (!sigPolicy[sig][policy]) revert ErrorsLib.Forbidden();
+        IPolicy(policy).receiveUserData(msg.sender, data);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -746,7 +745,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         Request storage request = requests[controller];
         if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
 
-        uint256 balance = MathLib.max(IERC20(asset).balanceOf(address(this)), 1);
+        uint256 balance = Math.max(IERC20(asset).balanceOf(address(this)), 1);
         uint256 assetsToReturn = convertToAssets(request.sharesAdjusted);
         uint256 sharesPending = request.pendingRedeemRequest;
         uint256 sharesAdjusted = request.sharesAdjusted;
@@ -802,12 +801,10 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     function _validateController(address controller) internal view {
-        _nonZeroAddress(controller);
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
     }
 
     function _validateOwner(address owner, uint256 shares) internal {
-        _nonZeroAddress(owner);
         if (owner != msg.sender && !isOperator[owner][msg.sender]) {
             revert ErrorsLib.InvalidOwner();
         }
@@ -826,7 +823,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     function _validateNewComponent(address component, address router) internal view {
-        _nonZeroAddress(component);
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
         if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
         if (!IRouter(router).isWhitelisted(component) || !isRouter[router]) revert ErrorsLib.NotWhitelisted();
@@ -867,7 +863,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function _calculateSharesAfterSwingPricing(uint256 assets) internal view returns (uint256 shares) {
         if (
             (totalAssets() == 0 && totalSupply() == 0) || (!swingPricingEnabled)
-                || (MathLib.mulDiv(getCashAfterRedemptions(), WAD, totalAssets()) >= targetReserveRatio)
+                || (Math.mulDiv(getCashAfterRedemptions(), WAD, totalAssets()) >= targetReserveRatio)
         ) {
             shares = convertToShares(assets);
         } else {
@@ -881,17 +877,18 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
                         ERC4626 INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _convertToShares(uint256 assets, MathLib.Rounding rounding) internal view returns (uint256) {
+    function _convertToShares(uint256 assets, Math.Rounding rounding) internal view returns (uint256) {
         return assets.mulDiv(totalSupply() + 1, totalAssets() + 1, rounding);
     }
 
-    function _convertToAssets(uint256 shares, MathLib.Rounding rounding) internal view returns (uint256) {
+    function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view returns (uint256) {
         return shares.mulDiv(totalAssets() + 1, totalSupply() + 1, rounding);
     }
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
         SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
         _mint(receiver, shares);
+        cacheTotalAssets += assets;
         emit Deposit(caller, receiver, assets, shares);
     }
 
