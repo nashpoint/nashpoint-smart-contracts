@@ -8,6 +8,7 @@ import {stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation, Request, NodeInitArgs} from "src/interfaces/INode.sol";
+import {IPolicy} from "src/interfaces/IPolicy.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
@@ -24,6 +25,26 @@ import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+
+contract PolicyDataReceiverMock is IPolicy {
+    address public lastCaller;
+    address public lastMsgSender;
+    bytes public lastData;
+    bool public revertOnReceive;
+
+    function onCheck(address, bytes calldata) external pure override {}
+
+    function receiveUserData(address caller, bytes calldata data) external override {
+        if (revertOnReceive) revert ErrorsLib.Forbidden();
+        lastCaller = caller;
+        lastMsgSender = msg.sender;
+        lastData = data;
+    }
+
+    function setRevertOnReceive(bool shouldRevert) external {
+        revertOnReceive = shouldRevert;
+    }
+}
 
 contract NodeTest is BaseTest {
     using stdStorage for StdStorage;
@@ -2322,6 +2343,60 @@ contract NodeTest is BaseTest {
             abi.encodeWithSelector(ErrorsLib.PolicyAlreadyRemoved.selector, removeSigs[0], removePolicies[0])
         );
         node.removePolicies(removeSigs, removePolicies);
+    }
+
+    function test_submitPolicyData_revertsWhenPolicyNotRegistered() external {
+        PolicyDataReceiverMock policy = new PolicyDataReceiverMock();
+        bytes memory payload = abi.encode("payload");
+
+        vm.expectRevert(ErrorsLib.Forbidden.selector);
+        vm.prank(user);
+        testNode.submitPolicyData(IERC7575.deposit.selector, address(policy), payload);
+    }
+
+    function test_submitPolicyData_forwardsCallerAndData() external {
+        PolicyDataReceiverMock policy = new PolicyDataReceiverMock();
+        _registerTestNodePolicy(IERC7575.deposit.selector, address(policy));
+
+        bytes memory payload = abi.encode(address(0xbeef), uint256(123));
+
+        vm.prank(user);
+        testNode.submitPolicyData(IERC7575.deposit.selector, address(policy), payload);
+
+        assertTrue(testNode.isSigPolicy(IERC7575.deposit.selector, address(policy)));
+        assertEq(policy.lastCaller(), user);
+        assertEq(policy.lastMsgSender(), address(testNode));
+        assertEq(policy.lastData(), payload);
+    }
+
+    function test_submitPolicyData_propagatesPolicyRevert() external {
+        PolicyDataReceiverMock policy = new PolicyDataReceiverMock();
+        _registerTestNodePolicy(IERC7575.deposit.selector, address(policy));
+        policy.setRevertOnReceive(true);
+
+        bytes memory payload = abi.encode("should revert");
+
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.Forbidden.selector);
+        testNode.submitPolicyData(IERC7575.deposit.selector, address(policy), payload);
+    }
+
+    function _registerTestNodePolicy(bytes4 sig, address policyAddr) internal {
+        bytes32[] memory proof = new bytes32[](0);
+        bool[] memory proofFlags = new bool[](0);
+        bytes4[] memory sigs = new bytes4[](1);
+        sigs[0] = sig;
+        address[] memory policies_ = new address[](1);
+        policies_[0] = policyAddr;
+
+        vm.mockCall(
+            address(testRegistry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, sigs, policies_),
+            abi.encode(true)
+        );
+
+        vm.prank(owner);
+        testNode.addPolicies(proof, proofFlags, sigs, policies_);
     }
 
     // HELPER FUNCTIONS
