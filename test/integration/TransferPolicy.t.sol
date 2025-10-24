@@ -5,6 +5,7 @@ import {BaseTest} from "test/BaseTest.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {TransferPolicy} from "src/policies/TransferPolicy.sol";
+import {WhitelistBase} from "src/policies/WhitelistBase.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
 contract TransferPolicyTest is BaseTest {
@@ -38,12 +39,12 @@ contract TransferPolicyTest is BaseTest {
 
         vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
-        emit TransferPolicy.WhitelistAdded(address(node), users);
+        emit WhitelistBase.WhitelistAdded(address(node), users);
         policy.add(address(node), users);
         assertTrue(policy.whitelist(address(node), user));
 
         vm.expectEmit(true, true, true, true);
-        emit TransferPolicy.WhitelistRemoved(address(node), users);
+        emit WhitelistBase.WhitelistRemoved(address(node), users);
         policy.remove(address(node), users);
         assertFalse(policy.whitelist(address(node), user));
         vm.stopPrank();
