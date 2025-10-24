@@ -1,27 +1,33 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {UUPSUpgradeable} from "@openzeppelin-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
+
 import {INodeRegistry, RegistryType} from "./interfaces/INodeRegistry.sol";
 
 /**
  * @title NodeRegistry
  * @author ODND Studios
  */
-contract NodeRegistry is INodeRegistry, Ownable {
+contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
     /* STATE */
     uint64 public constant WAD = 1e18;
-    bool public isInitialized;
     address public protocolFeeAddress;
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
     uint64 public protocolMaxSwingFactor;
-    mapping(address => mapping(RegistryType => bool)) public roles;
+    mapping(address => mapping(RegistryType => bool)) internal roles;
+    bytes32 public policiesRoot;
 
     /* CONSTRUCTOR */
-    constructor(address owner_) Ownable(owner_) {}
+    constructor() {
+        _disableInitializers();
+    }
 
     /* MODIFIERS */
     modifier onlyFactory() {
@@ -29,36 +35,37 @@ contract NodeRegistry is INodeRegistry, Ownable {
         _;
     }
 
-    modifier onlyInitialized() {
-        if (!isInitialized) revert ErrorsLib.NotInitialized();
-        _;
-    }
-
     /* EXTERNAL */
+    /// @notice Initializes the registry with protocol level parameters
+    /// @param owner Owner address that will control upgrades and configuration
+    /// @param feeAddress_ Destination for protocol fees
+    /// @param managementFee_ Protocol share of management fees in WAD
+    /// @param executionFee_ Protocol execution fee in WAD
+    /// @param maxSwingFactor_ Maximum swing pricing factor allowed for nodes
     function initialize(
-        address[] memory factories_,
-        address[] memory routers_,
-        address[] memory quoters_,
-        address[] memory rebalancers_,
+        address owner,
         address feeAddress_,
         uint64 managementFee_,
         uint64 executionFee_,
         uint64 maxSwingFactor_
-    ) external onlyOwner {
-        if (isInitialized) revert ErrorsLib.AlreadyInitialized();
-        _initializeRoles(factories_, RegistryType.FACTORY);
-        _initializeRoles(routers_, RegistryType.ROUTER);
-        _initializeRoles(quoters_, RegistryType.QUOTER);
-        _initializeRoles(rebalancers_, RegistryType.REBALANCER);
+    ) external initializer {
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+
         _setProtocolFeeAddress(feeAddress_);
         _setProtocolManagementFee(managementFee_);
         _setProtocolExecutionFee(executionFee_);
         _setProtocolMaxSwingFactor(maxSwingFactor_);
-        isInitialized = true;
     }
 
     /// @inheritdoc INodeRegistry
-    function setRegistryType(address addr, RegistryType type_, bool status) external onlyInitialized onlyOwner {
+    function setPoliciesRoot(bytes32 newRoot) external onlyOwner {
+        policiesRoot = newRoot;
+        emit EventsLib.PoliciesRootUpdate(newRoot);
+    }
+
+    /// @inheritdoc INodeRegistry
+    function setRegistryType(address addr, RegistryType type_, bool status) external onlyOwner {
         if (type_ == RegistryType.UNUSED) revert ErrorsLib.InvalidRole();
         if (type_ == RegistryType.NODE) revert ErrorsLib.NotFactory();
         if (roles[addr][type_] == status) revert ErrorsLib.AlreadySet();
@@ -67,7 +74,7 @@ contract NodeRegistry is INodeRegistry, Ownable {
     }
 
     /// @inheritdoc INodeRegistry
-    function addNode(address node) external onlyInitialized onlyFactory {
+    function addNode(address node) external onlyFactory {
         if (roles[node][RegistryType.NODE]) revert ErrorsLib.AlreadySet();
         roles[node][RegistryType.NODE] = true;
         emit EventsLib.NodeAdded(node);
@@ -105,15 +112,22 @@ contract NodeRegistry is INodeRegistry, Ownable {
         return roles[addr][type_];
     }
 
-    /* INTERNAL */
-
-    function _initializeRoles(address[] memory addrs, RegistryType role) internal {
-        for (uint256 i = 0; i < addrs.length; i++) {
-            if (addrs[i] == address(0)) revert ErrorsLib.ZeroAddress();
-            roles[addrs[i]][role] = true;
-            emit EventsLib.RoleSet(addrs[i], role, true);
+    /// @inheritdoc INodeRegistry
+    function verifyPolicies(
+        bytes32[] calldata proof,
+        bool[] calldata proofFlags,
+        bytes4[] calldata sigs,
+        address[] calldata policies
+    ) external view returns (bool valid) {
+        if (sigs.length != policies.length) revert ErrorsLib.LengthMismatch();
+        bytes32[] memory leaves = new bytes32[](policies.length);
+        for (uint256 i; i < policies.length; i++) {
+            leaves[i] = _getLeaf(sigs[i], policies[i]);
         }
+        return MerkleProof.multiProofVerify(proof, proofFlags, policiesRoot, leaves);
     }
+
+    /* INTERNAL */
 
     function _setProtocolFeeAddress(address newProtocolFeeAddress) internal {
         if (newProtocolFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
@@ -139,4 +153,10 @@ contract NodeRegistry is INodeRegistry, Ownable {
         protocolMaxSwingFactor = newProtocolMaxSwingFactor;
         emit EventsLib.ProtocolMaxSwingFactorSet(newProtocolMaxSwingFactor);
     }
+
+    function _getLeaf(bytes4 sig, address policy) internal pure returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(sig, policy))));
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

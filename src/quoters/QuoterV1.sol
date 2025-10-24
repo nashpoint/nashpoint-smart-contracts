@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
@@ -11,7 +12,6 @@ import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 
 import {BaseQuoter} from "../libraries/BaseQuoter.sol";
-import {MathLib} from "../libraries/MathLib.sol";
 
 import {UD60x18, ud} from "lib/prb-math/src/UD60x18.sol";
 import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
@@ -19,7 +19,7 @@ import {SD59x18, exp, sd} from "lib/prb-math/src/SD59x18.sol";
 /// @title QuoterV1
 /// @author ODND Studios
 contract QuoterV1 is IQuoterV1, BaseQuoter {
-    using MathLib for uint256;
+    using Math for uint256;
 
     /* ERRORS */
     error InvalidInput(int256 reserveImpact);
@@ -66,7 +66,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
 
         // Adjust the deposited assets based on the swing pricing factor.
         uint256 adjustedAssets =
-            MathLib.mulDiv(assets, (WAD + _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
+            assets.mulDiv((WAD + _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
 
         // Calculate the number of shares to mint based on the adjusted assets.
         shares = IERC7575(msg.sender).convertToShares(adjustedAssets);
@@ -102,10 +102,10 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         if (assets >= reserveCash) {
             reserveImpact = 0;
         } else {
-            reserveImpact = int256(MathLib.mulDiv(reserveCash - assets, WAD, totalAssets - assets));
+            reserveImpact = int256(Math.mulDiv(reserveCash - assets, WAD, totalAssets - assets));
         }
 
-        assets = MathLib.mulDiv(assets, (WAD - _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
+        assets = Math.mulDiv(assets, (WAD - _getSwingFactor(reserveImpact, maxSwingFactor, targetReserveRatio)), WAD);
         return assets;
     }
 
@@ -129,7 +129,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
     ) internal pure returns (int256) {
         // get the required assets in unit terms where actual reserve ratio = target reserve ratio
         uint256 investedAssets = totalAssets - reserveCash;
-        uint256 targetReserveAssets = MathLib.mulDiv(investedAssets, targetReserveRatio, WAD - targetReserveRatio);
+        uint256 targetReserveAssets = investedAssets.mulDiv(targetReserveRatio, WAD - targetReserveRatio);
 
         // get size of reserve delta closed in unit terms by returning the min of deposit and asset shortfall
         // if we don't take the min then we could overpay the deposit bonus
@@ -138,16 +138,16 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
             deltaClosed = 0;
         } else {
             uint256 shortfall = targetReserveAssets - reserveCash;
-            deltaClosed = MathLib.min(deposit, shortfall);
+            deltaClosed = Math.min(deposit, shortfall);
         }
 
         // get delta closed in percentage terms by dividing delta closed by target reserve assets
-        uint256 deltaClosedPct = MathLib.mulDiv(deltaClosed, WAD, targetReserveAssets);
+        uint256 deltaClosedPct = Math.mulDiv(deltaClosed, WAD, targetReserveAssets);
 
         // Get reserveImpact as a measure of how much the deposit helps to close any asset shortfall
         // As deltaClosedPct increases to 100% this number reaches zero
         // It is multiplied by the targetReserveRatio to cancel out this in the denominator in the swing factor equation
-        uint256 reserveImpact = MathLib.mulDiv(WAD - deltaClosedPct, targetReserveRatio, WAD);
+        uint256 reserveImpact = Math.mulDiv(WAD - deltaClosedPct, targetReserveRatio, WAD);
         return int256(reserveImpact);
     }
 

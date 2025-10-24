@@ -19,9 +19,9 @@ contract Escrow {
     address public immutable node;
 
     /* CONSTRUCTOR */
-    constructor(address node_) {
+    constructor(address node_, address asset) {
         if (node_ == address(0)) revert ErrorsLib.ZeroAddress();
         node = node_;
-        IERC20(IERC4626(node).asset()).safeIncreaseAllowance(address(node), type(uint256).max);
+        IERC20(asset).safeIncreaseAllowance(address(node), type(uint256).max);
     }
 }

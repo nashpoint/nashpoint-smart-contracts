@@ -1,28 +1,31 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {INode, ComponentAllocation, Request, IERC7575, IERC165} from "src/interfaces/INode.sol";
+import {INode, ComponentAllocation, NodeInitArgs, Request, IERC7575, IERC165} from "src/interfaces/INode.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
+import {IPolicy} from "src/interfaces/IPolicy.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
+import {NodeLib} from "src/libraries/NodeLib.sol";
 
+import {MulticallUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/MulticallUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Arrays} from "@openzeppelin/contracts/utils/Arrays.sol";
 
-contract Node is INode, ERC20, Ownable, ReentrancyGuard {
+contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, MulticallUpgradeable {
     using Address for address;
     using SafeERC20 for IERC20;
-    using MathLib for uint256;
+    using Math for uint256;
 
     /* IMMUTABLES & CONSTANTS */
     address public immutable registry;
@@ -34,7 +37,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     uint64 public targetReserveRatio;
     address public asset;
     address[] internal components;
-    address[] public liquidationsQueue;
+    address[] internal liquidationsQueue;
     mapping(address => ComponentAllocation) internal componentAllocations;
 
     /* PROTOCOL ADDRESSES */
@@ -45,8 +48,8 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     mapping(address => mapping(address => bool)) public isOperator;
 
     /* REBALANCE COOLDOWN */
-    uint64 public rebalanceCooldown = 23 hours;
-    uint64 public rebalanceWindow = 1 hours;
+    uint64 public rebalanceCooldown;
+    uint64 public rebalanceWindow;
     uint64 public lastRebalance;
 
     /* FEES & ACCOUNTING */
@@ -54,34 +57,43 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     uint64 public lastPayment;
     uint256 public maxDepositSize;
     uint256 public sharesExiting;
-    uint256 public cacheTotalAssets;
+    uint256 internal cacheTotalAssets;
     address public nodeOwnerFeeAddress;
     mapping(address => Request) public requests;
 
     /* SWING PRICING */
     uint64 public maxSwingFactor;
     bool public swingPricingEnabled;
-    bool public isInitialized;
+
+    mapping(bytes4 => address[]) internal policies;
+    mapping(bytes4 => mapping(address => bool)) internal sigPolicy;
+    uint8 internal _decimals;
 
     /* CONSTRUCTOR */
-    constructor(
-        address registry_,
-        string memory name,
-        string memory symbol,
-        address asset_,
-        address owner,
-        address[] memory components_,
-        ComponentAllocation[] memory componentAllocations_,
-        uint64 targetReserveRatio_
-    ) ERC20(name, symbol) Ownable(owner) {
-        if (registry_ == address(0) || asset_ == address(0)) revert ErrorsLib.ZeroAddress();
-        if (components_.length != componentAllocations_.length) revert ErrorsLib.LengthMismatch();
-
+    constructor(address registry_) {
+        _disableInitializers();
         registry = registry_;
-        asset = asset_;
-        nodeOwnerFeeAddress = owner;
-        _setTargetReserveRatio(targetReserveRatio_);
-        _setInitialComponents(components_, componentAllocations_);
+    }
+
+    /// @inheritdoc INode
+    function initialize(NodeInitArgs calldata args, address escrow_) external initializer {
+        __ERC20_init(args.name, args.symbol);
+        // ownership will be transferred in Factory after setting up the Node (routers, component, etc)
+        __Ownable_init(msg.sender);
+        __ReentrancyGuard_init();
+        __Multicall_init();
+
+        asset = args.asset;
+        nodeOwnerFeeAddress = args.owner;
+        escrow = escrow_;
+
+        rebalanceCooldown = 23 hours;
+        rebalanceWindow = 1 hours;
+
+        lastRebalance = uint64(block.timestamp - rebalanceWindow);
+        lastPayment = uint64(block.timestamp);
+        _decimals = IERC20Metadata(args.asset).decimals();
+        maxDepositSize = 10_000_000 * 10 ** _decimals;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -90,38 +102,56 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @notice Reverts if the sender is not a router
     modifier onlyRouter() {
-        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
+        _onlyRouter();
         _;
+    }
+
+    function _onlyRouter() internal view {
+        if (!isRouter[msg.sender]) revert ErrorsLib.InvalidSender();
     }
 
     /// @notice Reverts if the sender is not a rebalancer
     modifier onlyRebalancer() {
-        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+        _onlyRebalancer();
         _;
+    }
+
+    function _onlyRebalancer() internal view {
+        if (!isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
     }
 
     /// @notice Reverts if the sender is not the owner or a rebalancer
     modifier onlyOwnerOrRebalancer() {
-        if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
+        _onlyOwnerOrRebalancer();
         _;
+    }
+
+    function _onlyOwnerOrRebalancer() internal view {
+        if (msg.sender != owner() && !isRebalancer[msg.sender]) revert ErrorsLib.InvalidSender();
     }
 
     /// @notice Reverts if the current block timestamp is outside the rebalance window
     modifier onlyWhenRebalancing() {
-        unchecked {
-            if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
-        }
+        _onlyWhenRebalancing();
         _;
+    }
+
+    function _onlyWhenRebalancing() internal view {
+        if (block.timestamp >= lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowClosed();
     }
 
     /// @notice Reverts if the current block timestamp is within the rebalance window
     modifier onlyWhenNotRebalancing() {
-        unchecked {
-            if (block.timestamp < lastRebalance + rebalanceWindow) {
-                revert ErrorsLib.RebalanceWindowOpen();
-            }
-        }
+        _onlyWhenNotRebalancing();
         _;
+    }
+
+    function _onlyWhenNotRebalancing() internal view {
+        if (block.timestamp < lastRebalance + rebalanceWindow) revert ErrorsLib.RebalanceWindowOpen();
+    }
+
+    function _nonZeroAddress(address address_) internal view {
+        if (address_ == address(0)) revert ErrorsLib.ZeroAddress();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -129,18 +159,18 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INode
-    function initialize(address escrow_) external onlyOwner {
-        if (isInitialized) revert ErrorsLib.AlreadyInitialized();
-        if (escrow_ == address(0)) revert ErrorsLib.ZeroAddress();
+    function addPolicies(
+        bytes32[] calldata proof,
+        bool[] calldata proofFlags,
+        bytes4[] calldata sigs,
+        address[] calldata policies_
+    ) external onlyOwner {
+        NodeLib.addPolicies(registry, policies, sigPolicy, proof, proofFlags, sigs, policies_);
+    }
 
-        escrow = escrow_;
-        lastRebalance = uint64(block.timestamp - rebalanceWindow);
-        lastPayment = uint64(block.timestamp);
-        maxDepositSize = 10_000_000 * 10 ** decimals();
-        _setInitialRouters();
-        isInitialized = true;
-
-        emit EventsLib.Initialize(escrow_, address(this));
+    /// @inheritdoc INode
+    function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external onlyOwner {
+        NodeLib.removePolicies(policies, sigPolicy, sigs, policies_);
     }
 
     /// @inheritdoc INode
@@ -169,18 +199,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
             revert ErrorsLib.NotBlacklisted();
         }
 
-        uint256 length = components.length;
-        for (uint256 i = 0; i < length; i++) {
-            if (components[i] == component) {
-                if (i != length - 1) {
-                    components[i] = components[length - 1];
-                }
-                components.pop();
-                delete componentAllocations[component];
-                emit EventsLib.ComponentRemoved(component);
-                return;
-            }
-        }
+        NodeLib.remove(components, component);
+        delete componentAllocations[component];
+        emit EventsLib.ComponentRemoved(component);
     }
 
     /// @inheritdoc INode
@@ -199,7 +220,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function updateTargetReserveRatio(uint64 targetReserveRatio_) external onlyOwner onlyWhenNotRebalancing {
-        _setTargetReserveRatio(targetReserveRatio_);
+        if (targetReserveRatio_ >= WAD) revert ErrorsLib.InvalidComponentRatios();
+        targetReserveRatio = targetReserveRatio_;
+        emit EventsLib.TargetReserveRatioUpdated(targetReserveRatio_);
     }
 
     /// @inheritdoc INode
@@ -219,7 +242,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     /// @inheritdoc INode
     function addRebalancer(address newRebalancer) external onlyOwner {
         if (isRebalancer[newRebalancer]) revert ErrorsLib.AlreadySet();
-        if (newRebalancer == address(0)) revert ErrorsLib.ZeroAddress();
         if (!INodeRegistry(registry).isRegistryType(newRebalancer, RegistryType.REBALANCER)) {
             revert ErrorsLib.NotWhitelisted();
         }
@@ -236,8 +258,6 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function setQuoter(address newQuoter) external onlyOwner {
-        if (newQuoter == address(quoter)) revert ErrorsLib.AlreadySet();
-        if (newQuoter == address(0)) revert ErrorsLib.ZeroAddress();
         if (!INodeRegistry(registry).isRegistryType(newQuoter, RegistryType.QUOTER)) revert ErrorsLib.NotWhitelisted();
         quoter = IQuoterV1(newQuoter);
         emit EventsLib.QuoterSet(newQuoter);
@@ -248,9 +268,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         _validateNoDuplicateComponents(newQueue);
 
         for (uint256 i = 0; i < newQueue.length; i++) {
-            address component = newQueue[i];
-            if (component == address(0)) revert ErrorsLib.ZeroAddress();
-            if (!_isComponent(component)) revert ErrorsLib.InvalidComponent();
+            if (!_isComponent(newQueue[i])) revert ErrorsLib.InvalidComponent();
         }
         liquidationsQueue = newQueue;
         emit EventsLib.LiquidationQueueUpdated(newQueue);
@@ -270,6 +288,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function enableSwingPricing(bool status_, uint64 maxSwingFactor_) external onlyOwner {
+        _nonZeroAddress(address(quoter));
         if (maxSwingFactor_ > INodeRegistry(registry).protocolMaxSwingFactor()) revert ErrorsLib.InvalidSwingFactor();
         swingPricingEnabled = status_;
         maxSwingFactor = maxSwingFactor_;
@@ -278,7 +297,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external onlyOwner {
-        if (newNodeOwnerFeeAddress == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(newNodeOwnerFeeAddress);
         if (newNodeOwnerFeeAddress == nodeOwnerFeeAddress) revert ErrorsLib.AlreadySet();
         nodeOwnerFeeAddress = newNodeOwnerFeeAddress;
         emit EventsLib.NodeOwnerFeeAddressSet(newNodeOwnerFeeAddress);
@@ -298,6 +317,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.MaxDepositSizeSet(newMaxDepositSize);
     }
 
+    /// @inheritdoc INode
     function rescueTokens(address token, address recipient, uint256 amount) external onlyOwner {
         if (token == asset) revert ErrorsLib.InvalidToken();
         if (_isComponent(token)) revert ErrorsLib.InvalidToken();
@@ -310,14 +330,15 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc INode
-    function startRebalance() external onlyRebalancer {
-        if (!_validateComponentRatios()) revert ErrorsLib.InvalidComponentRatios();
+    function startRebalance() external onlyRebalancer nonReentrant {
+        if (!validateComponentRatios()) revert ErrorsLib.InvalidComponentRatios();
         if (isCacheValid()) revert ErrorsLib.CooldownActive();
 
         lastRebalance = uint64(block.timestamp);
         _updateTotalAssets();
         _payManagementFees();
         _updateLastPayment();
+        _runPolicies();
 
         emit EventsLib.RebalanceStarted(block.timestamp, rebalanceWindow);
     }
@@ -326,22 +347,31 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function execute(address target, bytes calldata data)
         external
         onlyRouter
+        nonReentrant
         onlyWhenRebalancing
         returns (bytes memory)
     {
-        if (target == address(0)) revert ErrorsLib.ZeroAddress();
+        _nonZeroAddress(target);
         bytes memory result = target.functionCall(data);
+        _runPolicies();
         emit EventsLib.Execute(target, data, result);
         return result;
     }
 
     /// @inheritdoc INode
-    function payManagementFees() external onlyOwnerOrRebalancer onlyWhenNotRebalancing returns (uint256 feeForPeriod) {
+    function payManagementFees()
+        external
+        nonReentrant
+        onlyOwnerOrRebalancer
+        onlyWhenNotRebalancing
+        returns (uint256 feeForPeriod)
+    {
         _updateTotalAssets();
         feeForPeriod = _payManagementFees();
         if (feeForPeriod > 0) {
             _updateLastPayment();
         }
+        _runPolicies();
     }
 
     function _payManagementFees() internal returns (uint256 feeForPeriod) {
@@ -365,29 +395,26 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter {
+    function subtractProtocolExecutionFee(uint256 executionFee) external onlyRouter nonReentrant {
         if (executionFee > IERC20(asset).balanceOf(address(this))) {
             revert ErrorsLib.NotEnoughAssetsToPayFees(executionFee, IERC20(asset).balanceOf(address(this)));
         }
         cacheTotalAssets -= executionFee;
         IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), executionFee);
+        _runPolicies();
         emit EventsLib.ExecutionFeeTaken(executionFee);
     }
 
-    function updateTotalAssets() external onlyOwnerOrRebalancer {
+    /// @inheritdoc INode
+    function updateTotalAssets() external onlyOwnerOrRebalancer nonReentrant {
         _updateTotalAssets();
+        _runPolicies();
     }
 
     /// @inheritdoc INode
-    function fulfillRedeemFromReserve(address controller) external onlyRebalancer onlyWhenRebalancing {
+    function fulfillRedeemFromReserve(address controller) external onlyRebalancer onlyWhenRebalancing nonReentrant {
         _fulfillRedeemFromReserve(controller);
-    }
-
-    /// @inheritdoc INode
-    function fulfillRedeemBatch(address[] memory controllers) external onlyRebalancer onlyWhenRebalancing {
-        for (uint256 i = 0; i < controllers.length; i++) {
-            _fulfillRedeemFromReserve(controllers[i]);
-        }
+        _runPolicies();
     }
 
     /// @inheritdoc INode
@@ -396,8 +423,9 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         uint256 assetsToReturn,
         uint256 sharesPending,
         uint256 sharesAdjusted
-    ) external onlyRouter {
+    ) external onlyRouter nonReentrant {
         _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
+        _runPolicies();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -410,23 +438,22 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        unchecked {
-            uint256 adjustedShares = 0;
-            if (swingPricingEnabled) {
-                uint256 adjustedAssets = quoter.calculateRedeemPenalty(
-                    shares, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
-                );
-                adjustedShares = MathLib.min(convertToShares(adjustedAssets), shares);
-            } else {
-                adjustedShares = shares;
-            }
-
-            Request storage request = requests[controller];
-            request.pendingRedeemRequest += shares;
-            request.sharesAdjusted += adjustedShares;
-            sharesExiting += adjustedShares;
+        uint256 adjustedShares = 0;
+        if (swingPricingEnabled) {
+            uint256 adjustedAssets = quoter.calculateRedeemPenalty(
+                shares, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
+            );
+            adjustedShares = Math.min(convertToShares(adjustedAssets), shares);
+        } else {
+            adjustedShares = shares;
         }
+
+        Request storage request = requests[controller];
+        request.pendingRedeemRequest += shares;
+        request.sharesAdjusted += adjustedShares;
+        sharesExiting += adjustedShares;
         _transfer(owner, address(escrow), shares);
+        _runPolicies();
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
     }
@@ -442,9 +469,10 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function setOperator(address operator, bool approved) external returns (bool success) {
+    function setOperator(address operator, bool approved) external nonReentrant returns (bool success) {
         if (msg.sender == operator) revert ErrorsLib.CannotSetSelfAsOperator();
         isOperator[msg.sender][operator] = approved;
+        _runPolicies();
         emit OperatorSet(msg.sender, operator, approved);
         success = true;
     }
@@ -459,27 +487,34 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                             ERC-4626 FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
+    /// @inheritdoc IERC7575
+    function deposit(uint256 assets, address receiver) external nonReentrant returns (uint256 shares) {
         if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
         shares = _calculateSharesAfterSwingPricing(assets);
         _deposit(msg.sender, receiver, assets, shares);
-        cacheTotalAssets += assets;
+        _runPolicies();
         return shares;
     }
 
-    function mint(uint256 shares, address receiver) external returns (uint256 assets) {
+    /// @inheritdoc IERC7575
+    function mint(uint256 shares, address receiver) external nonReentrant returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ExceedsMaxMint();
         }
-        assets = _convertToAssets(shares, MathLib.Rounding.Up);
+        assets = _convertToAssets(shares, Math.Rounding.Ceil);
         _deposit(msg.sender, receiver, assets, shares);
-        cacheTotalAssets += assets;
+        _runPolicies();
         return assets;
     }
 
-    function withdraw(uint256 assets, address receiver, address controller) external returns (uint256 shares) {
+    /// @inheritdoc IERC7575
+    function withdraw(uint256 assets, address receiver, address controller)
+        external
+        nonReentrant
+        returns (uint256 shares)
+    {
         if (assets == 0) revert ErrorsLib.ZeroAmount();
         _validateController(controller);
         Request storage request = requests[controller];
@@ -488,17 +523,23 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         uint256 maxShares = maxRedeem(controller);
         if (assets > maxAssets) revert ErrorsLib.ExceedsMaxWithdraw();
 
-        shares = MathLib.mulDiv(assets, maxShares, maxAssets, MathLib.Rounding.Up);
+        shares = Math.mulDiv(assets, maxShares, maxAssets, Math.Rounding.Ceil);
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
         // slither-disable-next-line arbitrary-send-erc20
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
+        _runPolicies();
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
         return shares;
     }
 
-    function redeem(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
+    /// @inheritdoc IERC7575
+    function redeem(uint256 shares, address receiver, address controller)
+        external
+        nonReentrant
+        returns (uint256 assets)
+    {
         if (shares == 0) revert ErrorsLib.ZeroAmount();
         _validateController(controller);
         Request storage request = requests[controller];
@@ -507,12 +548,13 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         uint256 maxShares = maxRedeem(controller);
         if (shares > maxShares) revert ErrorsLib.ExceedsMaxRedeem();
 
-        assets = MathLib.mulDiv(shares, maxAssets, maxShares);
+        assets = Math.mulDiv(shares, maxAssets, maxShares);
         request.claimableRedeemRequest -= shares;
         request.claimableAssets -= assets;
 
         // slither-disable-next-line arbitrary-send-erc20
         IERC20(asset).safeTransferFrom(escrow, receiver, assets);
+        _runPolicies();
         emit IERC7575.Withdraw(msg.sender, receiver, controller, assets, shares);
         return assets;
     }
@@ -524,12 +566,12 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        return _convertToShares(assets, MathLib.Rounding.Down);
+        return _convertToShares(assets, Math.Rounding.Floor);
     }
 
     /// @inheritdoc INode
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        return _convertToAssets(shares, MathLib.Rounding.Down);
+        return _convertToAssets(shares, Math.Rounding.Floor);
     }
 
     /// @inheritdoc INode
@@ -559,7 +601,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function previewMint(uint256 shares) external view returns (uint256 assets) {
-        return _convertToAssets(shares, MathLib.Rounding.Up);
+        return _convertToAssets(shares, Math.Rounding.Ceil);
     }
 
     /// @inheritdoc INode
@@ -572,13 +614,27 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         revert();
     }
 
-    function decimals() public view override(ERC20, IERC20Metadata) returns (uint8) {
-        (bool success, bytes memory data) = asset.staticcall(abi.encodeWithSignature("decimals()"));
-        if (success && data.length >= 32) {
-            return abi.decode(data, (uint8));
-        } else {
-            return 18;
-        }
+    function decimals() public view override(ERC20Upgradeable, IERC20Metadata) returns (uint8) {
+        return _decimals;
+    }
+
+    function transfer(address to, uint256 value) public override(ERC20Upgradeable, IERC20) returns (bool) {
+        super.transfer(to, value);
+        _runPolicies();
+    }
+
+    function approve(address spender, uint256 value) public override(ERC20Upgradeable, IERC20) returns (bool) {
+        super.approve(spender, value);
+        _runPolicies();
+    }
+
+    function transferFrom(address from, address to, uint256 value)
+        public
+        override(ERC20Upgradeable, IERC20)
+        returns (bool)
+    {
+        super.transferFrom(from, to, value);
+        _runPolicies();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -607,7 +663,12 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
 
     /// @inheritdoc INode
     function validateComponentRatios() public view returns (bool) {
-        return _validateComponentRatios();
+        uint256 totalWeight = targetReserveRatio;
+        uint256 length = components.length;
+        for (uint256 i; i < length; ++i) {
+            totalWeight += componentAllocations[components[i]].targetWeight;
+        }
+        return totalWeight == WAD;
     }
 
     /// @inheritdoc INode
@@ -619,18 +680,42 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc INode
-    function enforceLiquidationOrder(address component, uint256 assetsToReturn) public view {
+    function enforceLiquidationOrder(address component, uint256 assetsToReturn) external view {
         _enforceLiquidationOrder(component, assetsToReturn);
     }
 
     /// @inheritdoc INode
-    function share() public view returns (address) {
+    function share() external view returns (address) {
         return address(this);
     }
 
     /// @inheritdoc INode
     function getLiquidationsQueue() external view returns (address[] memory) {
         return liquidationsQueue;
+    }
+
+    /// @inheritdoc INode
+    function getUncachedTotalAssets() external view returns (uint256 assets) {
+        return _getTotalAssets();
+    }
+
+    /// @inheritdoc INode
+    function getPolicies(bytes4 sig) external view returns (address[] memory policies_) {
+        return policies[sig];
+    }
+
+    /// @inheritdoc INode
+    function isSigPolicy(bytes4 sig, address policy) external view returns (bool isRegistered) {
+        return sigPolicy[sig][policy];
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            OTHER USER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc INode
+    function submitPolicyData(bytes4 sig, address policy, bytes calldata data) external {
+        NodeLib.submitPolicyData(sigPolicy, sig, policy, data);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -645,7 +730,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         Request storage request = requests[controller];
         if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
 
-        uint256 balance = MathLib.max(IERC20(asset).balanceOf(address(this)), 1);
+        uint256 balance = Math.max(IERC20(asset).balanceOf(address(this)), 1);
         uint256 assetsToReturn = convertToAssets(request.sharesAdjusted);
         uint256 sharesPending = request.pendingRedeemRequest;
         uint256 sharesAdjusted = request.sharesAdjusted;
@@ -684,25 +769,27 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         emit EventsLib.RedeemClaimable(controller, REQUEST_ID, assetsToReturn, sharesPending);
     }
 
-    function _updateTotalAssets() internal {
-        uint256 assets = IERC20(asset).balanceOf(address(this));
+    function _getTotalAssets() internal view returns (uint256 assets) {
+        assets = IERC20(asset).balanceOf(address(this));
         uint256 len = components.length;
         for (uint256 i = 0; i < len; i++) {
             address component = components[i];
             address router = componentAllocations[component].router;
             assets += IRouter(router).getComponentAssets(component, false);
         }
+    }
+
+    function _updateTotalAssets() internal {
+        uint256 assets = _getTotalAssets();
         cacheTotalAssets = assets;
         emit EventsLib.TotalAssetsUpdated(assets);
     }
 
     function _validateController(address controller) internal view {
-        if (controller == address(0)) revert ErrorsLib.ZeroAddress();
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert ErrorsLib.InvalidController();
     }
 
     function _validateOwner(address owner, uint256 shares) internal {
-        if (owner == address(0)) revert ErrorsLib.ZeroAddress();
         if (owner != msg.sender && !isOperator[owner][msg.sender]) {
             revert ErrorsLib.InvalidOwner();
         }
@@ -711,84 +798,25 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
         }
     }
 
-    function _setTargetReserveRatio(uint64 targetReserveRatio_) internal {
-        if (targetReserveRatio_ >= WAD) revert ErrorsLib.InvalidComponentRatios();
-        targetReserveRatio = targetReserveRatio_;
-        emit EventsLib.TargetReserveRatioUpdated(targetReserveRatio_);
-    }
-
-    function _setInitialRouters() internal {
-        unchecked {
-            uint256 len = components.length;
-            for (uint256 i; i < len; ++i) {
-                address router = componentAllocations[components[i]].router;
-                _validateNewRouter(router);
-                isRouter[router] = true;
-                emit EventsLib.RouterAdded(router);
-            }
-        }
-    }
-
-    function _setInitialComponents(address[] memory components_, ComponentAllocation[] memory allocations) internal {
-        unchecked {
-            uint256 len = components_.length;
-            for (uint256 i; i < len; ++i) {
-                address component = components_[i];
-                if (_isComponent(component)) revert ErrorsLib.AlreadySet();
-                ComponentAllocation memory allocation = allocations[i];
-                _validateNewComponent(component, allocation.router);
-                components.push(component);
-                componentAllocations[component] = ComponentAllocation({
-                    targetWeight: allocation.targetWeight,
-                    maxDelta: allocation.maxDelta,
-                    router: allocation.router,
-                    isComponent: true
-                });
-            }
-        }
-        if (!_validateComponentRatios()) {
-            revert ErrorsLib.InvalidComponentRatios();
-        }
-    }
-
     function _validateNoDuplicateComponents(address[] memory componentArray) internal pure {
-        unchecked {
-            uint256 len = componentArray.length;
-            if (len == 0) return;
-            Arrays.sort(componentArray);
-            for (uint256 i = 0; i < len - 1; i++) {
-                if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
-            }
-        }
-    }
-
-    function _validateComponentRatios() internal view returns (bool) {
-        unchecked {
-            uint256 totalWeight = targetReserveRatio;
-            uint256 length = components.length;
-            for (uint256 i; i < length; ++i) {
-                totalWeight += componentAllocations[components[i]].targetWeight;
-            }
-            return totalWeight == WAD;
+        uint256 len = componentArray.length;
+        if (len == 0) return;
+        Arrays.sort(componentArray);
+        for (uint256 i = 0; i < len - 1; i++) {
+            if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
         }
     }
 
     function _validateNewComponent(address component, address router) internal view {
-        if (component == address(0)) revert ErrorsLib.ZeroAddress();
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
         if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
-        if (!IRouter(router).isWhitelisted(component)) revert ErrorsLib.NotWhitelisted();
-        if (isInitialized) {
-            if (!isRouter[router]) revert ErrorsLib.NotWhitelisted();
-        }
+        if (!IRouter(router).isWhitelisted(component) || !isRouter[router]) revert ErrorsLib.NotWhitelisted();
     }
 
     function _validateNewRouter(address newRouter) internal view {
         if (newRouter == address(0)) revert ErrorsLib.ZeroAddress();
         if (!INodeRegistry(registry).isRegistryType(newRouter, RegistryType.ROUTER)) revert ErrorsLib.NotWhitelisted();
-        if (isInitialized) {
-            if (isRouter[newRouter]) revert ErrorsLib.AlreadySet();
-        }
+        if (isRouter[newRouter]) revert ErrorsLib.AlreadySet();
     }
 
     function _enforceLiquidationOrder(address component, uint256 assetsToReturn) internal view {
@@ -820,7 +848,7 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
     function _calculateSharesAfterSwingPricing(uint256 assets) internal view returns (uint256 shares) {
         if (
             (totalAssets() == 0 && totalSupply() == 0) || (!swingPricingEnabled)
-                || (MathLib.mulDiv(getCashAfterRedemptions(), WAD, totalAssets()) >= targetReserveRatio)
+                || (Math.mulDiv(getCashAfterRedemptions(), WAD, totalAssets()) >= targetReserveRatio)
         ) {
             shares = convertToShares(assets);
         } else {
@@ -834,17 +862,25 @@ contract Node is INode, ERC20, Ownable, ReentrancyGuard {
                         ERC4626 INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _convertToShares(uint256 assets, MathLib.Rounding rounding) internal view returns (uint256) {
+    function _convertToShares(uint256 assets, Math.Rounding rounding) internal view returns (uint256) {
         return assets.mulDiv(totalSupply() + 1, totalAssets() + 1, rounding);
     }
 
-    function _convertToAssets(uint256 shares, MathLib.Rounding rounding) internal view returns (uint256) {
+    function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view returns (uint256) {
         return shares.mulDiv(totalAssets() + 1, totalSupply() + 1, rounding);
     }
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
         SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
         _mint(receiver, shares);
+        cacheTotalAssets += assets;
         emit Deposit(caller, receiver, assets, shares);
+    }
+
+    function _runPolicies() internal {
+        address[] memory policies_ = policies[msg.sig];
+        for (uint256 i; i < policies_.length; i++) {
+            IPolicy(policies_[i]).onCheck(msg.sender, msg.data);
+        }
     }
 }

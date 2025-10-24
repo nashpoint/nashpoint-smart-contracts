@@ -17,24 +17,6 @@ enum RegistryType {
 
 interface INodeRegistry {
     /**
-     * @notice Initializes the registry with initial contracts
-     * @param factories_ Array of factory addresses to initialize
-     * @param routers_ Array of router addresses to initialize
-     * @param quoters_ Array of quoter addresses to initialize
-     * @param rebalancers_ Array of rebalancer addresses to initialize
-     */
-    function initialize(
-        address[] memory factories_,
-        address[] memory routers_,
-        address[] memory quoters_,
-        address[] memory rebalancers_,
-        address feeAddress_,
-        uint64 managementFee_,
-        uint64 executionFee_,
-        uint64 maxSwingFactor_
-    ) external;
-
-    /**
      * @notice Sets the type of an address
      * @param addr Address to set the type for
      * @param type_ Type to set
@@ -66,10 +48,25 @@ interface INodeRegistry {
     function isRegistryType(address addr, RegistryType type_) external view returns (bool);
 
     /**
-     * @notice Returns whether the registry has been initialized
-     * @return bool True if registry is initialized
+     * @notice Updates the Merkle root that whitelists node policies
+     * @param newRoot New Merkle root value
      */
-    function isInitialized() external view returns (bool);
+    function setPoliciesRoot(bytes32 newRoot) external;
+
+    /**
+     * @notice Verifies that a set of policy contracts is contained in the registry Merkle root
+     * @param proof Merkle proof sibling nodes
+     * @param proofFlags Flags describing the Merkle multi-proof structure
+     * @param sigs Function selectors tied to the policies
+     * @param policies Policy contract addresses that must be authorized
+     * @return valid True when the proof is valid for the supplied selectors and policies
+     */
+    function verifyPolicies(
+        bytes32[] calldata proof,
+        bool[] calldata proofFlags,
+        bytes4[] calldata sigs,
+        address[] calldata policies
+    ) external view returns (bool valid);
 
     /**
      * @notice Returns the address of the protocol fee address

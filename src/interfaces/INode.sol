@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {IERC20Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575, IERC165} from "./IERC7575.sol";
 import {IERC7540Redeem} from "./IERC7540.sol";
 import {IQuoterV1} from "./IQuoterV1.sol";
@@ -28,21 +28,27 @@ struct Request {
     uint256 sharesAdjusted;
 }
 
+/// @notice Initialization arguments for deploying a node clone
+struct NodeInitArgs {
+    string name;
+    string symbol;
+    address asset;
+    address owner;
+}
+
 /**
  * @title INode
  * @author ODND Studios
  */
 interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
+    /// @notice Initializes the node proxy after cloning
+    /// @param args Packaged initialization arguments
+    /// @param escrow Escrow contract that will custody pending withdrawals
+    function initialize(NodeInitArgs calldata args, address escrow) external;
+
     /// @notice Returns the target reserve ratio
     /// @return uint64 The target reserve ratio
     function targetReserveRatio() external view returns (uint64);
-
-    /// @notice Returns whether the node has been initialized
-    function isInitialized() external view returns (bool);
-
-    /// @notice Initializes the Node with escrow and manager contracts
-    /// @param escrow_ The address of the escrow contract
-    function initialize(address escrow_) external;
 
     /// @notice Adds a new component to the node
     /// @param component The address of the component to add
@@ -140,10 +146,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Fulfill a redeem request from the reserve
     /// @param user The address of the user to redeem for
     function fulfillRedeemFromReserve(address user) external;
-
-    /// @notice Fulfill a batch of redeem requests from the reserve
-    /// @param controllers The addresses of the controllers to redeem for
-    function fulfillRedeemBatch(address[] memory controllers) external;
 
     /// @notice Finalizes a redemption request
     /// @dev called by router or rebalancer to update the request state after a redemption
@@ -316,12 +318,49 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Returns amount of shares leaving the protocol
     function sharesExiting() external view returns (uint256);
 
-    /// @notice Returns amount of assets cached for operations
-    function cacheTotalAssets() external view returns (uint256);
-
     /// @notice Returns the address for receiving management fees
     function nodeOwnerFeeAddress() external view returns (address);
 
     /// @notice Returns the liquidation queue
     function getLiquidationsQueue() external view returns (address[] memory);
+
+    /// @notice Reads the total assets directly from all components without using the cached value
+    /// @return assets Sum of assets held by the node and its components
+    function getUncachedTotalAssets() external view returns (uint256 assets);
+
+    /// @notice Returns the policies registered for a function selector
+    /// @param sig The selector to inspect
+    /// @return policies Contract addresses that will be executed for the selector
+    function getPolicies(bytes4 sig) external view returns (address[] memory policies);
+
+    /// @notice Returns whether a policy is registered for a selector
+    /// @param sig The selector to check
+    /// @param policy The policy contract address
+    /// @return isRegistered True when the policy is active for the selector
+    function isSigPolicy(bytes4 sig, address policy) external view returns (bool isRegistered);
+
+    /// @notice Adds verified policies for the provided selectors
+    /// @dev Only callable by the node owner with a valid registry proof
+    /// @param proof Merkle proof elements validating the policies
+    /// @param proofFlags Flags describing the Merkle multi-proof
+    /// @param sigs Function selectors being guarded
+    /// @param policies_ Policy contract addresses to register
+    function addPolicies(
+        bytes32[] calldata proof,
+        bool[] calldata proofFlags,
+        bytes4[] calldata sigs,
+        address[] calldata policies_
+    ) external;
+
+    /// @notice Removes policies from the specified selectors
+    /// @dev Only callable by the node owner
+    /// @param sigs Function selectors to modify
+    /// @param policies_ Policy contract addresses to detach
+    function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external;
+
+    /// @notice Submits auxiliary data to a registered policy
+    /// @param sig Selector associated with the policy execution
+    /// @param policy Policy address that will store or process the data
+    /// @param data ABI encoded payload forwarded to the policy
+    function submitPolicyData(bytes4 sig, address policy, bytes calldata data) external;
 }

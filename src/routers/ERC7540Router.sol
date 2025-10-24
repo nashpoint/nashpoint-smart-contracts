@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {BaseComponentRouter} from "../libraries/BaseComponentRouter.sol";
-import {INode} from "../interfaces/INode.sol";
-import {IQuoterV1} from "../interfaces/IQuoterV1.sol";
-
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "../interfaces/IERC7540.sol";
-import {IERC7575} from "../interfaces/IERC7575.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
-import {MathLib} from "../libraries/MathLib.sol";
+import {BaseComponentRouter} from "src/libraries/BaseComponentRouter.sol";
+import {INode} from "src/interfaces/INode.sol";
+import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
+
+import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
+import {IERC7575} from "src/interfaces/IERC7575.sol";
 
 /**
  * @title ERC7540Router
@@ -69,7 +69,7 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         uint256 maxClaimableAssets = IERC7575(component).convertToAssets(maxClaimableRedeemRequest);
 
         // execute the withdrawal
-        assetsReturned = _executeAsyncWithdrawal(node, component, MathLib.min(assetsRequested, maxClaimableAssets));
+        assetsReturned = _executeAsyncWithdrawal(node, component, Math.min(assetsRequested, maxClaimableAssets));
 
         // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
         if (assetsReturned < assetsRequested) {
@@ -268,7 +268,7 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         returns (uint256 depositAssets)
     {
         uint256 targetHoldings =
-            MathLib.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
+            Math.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
         uint256 currentBalance = _getErc7540Assets(node, component);
 

@@ -19,8 +19,8 @@ contract EscrowTest is BaseTest {
     function setUp() public override {
         super.setUp();
 
-        testEscrow = new Escrow(address(node));
         mockToken = new ERC20Mock("Mock Token", "MOCK");
+        testEscrow = new Escrow(address(node), address(mockToken));
         vm.label(address(testEscrow), "TestEscrow");
     }
 
@@ -30,6 +30,6 @@ contract EscrowTest is BaseTest {
 
     function test_constructor_revert_ZeroAddress() public {
         vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Escrow(address(0));
+        new Escrow(address(0), address(0));
     }
 }

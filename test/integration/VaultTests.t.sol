@@ -5,7 +5,6 @@ import {Test, console2} from "forge-std/Test.sol";
 import {BaseTest} from "../BaseTest.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 import {QuoterV1} from "src/quoters/QuoterV1.sol";
 
 import {Node, ComponentAllocation} from "src/Node.sol";

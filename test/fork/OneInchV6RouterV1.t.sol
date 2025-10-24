@@ -154,8 +154,6 @@ contract OneInchV6RouterV1Test is BaseTest {
 
         vm.startPrank(rebalancer);
 
-        uint256 fee = actualReturnAmount / 10;
-
         vm.mockCall(
             oneInchRouter.ONE_INCH_AGGREGATION_ROUTER_V6(),
             abi.encodeWithSelector(IAggregationRouterV6.swap.selector),

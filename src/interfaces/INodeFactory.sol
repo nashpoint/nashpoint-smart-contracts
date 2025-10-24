@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {INode, ComponentAllocation} from "./INode.sol";
+import {INode, NodeInitArgs, ComponentAllocation} from "./INode.sol";
 
 /**
  * /**
@@ -9,16 +9,13 @@ import {INode, ComponentAllocation} from "./INode.sol";
  * @author ODND Studios
  */
 interface INodeFactory {
-    function deployFullNode(
-        string memory name,
-        string memory symbol,
-        address asset,
-        address owner,
-        address[] memory components,
-        ComponentAllocation[] memory componentAllocations,
-        uint64 targetReserveRatio,
-        address rebalancer,
-        address quoter,
-        bytes32 salt
-    ) external returns (INode node, address escrow);
+    /// @notice Deploys a new node clone with its escrow and initialization payload
+    /// @param initArgs Initialization arguments forwarded to the node
+    /// @param payload Multicall payload executed post-initialization
+    /// @param salt User supplied salt
+    /// @return node The deployed node instance
+    /// @return escrow Escrow contract created for the node
+    function deployFullNode(NodeInitArgs calldata initArgs, bytes[] calldata payload, bytes32 salt)
+        external
+        returns (INode node, address escrow);
 }

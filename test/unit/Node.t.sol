@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 import {BaseTest} from "../BaseTest.sol";
 import {stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 
 import {Node} from "src/Node.sol";
-import {INode, ComponentAllocation, Request} from "src/interfaces/INode.sol";
+import {INode, ComponentAllocation, Request, NodeInitArgs} from "src/interfaces/INode.sol";
+import {IPolicy} from "src/interfaces/IPolicy.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
@@ -21,26 +24,25 @@ import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
-contract NodeHarness is Node {
-    constructor(
-        address registry_,
-        string memory name,
-        string memory symbol,
-        address asset_,
-        address owner,
-        address[] memory routers,
-        address[] memory components_,
-        ComponentAllocation[] memory componentAllocations_,
-        uint64 targetReserveRatio_
-    ) Node(registry_, name, symbol, asset_, owner, components_, componentAllocations_, targetReserveRatio_) {}
+contract PolicyDataReceiverMock is IPolicy {
+    address public lastCaller;
+    address public lastMsgSender;
+    bytes public lastData;
+    bool public revertOnReceive;
 
-    function getLiquidationQueue(uint256 index) external view returns (address component) {
-        return liquidationsQueue[index];
+    function onCheck(address, bytes calldata) external pure override {}
+
+    function receiveUserData(address caller, bytes calldata data) external override {
+        if (revertOnReceive) revert ErrorsLib.Forbidden();
+        lastCaller = caller;
+        lastMsgSender = msg.sender;
+        lastData = data;
     }
 
-    function getLiquidationQueue() external view returns (address[] memory) {
-        return liquidationsQueue;
+    function setRevertOnReceive(bool shouldRevert) external {
+        revertOnReceive = shouldRevert;
     }
 }
 
@@ -48,7 +50,7 @@ contract NodeTest is BaseTest {
     using stdStorage for StdStorage;
 
     NodeRegistry public testRegistry;
-    NodeHarness public testNode;
+    Node public testNode;
     address public testAsset;
     address public testQuoter;
     address public testRouter;
@@ -62,6 +64,8 @@ contract NodeTest is BaseTest {
     ERC4626Mock public testVault2;
     ERC4626Mock public testVault3;
 
+    address nodeImplementation;
+
     string constant TEST_NAME = "Test Node";
     string constant TEST_SYMBOL = "TNODE";
 
@@ -70,6 +74,18 @@ contract NodeTest is BaseTest {
 
     function setUp() public override {
         super.setUp();
+
+        address registryImpl = address(new NodeRegistry());
+        testRegistry = NodeRegistry(
+            address(
+                new ERC1967Proxy(
+                    registryImpl,
+                    abi.encodeWithSelector(
+                        NodeRegistry.initialize.selector, owner, protocolFeesAddress, 0, 0, 0.1 ether
+                    )
+                )
+            )
+        );
 
         testToken = new ERC20Mock("Test Token", "TEST");
         testVault = new ERC4626Mock(address(testToken));
@@ -86,37 +102,27 @@ contract NodeTest is BaseTest {
         testComponent3 = address(testVault3);
         liquidityPool = new ERC7540Mock(IERC20(asset), "Mock", "MOCK", testPoolManager);
 
-        testRegistry = new NodeRegistry(owner);
-
         vm.startPrank(owner);
 
-        testRegistry.initialize(
-            _toArray(address(this)), // factory
-            _toArray(testRouter),
-            _toArray(testQuoter),
-            _toArray(testRebalancer),
-            protocolFeesAddress,
-            0,
-            0,
-            0.1 ether
-        );
+        testRegistry.setRegistryType(address(this), RegistryType.FACTORY, true);
+        testRegistry.setRegistryType(address(testRouter), RegistryType.ROUTER, true);
+        testRegistry.setRegistryType(address(testRebalancer), RegistryType.REBALANCER, true);
+        testRegistry.setRegistryType(address(testQuoter), RegistryType.QUOTER, true);
 
         testRegistry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
         router4626.setWhitelistStatus(address(testComponent), true);
 
-        testNode = new NodeHarness(
-            address(testRegistry),
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            _toArray(address(router4626)),
-            _toArray(testComponent),
-            _defaultComponentAllocations(1),
-            0.1 ether
-        );
+        nodeImplementation = address(new Node(address(testRegistry)));
+        testNode = Node(Clones.clone(nodeImplementation));
+        testNode.initialize(NodeInitArgs(TEST_NAME, TEST_SYMBOL, testAsset, owner), testEscrow);
 
         testNode.addRouter(address(testRouter));
+        testNode.addRouter(address(router4626));
+        testNode.addRebalancer(testRebalancer);
+        testNode.setQuoter(testQuoter);
+        ComponentAllocation memory allocation = _defaultComponentAllocations(1)[0];
+        testNode.addComponent(testComponent, allocation.targetWeight, allocation.maxDelta, allocation.router);
+        testNode.updateTargetReserveRatio(0.1 ether);
 
         vm.stopPrank();
 
@@ -161,91 +167,6 @@ contract NodeTest is BaseTest {
         assertEq(testNode.owner(), owner);
     }
 
-    function test_constructor_revert_ZeroAddress() public {
-        // Test zero registry address
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Node(
-            address(0),
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            _toArray(testComponent),
-            _defaultComponentAllocations(1),
-            0.1 ether
-        );
-
-        // Test zero asset address
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Node(
-            address(testRegistry),
-            TEST_NAME,
-            TEST_SYMBOL,
-            address(0),
-            owner,
-            _toArray(testComponent),
-            _defaultComponentAllocations(1),
-            0.1 ether
-        );
-
-        // Test zero component address
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        new Node(
-            address(testRegistry),
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            _toArray(address(0)),
-            _defaultComponentAllocations(1),
-            0.1 ether
-        );
-    }
-
-    function test_constructor_revert_LengthMismatch() public {
-        address[] memory components = new address[](2);
-        components[0] = testComponent;
-        components[1] = makeAddr("testComponent2");
-
-        vm.expectRevert(ErrorsLib.LengthMismatch.selector);
-        new Node(
-            address(testRegistry),
-            TEST_NAME,
-            TEST_SYMBOL,
-            testAsset,
-            owner,
-            components,
-            _defaultComponentAllocations(1), // Only 1 allocation for 2 components
-            0.1 ether
-        );
-    }
-
-    function test_initialize() public {
-        vm.prank(owner);
-        testNode.initialize(testEscrow);
-
-        assertEq(address(testNode.escrow()), testEscrow);
-        assertFalse(testNode.swingPricingEnabled());
-        assertTrue(testNode.isInitialized());
-        assertEq(testNode.lastRebalance(), block.timestamp - testNode.rebalanceWindow());
-        assertEq(testNode.lastPayment(), block.timestamp);
-    }
-
-    function test_initialize_revert_AlreadyInitialized() public {
-        vm.startPrank(owner);
-        testNode.initialize(testEscrow);
-
-        vm.expectRevert(ErrorsLib.AlreadyInitialized.selector);
-        testNode.initialize(testEscrow);
-        vm.stopPrank();
-    }
-
-    function test_initialize_revert_ZeroAddress() public {
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.initialize(address(0));
-    }
-
     function test_addComponent() public {
         address newComponent = makeAddr("newComponent");
         ComponentAllocation memory allocation = ComponentAllocation({
@@ -284,7 +205,7 @@ contract NodeTest is BaseTest {
         });
 
         vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        vm.expectRevert();
         testNode.addComponent(address(0), allocation.targetWeight, allocation.maxDelta, allocation.router);
     }
 
@@ -361,6 +282,8 @@ contract NodeTest is BaseTest {
         testRegistry.setRegistryType(rebalancer, RegistryType.REBALANCER, true);
         testNode.addRebalancer(rebalancer);
         vm.stopPrank();
+
+        vm.warp(block.timestamp + 24 hours);
 
         vm.prank(rebalancer);
         testNode.startRebalance();
@@ -557,8 +480,6 @@ contract NodeTest is BaseTest {
         });
 
         vm.startPrank(owner);
-        router4626.setWhitelistStatus(testComponent, true);
-        testNode.addRouter(address(router4626));
         testNode.updateComponentAllocation(
             testComponent, newAllocation.targetWeight, newAllocation.maxDelta, newAllocation.router
         );
@@ -654,25 +575,13 @@ contract NodeTest is BaseTest {
         testNode.addRebalancer(makeAddr("notWhitelisted"));
     }
 
-    function test_addRebalancer_revert_ZeroAddress() public {
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.addRebalancer(address(0));
-    }
-
     function test_addRebalancer_revert_AlreadySet() public {
-        vm.prank(owner);
-        testNode.addRebalancer(testRebalancer);
-
         vm.prank(owner);
         vm.expectRevert(ErrorsLib.AlreadySet.selector);
         testNode.addRebalancer(testRebalancer);
     }
 
     function test_removeRebalancer() public {
-        vm.prank(owner);
-        testNode.addRebalancer(testRebalancer);
-
         vm.prank(owner);
         testNode.removeRebalancer(testRebalancer);
 
@@ -693,24 +602,6 @@ contract NodeTest is BaseTest {
         testNode.setQuoter(newQuoter);
         vm.stopPrank();
         assertEq(address(testNode.quoter()), newQuoter);
-    }
-
-    function test_setQuoter_revert_ZeroAddress() public {
-        vm.prank(owner);
-        testNode.setQuoter(testQuoter);
-
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.setQuoter(address(0));
-    }
-
-    function test_setQuoter_revert_AlreadySet() public {
-        vm.prank(owner);
-        testNode.setQuoter(testQuoter);
-
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testNode.setQuoter(testQuoter);
     }
 
     function test_setQuoter_revert_NotWhitelisted() public {
@@ -745,17 +636,9 @@ contract NodeTest is BaseTest {
         testNode.setLiquidationQueue(components);
         vm.stopPrank();
 
-        assertEq(testNode.getLiquidationQueue(0), testComponent);
-        assertEq(testNode.getLiquidationQueue(1), testComponent2);
-        assertEq(testNode.getLiquidationQueue(2), testComponent3);
-    }
-
-    function test_setLiquidationQueue_revert_zeroAddress() public {
-        address[] memory components = new address[](1);
-        components[0] = address(0);
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        testNode.setLiquidationQueue(components);
+        assertEq(testNode.getLiquidationsQueue()[0], testComponent);
+        assertEq(testNode.getLiquidationsQueue()[1], testComponent2);
+        assertEq(testNode.getLiquidationsQueue()[2], testComponent3);
     }
 
     function test_setLiquidationQueue_revert_invalidComponent() public {
@@ -1552,78 +1435,6 @@ contract NodeTest is BaseTest {
         node.fulfillRedeemFromReserve(user);
     }
 
-    function test_fulfilRedeemBatch_fromReserve() public {
-        _seedNode(1_000_000 ether);
-
-        address[] memory components = node.getComponents();
-        address[] memory users = new address[](2);
-        users[0] = address(user);
-        users[1] = address(user2);
-
-        vm.prank(owner);
-        node.setLiquidationQueue(components);
-
-        vm.startPrank(user);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user);
-        vm.stopPrank();
-
-        vm.startPrank(user2);
-        asset.approve(address(node), 100 ether);
-        node.deposit(100 ether, user2);
-        vm.stopPrank();
-
-        vm.startPrank(rebalancer);
-        router4626.invest(address(node), address(vault), 0);
-
-        vm.startPrank(user);
-        node.approve(address(node), node.balanceOf(user));
-        node.requestRedeem(node.balanceOf(user), user, user);
-        vm.stopPrank();
-
-        vm.startPrank(user2);
-        node.approve(address(node), node.balanceOf(user2));
-        node.requestRedeem(node.balanceOf(user2), user2, user2);
-        vm.stopPrank();
-
-        console2.log(node.pendingRedeemRequest(0, user));
-        console2.log(node.pendingRedeemRequest(0, user2));
-
-        vm.startPrank(rebalancer);
-        node.fulfillRedeemBatch(users);
-
-        assertEq(node.balanceOf(user), 0);
-        assertEq(node.balanceOf(user2), 0);
-
-        assertEq(node.totalAssets(), 1_000_000 ether);
-        assertEq(node.totalSupply(), node.convertToShares(1_000_000 ether));
-
-        assertEq(asset.balanceOf(address(escrow)), 200 ether);
-        assertEq(node.claimableRedeemRequest(0, user), 100 ether);
-        assertEq(node.claimableRedeemRequest(0, user2), 100 ether);
-    }
-
-    function test_fulfilRedeemBatch_fromReserve_revert_onlyRebalancer() public {
-        address[] memory users = new address[](2);
-        users[0] = address(user);
-        users[1] = address(user2);
-
-        vm.prank(randomUser);
-        vm.expectRevert(ErrorsLib.InvalidSender.selector);
-        node.fulfillRedeemBatch(users);
-    }
-
-    function test_fulfilRedeemBatch_fromReserve_revert_onlyWhenRebalancing() public {
-        address[] memory users = new address[](2);
-        users[0] = address(user);
-        users[1] = address(user2);
-        vm.warp(block.timestamp + 1 days);
-
-        vm.prank(rebalancer);
-        vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
-        node.fulfillRedeemBatch(users);
-    }
-
     function test_finalizeRedemption() public {
         _seedNode(100 ether);
 
@@ -1636,7 +1447,6 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         uint256 totalAssetsBefore = node.totalAssets();
-        uint256 cacheTotalAssetsBefore = Node(address(node)).cacheTotalAssets();
         uint256 sharesAtEscowBefore = node.balanceOf(address(escrow));
 
         (uint256 pendingBefore, uint256 claimableBefore, uint256 claimableAssetsBefore, uint256 sharesAdjustedBefore) =
@@ -1651,7 +1461,6 @@ contract NodeTest is BaseTest {
         // assert vault state and variables are correctly updated
         assertEq(Node(address(node)).sharesExiting(), 0);
         assertEq(node.totalAssets(), totalAssetsBefore - 50 ether);
-        assertEq(Node(address(node)).cacheTotalAssets(), cacheTotalAssetsBefore - 50 ether);
         assertEq(node.balanceOf(address(escrow)), sharesAtEscowBefore - sharesToRedeem);
 
         // assert request state is correctly updated
@@ -1684,17 +1493,6 @@ contract NodeTest is BaseTest {
         vm.startPrank(user);
         vm.expectRevert(ErrorsLib.InvalidOwner.selector);
         node.requestRedeem(1 ether, user, randomUser);
-        vm.stopPrank();
-    }
-
-    function test_requestRedeem_revert_ZeroAddress() public {
-        _seedNode(100 ether);
-        _userDeposits(user, 1 ether);
-
-        vm.startPrank(user);
-        node.approve(address(node), 1 ether);
-        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
-        node.requestRedeem(1 ether, user, address(0));
         vm.stopPrank();
     }
 
@@ -2139,7 +1937,7 @@ contract NodeTest is BaseTest {
         assertEq(sharesAdjusted, 0);
     }
 
-    function test_getLiquidationQueue() public {
+    function test_getLiquidationsQueue() public {
         vm.warp(block.timestamp + 1 days);
 
         ERC4626Mock component1 = new ERC4626Mock(address(testAsset));
@@ -2173,15 +1971,15 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         testNode.setLiquidationQueue(expectedQueue);
 
-        address[] memory liquidationQueue = testNode.getLiquidationQueue();
+        address[] memory liquidationQueue = testNode.getLiquidationsQueue();
         assertEq(liquidationQueue.length, expectedQueue.length);
         for (uint256 i = 0; i < expectedQueue.length; i++) {
             assertEq(liquidationQueue[i], expectedQueue[i]);
         }
     }
 
-    function test_getLiquidationQueueLength() public {
-        assertEq(testNode.getLiquidationQueue().length, 0);
+    function test_getLiquidationsQueueLength() public {
+        assertEq(testNode.getLiquidationsQueue().length, 0);
 
         ERC4626Mock component1 = new ERC4626Mock(address(testAsset));
         ERC4626Mock component2 = new ERC4626Mock(address(testAsset));
@@ -2213,7 +2011,7 @@ contract NodeTest is BaseTest {
         testNode.setLiquidationQueue(queue);
         vm.stopPrank();
 
-        assertEq(testNode.getLiquidationQueue().length, 3);
+        assertEq(testNode.getLiquidationsQueue().length, 3);
     }
 
     // todo: fix this test
@@ -2410,95 +2208,6 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
     }
 
-    function test_componentAllocationAndValidation(uint64 comp1, uint64 comp2) public {
-        vm.assume(uint256(comp1) + uint256(comp2) < 1e18);
-        uint64 reserve = uint64(1e18 - uint256(comp1) - uint256(comp2));
-        ComponentAllocation[] memory allocations = new ComponentAllocation[](2);
-        allocations[0] = ComponentAllocation({
-            targetWeight: comp1,
-            maxDelta: 0.01 ether,
-            router: address(router4626),
-            isComponent: true
-        });
-        allocations[1] = ComponentAllocation({
-            targetWeight: comp2,
-            maxDelta: 0.01 ether,
-            router: address(router4626),
-            isComponent: true
-        });
-
-        if (comp1 + comp2 == 0) {
-            return;
-        }
-
-        address[] memory routers = new address[](1);
-        routers[0] = address(router4626);
-
-        address[] memory components = new address[](2);
-        components[0] = testComponent;
-        components[1] = testComponent2;
-
-        vm.startPrank(owner);
-        router4626.setWhitelistStatus(testComponent, true);
-        router4626.setWhitelistStatus(testComponent2, true);
-        vm.stopPrank();
-
-        Node dummyNode =
-            new Node(address(testRegistry), "Test Node", "TNODE", testAsset, owner, components, allocations, reserve);
-
-        assertEq(dummyNode.getComponentAllocation(testComponent).targetWeight, comp1);
-        assertEq(dummyNode.getComponentAllocation(testComponent2).targetWeight, comp2);
-        assertEq(dummyNode.targetReserveRatio(), reserve);
-    }
-
-    function test_validateComponentRatios_revert_invalidComponentRatios() public {
-        ComponentAllocation[] memory invalidAllocation = new ComponentAllocation[](1);
-        invalidAllocation[0] = ComponentAllocation({
-            targetWeight: 0.2 ether,
-            maxDelta: 0.01 ether,
-            router: address(router4626),
-            isComponent: true
-        });
-
-        address[] memory routers = new address[](1);
-        routers[0] = address(router4626);
-
-        vm.prank(owner);
-        router4626.setWhitelistStatus(testComponent, true);
-
-        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
-
-        new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            _toArray(testComponent),
-            invalidAllocation,
-            0.1 ether
-        );
-
-        invalidAllocation[0] = ComponentAllocation({
-            targetWeight: 1.2 ether,
-            maxDelta: 0.01 ether,
-            router: address(router4626),
-            isComponent: true
-        });
-
-        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
-        new Node(
-            address(testRegistry),
-            "Test Node",
-            "TNODE",
-            testAsset,
-            owner,
-            _toArray(testComponent),
-            invalidAllocation,
-            0.1 ether
-        );
-    }
-
     function test_getCashAfterRedemptions() public {
         _userDeposits(user, 100 ether);
         assertEq(node.getCashAfterRedemptions(), 100 ether);
@@ -2523,6 +2232,171 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         assertEq(node.getCashAfterRedemptions(), 0);
+    }
+
+    function test_addPolicies() external {
+        bytes32[] memory proof = new bytes32[](0);
+        bool[] memory proofFlags = new bool[](0);
+
+        bytes4[] memory firstSigs = new bytes4[](2);
+        firstSigs[0] = 0x00000001;
+        firstSigs[1] = 0x00000002;
+        address[] memory firstPolicies = new address[](2);
+        firstPolicies[0] = address(0x11);
+        firstPolicies[1] = address(0x11);
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
+
+        vm.startPrank(owner);
+
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, firstSigs, firstPolicies),
+            abi.encode(false)
+        );
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
+
+        // assume policies are whitelisted
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, firstSigs, firstPolicies),
+            abi.encode(true)
+        );
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.PoliciesAdded(firstSigs, firstPolicies);
+        node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
+
+        assertEq(node.getPolicies(0x00000001).length, 1);
+        assertEq(node.getPolicies(0x00000002).length, 1);
+        assertEq(node.getPolicies(0x00000001)[0], address(0x11));
+        assertEq(node.getPolicies(0x00000002)[0], address(0x11));
+        assertTrue(node.isSigPolicy(0x00000001, address(0x11)));
+        assertTrue(node.isSigPolicy(0x00000002, address(0x11)));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ErrorsLib.PolicyAlreadyAdded.selector, bytes4(0x00000001), address(0x11))
+        );
+        node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
+
+        bytes4[] memory secondSigs = new bytes4[](1);
+        secondSigs[0] = 0x00000001;
+        address[] memory secondPolicies = new address[](1);
+        secondPolicies[0] = address(0x12);
+
+        // assume policies are whitelisted
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, secondSigs, secondPolicies),
+            abi.encode(true)
+        );
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.PoliciesAdded(secondSigs, secondPolicies);
+        node.addPolicies(proof, proofFlags, secondSigs, secondPolicies);
+
+        assertEq(node.getPolicies(0x00000001).length, 2);
+        assertEq(node.getPolicies(0x00000002).length, 1);
+        assertEq(node.getPolicies(0x00000001)[0], address(0x11));
+        assertEq(node.getPolicies(0x00000001)[1], address(0x12));
+        assertEq(node.getPolicies(0x00000002)[0], address(0x11));
+    }
+
+    function test_removePolicies() external {
+        bytes32[] memory proof = new bytes32[](0);
+        bool[] memory proofFlags = new bool[](0);
+
+        bytes4[] memory sigs = new bytes4[](3);
+        sigs[0] = 0x00000001;
+        sigs[1] = 0x00000001;
+        sigs[2] = 0x00000002;
+        address[] memory policies = new address[](3);
+        policies[0] = address(0x11);
+        policies[1] = address(0x12);
+        policies[2] = address(0x11);
+
+        vm.startPrank(owner);
+
+        // assume policies are whitelisted
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, sigs, policies),
+            abi.encode(true)
+        );
+        node.addPolicies(proof, proofFlags, sigs, policies);
+
+        bytes4[] memory removeSigs = new bytes4[](1);
+        removeSigs[0] = 0x00000001;
+        address[] memory removePolicies = new address[](1);
+        removePolicies[0] = address(0x11);
+        vm.expectEmit(true, true, true, true);
+        emit EventsLib.PoliciesRemoved(removeSigs, removePolicies);
+        node.removePolicies(removeSigs, removePolicies);
+
+        assertEq(node.getPolicies(0x00000001).length, 1);
+        assertEq(node.getPolicies(0x00000002).length, 1);
+        assertEq(node.getPolicies(0x00000001)[0], address(0x12));
+        assertEq(node.getPolicies(0x00000002)[0], address(0x11));
+        assertFalse(node.isSigPolicy(0x00000001, address(0x11)));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ErrorsLib.PolicyAlreadyRemoved.selector, removeSigs[0], removePolicies[0])
+        );
+        node.removePolicies(removeSigs, removePolicies);
+    }
+
+    function test_submitPolicyData_revertsWhenPolicyNotRegistered() external {
+        PolicyDataReceiverMock policy = new PolicyDataReceiverMock();
+        bytes memory payload = abi.encode("payload");
+
+        vm.expectRevert(ErrorsLib.Forbidden.selector);
+        vm.prank(user);
+        testNode.submitPolicyData(IERC7575.deposit.selector, address(policy), payload);
+    }
+
+    function test_submitPolicyData_forwardsCallerAndData() external {
+        PolicyDataReceiverMock policy = new PolicyDataReceiverMock();
+        _registerTestNodePolicy(IERC7575.deposit.selector, address(policy));
+
+        bytes memory payload = abi.encode(address(0xbeef), uint256(123));
+
+        vm.prank(user);
+        testNode.submitPolicyData(IERC7575.deposit.selector, address(policy), payload);
+
+        assertTrue(testNode.isSigPolicy(IERC7575.deposit.selector, address(policy)));
+        assertEq(policy.lastCaller(), user);
+        assertEq(policy.lastMsgSender(), address(testNode));
+        assertEq(policy.lastData(), payload);
+    }
+
+    function test_submitPolicyData_propagatesPolicyRevert() external {
+        PolicyDataReceiverMock policy = new PolicyDataReceiverMock();
+        _registerTestNodePolicy(IERC7575.deposit.selector, address(policy));
+        policy.setRevertOnReceive(true);
+
+        bytes memory payload = abi.encode("should revert");
+
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.Forbidden.selector);
+        testNode.submitPolicyData(IERC7575.deposit.selector, address(policy), payload);
+    }
+
+    function _registerTestNodePolicy(bytes4 sig, address policyAddr) internal {
+        bytes32[] memory proof = new bytes32[](0);
+        bool[] memory proofFlags = new bool[](0);
+        bytes4[] memory sigs = new bytes4[](1);
+        sigs[0] = sig;
+        address[] memory policies_ = new address[](1);
+        policies_[0] = policyAddr;
+
+        vm.mockCall(
+            address(testRegistry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, sigs, policies_),
+            abi.encode(true)
+        );
+
+        vm.prank(owner);
+        testNode.addPolicies(proof, proofFlags, sigs, policies_);
     }
 
     // HELPER FUNCTIONS

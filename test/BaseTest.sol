@@ -2,33 +2,39 @@
 pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
+
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import {Node} from "src/Node.sol";
+import {NodeFactory} from "src/NodeFactory.sol";
+import {NodeRegistry} from "src/NodeRegistry.sol";
+import {QuoterV1} from "src/quoters/QuoterV1.sol";
+import {ERC4626Router} from "src/routers/ERC4626Router.sol";
+import {ERC7540Router} from "src/routers/ERC7540Router.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {Deployer} from "script/Deployer.sol";
-
 import {Node} from "src/Node.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import {Escrow} from "src/Escrow.sol";
 
-import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
-import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
+import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol";
+import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
-import {MathLib} from "src/libraries/MathLib.sol";
-
 contract BaseTest is Test {
-    using MathLib for uint256;
+    using Math for uint256;
 
-    Deployer public deployer;
-    INodeRegistry public registry;
-    INodeFactory public factory;
-    IQuoterV1 public quoter;
+    NodeRegistry public registry;
+    NodeFactory public factory;
+    QuoterV1 public quoter;
     ERC4626Router public router4626;
     ERC7540Router public router7540;
 
@@ -67,14 +73,22 @@ contract BaseTest is Test {
         testPoolManager = makeAddr("testPoolManager");
         protocolFeesAddress = makeAddr("protocolFeesAddress");
 
-        deployer = new Deployer();
-        deployer.deploy(owner);
-
-        registry = INodeRegistry(address(deployer.registry()));
-        factory = INodeFactory(address(deployer.factory()));
-        quoter = IQuoterV1(address(deployer.quoter()));
-        router4626 = deployer.erc4626router();
-        router7540 = deployer.erc7540router();
+        address registryImpl = address(new NodeRegistry());
+        registry = NodeRegistry(
+            address(
+                new ERC1967Proxy(
+                    registryImpl,
+                    abi.encodeWithSelector(
+                        NodeRegistry.initialize.selector, owner, protocolFeesAddress, 0, 0, 0.99 ether
+                    )
+                )
+            )
+        );
+        address nodeImplementation = address(new Node(address(registry)));
+        factory = new NodeFactory(address(registry), nodeImplementation);
+        quoter = new QuoterV1(address(registry));
+        router4626 = new ERC4626Router(address(registry));
+        router7540 = new ERC7540Router(address(registry));
 
         if (block.chainid == 42161) {
             asset = IERC20(usdcArbitrum);
@@ -89,31 +103,26 @@ contract BaseTest is Test {
         }
 
         vm.startPrank(owner);
-        registry.initialize(
-            _toArray(address(factory)),
-            _toArrayTwo(address(router4626), address(router7540)),
-            _toArray(address(quoter)),
-            _toArray(address(rebalancer)),
-            protocolFeesAddress,
-            0,
-            0,
-            0.99 ether
-        );
+        registry.setRegistryType(address(factory), RegistryType.FACTORY, true);
+        registry.setRegistryType(address(router7540), RegistryType.ROUTER, true);
+        registry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
+        registry.setRegistryType(address(rebalancer), RegistryType.REBALANCER, true);
+        registry.setRegistryType(address(quoter), RegistryType.QUOTER, true);
 
         router4626.setWhitelistStatus(address(vault), true);
 
-        (node, escrow) = factory.deployFullNode(
-            "Test Node",
-            "TNODE",
-            address(asset),
-            owner,
-            _toArray(address(vault)),
-            _defaultComponentAllocations(1),
-            0.1 ether,
-            address(rebalancer),
-            address(quoter),
-            SALT
+        bytes[] memory payload = new bytes[](5);
+        payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router4626));
+        payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
+        ComponentAllocation memory allocation = _defaultComponentAllocations(1)[0];
+        payload[2] = abi.encodeWithSelector(
+            INode.addComponent.selector, address(vault), allocation.targetWeight, allocation.maxDelta, allocation.router
         );
+        payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
+        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
+
+        (node, escrow) =
+            factory.deployFullNode(NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, SALT);
 
         node.setMaxDepositSize(1e36);
         vm.stopPrank();
@@ -193,7 +202,7 @@ contract BaseTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
-        uint256 currentReserveRatio = MathLib.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
+        uint256 currentReserveRatio = Math.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
 
         return (currentReserveRatio);
     }
@@ -226,6 +235,14 @@ contract BaseTest is Test {
         vm.startPrank(user_);
         asset.approve(address(node), amount_);
         shares = node.deposit(amount_, user_);
+        vm.stopPrank();
+    }
+
+    function _userDepositsWithRevert(address user_, uint256 amount_, bytes memory data) internal {
+        vm.startPrank(user_);
+        asset.approve(address(node), amount_);
+        vm.expectRevert(data);
+        node.deposit(amount_, user_);
         vm.stopPrank();
     }
 
@@ -263,6 +280,21 @@ contract BaseTest is Test {
         node.removeComponent(address(vault), false);
         node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool_), true);
+        vm.stopPrank();
+    }
+
+    function _addPolicies(bytes4[] memory sigs, address[] memory policies) internal {
+        bytes32[] memory proof = new bytes32[](0);
+        bool[] memory proofFlags = new bool[](0);
+
+        vm.startPrank(owner);
+
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(INodeRegistry.verifyPolicies.selector, proof, proofFlags, sigs, policies),
+            abi.encode(true)
+        );
+        node.addPolicies(proof, proofFlags, sigs, policies);
         vm.stopPrank();
     }
 }

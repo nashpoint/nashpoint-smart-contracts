@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
-import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
+import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol";
 import {INodeFactory} from "src/interfaces/INodeFactory.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -41,31 +42,23 @@ contract DecimalsTests is BaseTest {
 
         vm.startPrank(owner);
         router4626.setWhitelistStatus(address(testVault6), true);
-        // DeployParams memory params = DeployParams({
-        //     name: "Decimal Node ",
-        //     symbol: "DNODE",
-        //     asset: address(testToken6),
-        //     owner: owner,
-        //     rebalancer: address(rebalancer),
-        //     quoter: address(quoter),
-        //     routers: _toArrayTwo(address(router4626), address(router7540)),
-        //     components: _toArray(address(testVault6)),
-        //     componentAllocations: _defaultComponentAllocations(1),
-        //     targetReserveRatio: 0.1 ether,
-        //     salt: SALT
-        // });
 
-        (decNode, decEscrow) = factory.deployFullNode(
-            "Decimal Node",
-            "DNODE",
-            address(testToken6),
-            owner,
-            _toArray(address(testVault6)),
-            _defaultComponentAllocations(1),
-            0.1 ether,
-            address(rebalancer),
-            address(quoter),
-            SALT
+        bytes[] memory payload = new bytes[](5);
+        payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router4626));
+        payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
+        ComponentAllocation memory allocation = _defaultComponentAllocations(1)[0];
+        payload[2] = abi.encodeWithSelector(
+            INode.addComponent.selector,
+            address(testVault6),
+            allocation.targetWeight,
+            allocation.maxDelta,
+            allocation.router
+        );
+        payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
+        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
+
+        (decNode,) = factory.deployFullNode(
+            NodeInitArgs("Decimal Node", "DNODE", address(testToken6), owner), payload, keccak256("new salt")
         );
         decNode.setMaxDepositSize(1e36);
         vm.stopPrank();
@@ -121,9 +114,7 @@ contract DecimalsTests is BaseTest {
 
         ComponentAllocation memory componentAllocation = decNode.getComponentAllocation(address(testVault6));
 
-        assertEq(
-            testVault6.balanceOf(address(decNode)), MathLib.mulDiv(deposit, componentAllocation.targetWeight, 1e18)
-        );
+        assertEq(testVault6.balanceOf(address(decNode)), Math.mulDiv(deposit, componentAllocation.targetWeight, 1e18));
         assertEq(testToken6.balanceOf(address(testVault6)), testVault6.balanceOf(address(decNode)));
 
         assertEq(decNode.balanceOf(address(user)), deposit);
