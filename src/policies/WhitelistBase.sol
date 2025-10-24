@@ -6,6 +6,11 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 import {PolicyBase} from "src/policies/PolicyBase.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
+/**
+ * @title WhitelistBase
+ * @notice Abstract helper for policies that require per-node allow lists
+ * Can be used for whitelisting users/operators etc.
+ */
 abstract contract WhitelistBase is PolicyBase {
     mapping(address node => bytes32 root) public roots;
     mapping(address node => mapping(address actor => bytes32[] proof)) public proofs;
@@ -20,11 +25,17 @@ abstract contract WhitelistBase is PolicyBase {
 
     constructor(address registry_) PolicyBase(registry_) {}
 
+    /// @notice Sets the Merkle root used to validate actors for a node
+    /// @param node Node whose whitelist root is updated
+    /// @param root Merkle root encoding authorized actors
     function setRoot(address node, bytes32 root) external onlyNodeOwner(node) {
         roots[node] = root;
         emit NodeRootUpdated(node, root);
     }
 
+    /// @notice Whitelists actors directly for a node
+    /// @param node Node whose whitelist is updated
+    /// @param actors Addresses granted access
     function add(address node, address[] calldata actors) external onlyNodeOwner(node) {
         for (uint256 i; i < actors.length; i++) {
             whitelist[node][actors[i]] = true;
@@ -32,6 +43,9 @@ abstract contract WhitelistBase is PolicyBase {
         emit WhitelistAdded(node, actors);
     }
 
+    /// @notice Removes actors from a node's direct whitelist
+    /// @param node Node whose whitelist is updated
+    /// @param actors Addresses to revoke
     function remove(address node, address[] calldata actors) external onlyNodeOwner(node) {
         for (uint256 i; i < actors.length; i++) {
             whitelist[node][actors[i]] = false;

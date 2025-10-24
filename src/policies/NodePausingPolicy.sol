@@ -8,6 +8,10 @@ import {INode} from "src/interfaces/INode.sol";
 
 import {WhitelistBase} from "src/policies/WhitelistBase.sol";
 
+/**
+ * @title NodePausingPolicy
+ * @notice Allows node owners to pause specific actions on their node
+ */
 contract NodePausingPolicy is WhitelistBase {
     mapping(address node => mapping(bytes4 sig => bool paused)) public sigPause;
     mapping(address node => bool paused) public globalPause;
@@ -41,6 +45,9 @@ contract NodePausingPolicy is WhitelistBase {
         actions[IERC20.transferFrom.selector] = true;
     }
 
+    /// @notice Pauses specific selectors for a node
+    /// @param node Node to update
+    /// @param sigs Function selectors to pause
     function pauseSigs(address node, bytes4[] calldata sigs) external onlyWhitelisted(node, msg.sender) {
         for (uint256 i; i < sigs.length; i++) {
             sigPause[node][sigs[i]] = true;
@@ -48,6 +55,9 @@ contract NodePausingPolicy is WhitelistBase {
         emit SelectorsPaused(node, sigs);
     }
 
+    /// @notice Resumes specific selectors for a node
+    /// @param node Node to update
+    /// @param sigs Function selectors to unpause
     function unpauseSigs(address node, bytes4[] calldata sigs) external onlyWhitelisted(node, msg.sender) {
         for (uint256 i; i < sigs.length; i++) {
             sigPause[node][sigs[i]] = false;
@@ -55,11 +65,15 @@ contract NodePausingPolicy is WhitelistBase {
         emit SelectorsUnpaused(node, sigs);
     }
 
+    /// @notice Pauses all guarded selectors for a node
+    /// @param node Node to update
     function pauseGlobal(address node) external onlyWhitelisted(node, msg.sender) {
         globalPause[node] = true;
         emit GlobalPaused(node);
     }
 
+    /// @notice Unpauses all guarded selectors for a node
+    /// @param node Node to update
     function unpauseGlobal(address node) external onlyWhitelisted(node, msg.sender) {
         globalPause[node] = false;
         emit GlobalUnpaused(node);

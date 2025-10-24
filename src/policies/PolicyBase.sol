@@ -9,6 +9,10 @@ import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
+/**
+ * @title PolicyBase
+ * @notice Common access control and action dispatching for node policies
+ */
 abstract contract PolicyBase is IPolicy {
     INodeRegistry public immutable registry;
     mapping(bytes4 sig => bool allowed) public actions;
@@ -33,12 +37,14 @@ abstract contract PolicyBase is IPolicy {
         _;
     }
 
+    /// @inheritdoc IPolicy
     function onCheck(address caller, bytes calldata data) external view onlyNode(msg.sender) {
         (bytes4 selector, bytes calldata payload) = _extract(data);
         _allowedAction(selector);
         _executeCheck(caller, selector, payload);
     }
 
+    /// @inheritdoc IPolicy
     function receiveUserData(address caller, bytes calldata data) external onlyNode(msg.sender) {
         _processCallerData(caller, data);
     }

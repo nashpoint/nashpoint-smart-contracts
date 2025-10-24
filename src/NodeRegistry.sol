@@ -36,6 +36,12 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     /* EXTERNAL */
+    /// @notice Initializes the registry with protocol level parameters
+    /// @param owner Owner address that will control upgrades and configuration
+    /// @param feeAddress_ Destination for protocol fees
+    /// @param managementFee_ Protocol share of management fees in WAD
+    /// @param executionFee_ Protocol execution fee in WAD
+    /// @param maxSwingFactor_ Maximum swing pricing factor allowed for nodes
     function initialize(
         address owner,
         address feeAddress_,
@@ -52,6 +58,7 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
         _setProtocolMaxSwingFactor(maxSwingFactor_);
     }
 
+    /// @inheritdoc INodeRegistry
     function setPoliciesRoot(bytes32 newRoot) external onlyOwner {
         policiesRoot = newRoot;
         emit EventsLib.PoliciesRootUpdate(newRoot);
@@ -105,12 +112,13 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
         return roles[addr][type_];
     }
 
+    /// @inheritdoc INodeRegistry
     function verifyPolicies(
         bytes32[] calldata proof,
         bool[] calldata proofFlags,
         bytes4[] calldata sigs,
         address[] calldata policies
-    ) external view returns (bool) {
+    ) external view returns (bool valid) {
         if (sigs.length != policies.length) revert ErrorsLib.LengthMismatch();
         bytes32[] memory leaves = new bytes32[](policies.length);
         for (uint256 i; i < policies.length; i++) {

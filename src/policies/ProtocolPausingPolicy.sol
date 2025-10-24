@@ -9,6 +9,10 @@ import {INode} from "src/interfaces/INode.sol";
 import {PolicyBase} from "src/policies/PolicyBase.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
+/**
+ * @title ProtocolPausingPolicy
+ * @notice Enables protocol operators to pause actions across all nodes
+ */
 contract ProtocolPausingPolicy is PolicyBase {
     mapping(address user => bool whitelisted) public whitelist;
 
@@ -46,6 +50,8 @@ contract ProtocolPausingPolicy is PolicyBase {
         actions[IERC20.transferFrom.selector] = true;
     }
 
+    /// @notice Grants protocol-level pause permissions to accounts
+    /// @param users Addresses to whitelist
     function add(address[] calldata users) external onlyRegistryOwner {
         for (uint256 i; i < users.length; i++) {
             whitelist[users[i]] = true;
@@ -53,6 +59,8 @@ contract ProtocolPausingPolicy is PolicyBase {
         emit WhitelistAdded(users);
     }
 
+    /// @notice Revokes protocol-level pause permissions from accounts
+    /// @param users Addresses to remove from the whitelist
     function remove(address[] calldata users) external onlyRegistryOwner {
         for (uint256 i; i < users.length; i++) {
             whitelist[users[i]] = false;
@@ -60,6 +68,8 @@ contract ProtocolPausingPolicy is PolicyBase {
         emit WhitelistRemoved(users);
     }
 
+    /// @notice Pauses specific function selectors across all nodes
+    /// @param sigs Function selectors to pause
     function pauseSigs(bytes4[] calldata sigs) external onlyWhitelisted {
         for (uint256 i; i < sigs.length; i++) {
             sigPause[sigs[i]] = true;
@@ -67,6 +77,8 @@ contract ProtocolPausingPolicy is PolicyBase {
         emit SelectorsPaused(sigs);
     }
 
+    /// @notice Resumes paused selectors across all nodes
+    /// @param sigs Function selectors to unpause
     function unpauseSigs(bytes4[] calldata sigs) external onlyWhitelisted {
         for (uint256 i; i < sigs.length; i++) {
             sigPause[sigs[i]] = false;
@@ -74,11 +86,13 @@ contract ProtocolPausingPolicy is PolicyBase {
         emit SelectorsUnpaused(sigs);
     }
 
+    /// @notice Triggers a global pause for all guarded selectors
     function pauseGlobal() external onlyWhitelisted {
         globalPause = true;
         emit GlobalPaused();
     }
 
+    /// @notice Lifts the global pause for all guarded selectors
     function unpauseGlobal() external onlyWhitelisted {
         globalPause = false;
         emit GlobalUnpaused();

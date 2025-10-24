@@ -28,6 +28,7 @@ struct Request {
     uint256 sharesAdjusted;
 }
 
+/// @notice Initialization arguments for deploying a node clone
 struct NodeInitArgs {
     string name;
     string symbol;
@@ -40,6 +41,9 @@ struct NodeInitArgs {
  * @author ODND Studios
  */
 interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
+    /// @notice Initializes the node proxy after cloning
+    /// @param args Packaged initialization arguments
+    /// @param escrow Escrow contract that will custody pending withdrawals
     function initialize(NodeInitArgs calldata args, address escrow) external;
 
     /// @notice Returns the target reserve ratio
@@ -320,12 +324,27 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Returns the liquidation queue
     function getLiquidationsQueue() external view returns (address[] memory);
 
-    function getUncachedTotalAssets() external view returns (uint256);
+    /// @notice Reads the total assets directly from all components without using the cached value
+    /// @return assets Sum of assets held by the node and its components
+    function getUncachedTotalAssets() external view returns (uint256 assets);
 
+    /// @notice Returns the policies registered for a function selector
+    /// @param sig The selector to inspect
+    /// @return policies Contract addresses that will be executed for the selector
     function getPolicies(bytes4 sig) external view returns (address[] memory policies);
 
-    function isSigPolicy(bytes4 sig, address policy) external view returns (bool);
+    /// @notice Returns whether a policy is registered for a selector
+    /// @param sig The selector to check
+    /// @param policy The policy contract address
+    /// @return isRegistered True when the policy is active for the selector
+    function isSigPolicy(bytes4 sig, address policy) external view returns (bool isRegistered);
 
+    /// @notice Adds verified policies for the provided selectors
+    /// @dev Only callable by the node owner with a valid registry proof
+    /// @param proof Merkle proof elements validating the policies
+    /// @param proofFlags Flags describing the Merkle multi-proof
+    /// @param sigs Function selectors being guarded
+    /// @param policies_ Policy contract addresses to register
     function addPolicies(
         bytes32[] calldata proof,
         bool[] calldata proofFlags,
@@ -333,7 +352,15 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
         address[] calldata policies_
     ) external;
 
+    /// @notice Removes policies from the specified selectors
+    /// @dev Only callable by the node owner
+    /// @param sigs Function selectors to modify
+    /// @param policies_ Policy contract addresses to detach
     function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external;
 
+    /// @notice Submits auxiliary data to a registered policy
+    /// @param sig Selector associated with the policy execution
+    /// @param policy Policy address that will store or process the data
+    /// @param data ABI encoded payload forwarded to the policy
     function submitPolicyData(bytes4 sig, address policy, bytes calldata data) external;
 }

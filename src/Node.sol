@@ -75,6 +75,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         registry = registry_;
     }
 
+    /// @inheritdoc INode
     function initialize(NodeInitArgs calldata args, address escrow_) external initializer {
         __ERC20_init(args.name, args.symbol);
         // ownership will be transferred in Factory after setting up the Node (routers, component, etc)
@@ -157,6 +158,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
                             OWNER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc INode
     function addPolicies(
         bytes32[] calldata proof,
         bool[] calldata proofFlags,
@@ -166,6 +168,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         NodeLib.addPolicies(registry, policies, sigPolicy, proof, proofFlags, sigs, policies_);
     }
 
+    /// @inheritdoc INode
     function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external onlyOwner {
         NodeLib.removePolicies(policies, sigPolicy, sigs, policies_);
     }
@@ -314,6 +317,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         emit EventsLib.MaxDepositSizeSet(newMaxDepositSize);
     }
 
+    /// @inheritdoc INode
     function rescueTokens(address token, address recipient, uint256 amount) external onlyOwner {
         if (token == asset) revert ErrorsLib.InvalidToken();
         if (_isComponent(token)) revert ErrorsLib.InvalidToken();
@@ -401,6 +405,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         emit EventsLib.ExecutionFeeTaken(executionFee);
     }
 
+    /// @inheritdoc INode
     function updateTotalAssets() external onlyOwnerOrRebalancer nonReentrant {
         _updateTotalAssets();
         _runPolicies();
@@ -482,6 +487,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
                             ERC-4626 FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IERC7575
     function deposit(uint256 assets, address receiver) external nonReentrant returns (uint256 shares) {
         if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ExceedsMaxDeposit();
@@ -492,6 +498,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         return shares;
     }
 
+    /// @inheritdoc IERC7575
     function mint(uint256 shares, address receiver) external nonReentrant returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ExceedsMaxMint();
@@ -502,6 +509,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         return assets;
     }
 
+    /// @inheritdoc IERC7575
     function withdraw(uint256 assets, address receiver, address controller)
         external
         nonReentrant
@@ -526,6 +534,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         return shares;
     }
 
+    /// @inheritdoc IERC7575
     function redeem(uint256 shares, address receiver, address controller)
         external
         nonReentrant
@@ -685,15 +694,18 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         return liquidationsQueue;
     }
 
-    function getUncachedTotalAssets() external view returns (uint256) {
+    /// @inheritdoc INode
+    function getUncachedTotalAssets() external view returns (uint256 assets) {
         return _getTotalAssets();
     }
 
-    function getPolicies(bytes4 sig) external view returns (address[] memory) {
+    /// @inheritdoc INode
+    function getPolicies(bytes4 sig) external view returns (address[] memory policies_) {
         return policies[sig];
     }
 
-    function isSigPolicy(bytes4 sig, address policy) external view returns (bool) {
+    /// @inheritdoc INode
+    function isSigPolicy(bytes4 sig, address policy) external view returns (bool isRegistered) {
         return sigPolicy[sig][policy];
     }
 
@@ -701,6 +713,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
                             OTHER USER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc INode
     function submitPolicyData(bytes4 sig, address policy, bytes calldata data) external {
         NodeLib.submitPolicyData(sigPolicy, sig, policy, data);
     }
