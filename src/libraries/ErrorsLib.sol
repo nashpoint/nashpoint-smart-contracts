@@ -167,8 +167,6 @@ library ErrorsLib {
 
     error PolicyAlreadyRemoved(bytes4 sig, address policy);
 
-    error PolicyEntered();
-
     error NotFound(address element);
 
     error NotAllowedAction(bytes4 sig);

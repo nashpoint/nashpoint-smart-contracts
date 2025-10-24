@@ -8,7 +8,6 @@ import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
-import {MathLib} from "src/libraries/MathLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";

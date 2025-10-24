@@ -10,6 +10,7 @@ import {IPolicy} from "src/interfaces/IPolicy.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
+import {NodeLib} from "src/libraries/NodeLib.sol";
 
 import {MulticallUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -66,7 +67,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     mapping(bytes4 => address[]) internal policies;
     mapping(bytes4 => mapping(address => bool)) internal sigPolicy;
-    bool internal _policyEntered;
     uint8 internal _decimals;
 
     /* CONSTRUCTOR */
@@ -163,24 +163,11 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         bytes4[] calldata sigs,
         address[] calldata policies_
     ) external onlyOwner {
-        if (!INodeRegistry(registry).verifyPolicies(proof, proofFlags, sigs, policies_)) {
-            revert ErrorsLib.NotWhitelisted();
-        }
-        for (uint256 i; i < sigs.length; i++) {
-            if (sigPolicy[sigs[i]][policies_[i]]) revert ErrorsLib.PolicyAlreadyAdded(sigs[i], policies_[i]);
-            policies[sigs[i]].push(policies_[i]);
-            sigPolicy[sigs[i]][policies_[i]] = true;
-        }
-        emit EventsLib.PoliciesAdded(sigs, policies_);
+        NodeLib.addPolicies(registry, policies, sigPolicy, proof, proofFlags, sigs, policies_);
     }
 
     function removePolicies(bytes4[] calldata sigs, address[] calldata policies_) external onlyOwner {
-        for (uint256 i; i < sigs.length; i++) {
-            if (!sigPolicy[sigs[i]][policies_[i]]) revert ErrorsLib.PolicyAlreadyRemoved(sigs[i], policies_[i]);
-            _remove(policies[sigs[i]], policies_[i]);
-            delete sigPolicy[sigs[i]][policies_[i]];
-        }
-        emit EventsLib.PoliciesRemoved(sigs, policies_);
+        NodeLib.removePolicies(policies, sigPolicy, sigs, policies_);
     }
 
     /// @inheritdoc INode
@@ -209,7 +196,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
             revert ErrorsLib.NotBlacklisted();
         }
 
-        _remove(components, component);
+        NodeLib.remove(components, component);
         delete componentAllocations[component];
         emit EventsLib.ComponentRemoved(component);
     }
@@ -715,27 +702,12 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     //////////////////////////////////////////////////////////////*/
 
     function submitPolicyData(bytes4 sig, address policy, bytes calldata data) external {
-        if (!sigPolicy[sig][policy]) revert ErrorsLib.Forbidden();
-        IPolicy(policy).receiveUserData(msg.sender, data);
+        NodeLib.submitPolicyData(sigPolicy, sig, policy, data);
     }
 
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    function _remove(address[] storage list, address element) internal {
-        uint256 length = list.length;
-        for (uint256 i = 0; i < length; i++) {
-            if (list[i] == element) {
-                if (i != length - 1) {
-                    list[i] = list[length - 1];
-                }
-                list.pop();
-                return;
-            }
-        }
-        revert ErrorsLib.NotFound(element);
-    }
 
     function _updateLastPayment() internal {
         lastPayment = uint64(block.timestamp);
@@ -893,12 +865,9 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     function _runPolicies() internal {
-        if (_policyEntered) revert ErrorsLib.PolicyEntered();
-        _policyEntered = true;
         address[] memory policies_ = policies[msg.sig];
         for (uint256 i; i < policies_.length; i++) {
             IPolicy(policies_[i]).onCheck(msg.sender, msg.data);
         }
-        _policyEntered = false;
     }
 }
