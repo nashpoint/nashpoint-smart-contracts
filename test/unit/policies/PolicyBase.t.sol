@@ -148,4 +148,16 @@ contract PolicyBaseTest is Test {
             vm.stopPrank();
         }
     }
+
+    function test_receiveUserData() external {
+        vm.startPrank(notNode);
+        vm.expectRevert(ErrorsLib.NotRegistered.selector);
+        policy.receiveUserData(address(this), "");
+        vm.stopPrank();
+
+        vm.startPrank(node);
+        vm.expectRevert(ErrorsLib.Forbidden.selector);
+        policy.receiveUserData(address(this), "");
+        vm.stopPrank();
+    }
 }
