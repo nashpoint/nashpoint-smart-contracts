@@ -794,9 +794,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     function _validateOwner(address owner, uint256 shares) internal {
         if (owner != msg.sender && !isOperator[owner][msg.sender]) {
-            revert ErrorsLib.InvalidOwner();
-        }
-        if (owner != msg.sender) {
             _spendAllowance(owner, msg.sender, shares);
         }
     }

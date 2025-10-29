@@ -16,6 +16,7 @@ import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {ERC7540Mock} from "test/mocks/ERC7540Mock.sol";
 import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
@@ -1482,17 +1483,33 @@ contract NodeTest is BaseTest {
         asset.approve(address(node), 100 ether);
         node.deposit(100 ether, user);
         uint256 shares = node.balanceOf(address(user)) / 10;
-        node.approve(address(node), shares);
         node.requestRedeem(shares, user, user);
         vm.stopPrank();
 
         assertEq(node.pendingRedeemRequest(0, user), shares);
     }
 
-    function test_requestRedeem_revert_InvalidOwner() public {
+    function test_requestRedeem_third_party_success() public {
+        uint256 amount = 100 ether;
         vm.startPrank(user);
-        vm.expectRevert(ErrorsLib.InvalidOwner.selector);
-        node.requestRedeem(1 ether, user, randomUser);
+        asset.approve(address(node), amount);
+        node.deposit(amount, user);
+        uint256 userShareBalance = node.balanceOf(address(user));
+        uint256 toRedeem = userShareBalance / 10;
+        node.approve(address(randomUser), userShareBalance);
+        vm.stopPrank();
+
+        vm.startPrank(randomUser);
+        node.requestRedeem(toRedeem, user, user);
+        vm.stopPrank();
+
+        assertEq(node.allowance(user, randomUser), userShareBalance - toRedeem);
+    }
+
+    function test_requestRedeem_third_party_revert_ERC20InsufficientAllowance() public {
+        vm.startPrank(user2);
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, user2, 0, 1 ether));
+        node.requestRedeem(1 ether, user2, randomUser);
         vm.stopPrank();
     }
 
@@ -2190,7 +2207,7 @@ contract NodeTest is BaseTest {
         node.requestRedeem(1 ether, user, user);
     }
 
-    function test_validateOwner_ERC20InsufficientAllowance() public {
+    function test_requestRedeem_operator_success() public {
         _seedNode(100 ether);
         _userDeposits(user, 100 ether);
 
@@ -2201,9 +2218,6 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(operator);
-        vm.expectRevert(
-            abi.encodeWithSignature("ERC20InsufficientAllowance(address,uint256,uint256)", operator, 0, 1 ether)
-        );
         node.requestRedeem(1 ether, user, user);
         vm.stopPrank();
     }
