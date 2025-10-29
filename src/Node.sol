@@ -621,11 +621,13 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function transfer(address to, uint256 value) public override(ERC20Upgradeable, IERC20) returns (bool) {
         super.transfer(to, value);
         _runPolicies();
+        return true;
     }
 
     function approve(address spender, uint256 value) public override(ERC20Upgradeable, IERC20) returns (bool) {
         super.approve(spender, value);
         _runPolicies();
+        return true;
     }
 
     function transferFrom(address from, address to, uint256 value)
@@ -635,6 +637,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     {
         super.transferFrom(from, to, value);
         _runPolicies();
+        return true;
     }
 
     /*//////////////////////////////////////////////////////////////
