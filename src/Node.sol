@@ -423,7 +423,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         uint256 assetsToReturn,
         uint256 sharesPending,
         uint256 sharesAdjusted
-    ) external onlyRouter nonReentrant {
+    ) external onlyRouter onlyWhenRebalancing nonReentrant {
         _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
         _runPolicies();
     }

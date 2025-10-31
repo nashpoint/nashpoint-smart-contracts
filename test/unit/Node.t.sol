@@ -1476,6 +1476,14 @@ contract NodeTest is BaseTest {
         node.finalizeRedemption(user, 50 ether, 100, 100);
     }
 
+    function test_finalizeRedemption_revert_onlyWhenRebalancing() public {
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(address(router4626));
+        vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
+        node.finalizeRedemption(user, 50 ether, 100, 100);
+    }
+
     // ERC-7540 FUNCTIONS
 
     function test_requestRedeem() public {
