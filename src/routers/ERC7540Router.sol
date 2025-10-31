@@ -65,8 +65,7 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         INode(node).enforceLiquidationOrder(component, assetsRequested);
 
         // Get the max amount of assets that can be withdrawn from the async component atomically
-        uint256 maxClaimableRedeemRequest = IERC7540Redeem(component).claimableRedeemRequest(0, node);
-        uint256 maxClaimableAssets = IERC7575(component).convertToAssets(maxClaimableRedeemRequest);
+        uint256 maxClaimableAssets = IERC7575(component).maxWithdraw(node);
 
         // execute the withdrawal
         assetsReturned = _executeAsyncWithdrawal(node, component, Math.min(assetsRequested, maxClaimableAssets));
