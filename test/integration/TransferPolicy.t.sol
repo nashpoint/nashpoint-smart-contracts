@@ -42,7 +42,7 @@ contract TransferPolicyTest is BaseTest {
         policy.add(address(node), initialWhitelist);
 
         vm.prank(user);
-        node.transfer(user2, transferAmount);
+        assertTrue(node.transfer(user2, transferAmount));
 
         assertEq(node.balanceOf(user), shares - transferAmount);
         assertEq(node.balanceOf(user2), transferAmount);
@@ -57,7 +57,7 @@ contract TransferPolicyTest is BaseTest {
         policy.add(address(node), whitelistSpender);
 
         vm.prank(user);
-        node.approve(user3, approveAmount);
+        assertTrue(node.approve(user3, approveAmount));
         assertEq(node.allowance(user, user3), approveAmount);
 
         vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
@@ -69,7 +69,7 @@ contract TransferPolicyTest is BaseTest {
         policy.add(address(node), whitelistReceiver);
 
         vm.prank(user3);
-        node.transferFrom(user, randomUser, approveAmount);
+        assertTrue(node.transferFrom(user, randomUser, approveAmount));
 
         assertEq(node.balanceOf(randomUser), approveAmount);
         assertEq(node.balanceOf(user), shares - transferAmount - approveAmount);

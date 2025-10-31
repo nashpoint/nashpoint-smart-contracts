@@ -423,7 +423,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         uint256 assetsToReturn,
         uint256 sharesPending,
         uint256 sharesAdjusted
-    ) external onlyRouter nonReentrant {
+    ) external onlyRouter onlyWhenRebalancing nonReentrant {
         _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
         _runPolicies();
     }
@@ -621,11 +621,13 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function transfer(address to, uint256 value) public override(ERC20Upgradeable, IERC20) returns (bool) {
         super.transfer(to, value);
         _runPolicies();
+        return true;
     }
 
     function approve(address spender, uint256 value) public override(ERC20Upgradeable, IERC20) returns (bool) {
         super.approve(spender, value);
         _runPolicies();
+        return true;
     }
 
     function transferFrom(address from, address to, uint256 value)
@@ -635,6 +637,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     {
         super.transferFrom(from, to, value);
         _runPolicies();
+        return true;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -791,9 +794,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     function _validateOwner(address owner, uint256 shares) internal {
         if (owner != msg.sender && !isOperator[owner][msg.sender]) {
-            revert ErrorsLib.InvalidOwner();
-        }
-        if (owner != msg.sender) {
             _spendAllowance(owner, msg.sender, shares);
         }
     }
