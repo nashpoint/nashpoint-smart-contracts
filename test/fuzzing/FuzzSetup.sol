@@ -170,6 +170,7 @@ contract FuzzSetup is FuzzStorageVariables {
         (node, escrowAddress) =
             factory.deployFullNode(NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, DEFAULT_SALT);
         escrow = Escrow(escrowAddress);
+        _registerManagedNode(address(node), escrowAddress);
 
         vm.startPrank(owner);
         node.setMaxDepositSize(1e36);
@@ -445,22 +446,6 @@ contract FuzzSetup is FuzzStorageVariables {
         vm.stopPrank();
     }
 
-    function _singleton(address value) internal pure returns (address[] memory arr) {
-        arr = new address[](1);
-        arr[0] = value;
-    }
-
-    function _toArray(address addr) internal pure returns (address[] memory arr) {
-        arr = new address[](1);
-        arr[0] = addr;
-    }
-
-    function _toArrayTwo(address addr1, address addr2) internal pure returns (address[] memory arr) {
-        arr = new address[](2);
-        arr[0] = addr1;
-        arr[1] = addr2;
-    }
-
     function _defaultComponentAllocations(uint256 count)
         internal
         view
@@ -536,5 +521,66 @@ contract FuzzSetup is FuzzStorageVariables {
         node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();
+    }
+
+    // ==============================================================
+    // TEST HELPERS
+    // ==============================================================
+
+    function setActiveNodeForTest(uint256 index) public {
+        if (!protocolSet) {
+            fuzzSetup();
+        }
+        _setActiveNodeByIndex(index);
+    }
+
+    function managedNodeCountForTest() public view returns (uint256) {
+        return _managedNodeCount();
+    }
+
+    function forceNodeContextForTest(uint256 index) public {
+        if (!protocolSet) {
+            fuzzSetup();
+        }
+        testNodeOverrideEnabled = true;
+        testNodeOverrideIndex = index;
+        _setActiveNodeByIndex(index);
+        if (address(node) != address(0)) {
+            vm.startPrank(rebalancer);
+            try node.startRebalance() {}
+            catch {
+                // ignore reverts in tests; deposit preconditions will handle
+            }
+            vm.stopPrank();
+        }
+    }
+
+    function clearNodeContextOverrideForTest() public {
+        testNodeOverrideEnabled = false;
+    }
+
+    function componentsByRouterForTest(address targetRouter) public view returns (address[] memory matches) {
+        if (address(node) == address(0)) {
+            return new address[](0);
+        }
+
+        address[] memory nodeComponents = node.getComponents();
+        uint256 count;
+        for (uint256 i = 0; i < nodeComponents.length; i++) {
+            ComponentAllocation memory allocation = node.getComponentAllocation(nodeComponents[i]);
+            if (allocation.isComponent && allocation.router == targetRouter) {
+                count++;
+            }
+        }
+
+        matches = new address[](count);
+        uint256 cursor;
+        for (uint256 i = 0; i < nodeComponents.length; i++) {
+            ComponentAllocation memory allocation = node.getComponentAllocation(nodeComponents[i]);
+            if (allocation.isComponent && allocation.router == targetRouter) {
+                matches[cursor] = nodeComponents[i];
+                cursor++;
+            }
+        }
     }
 }

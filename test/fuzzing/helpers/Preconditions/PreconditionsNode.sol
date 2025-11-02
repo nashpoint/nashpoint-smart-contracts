@@ -13,9 +13,29 @@ import {ERC4626Router} from "../../../../src/routers/ERC4626Router.sol";
 import {ERC7540Router} from "../../../../src/routers/ERC7540Router.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {IERC7540Deposit} from "../../../../src/interfaces/IERC7540.sol";
+import {IERC7575} from "../../../../src/interfaces/IERC7575.sol";
 
 contract PreconditionsNode is PreconditionsBase {
+    function _prepareNodeContext(uint256 seed) internal {
+        if (_managedNodeCount() == 0) {
+            return;
+        }
+
+        if (testNodeOverrideEnabled) {
+            _setActiveNodeByIndex(testNodeOverrideIndex);
+            return;
+        }
+
+        uint256 randomSeed = uint256(keccak256(abi.encodePacked(seed, iteration, currentActor, block.timestamp)));
+        _setRandomActiveNode(randomSeed);
+    }
+
     function depositPreconditions(uint256 amountSeed) internal returns (DepositParams memory params) {
+        _prepareNodeContext(amountSeed);
+
         params.receiver = currentActor;
         params.maxDeposit = node.maxDeposit(currentActor);
 
@@ -33,6 +53,8 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function mintPreconditions(uint256 sharesSeed) internal returns (MintParams memory params) {
+        _prepareNodeContext(sharesSeed);
+
         params.receiver = currentActor;
         params.maxMint = node.maxMint(currentActor);
 
@@ -51,6 +73,8 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function requestRedeemPreconditions(uint256 sharesSeed) internal returns (RequestRedeemParams memory params) {
+        _prepareNodeContext(sharesSeed);
+
         params.controller = currentActor;
         params.owner = currentActor;
 
@@ -68,40 +92,26 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function fulfillRedeemPreconditions(uint256 controllerSeed) internal returns (FulfillRedeemParams memory params) {
-        _ensureRebalancing();
+        _prepareNodeContext(controllerSeed);
 
         uint256 userCount = USERS.length;
         address controller = USERS[controllerSeed % userCount];
 
         (uint256 pendingRedeem,,,) = node.requests(controller);
-        if (pendingRedeem == 0) {
-            uint256 depositAssets = _clampValue(controllerSeed + 13, 1e15, 1e21);
-            assetToken.mint(controller, depositAssets);
-
-            vm.startPrank(controller);
-            asset.approve(address(node), type(uint256).max);
-            node.deposit(depositAssets, controller);
-            uint256 shares = node.convertToShares(depositAssets);
-            uint256 redeemShares = shares == 0 ? 0 : (shares / 2 == 0 ? shares : shares / 2);
-            if (redeemShares == 0) {
-                redeemShares = 1;
-            }
-            node.requestRedeem(redeemShares, controller, controller);
-            vm.stopPrank();
-
-            _ensureRebalancing();
-            (pendingRedeem,,,) = node.requests(controller);
-        }
-
         params.controller = controller;
         params.pendingBefore = pendingRedeem;
-        params.shouldSucceed = pendingRedeem > 0;
+        uint256 window = uint256(Node(address(node)).rebalanceWindow());
+        uint256 lastRebalance = uint256(Node(address(node)).lastRebalance());
+        bool rebalancingActive = block.timestamp < lastRebalance + window;
+        params.shouldSucceed = pendingRedeem > 0 && rebalancingActive;
     }
 
     function withdrawPreconditions(uint256 controllerSeed, uint256 assetsSeed)
         internal
         returns (WithdrawParams memory params)
     {
+        _prepareNodeContext(controllerSeed);
+
         uint256 userCount = USERS.length;
         address candidate;
 
@@ -137,6 +147,8 @@ contract PreconditionsNode is PreconditionsBase {
         internal
         returns (SetOperatorParams memory params)
     {
+        _prepareNodeContext(operatorSeed);
+
         params.controller = currentActor;
         if (USERS.length == 0) {
             params.operator = address(0);
@@ -160,6 +172,8 @@ contract PreconditionsNode is PreconditionsBase {
         internal
         returns (NodeApproveParams memory params)
     {
+        _prepareNodeContext(spenderSeed);
+
         address spender = USERS[spenderSeed % USERS.length];
         if (spender == currentActor) {
             spender = spenderSeed % 2 == 0 ? owner : randomUser;
@@ -178,6 +192,8 @@ contract PreconditionsNode is PreconditionsBase {
         internal
         returns (NodeTransferParams memory params)
     {
+        _prepareNodeContext(receiverSeed);
+
         address sender = currentActor;
         address receiver = USERS[receiverSeed % USERS.length];
         if (receiver == sender) {
@@ -187,7 +203,6 @@ contract PreconditionsNode is PreconditionsBase {
             receiver = protocolFeesAddress;
         }
 
-        _ensureNodeShares(sender, 5e16);
         uint256 senderBalance = node.balanceOf(sender);
 
         if (senderBalance == 0 || receiver == address(0) || receiver == sender) {
@@ -206,6 +221,8 @@ contract PreconditionsNode is PreconditionsBase {
         internal
         returns (NodeTransferFromParams memory params)
     {
+        _prepareNodeContext(ownerSeed);
+
         bool attemptSuccess = ownerSeed % 5 != 0;
         address ownerCandidate = USERS[ownerSeed % USERS.length];
         if (!attemptSuccess) {
@@ -221,14 +238,15 @@ contract PreconditionsNode is PreconditionsBase {
             ownerCandidate = USERS[(ownerSeed + 1) % USERS.length];
         }
 
-        _ensureNodeShares(ownerCandidate, 1e17);
-
         uint256 ownerBalance = node.balanceOf(ownerCandidate);
-        if (ownerBalance == 0) {
+        uint256 allowance = node.allowance(ownerCandidate, currentActor);
+        uint256 maxTransferable = ownerBalance < allowance ? ownerBalance : allowance;
+
+        if (maxTransferable == 0) {
             params.owner = ownerCandidate;
             params.receiver = USERS[(ownerSeed + 2) % USERS.length];
             params.amount = 0;
-            params.allowanceBefore = node.allowance(ownerCandidate, currentActor);
+            params.allowanceBefore = allowance;
             params.shouldSucceed = false;
             return params;
         }
@@ -241,25 +259,28 @@ contract PreconditionsNode is PreconditionsBase {
             receiver = protocolFeesAddress;
         }
 
-        uint256 amount = fl.clamp(amountSeed + 1, 1, ownerBalance);
+        if (receiver == address(0) || receiver == ownerCandidate) {
+            params.owner = ownerCandidate;
+            params.receiver = receiver;
+            params.amount = 0;
+            params.allowanceBefore = allowance;
+            params.shouldSucceed = false;
+            return params;
+        }
 
-        vm.startPrank(ownerCandidate);
-        node.approve(currentActor, amount);
-        vm.stopPrank();
+        uint256 amount = fl.clamp(amountSeed + 1, 1, maxTransferable);
 
         params.owner = ownerCandidate;
         params.receiver = receiver;
         params.amount = amount;
-        params.allowanceBefore = node.allowance(ownerCandidate, currentActor);
-        params.shouldSucceed = receiver != address(0) && receiver != ownerCandidate;
+        params.allowanceBefore = allowance;
+        params.shouldSucceed = amount > 0;
     }
 
     function nodeRedeemPreconditions(uint256 sharesSeed) internal returns (NodeRedeemParams memory params) {
         address controller = USERS[sharesSeed % USERS.length];
         params.controller = controller;
         params.receiver = controller;
-
-        _ensureClaimableRedeem(controller);
 
         uint256 claimableShares;
         uint256 claimableAssets;
@@ -794,21 +815,12 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        _ensureNotRebalancing();
-
-        if (seed % 7 == 0) {
-            vm.startPrank(owner);
-            node.updateTargetReserveRatio(0);
-            vm.stopPrank();
-            params.shouldSucceed = false;
-            params.lastRebalanceBefore = Node(address(node)).lastRebalance();
-            return params;
-        }
-
-        _normalizeTargetReserveRatio();
-
         params.lastRebalanceBefore = Node(address(node)).lastRebalance();
-        params.shouldSucceed = node.validateComponentRatios() && !node.isCacheValid();
+        uint256 window = uint256(Node(address(node)).rebalanceWindow());
+        bool cooldownSatisfied = block.timestamp >= params.lastRebalanceBefore + window;
+        bool ratiosValid = node.validateComponentRatios();
+        bool cacheStale = !node.isCacheValid();
+        params.shouldSucceed = cooldownSatisfied && ratiosValid && cacheStale;
         return params;
     }
 
@@ -904,20 +916,21 @@ contract PreconditionsNode is PreconditionsBase {
         internal
         returns (NodeSubmitPolicyDataParams memory params)
     {
+        _prepareNodeContext(seed);
+
         params.caller = USERS[seed % USERS.length];
         bool attemptSuccess = seed % 4 != 0;
 
         if (attemptSuccess) {
             params.selector = _policySelectorPool(seed);
-            params.policy = address(gatePolicy);
-            _ensurePolicyRegistered(params.selector, params.policy);
+            params.policy = POLICIES.length > 0 ? POLICIES[seed % POLICIES.length] : address(0);
 
             bytes32[] memory proof = new bytes32[](1);
             proof[0] = keccak256(abi.encodePacked(seed, params.caller));
             params.data = abi.encode(proof);
             params.expectedProofLength = proof.length;
             params.proofHash = keccak256(abi.encode(proof));
-            params.shouldSucceed = true;
+            params.shouldSucceed = params.policy != address(0) && node.isSigPolicy(params.selector, params.policy);
         } else {
             params.selector = _policySelectorPool(seed + 1);
             params.policy = randomUser;
@@ -930,6 +943,8 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function nodeFinalizeRedemptionPreconditions(uint256 seed) internal returns (NodeFinalizeParams memory params) {
+        _prepareNodeContext(seed);
+
         bool attemptSuccess = ROUTERS.length > 0 && seed % 6 != 0;
         params.router = attemptSuccess ? ROUTERS[seed % ROUTERS.length] : randomUser;
         params.controller = USERS[(seed + 1) % USERS.length];
@@ -967,15 +982,18 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function nodeMulticallPreconditions(uint256 seed) internal returns (NodeMulticallParams memory params) {
+        _prepareNodeContext(seed);
+
         params.caller = seed % 2 == 0 ? owner : randomUser;
         bool attemptSuccess = params.caller == owner && seed % 3 != 0;
 
         if (attemptSuccess) {
-            _ensureNotRebalancing();
             params.calls = new bytes[](2);
             params.calls[0] = abi.encodeWithSelector(INode.payManagementFees.selector);
             params.calls[1] = abi.encodeWithSelector(INode.setRebalanceWindow.selector, uint64(6 hours));
-            params.shouldSucceed = true;
+            uint256 window = uint256(Node(address(node)).rebalanceWindow());
+            uint256 last = uint256(Node(address(node)).lastRebalance());
+            params.shouldSucceed = block.timestamp >= last + window;
         } else {
             params.calls = new bytes[](1);
             params.calls[0] = abi.encodeWithSelector(INode.startRebalance.selector);
@@ -983,66 +1001,215 @@ contract PreconditionsNode is PreconditionsBase {
         }
     }
 
-    function _ensureNodeShares(address account, uint256 minimumShares) internal {
-        uint256 balance = node.balanceOf(account);
-        if (balance >= minimumShares) {
-            return;
-        }
-
-        _ensureNotRebalancing();
-
-        if (!node.isCacheValid()) {
-            vm.startPrank(rebalancer);
-            node.startRebalance();
-            vm.stopPrank();
-        }
-
-        uint256 maxDepositAmount = node.maxDeposit(account);
-        if (maxDepositAmount < 1e15) {
-            maxDepositAmount = 1_000_000e18;
-        }
-
-        uint256 assetsToDeposit = _clampValue(minimumShares + 1, 1e15, maxDepositAmount);
-
-        assetToken.mint(account, assetsToDeposit);
-
-        vm.startPrank(account);
-        asset.approve(address(node), type(uint256).max);
-        node.deposit(assetsToDeposit, account);
-        vm.stopPrank();
+    function nodeGainBackingPreconditions(uint256 componentSeed, uint256 amountSeed)
+        internal
+        returns (NodeYieldParams memory params)
+    {
+        return _nodeBackingAdjustmentPreconditions(componentSeed, amountSeed, true);
     }
 
-    function _ensureClaimableRedeem(address controller) internal {
-        (, uint256 claimableShares,,) = node.requests(controller);
-        if (claimableShares > 0) {
-            return;
+    function nodeLoseBackingPreconditions(uint256 componentSeed, uint256 amountSeed)
+        internal
+        returns (NodeYieldParams memory params)
+    {
+        return _nodeBackingAdjustmentPreconditions(componentSeed, amountSeed, false);
+    }
+
+    function _nodeBackingAdjustmentPreconditions(uint256 componentSeed, uint256 amountSeed, bool increase)
+        internal
+        returns (NodeYieldParams memory params)
+    {
+        params.caller = componentSeed % 3 == 0 ? rebalancer : owner;
+        if (componentSeed % 7 == 0) {
+            params.caller = randomUser;
         }
 
-        _ensureNodeShares(controller, 1e17);
-
-        uint256 balanceBefore = node.balanceOf(controller);
-        uint256 depositAssets = _clampValue(uint256(uint160(controller)) + block.number, 1e15, 1_000_000e18);
-
-        assetToken.mint(controller, depositAssets);
-
-        vm.startPrank(controller);
-        asset.approve(address(node), type(uint256).max);
-        node.deposit(depositAssets, controller);
-        uint256 balanceAfter = node.balanceOf(controller);
-        uint256 sharesMinted = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : depositAssets;
-        if (sharesMinted == 0) {
-            sharesMinted = depositAssets;
+        params.component = _selectYieldComponent(componentSeed);
+        if (params.component == address(0)) {
+            params.component = address(node);
         }
-        node.requestRedeem(sharesMinted, controller, controller);
-        vm.stopPrank();
 
-        _ensureRebalancing();
+        params.backingToken = address(assetToken);
+        params.currentBacking = asset.balanceOf(params.component);
+        params.increase = increase;
 
-        vm.startPrank(rebalancer);
-        node.fulfillRedeemFromReserve(controller);
-        vm.stopPrank();
+        if (increase) {
+            uint256 maxDelta = INITIAL_USER_BALANCE;
+            params.delta = fl.clamp(amountSeed + 1, 1, maxDelta);
+            params.shouldSucceed = true;
+        } else {
+            uint256 maxDelta = params.currentBacking;
+            if (maxDelta == 0) {
+                params.delta = 0;
+                params.shouldSucceed = true;
+                return params;
+            }
 
-        _ensureNotRebalancing();
+            uint256 minDelta = maxDelta > 1 ? 1 : maxDelta;
+            params.delta = fl.clamp(amountSeed + 1, minDelta, maxDelta);
+            params.shouldSucceed = true;
+        }
+    }
+
+    function _selectYieldComponent(uint256 seed) internal view returns (address component) {
+        address[] memory syncComponents = _componentsByRouter(address(router4626));
+        address[] memory asyncComponents = _componentsByRouter(address(router7540));
+
+        uint256 total = syncComponents.length + asyncComponents.length;
+        if (total == 0) {
+            return address(0);
+        }
+
+        uint256 index = seed % total;
+        if (index < syncComponents.length) {
+            component = syncComponents[index];
+        } else {
+            component = asyncComponents[index - syncComponents.length];
+        }
+    }
+
+    function router4626InvestPreconditions(uint256 componentSeed, uint256 minSharesSeed)
+        internal
+        returns (RouterInvestParams memory params)
+    {
+        _prepareNodeContext(uint256(keccak256(abi.encodePacked(componentSeed, minSharesSeed))));
+
+        address[] memory syncComponents = _componentsByRouter(address(router4626));
+        if (syncComponents.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.component = syncComponents[componentSeed % syncComponents.length];
+        ComponentAllocation memory allocation = node.getComponentAllocation(params.component);
+
+        uint256 totalAssets = node.totalAssets();
+        uint256 currentComponentAssets =
+            IERC4626(params.component).convertToAssets(IERC20(params.component).balanceOf(address(node)));
+        uint256 targetHoldings = Math.mulDiv(totalAssets, allocation.targetWeight, 1e18);
+
+        params.expectedDeposit = targetHoldings > currentComponentAssets ? targetHoldings - currentComponentAssets : 0;
+        params.minSharesOut = 0;
+
+        uint256 idealCashReserve = Math.mulDiv(totalAssets, node.targetReserveRatio(), 1e18);
+        uint256 currentCash = node.getCashAfterRedemptions();
+        bool reserveAboveTarget = currentCash > idealCashReserve;
+        bool componentUnderweight = params.expectedDeposit > 0;
+        bool componentAllowed = !router4626.isBlacklisted(params.component);
+
+        params.shouldSucceed = reserveAboveTarget && componentUnderweight && componentAllowed;
+    }
+
+    function router4626FulfillPreconditions(uint256 controllerSeed, uint256 componentSeed)
+        internal
+        returns (RouterFulfillParams memory params)
+    {
+        _prepareNodeContext(uint256(keccak256(abi.encodePacked(controllerSeed, componentSeed))));
+
+        address[] memory queue = node.getLiquidationsQueue();
+        if (queue.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.controller = USERS[controllerSeed % USERS.length];
+        params.component = queue[componentSeed % queue.length];
+        params.minAssetsOut = 0;
+
+        (params.pendingBefore,,,) = node.requests(params.controller);
+        params.shouldSucceed = params.pendingBefore > 0 && !router4626.isBlacklisted(params.component);
+    }
+
+    function router7540InvestPreconditions(uint256 componentSeed)
+        internal
+        returns (RouterAsyncInvestParams memory params)
+    {
+        _prepareNodeContext(componentSeed);
+
+        address[] memory pools = _componentsByRouter(address(router7540));
+        if (pools.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.component = pools[componentSeed % pools.length];
+
+        ComponentAllocation memory allocation = node.getComponentAllocation(params.component);
+        uint256 totalAssets = node.totalAssets();
+        uint256 componentBalance = IERC20(params.component).balanceOf(address(node));
+        uint256 componentAssets = IERC7575(params.component).convertToAssets(componentBalance);
+        uint256 targetHoldings = Math.mulDiv(totalAssets, allocation.targetWeight, 1e18);
+
+        uint256 pendingAssets = IERC7540Deposit(params.component).pendingDepositRequest(0, address(node));
+
+        params.pendingDepositBefore = pendingAssets;
+
+        uint256 idealCashReserve = Math.mulDiv(totalAssets, node.targetReserveRatio(), 1e18);
+        uint256 currentCash = node.getCashAfterRedemptions();
+        bool reserveAboveTarget = currentCash > idealCashReserve;
+        bool componentUnderweight = componentAssets < targetHoldings;
+        bool componentAllowed = !router7540.isBlacklisted(params.component);
+
+        params.shouldSucceed = reserveAboveTarget && componentUnderweight && componentAllowed;
+    }
+
+    function router7540MintClaimablePreconditions(uint256 componentSeed)
+        internal
+        returns (RouterMintClaimableParams memory params)
+    {
+        _prepareNodeContext(componentSeed);
+
+        address[] memory pools = _componentsByRouter(address(router7540));
+        if (pools.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.component = pools[componentSeed % pools.length];
+        params.claimableAssetsBefore = ERC7540Mock(params.component).claimableDepositRequests(address(node));
+        params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
+        params.shouldSucceed = params.claimableAssetsBefore > 0 && !router7540.isBlacklisted(params.component);
+    }
+
+    function poolProcessPendingDepositsPreconditions(uint256 poolSeed)
+        internal
+        returns (PoolProcessParams memory params)
+    {
+        _prepareNodeContext(poolSeed);
+
+        address[] memory pools = _componentsByRouter(address(router7540));
+        if (pools.length == 0) {
+            params.pool = address(liquidityPool);
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.pool = pools[poolSeed % pools.length];
+        params.pendingBefore = ERC7540Mock(params.pool).pendingAssets();
+        params.shouldSucceed = params.pendingBefore > 0;
+    }
+
+    function _componentsByRouter(address targetRouter) internal view returns (address[] memory matches) {
+        address[] memory nodeComponents = node.getComponents();
+        uint256 count;
+        for (uint256 i = 0; i < nodeComponents.length; i++) {
+            address component = nodeComponents[i];
+            ComponentAllocation memory allocation = node.getComponentAllocation(component);
+            if (allocation.isComponent && allocation.router == targetRouter) {
+                count++;
+            }
+        }
+
+        matches = new address[](count);
+        uint256 cursor;
+        for (uint256 i = 0; i < nodeComponents.length; i++) {
+            address component = nodeComponents[i];
+            ComponentAllocation memory allocation = node.getComponentAllocation(component);
+            if (allocation.isComponent && allocation.router == targetRouter) {
+                matches[cursor] = component;
+                cursor++;
+            }
+        }
     }
 
     function _normalizeTargetReserveRatio() internal {

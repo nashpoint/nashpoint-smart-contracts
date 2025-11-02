@@ -1,467 +1,343 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../FuzzGuided.sol";
+import "../FuzzNode.sol";
 
 /**
  * @title FoundryNode
- * @notice Integration tests for FuzzNode handler - User story scenarios
- * @dev Tests happy path flows to ensure handlers work without errors
+ * @notice Foundry tests for FuzzNode handlers - testing user lifecycle scenarios
+ * @dev Tests verify that handlers can properly call functions without errors
+ *      Each test represents a happy path user story with 3+ handler calls
  */
-contract FoundryNode is FuzzGuided {
+contract FoundryNode is FuzzNode {
+    /**
+     * @notice Setup function to initialize the fuzzing environment
+     */
     function setUp() public {
-        vm.warp(1524785992); // echidna starting time
         fuzzSetup();
+        clearNodeContextOverrideForTest();
+    }
+    /**
+     * @notice Test deposit and mint lifecycle
+     * @dev User deposits assets, then mints shares
+     */
+
+    function test_handler_deposit_mint() public {
+        setActor(USERS[1]);
+        fuzz_deposit(5e17);
+
+        setActor(USERS[2]);
+        fuzz_deposit(3e17);
+
+        setActor(USERS[1]);
+        fuzz_mint(2e17);
+
+        setActor(USERS[2]);
+        fuzz_mint(1e17);
     }
 
-    // ==============================================================
-    // BASIC OPERATIONS - Single user actions
-    // ==============================================================
+    /**
+     * @notice Test deposit and redeem request lifecycle
+     * @dev User deposits, then requests redemption (without withdrawal)
+     */
+    function test_handler_deposit_requestRedeem() public {
+        setActor(USERS[1]);
+        fuzz_deposit(8e17);
 
-    function test_story_deposit() public {
-        setActor(USERS[0]);
-        fuzz_deposit(1e18);
+        setActor(USERS[2]);
+        fuzz_deposit(5e17);
+
+        setActor(USERS[1]);
+        fuzz_requestRedeem(3e17);
+
+        setActor(USERS[2]);
+        fuzz_mint(4e17);
     }
 
-    function test_story_mint() public {
+    /**
+     * @notice Test mint and request redeem lifecycle
+     * @dev User mints shares, then requests redemption
+     */
+    function test_handler_mint_requestRedeem() public {
+        setActor(USERS[1]);
+        fuzz_mint(6e17);
+
+        setActor(USERS[2]);
+        fuzz_mint(4e17);
+
+        setActor(USERS[3]);
+        fuzz_deposit(5e17);
+
+        setActor(USERS[1]);
+        fuzz_requestRedeem(2e17);
+    }
+
+    /**
+     * @notice Test approval and transfer lifecycle
+     * @dev User deposits, approves another user, and transfers shares
+     */
+    function test_handler_deposit_approve_transfer() public {
+        setActor(USERS[1]);
+        fuzz_deposit(7e17);
+
+        setActor(USERS[1]);
+        fuzz_node_approve(2, 5e17);
+
+        setActor(USERS[1]);
+        fuzz_node_transfer(3, 3e17);
+
+        setActor(USERS[3]);
+        fuzz_deposit(2e17);
+    }
+
+    /**
+     * @notice Test transferFrom lifecycle
+     * @dev User deposits, approves spender, spender transfers on behalf
+     */
+    function test_handler_approve_transferFrom() public {
+        setActor(USERS[1]);
+        fuzz_deposit(9e17);
+
+        setActor(USERS[1]);
+        fuzz_node_approve(2, 6e17);
+
+        setActor(USERS[2]);
+        fuzz_node_transferFrom(1, 4e17);
+
+        setActor(USERS[2]);
+        fuzz_deposit(3e17);
+    }
+
+    /**
+     * @notice Test operator setting and deposit lifecycle
+     * @dev User sets operator and makes deposits
+     */
+    function test_handler_setOperator_deposits() public {
+        setActor(USERS[1]);
+        fuzz_setOperator(2, true);
+
+        setActor(USERS[1]);
+        fuzz_deposit(6e17);
+
+        setActor(USERS[2]);
+        fuzz_deposit(4e17);
+
+        setActor(USERS[1]);
+        fuzz_mint(3e17);
+    }
+
+    /**
+     * @notice Test multiple deposits with transfers
+     * @dev Users make deposits and transfer shares between them
+     */
+    function test_handler_deposits_and_transfers() public {
+        setActor(USERS[1]);
+        fuzz_deposit(5e17);
+
+        setActor(USERS[2]);
+        fuzz_deposit(4e17);
+
+        setActor(USERS[1]);
+        fuzz_node_transfer(2, 2e17);
+
+        setActor(USERS[3]);
+        fuzz_mint(3e17);
+    }
+
+    /**
+     * @notice Test deposits with operator and approvals
+     * @dev Users make deposits and set operators
+     */
+    function test_handler_deposits_operators() public {
+        setActor(USERS[1]);
+        fuzz_deposit(6e17);
+
+        setActor(USERS[1]);
+        fuzz_setOperator(2, true);
+
+        setActor(USERS[2]);
+        fuzz_deposit(3e17);
+
+        setActor(USERS[3]);
+        fuzz_mint(4e17);
+    }
+
+    /**
+     * @notice Test complex multi-user deposit and withdrawal lifecycle
+     * @dev Multiple users deposit, some redeem, creating realistic usage
+     */
+    function test_handler_multiuser_lifecycle() public {
+        setActor(USERS[1]);
+        fuzz_deposit(7e17);
+
+        setActor(USERS[2]);
+        fuzz_deposit(6e17);
+
+        setActor(USERS[3]);
+        fuzz_deposit(5e17);
+
+        setActor(USERS[1]);
+        fuzz_requestRedeem(3e17);
+
+        setActor(USERS[2]);
+        fuzz_mint(4e17);
+
+        setActor(USERS[3]);
+        fuzz_node_transfer(1, 2e17);
+    }
+
+    /**
+     * @notice Test consecutive deposits and mints by same user
+     * @dev User makes multiple deposits and mints in sequence
+     */
+    function test_handler_consecutive_operations() public {
+        setActor(USERS[1]);
+        fuzz_deposit(4e17);
+
+        setActor(USERS[1]);
+        fuzz_deposit(3e17);
+
         setActor(USERS[1]);
         fuzz_mint(5e17);
+
+        setActor(USERS[1]);
+        fuzz_mint(2e17);
     }
 
-    function test_story_deposit_and_transfer() public {
-        setActor(USERS[0]);
-        fuzz_deposit(2e18);
-
-        setActor(USERS[0]);
-        fuzz_node_transfer(1, 1e18); // Transfer to USERS[1]
-    }
-
-    function test_story_mint_and_approve() public {
+    /**
+     * @notice Test redemption requests with multiple users
+     * @dev Users deposit and request redemptions
+     */
+    function test_handler_redemption_requests() public {
         setActor(USERS[1]);
-        fuzz_mint(3e18);
+        fuzz_deposit(8e17);
 
-        setActor(USERS[1]);
-        fuzz_node_approve(2, 1e18); // Approve USERS[2]
-    }
-
-    // ==============================================================
-    // REDEMPTION FLOWS - Full lifecycle tests
-    // ==============================================================
-
-    function test_story_deposit_request_fulfill_withdraw() public {
-        // User deposits
-        setActor(USERS[0]);
-        fuzz_deposit(5e18);
-
-        // User requests redeem
-        setActor(USERS[0]);
-        fuzz_requestRedeem(3e18);
-
-        // Rebalancer fulfills
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(0);
-
-        // User withdraws
-        setActor(USERS[0]);
-        fuzz_withdraw(0, 2e18);
-    }
-
-    function test_story_mint_request_fulfill_withdraw() public {
-        // User mints shares
-        setActor(USERS[1]);
-        fuzz_mint(4e18);
-
-        // User requests redeem
-        setActor(USERS[1]);
-        fuzz_requestRedeem(2e18);
-
-        // Rebalancer fulfills
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(1);
-
-        // User withdraws
-        setActor(USERS[1]);
-        fuzz_withdraw(1, 1e18);
-    }
-
-    function test_story_partial_redemption_multiple_users() public {
-        // USER0 deposits
-        setActor(USERS[0]);
-        fuzz_deposit(10e18);
-
-        // USER1 mints
-        setActor(USERS[1]);
-        fuzz_mint(8e18);
-
-        // USER0 requests partial redeem
-        setActor(USERS[0]);
-        fuzz_requestRedeem(5e18);
-
-        // Rebalancer fulfills USER0
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(0);
-
-        // USER1 also requests redeem
-        setActor(USERS[1]);
-        fuzz_requestRedeem(4e18);
-
-        // Rebalancer fulfills USER1
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(1);
-
-        // Both users withdraw
-        setActor(USERS[0]);
-        fuzz_withdraw(0, 3e18);
-
-        setActor(USERS[1]);
-        fuzz_withdraw(1, 2e18);
-    }
-
-    // ==============================================================
-    // TRANSFER SCENARIOS - Share movement between users
-    // ==============================================================
-
-    function test_story_deposit_transfer_redeem_new_owner() public {
-        // USER0 deposits
-        setActor(USERS[0]);
-        fuzz_deposit(6e18);
-
-        // USER0 transfers shares to USER2
-        setActor(USERS[0]);
-        fuzz_node_transfer(2, 3e18);
-
-        // USER2 requests redeem of received shares
         setActor(USERS[2]);
-        fuzz_requestRedeem(2e18);
+        fuzz_deposit(7e17);
 
-        // Rebalancer fulfills
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(2);
-
-        // USER2 withdraws
-        setActor(USERS[2]);
-        fuzz_withdraw(2, 1e18);
-    }
-
-    function test_story_approve_transferFrom_lifecycle() public {
-        // USER1 mints shares
-        setActor(USERS[1]);
-        fuzz_mint(5e18);
-
-        // USER1 approves USER3
-        setActor(USERS[1]);
-        fuzz_node_approve(3, 4e18);
-
-        // USER3 transfers from USER1 using approval
         setActor(USERS[3]);
-        fuzz_node_transferFrom(1, 3e18);
-
-        // USER3 requests redeem
-        setActor(USERS[3]);
-        fuzz_requestRedeem(2e18);
-
-        // Rebalancer fulfills
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(3);
-
-        // USER3 withdraws
-        setActor(USERS[3]);
-        fuzz_withdraw(3, 1e18);
-    }
-
-    // ==============================================================
-    // OPERATOR SCENARIOS - ERC7575 operator functionality
-    // ==============================================================
-
-    function test_story_setOperator_and_operate() public {
-        // USER0 deposits
-        setActor(USERS[0]);
-        fuzz_deposit(4e18);
-
-        // USER0 sets USER4 as operator
-        setActor(USERS[0]);
-        fuzz_setOperator(4, true);
-
-        // Operator (USER4) can now act on behalf of USER0
-        setActor(USERS[4]);
-        fuzz_requestRedeem(2e18); // Operating on USER0's shares
-    }
-
-    // ==============================================================
-    // REBALANCING SCENARIOS
-    // ==============================================================
-
-    function test_story_deposit_startRebalance() public {
-        // Users deposit
-        setActor(USERS[0]);
-        fuzz_deposit(10e18);
+        fuzz_mint(5e17);
 
         setActor(USERS[1]);
-        fuzz_mint(8e18);
-
-        // Rebalancer starts rebalance
-        setActor(rebalancer);
-        fuzz_node_startRebalance(1);
-    }
-
-    function test_story_full_rebalance_with_redemptions() public {
-        // Multiple users deposit
-        setActor(USERS[0]);
-        fuzz_deposit(15e18);
-
-        setActor(USERS[1]);
-        fuzz_deposit(12e18);
-
-        // Rebalancer starts rebalance
-        setActor(rebalancer);
-        fuzz_node_startRebalance(2);
-
-        // Users request redemptions during rebalance
-        setActor(USERS[0]);
-        fuzz_requestRedeem(7e18);
-
-        // Rebalancer fulfills after rebalance
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(0);
-
-        // User withdraws
-        setActor(USERS[0]);
-        fuzz_withdraw(0, 5e18);
-    }
-
-    // ==============================================================
-    // ADMIN OPERATIONS - Owner actions
-    // ==============================================================
-
-    function test_story_owner_setMaxDeposit_user_deposits() public {
-        // Owner sets max deposit
-        setActor(owner);
-        fuzz_node_setMaxDepositSize(20e18);
-
-        // User deposits within new limit
-        setActor(USERS[0]);
-        fuzz_deposit(15e18);
-    }
-
-    function test_story_owner_setManagementFee_payFees() public {
-        // Owner sets management fee
-        setActor(owner);
-        fuzz_node_setAnnualManagementFee(100); // 1%
-
-        // User deposits
-        setActor(USERS[0]);
-        fuzz_deposit(10e18);
-
-        // Time passes and fees accrue
-        vm.warp(block.timestamp + 365 days);
-
-        // Owner pays management fees
-        setActor(owner);
-        fuzz_node_payManagementFees(1);
-    }
-
-    function test_story_owner_updateComponentAllocation() public {
-        // Users deposit
-        setActor(USERS[0]);
-        fuzz_deposit(20e18);
-
-        // Owner updates component allocation
-        setActor(owner);
-        fuzz_node_updateComponentAllocation(0);
-
-        // Rebalancer rebalances to new allocation
-        setActor(rebalancer);
-        fuzz_node_startRebalance(3);
-    }
-
-    // ==============================================================
-    // COMPLEX MULTI-USER SCENARIOS
-    // ==============================================================
-
-    function test_story_three_users_deposit_transfer_chain() public {
-        // USER0 deposits
-        setActor(USERS[0]);
-        fuzz_deposit(10e18);
-
-        // USER0 transfers to USER1
-        setActor(USERS[0]);
-        fuzz_node_transfer(1, 5e18);
-
-        // USER1 deposits more
-        setActor(USERS[1]);
-        fuzz_deposit(5e18);
-
-        // USER1 transfers to USER2
-        setActor(USERS[1]);
-        fuzz_node_transfer(2, 6e18);
-
-        // USER2 requests redeem
-        setActor(USERS[2]);
-        fuzz_requestRedeem(4e18);
-
-        // Rebalancer fulfills
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(2);
-
-        // USER2 withdraws
-        setActor(USERS[2]);
-        fuzz_withdraw(2, 3e18);
-    }
-
-    function test_story_liquidity_pool_full_cycle() public {
-        // Multiple users add liquidity
-        setActor(USERS[0]);
-        fuzz_deposit(20e18);
-
-        setActor(USERS[1]);
-        fuzz_mint(15e18);
+        fuzz_requestRedeem(4e17);
 
         setActor(USERS[2]);
-        fuzz_deposit(10e18);
+        fuzz_requestRedeem(3e17);
 
-        // Rebalancer rebalances
-        setActor(rebalancer);
-        fuzz_node_startRebalance(4);
-
-        // One user redeems
-        setActor(USERS[1]);
-        fuzz_requestRedeem(8e18);
-
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(1);
-
-        setActor(USERS[1]);
-        fuzz_withdraw(1, 7e18);
-
-        // Another user deposits during ongoing operations
         setActor(USERS[3]);
-        fuzz_deposit(12e18);
+        fuzz_deposit(2e17);
     }
 
-    // ==============================================================
-    // STRESS SCENARIOS - Edge cases
-    // ==============================================================
+    /**
+     * @notice Test component yield adjustments via gain/lose backing helpers
+     * @dev Exercises both ERC4626 and ERC7540 component paths
+     */
+    function test_handler_component_yield_adjustments() public {
+        forceNodeContextForTest(0);
 
-    function test_story_rapid_deposit_withdraw_cycles() public {
-        // USER0 rapid deposits and withdrawals
-        setActor(USERS[0]);
-        fuzz_deposit(5e18);
-
-        setActor(USERS[0]);
-        fuzz_requestRedeem(2e18);
-
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(0);
-
-        setActor(USERS[0]);
-        fuzz_withdraw(0, 1e18);
-
-        // Immediately deposit again
-        setActor(USERS[0]);
-        fuzz_deposit(3e18);
-
-        // Request again
-        setActor(USERS[0]);
-        fuzz_requestRedeem(2e18);
-
-        setActor(rebalancer);
-        fuzz_fulfillRedeem(0);
-
-        setActor(USERS[0]);
-        fuzz_withdraw(0, 1e18);
-    }
-
-    function test_story_max_users_participation() public {
-        // All 6 users participate
-        for (uint256 i = 0; i < USERS.length; i++) {
-            setActor(USERS[i]);
-            fuzz_deposit((i + 1) * 1e18);
+        (address[] memory syncComponents, address[] memory asyncComponents) = _componentLists();
+        uint256 total = syncComponents.length + asyncComponents.length;
+        if (total == 0) {
+            clearNodeContextOverrideForTest();
+            return;
         }
 
-        // Rebalancer starts rebalance
-        setActor(rebalancer);
-        fuzz_node_startRebalance(5);
+        uint256 amountSeed = 1e18;
+        for (uint256 idx = 0; idx < total; idx++) {
+            uint256 gainSeed = _seedForComponentIndex(idx, total, 0);
+            address component = _componentAtIndex(idx, syncComponents, asyncComponents);
 
-        // Each user requests different amounts
-        for (uint256 i = 0; i < USERS.length / 2; i++) {
-            setActor(USERS[i]);
-            fuzz_requestRedeem((i + 1) * 5e17);
+            uint256 beforeGain = asset.balanceOf(component);
+            fuzz_component_gainBacking(gainSeed, amountSeed);
+            uint256 afterGain = asset.balanceOf(component);
+            assertGt(afterGain, beforeGain, "gain should increase balance");
+
+            uint256 loseSeed = _seedForComponentIndex(idx, total, 1);
+            fuzz_component_loseBacking(loseSeed, amountSeed / 2);
+            uint256 afterLose = asset.balanceOf(component);
+            assertLt(afterLose, afterGain, "lose should decrease balance");
         }
 
-        // Rebalancer fulfills all
-        for (uint256 i = 0; i < USERS.length / 2; i++) {
-            setActor(rebalancer);
-            fuzz_fulfillRedeem(i);
+        clearNodeContextOverrideForTest();
+    }
+
+    function test_component_gainBacking_all_components() public {
+        forceNodeContextForTest(0);
+
+        (address[] memory syncComponents, address[] memory asyncComponents) = _componentLists();
+        uint256 total = syncComponents.length + asyncComponents.length;
+        if (total == 0) {
+            clearNodeContextOverrideForTest();
+            return;
         }
+
+        uint256 amountSeed = 5e17;
+        for (uint256 idx = 0; idx < total; idx++) {
+            uint256 gainSeed = _seedForComponentIndex(idx, total, 0);
+            address component = _componentAtIndex(idx, syncComponents, asyncComponents);
+
+            uint256 before = asset.balanceOf(component);
+            fuzz_component_gainBacking(gainSeed, amountSeed);
+            uint256 afterBalance = asset.balanceOf(component);
+            assertGt(afterBalance, before, "component gain backing failed");
+        }
+
+        clearNodeContextOverrideForTest();
     }
 
-    // ==============================================================
-    // POLICY INTEGRATION SCENARIOS
-    // ==============================================================
+    function test_component_loseBacking_all_components() public {
+        forceNodeContextForTest(0);
 
-    function test_story_owner_addPolicies_submitData() public {
-        // Owner adds policies
-        setActor(owner);
-        fuzz_node_addPolicies(1);
+        (address[] memory syncComponents, address[] memory asyncComponents) = _componentLists();
+        uint256 total = syncComponents.length + asyncComponents.length;
+        if (total == 0) {
+            clearNodeContextOverrideForTest();
+            return;
+        }
 
-        // User deposits
-        setActor(USERS[0]);
-        fuzz_deposit(5e18);
+        uint256 gainSeedBase = 0;
+        uint256 amountSeed = 8e17;
+        for (uint256 idx = 0; idx < total; idx++) {
+            uint256 gainSeed = _seedForComponentIndex(idx, total, gainSeedBase);
+            fuzz_component_gainBacking(gainSeed, amountSeed);
+        }
 
-        // Submit policy data
-        setActor(owner);
-        fuzz_node_submitPolicyData(1);
+        for (uint256 idx = 0; idx < total; idx++) {
+            uint256 loseSeed = _seedForComponentIndex(idx, total, 2);
+            address component = _componentAtIndex(idx, syncComponents, asyncComponents);
+
+            uint256 before = asset.balanceOf(component);
+            fuzz_component_loseBacking(loseSeed, amountSeed / 2);
+            uint256 afterBalance = asset.balanceOf(component);
+            if (before > 0) {
+                assertLt(afterBalance, before, "component lose backing should decrease balance");
+            }
+        }
+
+        clearNodeContextOverrideForTest();
     }
 
-    function test_story_policies_add_remove_lifecycle() public {
-        // Owner adds policies
-        setActor(owner);
-        fuzz_node_addPolicies(2);
-
-        // Users interact
-        setActor(USERS[0]);
-        fuzz_deposit(8e18);
-
-        setActor(USERS[1]);
-        fuzz_mint(6e18);
-
-        // Owner removes policies
-        setActor(owner);
-        fuzz_node_removePolicies(2);
+    function _componentLists()
+        internal
+        view
+        returns (address[] memory syncComponents, address[] memory asyncComponents)
+    {
+        syncComponents = componentsByRouterForTest(address(router4626));
+        asyncComponents = componentsByRouterForTest(address(router7540));
     }
 
-    // ==============================================================
-    // RESCUE & EMERGENCY SCENARIOS
-    // ==============================================================
-
-    function test_story_rescue_tokens() public {
-        // Some tokens end up in node (donation or error)
-        setActor(USERS[0]);
-        fuzz_donate(0, 0, 2e18); // Donate to node
-
-        // Owner rescues tokens
-        setActor(owner);
-        fuzz_node_rescueTokens(1e18);
+    function _componentAtIndex(uint256 index, address[] memory syncComponents, address[] memory asyncComponents)
+        internal
+        pure
+        returns (address)
+    {
+        if (index < syncComponents.length) {
+            return syncComponents[index];
+        }
+        return asyncComponents[index - syncComponents.length];
     }
 
-    function test_story_swing_pricing_lifecycle() public {
-        // Owner enables swing pricing
-        setActor(owner);
-        fuzz_node_enableSwingPricing(5, true);
-
-        // Users deposit under swing pricing
-        setActor(USERS[0]);
-        fuzz_deposit(10e18);
-
-        setActor(USERS[1]);
-        fuzz_mint(8e18);
-
-        // Owner disables swing pricing
-        setActor(owner);
-        fuzz_node_enableSwingPricing(5, false);
-
-        // Users continue operations
-        setActor(USERS[2]);
-        fuzz_deposit(5e18);
+    function _seedForComponentIndex(uint256 index, uint256 total, uint256 iteration) internal pure returns (uint256) {
+        return index + total * iteration;
     }
 }

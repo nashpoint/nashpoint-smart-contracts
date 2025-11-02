@@ -5,6 +5,8 @@ import "./PostconditionsBase.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Node} from "../../../../src/Node.sol";
 import {ComponentAllocation} from "../../../../src/interfaces/INode.sol";
+import {IERC7575} from "../../../../src/interfaces/IERC7575.sol";
+import {ERC7540Mock} from "../../../mocks/ERC7540Mock.sol";
 
 contract PostconditionsNode is PostconditionsBase {
     function depositPostconditions(
@@ -849,6 +851,134 @@ contract PostconditionsNode is PostconditionsBase {
             // fl.t(!success, "NODE_MULTICALL_REVERT");
             onFailInvariantsGeneral(returnData);
         }
+    }
+
+    function nodeGainBackingPostconditions(bool success, bytes memory returnData, NodeYieldParams memory params)
+        internal
+    {
+        if (!params.shouldSucceed) {
+            fl.t(!success, "NODE_GAIN_BACKING_EXPECTED_REVERT");
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        fl.t(success, "NODE_GAIN_BACKING_UNEXPECTED_REVERT");
+        uint256 balanceAfter = asset.balanceOf(params.component);
+        fl.eq(balanceAfter, params.currentBacking + params.delta, "NODE_GAIN_BACKING_BALANCE_MISMATCH");
+        onSuccessInvariantsGeneral(returnData);
+    }
+
+    function nodeLoseBackingPostconditions(bool success, bytes memory returnData, NodeYieldParams memory params)
+        internal
+    {
+        if (!params.shouldSucceed) {
+            fl.t(!success, "NODE_LOSE_BACKING_EXPECTED_REVERT");
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        fl.t(success, "NODE_LOSE_BACKING_UNEXPECTED_REVERT");
+        uint256 balanceAfter = asset.balanceOf(params.component);
+        fl.eq(balanceAfter, params.currentBacking - params.delta, "NODE_LOSE_BACKING_BALANCE_MISMATCH");
+        onSuccessInvariantsGeneral(returnData);
+    }
+
+    function router4626InvestPostconditions(bool success, bytes memory returnData, RouterInvestParams memory params)
+        internal
+    {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 depositAmount = abi.decode(returnData, (uint256));
+        fl.t(depositAmount > 0, "ROUTER4626_INVEST_ZERO_DEPOSIT");
+
+        uint256 sharesAfter = IERC20(params.component).balanceOf(address(node));
+        fl.t(sharesAfter >= params.sharesBefore, "ROUTER4626_INVEST_SHARES");
+
+        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+        fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER4626_INVEST_NODE_BALANCE");
+
+        onSuccessInvariantsGeneral(returnData);
+    }
+
+    function router4626FulfillPostconditions(bool success, bytes memory returnData, RouterFulfillParams memory params)
+        internal
+    {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 assetsReturned = abi.decode(returnData, (uint256));
+        fl.t(assetsReturned > 0, "ROUTER4626_FULFILL_NO_ASSETS");
+
+        uint256 escrowAfter = asset.balanceOf(address(escrow));
+        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+
+        fl.t(escrowAfter >= params.escrowBalanceBefore, "ROUTER4626_FULFILL_ESCROW");
+        fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER4626_FULFILL_NODE_BALANCE");
+
+        onSuccessInvariantsGeneral(returnData);
+    }
+
+    function router7540InvestPostconditions(
+        bool success,
+        bytes memory returnData,
+        RouterAsyncInvestParams memory params
+    ) internal {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 assetsRequested = abi.decode(returnData, (uint256));
+        fl.t(assetsRequested > 0, "ROUTER7540_INVEST_ZERO");
+
+        uint256 pendingAfter = ERC7540Mock(params.component).pendingAssets();
+        fl.t(pendingAfter >= params.pendingDepositBefore, "ROUTER7540_INVEST_PENDING");
+
+        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+        fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER7540_INVEST_NODE_BALANCE");
+
+        onSuccessInvariantsGeneral(returnData);
+    }
+
+    function router7540MintClaimablePostconditions( // solhint-disable-line max-line-length
+    bool success, bytes memory returnData, RouterMintClaimableParams memory params)
+        internal
+    {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 sharesReceived = abi.decode(returnData, (uint256));
+        fl.t(sharesReceived > 0, "ROUTER7540_MINT_ZERO");
+
+        uint256 shareBalanceAfter = IERC20(params.component).balanceOf(address(node));
+        fl.t(shareBalanceAfter >= params.shareBalanceBefore + sharesReceived, "ROUTER7540_MINT_SHARES");
+
+        uint256 claimableAfter = ERC7540Mock(params.component).claimableDepositRequests(address(node));
+        fl.t(claimableAfter <= params.claimableAssetsBefore, "ROUTER7540_MINT_CLAIMABLE");
+
+        onSuccessInvariantsGeneral(returnData);
+    }
+
+    function poolProcessPendingDepositsPostconditions( // solhint-disable-line max-line-length
+    bool success, bytes memory returnData, PoolProcessParams memory params)
+        internal
+    {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 pendingAfter = ERC7540Mock(params.pool).pendingAssets();
+        fl.t(pendingAfter <= params.pendingBefore, "POOL_PROCESS_PENDING_DELTA");
+
+        onSuccessInvariantsGeneral(returnData);
     }
 
     function _pushUnique(address[] storage list, address candidate) internal {

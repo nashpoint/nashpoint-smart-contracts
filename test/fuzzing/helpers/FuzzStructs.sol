@@ -141,6 +141,12 @@ contract FuzzStructs is FuzzSetup {
         bool shouldSucceed;
     }
 
+    struct PoolProcessParams {
+        address pool;
+        uint256 pendingBefore;
+        bool shouldSucceed;
+    }
+
     struct RouterRequestAsyncWithdrawalParams {
         address component;
         uint256 shares;
@@ -395,6 +401,16 @@ contract FuzzStructs is FuzzSetup {
     struct NodeMulticallParams {
         address caller;
         bytes[] calls;
+        bool shouldSucceed;
+    }
+
+    struct NodeYieldParams {
+        address caller;
+        address component;
+        address backingToken;
+        uint256 currentBacking;
+        uint256 delta;
+        bool increase;
         bool shouldSucceed;
     }
 

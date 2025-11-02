@@ -123,6 +123,14 @@ contract FuzzStorageVariables is FuzzActors {
     TransferPolicy internal transferPolicy;
 
     // ==============================================================
+    // MANAGED NODES (MULTI-NODE SUPPORT)
+    // ==============================================================
+
+    uint256 internal constant MAX_MANAGED_NODES = 5;
+    address[] internal MANAGED_NODES;
+    mapping(address => address) internal MANAGED_NODE_ESCROWS;
+
+    // ==============================================================
     // AUXILIARY STATE
     // ==============================================================
 
@@ -131,4 +139,92 @@ contract FuzzStorageVariables is FuzzActors {
     address[] internal COMPONENTS_ERC4626;
     address[] internal COMPONENTS_ERC7540;
     address[] internal POLICIES;
+
+    // ==============================================================
+    // INTERNAL HELPERS (SHARED)
+    // ==============================================================
+
+    bool internal testNodeOverrideEnabled;
+    uint256 internal testNodeOverrideIndex;
+
+    function _appendUnique(address[] storage list, address value) internal {
+        if (value == address(0)) {
+            return;
+        }
+        for (uint256 i = 0; i < list.length; i++) {
+            if (list[i] == value) {
+                return;
+            }
+        }
+        list.push(value);
+    }
+
+    function _registerManagedNode(address nodeAddr, address escrowAddr) internal {
+        if (nodeAddr == address(0) || escrowAddr == address(0)) {
+            return;
+        }
+
+        if (MANAGED_NODE_ESCROWS[nodeAddr] == address(0)) {
+            if (MANAGED_NODES.length >= MAX_MANAGED_NODES) {
+                return;
+            }
+            MANAGED_NODES.push(nodeAddr);
+            _appendUnique(DONATEES, nodeAddr);
+            _appendUnique(DONATEES, escrowAddr);
+        }
+
+        MANAGED_NODE_ESCROWS[nodeAddr] = escrowAddr;
+    }
+
+    function _setActiveNode(address nodeAddr) internal {
+        if (nodeAddr == address(0)) {
+            return;
+        }
+
+        address escrowAddr = MANAGED_NODE_ESCROWS[nodeAddr];
+        if (escrowAddr == address(0)) {
+            return;
+        }
+
+        node = INode(nodeAddr);
+        escrow = Escrow(escrowAddr);
+    }
+
+    function _setActiveNodeByIndex(uint256 index) internal {
+        if (index >= MANAGED_NODES.length) {
+            return;
+        }
+
+        _setActiveNode(MANAGED_NODES[index]);
+    }
+
+    function _managedNodeCount() internal view returns (uint256) {
+        return MANAGED_NODES.length;
+    }
+
+    function _setRandomActiveNode(uint256 seed) internal {
+        uint256 totalNodes = MANAGED_NODES.length;
+        if (totalNodes == 0) {
+            return;
+        }
+
+        uint256 index = seed % totalNodes;
+        _setActiveNodeByIndex(index);
+    }
+
+    function _singleton(address value) internal pure returns (address[] memory arr) {
+        arr = new address[](1);
+        arr[0] = value;
+    }
+
+    function _toArray(address addr) internal pure returns (address[] memory arr) {
+        arr = new address[](1);
+        arr[0] = addr;
+    }
+
+    function _toArrayTwo(address addr1, address addr2) internal pure returns (address[] memory arr) {
+        arr = new address[](2);
+        arr[0] = addr1;
+        arr[1] = addr2;
+    }
 }

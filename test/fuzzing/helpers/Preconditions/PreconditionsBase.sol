@@ -7,9 +7,6 @@ contract PreconditionsBase is HelperFunctions {
     event LogAddress(address actor);
 
     modifier setCurrentActor(uint256 seed) {
-        if (!protocolSet) {
-            fuzzSetup();
-        }
         require(protocolSet, "PreconditionsBase: Protocol not set");
 
         if (_setActor) {
@@ -74,9 +71,6 @@ contract PreconditionsBase is HelperFunctions {
     }
 
     function _forceActor(address actor, uint256 seed) internal {
-        if (!protocolSet) {
-            fuzzSetup();
-        }
         require(protocolSet, "PreconditionsBase: Protocol not set");
 
         currentActor = actor;
