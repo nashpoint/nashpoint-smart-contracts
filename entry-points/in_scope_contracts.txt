@@ -1,0 +1,135 @@
+Contract BeaconProxy (lib/openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol)
+    - fallback [payable]
+
+Contract DigiftAdapter (src/adapters/digift/DigiftAdapter.sol)
+    - approve
+    - deposit
+    - forceUpdateLastPrice [onlyRegistryOwner]
+    - forwardRequestsToDigift [onlyManager, nonReentrant]
+    - initialize [initializer]
+    - mint [onlyWhitelistedNode, actionValidation, nonReentrant]
+    - redeem
+    - requestDeposit [onlyWhitelistedNode, nothingPending, actionValidation, nonReentrant]
+    - requestRedeem [onlyWhitelistedNode, nothingPending, actionValidation, nonReentrant]
+    - setManager [onlyRegistryOwner]
+    - setMinDepositAmount [onlyRegistryOwner]
+    - setMinRedeemAmount [onlyRegistryOwner]
+    - setNode [onlyRegistryOwner]
+    - setOperator
+    - setPriceDeviation [onlyRegistryOwner]
+    - setPriceUpdateDeviation [onlyRegistryOwner]
+    - setSettlementDeviation [onlyRegistryOwner]
+    - settleDeposit [nonReentrant, onlyManager]
+    - settleRedeem [nonReentrant, onlyManager]
+    - transfer
+    - transferFrom
+    - updateLastPrice [onlyManager]
+    - withdraw [onlyWhitelistedNode, actionValidation, nonReentrant]
+
+Contract DigiftAdapterFactory (src/adapters/digift/DigiftAdapterFactory.sol)
+    - deploy [onlyOwner]
+    - renounceOwnership [onlyOwner]
+    - transferOwnership [onlyOwner]
+    - upgradeTo [onlyOwner]
+
+Contract DigiftEventVerifier (src/adapters/digift/DigiftEventVerifier.sol)
+    - setBlockHash [onlyRegistryOwner]
+    - setWhitelist [onlyRegistryOwner]
+    - verifySettlementEvent
+
+Contract ERC4626Router (src/routers/ERC4626Router.sol)
+    - batchSetWhitelistStatus [onlyRegistryOwner]
+    - fulfillRedeemRequest [nonReentrant, onlyNodeRebalancer, onlyNodeComponent]
+    - invest [nonReentrant, onlyNodeRebalancer, onlyNodeComponent]
+    - liquidate [nonReentrant, onlyNodeRebalancer, onlyNodeComponent]
+    - setBlacklistStatus [onlyRegistryOwner]
+    - setTolerance [onlyRegistryOwner]
+    - setWhitelistStatus [onlyRegistryOwner]
+
+Contract ERC7540Router (src/routers/ERC7540Router.sol)
+    - batchSetWhitelistStatus [onlyRegistryOwner]
+    - executeAsyncWithdrawal [nonReentrant, onlyNodeRebalancer, onlyNodeComponent]
+    - fulfillRedeemRequest [nonReentrant, onlyNodeRebalancer, onlyNodeComponent]
+    - investInAsyncComponent [onlyNodeRebalancer, onlyNodeComponent]
+    - mintClaimableShares [nonReentrant, onlyNodeRebalancer, onlyNodeComponent]
+    - requestAsyncWithdrawal [onlyNodeRebalancer, onlyNodeComponent]
+    - setBlacklistStatus [onlyRegistryOwner]
+    - setTolerance [onlyRegistryOwner]
+    - setWhitelistStatus [onlyRegistryOwner]
+
+Contract FluidRewardsRouter (src/routers/FluidRewardsRouter.sol)
+    - claim [nonReentrant, onlyNodeRebalancer]
+
+Contract IncentraRouter (src/routers/IncentraRouter.sol)
+    - claim [nonReentrant, onlyNodeRebalancer]
+
+Contract MerklRouter (src/routers/MerklRouter.sol)
+    - claim [nonReentrant, onlyNodeRebalancer]
+
+Contract Node (src/Node.sol)
+    - addComponent [onlyOwner, onlyWhenNotRebalancing]
+    - addPolicies [onlyOwner]
+    - addRebalancer [onlyOwner]
+    - addRouter [onlyOwner]
+    - approve
+    - deposit [nonReentrant]
+    - enableSwingPricing [onlyOwner]
+    - execute [onlyRouter, nonReentrant, onlyWhenRebalancing]
+    - finalizeRedemption [onlyRouter, nonReentrant]
+    - fulfillRedeemFromReserve [onlyRebalancer, onlyWhenRebalancing, nonReentrant]
+    - initialize [initializer]
+    - mint [nonReentrant]
+    - multicall
+    - payManagementFees [nonReentrant, onlyOwnerOrRebalancer, onlyWhenNotRebalancing]
+    - redeem [nonReentrant]
+    - removeComponent [onlyOwner, onlyWhenNotRebalancing]
+    - removePolicies [onlyOwner]
+    - removeRebalancer [onlyOwner]
+    - removeRouter [onlyOwner]
+    - renounceOwnership [onlyOwner]
+    - requestRedeem [nonReentrant]
+    - rescueTokens [onlyOwner]
+    - setAnnualManagementFee [onlyOwner]
+    - setLiquidationQueue [onlyOwner]
+    - setMaxDepositSize [onlyOwner]
+    - setNodeOwnerFeeAddress [onlyOwner]
+    - setOperator [nonReentrant]
+    - setQuoter [onlyOwner]
+    - setRebalanceCooldown [onlyOwner]
+    - setRebalanceWindow [onlyOwner]
+    - startRebalance [onlyRebalancer, nonReentrant]
+    - submitPolicyData
+    - subtractProtocolExecutionFee [onlyRouter, nonReentrant]
+    - transfer
+    - transferFrom
+    - transferOwnership [onlyOwner]
+    - updateComponentAllocation [onlyOwner, onlyWhenNotRebalancing]
+    - updateTargetReserveRatio [onlyOwner, onlyWhenNotRebalancing]
+    - updateTotalAssets [onlyOwnerOrRebalancer, nonReentrant]
+    - withdraw [nonReentrant]
+
+Contract NodeFactory (src/NodeFactory.sol)
+    - deployFullNode
+
+Contract NodeRegistry (src/NodeRegistry.sol)
+    - addNode [onlyFactory]
+    - initialize [initializer]
+    - renounceOwnership [onlyOwner]
+    - setPoliciesRoot [onlyOwner]
+    - setProtocolExecutionFee [onlyOwner]
+    - setProtocolFeeAddress [onlyOwner]
+    - setProtocolManagementFee [onlyOwner]
+    - setProtocolMaxSwingFactor [onlyOwner]
+    - setRegistryType [onlyOwner]
+    - transferOwnership [onlyOwner]
+    - upgradeToAndCall [onlyProxy, payable]
+
+Contract OneInchV6RouterV1 (src/routers/OneInchV6RouterV1.sol)
+    - batchSetWhitelistStatus [onlyRegistryOwner]
+    - setBlacklistStatus [onlyRegistryOwner]
+    - setExecutorWhitelistStatus [onlyRegistryOwner]
+    - setIncentiveWhitelistStatus [onlyRegistryOwner]
+    - setTolerance [onlyRegistryOwner]
+    - setWhitelistStatus [onlyRegistryOwner]
+    - swap [nonReentrant, onlyNodeRebalancer]
+

@@ -1,7 +1,7 @@
 [profile.default]
 src = "src"
 out = "out"
-libs = ["lib"]
+libs = ["lib", "../fuzzlib"]
 
 evm_version = "cancun"
 solc = "0.8.28"
@@ -27,4 +27,3 @@ runs = 10
 
 [etherscan]
 mainnet = { key = "${ETHERSCAN_API_KEY}" } 
-
