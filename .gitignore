@@ -21,3 +21,4 @@ docs/
 
 coverage
 lcov.info
+/echidna-corpus

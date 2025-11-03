@@ -16,4 +16,7 @@ sed -i.bak 's|import { MerkleTrie } from "src/libraries/trie/MerkleTrie.sol";|im
 sed -i.bak 's|import { Bytes } from "src/libraries/Bytes.sol";|import { Bytes } from "../Bytes.sol";|g' \
     lib/optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol
 
+sed -i.bak 's|from "src/libraries/rlp/RLPErrors.sol";|from "./RLPErrors.sol";|g' \
+    lib/optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol
+
 echo "Optimism library patches applied successfully!"
