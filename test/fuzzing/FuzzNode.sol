@@ -203,6 +203,10 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
         _forceActor(params.caller, componentSeed);
 
+        fl.log("GAIN_BACKING:component", params.component);
+        fl.log("GAIN_BACKING:delta", params.delta);
+        fl.log("GAIN_BACKING:backingToken", params.backingToken);
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             params.backingToken,
             abi.encodeWithSelector(ERC20Mock.mint.selector, params.component, params.delta),
@@ -216,6 +220,10 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
         NodeYieldParams memory params = nodeLoseBackingPreconditions(componentSeed, amountSeed);
 
         _forceActor(params.caller, componentSeed);
+
+        fl.log("LOSE_BACKING:component", params.component);
+        fl.log("LOSE_BACKING:delta", params.delta);
+        fl.log("LOSE_BACKING:backingToken", params.backingToken);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             params.backingToken,

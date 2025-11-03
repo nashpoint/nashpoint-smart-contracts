@@ -5,13 +5,18 @@ import "./PreconditionsBase.sol";
 
 import {ERC20Mock} from "../../../mocks/ERC20Mock.sol";
 import {ERC7540Mock} from "../../../mocks/ERC7540Mock.sol";
+import {ERC7540StaticVault} from "../../../mocks/vaults/ERC7540StaticVault.sol";
+import {ERC7540LinearYieldVault} from "../../../mocks/vaults/ERC7540LinearYieldVault.sol";
+import {ERC7540NegativeYieldVault} from "../../../mocks/vaults/ERC7540NegativeYieldVault.sol";
 import {Node} from "../../../../src/Node.sol";
 import {RegistryType} from "../../../../src/interfaces/INodeRegistry.sol";
 import {INode, ComponentAllocation} from "../../../../src/interfaces/INode.sol";
 import {IRouter} from "../../../../src/interfaces/IRouter.sol";
 import {ERC4626Router} from "../../../../src/routers/ERC4626Router.sol";
 import {ERC7540Router} from "../../../../src/routers/ERC7540Router.sol";
-import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
+import {ERC4626StaticVault} from "../../../mocks/vaults/ERC4626StaticVault.sol";
+import {ERC4626LinearYieldVault} from "../../../mocks/vaults/ERC4626LinearYieldVault.sol";
+import {ERC4626NegativeYieldVault} from "../../../mocks/vaults/ERC4626NegativeYieldVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -497,16 +502,47 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        if (seed % 2 == 0) {
-            ERC4626Mock newVault = new ERC4626Mock(address(asset));
+        uint256 selector = seed % 5;
+        if (selector == 0) {
+            ERC4626StaticVault newVault = new ERC4626StaticVault(address(asset), "Dynamic Static Vault", "dSV");
             params.component = address(newVault);
             params.router = address(router4626);
 
             vm.startPrank(owner);
             router4626.setWhitelistStatus(params.component, true);
             vm.stopPrank();
+        } else if (selector == 1) {
+            ERC4626LinearYieldVault newVault =
+                new ERC4626LinearYieldVault(address(asset), "Dynamic Linear Vault", "dLV", 3e13 + (seed % 1e13));
+            params.component = address(newVault);
+            params.router = address(router4626);
+
+            vm.startPrank(owner);
+            router4626.setWhitelistStatus(params.component, true);
+            vm.stopPrank();
+        } else if (selector == 2) {
+            ERC4626NegativeYieldVault newVault =
+                new ERC4626NegativeYieldVault(address(asset), "Dynamic Negative Vault", "dNV", 2e13 + (seed % 1e13));
+            params.component = address(newVault);
+            params.router = address(router4626);
+
+            vm.startPrank(owner);
+            router4626.setWhitelistStatus(params.component, true);
+            vm.stopPrank();
+        } else if (selector == 3) {
+            ERC7540LinearYieldVault newPool = new ERC7540LinearYieldVault(
+                IERC20(address(asset)), "Dynamic Async Vault", "dAV", poolManager, 2e13 + (seed % 1e13)
+            );
+            params.component = address(newPool);
+            params.router = address(router7540);
+
+            vm.startPrank(owner);
+            router7540.setWhitelistStatus(params.component, true);
+            vm.stopPrank();
         } else {
-            ERC7540Mock newPool = new ERC7540Mock(IERC20(address(asset)), "Dynamic Pool", "dPOOL", poolManager);
+            ERC7540NegativeYieldVault newPool = new ERC7540NegativeYieldVault(
+                IERC20(address(asset)), "Dynamic Negative Async Vault", "dnAV", poolManager, 1e13 + (seed % 1e13)
+            );
             params.component = address(newPool);
             params.router = address(router7540);
 

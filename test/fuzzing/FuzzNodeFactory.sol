@@ -278,8 +278,8 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         internal
         returns (uint64 totalWeight)
     {
-        uint8[5] memory order = _componentOrder(entropy);
-        uint256 componentCount = 2 + (entropy % 4);
+        uint8[6] memory order = _componentOrder(entropy);
+        uint256 componentCount = 2 + (entropy % 5);
         if (componentCount > order.length) {
             componentCount = order.length;
         }
@@ -309,8 +309,8 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         );
     }
 
-    function _componentOrder(uint256 entropy) internal pure returns (uint8[5] memory order) {
-        order = [uint8(0), 1, 2, 3, 4];
+    function _componentOrder(uint256 entropy) internal pure returns (uint8[6] memory order) {
+        order = [uint8(0), 1, 2, 3, 4, 5];
         for (uint256 i = 1; i < order.length; i++) {
             uint256 swapIndex = 1 + (uint256(keccak256(abi.encodePacked(entropy, i))) % (order.length - 1));
             if (swapIndex >= order.length) {
@@ -337,6 +337,8 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
             return (address(liquidityPool), address(router7540), uint64(0.12 ether));
         } else if (templateId == 4) {
             return (address(liquidityPoolSecondary), address(router7540), uint64(0.1 ether));
+        } else if (templateId == 5) {
+            return (address(liquidityPoolTertiary), address(router7540), uint64(0.08 ether));
         }
 
         return (address(vault), address(router4626), uint64(0.3 ether));

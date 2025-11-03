@@ -5,6 +5,6 @@ import "./FuzzGuided.sol";
 
 contract Fuzz is FuzzGuided {
     constructor() payable {
-        fuzzSetup();
+        fuzzSetup(true);
     }
 }

@@ -317,6 +317,147 @@ contract FoundryNode is FuzzNode {
         clearNodeContextOverrideForTest();
     }
 
+    function test_erc4626_static_vault_no_yield() public {
+        forceNodeContextForTest(0);
+
+        address user = USERS[1];
+        uint256 amount = 10_000 ether;
+        assetToken.mint(user, amount);
+
+        vm.startPrank(user);
+        asset.approve(address(vault), type(uint256).max);
+        uint256 shares = vault.deposit(amount, user);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 7 days);
+
+        vm.startPrank(user);
+        uint256 redeemed = vault.redeem(shares, user, user);
+        vm.stopPrank();
+
+        assertEq(redeemed, amount, "Static vault should preserve principal");
+
+        clearNodeContextOverrideForTest();
+    }
+
+    function test_erc4626_linear_vault_accumulates_yield() public {
+        forceNodeContextForTest(0);
+
+        address user = USERS[2];
+        uint256 amount = 15_000 ether;
+        assetToken.mint(user, amount);
+
+        vm.startPrank(user);
+        asset.approve(address(vaultSecondary), type(uint256).max);
+        uint256 shares = vaultSecondary.deposit(amount, user);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 14 days);
+
+        vm.startPrank(user);
+        uint256 redeemed = vaultSecondary.redeem(shares, user, user);
+        vm.stopPrank();
+
+        assertGt(redeemed, amount, "Linear vault should grow principal");
+
+        clearNodeContextOverrideForTest();
+    }
+
+    function test_erc4626_negative_vault_loses_yield() public {
+        forceNodeContextForTest(0);
+
+        address user = USERS[3];
+        uint256 amount = 20_000 ether;
+        assetToken.mint(user, amount);
+
+        vm.startPrank(user);
+        asset.approve(address(vaultTertiary), type(uint256).max);
+        uint256 shares = vaultTertiary.deposit(amount, user);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 10 days);
+
+        vm.startPrank(user);
+        uint256 redeemed = vaultTertiary.redeem(shares, user, user);
+        vm.stopPrank();
+
+        assertLt(redeemed, amount, "Negative vault should erode principal");
+
+        clearNodeContextOverrideForTest();
+    }
+
+    function test_erc7540_linear_vault_positive_yield() public {
+        forceNodeContextForTest(0);
+
+        address user = USERS[1];
+        uint256 amount = 25_000 ether;
+        assetToken.mint(user, amount);
+
+        vm.startPrank(user);
+        asset.approve(address(liquidityPoolSecondary), type(uint256).max);
+        ERC7540Mock(liquidityPoolSecondary).requestDeposit(amount, user, user);
+        vm.stopPrank();
+
+        vm.prank(poolManager);
+        ERC7540Mock(liquidityPoolSecondary).processPendingDeposits();
+
+        uint256 shares = ERC7540Mock(liquidityPoolSecondary).claimableShares();
+        vm.prank(user);
+        ERC7540Mock(liquidityPoolSecondary).mint(shares, user, user);
+
+        vm.warp(block.timestamp + 7 days);
+
+        vm.prank(user);
+        ERC7540Mock(liquidityPoolSecondary).requestRedeem(shares, user, user);
+
+        vm.prank(poolManager);
+        ERC7540Mock(liquidityPoolSecondary).processPendingRedemptions();
+
+        uint256 claimable = ERC7540Mock(liquidityPoolSecondary).claimableRedeemRequest(0, user);
+        vm.prank(user);
+        uint256 redeemed = ERC7540Mock(liquidityPoolSecondary).withdraw(claimable, user, user);
+
+        assertGt(redeemed, amount, "Async linear vault should grow principal");
+
+        clearNodeContextOverrideForTest();
+    }
+
+    function test_erc7540_negative_vault_declines() public {
+        forceNodeContextForTest(0);
+
+        address user = USERS[2];
+        uint256 amount = 18_000 ether;
+        assetToken.mint(user, amount);
+
+        vm.startPrank(user);
+        asset.approve(address(liquidityPoolTertiary), type(uint256).max);
+        ERC7540Mock(liquidityPoolTertiary).requestDeposit(amount, user, user);
+        vm.stopPrank();
+
+        vm.prank(poolManager);
+        ERC7540Mock(liquidityPoolTertiary).processPendingDeposits();
+
+        uint256 shares = ERC7540Mock(liquidityPoolTertiary).claimableShares();
+        vm.prank(user);
+        ERC7540Mock(liquidityPoolTertiary).mint(shares, user, user);
+
+        vm.warp(block.timestamp + 9 days);
+
+        vm.prank(user);
+        ERC7540Mock(liquidityPoolTertiary).requestRedeem(shares, user, user);
+
+        vm.prank(poolManager);
+        ERC7540Mock(liquidityPoolTertiary).processPendingRedemptions();
+
+        uint256 claimable = ERC7540Mock(liquidityPoolTertiary).claimableRedeemRequest(0, user);
+        vm.prank(user);
+        uint256 redeemed = ERC7540Mock(liquidityPoolTertiary).withdraw(claimable, user, user);
+
+        assertLt(redeemed, amount, "Async negative vault should erode principal");
+
+        clearNodeContextOverrideForTest();
+    }
+
     function _componentLists()
         internal
         view

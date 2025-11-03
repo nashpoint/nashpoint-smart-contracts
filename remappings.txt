@@ -6,6 +6,3 @@ ds-test/=lib/forge-std/lib/ds-test/src/
 optimism/=lib/optimism/packages/contracts-bedrock/src/
 solady/=lib/optimism/packages/contracts-bedrock/lib/solady/src/
 @perimetersec/fuzzlib/=../fuzzlib/
-
-src/libraries/Bytes.sol=lib/optimism/packages/contracts-bedrock/src/libraries/Bytes.sol
-src/libraries/rlp/=lib/optimism/packages/contracts-bedrock/src/libraries/rlp/

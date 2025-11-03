@@ -5,9 +5,16 @@ import "./helpers/FuzzStorageVariables.sol";
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
+import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import {ERC4626StaticVault} from "../mocks/vaults/ERC4626StaticVault.sol";
+import {ERC4626LinearYieldVault} from "../mocks/vaults/ERC4626LinearYieldVault.sol";
+import {ERC4626NegativeYieldVault} from "../mocks/vaults/ERC4626NegativeYieldVault.sol";
+import {ERC7540StaticVault} from "../mocks/vaults/ERC7540StaticVault.sol";
+import {ERC7540LinearYieldVault} from "../mocks/vaults/ERC7540LinearYieldVault.sol";
+import {ERC7540NegativeYieldVault} from "../mocks/vaults/ERC7540NegativeYieldVault.sol";
 import {ERC7540Mock} from "../mocks/ERC7540Mock.sol";
 import {AggregationRouterV6Mock} from "../mocks/AggregationRouterV6Mock.sol";
+import {SimpleProxy} from "./mocks/SimpleProxy.sol";
 
 /**
  * @title FuzzSetup
@@ -23,6 +30,10 @@ contract FuzzSetup is FuzzStorageVariables {
      * @notice Deterministic fuzzing environment setup invoked from `Fuzz` constructor
      */
     function fuzzSetup() internal {
+        fuzzSetup(false);
+    }
+
+    function fuzzSetup(bool isEchidna) internal {
         if (protocolSet) {
             return;
         }
@@ -32,7 +43,7 @@ contract FuzzSetup is FuzzStorageVariables {
         // Avoid underflow in Node.initialize (matches BaseTest behaviour)
         vm.warp(block.timestamp + 1 days);
 
-        _deployCoreInfrastructure();
+        _deployCoreInfrastructure(isEchidna);
         _configureRegistry();
         _deployNode();
         _seedUserBalancesAndApprovals();
@@ -63,7 +74,7 @@ contract FuzzSetup is FuzzStorageVariables {
     // DEPLOYMENT HELPERS
     // ==============================================================
 
-    function _deployCoreInfrastructure() internal {
+    function _deployCoreInfrastructure(bool isEchidna) internal {
         // Deploy registry behind UUPS proxy to match production architecture
         NodeRegistry registryImpl = new NodeRegistry();
         registry = NodeRegistry(
@@ -93,24 +104,29 @@ contract FuzzSetup is FuzzStorageVariables {
         incentraDistributor = new IncentraDistributorMock();
         routerIncentra = new IncentraRouter(address(registry), address(incentraDistributor));
 
-        MerklDistributorMock deployedMerklMock = new MerklDistributorMock();
         address merklDistributorAddr = 0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae;
-        vm.etch(merklDistributorAddr, address(deployedMerklMock).code);
+        SimpleProxy merklDistributorProxy = _prepareProxy(merklDistributorAddr, isEchidna);
+        MerklDistributorMock merklDistributorImpl = new MerklDistributorMock();
+        merklDistributorProxy.setImplementation(address(merklDistributorImpl));
         merklDistributor = MerklDistributorMock(merklDistributorAddr);
         routerMerkl = new MerklRouter(address(registry));
         routerOneInch = new OneInchV6RouterV1(address(registry));
 
-        AggregationRouterV6Mock aggregationMock = new AggregationRouterV6Mock();
         address aggregationAddress = routerOneInch.ONE_INCH_AGGREGATION_ROUTER_V6();
-        vm.etch(aggregationAddress, address(aggregationMock).code);
+        SimpleProxy aggregationRouterProxy = _prepareProxy(aggregationAddress, isEchidna);
+        AggregationRouterV6Mock aggregationRouterImpl = new AggregationRouterV6Mock();
+        aggregationRouterProxy.setImplementation(address(aggregationRouterImpl));
 
         assetToken = new ERC20Mock("Test Token", "TEST");
         asset = IERC20(address(assetToken));
-        vault = new ERC4626Mock(address(asset));
-        vaultSecondary = new ERC4626Mock(address(asset));
-        vaultTertiary = new ERC4626Mock(address(asset));
-        liquidityPool = new ERC7540Mock(IERC20(address(asset)), "Mock Liquidity Pool", "mlp", poolManager);
-        liquidityPoolSecondary = new ERC7540Mock(IERC20(address(asset)), "Mock Liquidity Pool 2", "mlp2", poolManager);
+        vault = new ERC4626StaticVault(address(asset), "Static Immediate Vault", "siVAULT");
+        vaultSecondary = new ERC4626LinearYieldVault(address(asset), "Linear Immediate Vault", "liVAULT", 5e13);
+        vaultTertiary = new ERC4626NegativeYieldVault(address(asset), "Declining Immediate Vault", "diVAULT", 3e13);
+        liquidityPool = new ERC7540StaticVault(IERC20(address(asset)), "Static Async Vault", "saVAULT", poolManager);
+        liquidityPoolSecondary =
+            new ERC7540LinearYieldVault(IERC20(address(asset)), "Linear Async Vault", "laVAULT", poolManager, 4e13);
+        liquidityPoolTertiary =
+            new ERC7540NegativeYieldVault(IERC20(address(asset)), "Declining Async Vault", "daVAULT", poolManager, 2e13);
 
         stToken = new ERC20Mock("Digift Security Token", "DST");
         subRedManagement = new SubRedManagementMock();
@@ -149,6 +165,7 @@ contract FuzzSetup is FuzzStorageVariables {
         router4626.setWhitelistStatus(address(vaultTertiary), true);
         router7540.setWhitelistStatus(address(liquidityPool), true);
         router7540.setWhitelistStatus(address(liquidityPoolSecondary), true);
+        router7540.setWhitelistStatus(address(liquidityPoolTertiary), true);
         vm.stopPrank();
     }
 
@@ -185,13 +202,16 @@ contract FuzzSetup is FuzzStorageVariables {
         node.addComponent(address(vaultTertiary), 0.15 ether, 0.01 ether, address(router4626));
         node.addComponent(address(liquidityPool), 0.1 ether, 0.01 ether, address(router7540));
         node.addComponent(address(liquidityPoolSecondary), 0.05 ether, 0.01 ether, address(router7540));
+        node.addComponent(address(liquidityPoolTertiary), 0.05 ether, 0.01 ether, address(router7540));
+        node.updateTargetReserveRatio(0.15 ether);
 
-        address[] memory liquidationQueue = new address[](5);
+        address[] memory liquidationQueue = new address[](6);
         liquidationQueue[0] = address(vault);
         liquidationQueue[1] = address(vaultSecondary);
         liquidationQueue[2] = address(vaultTertiary);
         liquidationQueue[3] = address(liquidityPool);
         liquidationQueue[4] = address(liquidityPoolSecondary);
+        liquidationQueue[5] = address(liquidityPoolTertiary);
         node.setLiquidationQueue(liquidationQueue);
 
         capPolicy.setCap(address(node), DEFAULT_NODE_CAP_AMOUNT);
@@ -229,6 +249,7 @@ contract FuzzSetup is FuzzStorageVariables {
         _seedERC4626(address(vaultTertiary), 100_000 ether);
         _seedERC7540(address(liquidityPool), 150_000 ether);
         _seedERC7540(address(liquidityPoolSecondary), 75_000 ether);
+        _seedERC7540(address(liquidityPoolTertiary), 50_000 ether);
 
         assetPriceOracleMock.setLatestRoundData(1, 1e8, block.timestamp, block.timestamp, 1);
         digiftPriceOracleMock.setLatestRoundData(1, 2e10, block.timestamp, block.timestamp, 1);
@@ -310,6 +331,9 @@ contract FuzzSetup is FuzzStorageVariables {
             TOKENS.push(address(vault));
             TOKENS.push(address(vaultSecondary));
             TOKENS.push(address(vaultTertiary));
+            TOKENS.push(address(liquidityPool));
+            TOKENS.push(address(liquidityPoolSecondary));
+            TOKENS.push(address(liquidityPoolTertiary));
             TOKENS.push(address(stToken));
         }
 
@@ -319,6 +343,7 @@ contract FuzzSetup is FuzzStorageVariables {
             COMPONENTS.push(address(vaultTertiary));
             COMPONENTS.push(address(liquidityPool));
             COMPONENTS.push(address(liquidityPoolSecondary));
+            COMPONENTS.push(address(liquidityPoolTertiary));
             COMPONENTS.push(address(digiftAdapter));
         }
 
@@ -331,6 +356,7 @@ contract FuzzSetup is FuzzStorageVariables {
         if (COMPONENTS_ERC7540.length == 0) {
             COMPONENTS_ERC7540.push(address(liquidityPool));
             COMPONENTS_ERC7540.push(address(liquidityPoolSecondary));
+            COMPONENTS_ERC7540.push(address(liquidityPoolTertiary));
             COMPONENTS_ERC7540.push(address(digiftAdapter));
         }
 
@@ -390,6 +416,7 @@ contract FuzzSetup is FuzzStorageVariables {
         vm.label(address(vaultTertiary), "VaultTertiary");
         vm.label(address(liquidityPool), "LiquidityPool");
         vm.label(address(liquidityPoolSecondary), "LiquidityPoolSecondary");
+        vm.label(address(liquidityPoolTertiary), "LiquidityPoolTertiary");
         vm.label(address(capPolicy), "CapPolicy");
         vm.label(address(gatePolicy), "GatePolicy");
         vm.label(address(nodePausingPolicy), "NodePausingPolicy");
@@ -492,7 +519,7 @@ contract FuzzSetup is FuzzStorageVariables {
         assetToken.mint(vaultSeeder, amount);
         vm.startPrank(vaultSeeder);
         asset.approve(component, amount);
-        ERC4626Mock(component).deposit(amount, vaultSeeder);
+        ERC4626(component).deposit(amount, vaultSeeder);
         vm.stopPrank();
     }
 
@@ -521,6 +548,14 @@ contract FuzzSetup is FuzzStorageVariables {
         node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();
+    }
+
+    function _prepareProxy(address target, bool isEchidna) internal returns (SimpleProxy proxy) {
+        if (!isEchidna) {
+            vm.etch(target, type(SimpleProxy).runtimeCode);
+        }
+
+        proxy = SimpleProxy(payable(target));
     }
 
     // ==============================================================

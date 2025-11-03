@@ -32,7 +32,7 @@ import {TransferPolicy} from "../../../src/policies/TransferPolicy.sol";
 
 import {ERC20Mock} from "../../mocks/ERC20Mock.sol";
 import {ERC7540Mock} from "../../mocks/ERC7540Mock.sol";
-import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
+import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FluidDistributorMock} from "../../mocks/FluidDistributorMock.sol";
 import {IncentraDistributorMock} from "../../mocks/IncentraDistributorMock.sol";
@@ -104,11 +104,12 @@ contract FuzzStorageVariables is FuzzActors {
 
     ERC20Mock internal assetToken;
     IERC20 internal asset;
-    ERC4626Mock internal vault;
-    ERC4626Mock internal vaultSecondary;
-    ERC4626Mock internal vaultTertiary;
+    ERC4626 internal vault;
+    ERC4626 internal vaultSecondary;
+    ERC4626 internal vaultTertiary;
     ERC7540Mock internal liquidityPool;
     ERC7540Mock internal liquidityPoolSecondary;
+    ERC7540Mock internal liquidityPoolTertiary;
     FluidDistributorMock internal fluidDistributor;
     IncentraDistributorMock internal incentraDistributor;
     MerklDistributorMock internal merklDistributor;
