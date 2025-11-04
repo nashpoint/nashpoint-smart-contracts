@@ -6,6 +6,8 @@ import "./FuzzDonate.sol";
 import "./FuzzDigiftAdapter.sol";
 import "./FuzzDigiftEventVerifier.sol";
 import "./FuzzNodeFactory.sol";
+import "./FuzzAdmin/FuzzAdminNode.sol";
+import "./FuzzAdmin/FuzzAdminDigiftAdapter.sol";
 
 /**
  * @title FuzzGuided
@@ -14,4 +16,11 @@ import "./FuzzNodeFactory.sol";
  *      Admin contracts moved to FuzzAdmin/ folder
  *      Router and other internal-only contracts deleted
  */
-contract FuzzGuided is FuzzNode, FuzzDonate, FuzzDigiftAdapter, FuzzDigiftEventVerifier, FuzzNodeFactory {}
+contract FuzzGuided is
+    FuzzAdminNode,
+    FuzzDonate,
+    FuzzDigiftAdapter,
+    FuzzAdminDigiftAdapter,
+    FuzzDigiftEventVerifier,
+    FuzzNodeFactory
+{}

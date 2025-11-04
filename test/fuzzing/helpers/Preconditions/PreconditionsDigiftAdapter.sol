@@ -77,6 +77,54 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         }
     }
 
+    function digiftForwardRequestsPreconditions(uint256 seed)
+        internal
+        view
+        returns (DigiftForwardRequestParams memory params)
+    {
+        uint256 queueLength = _pendingDigiftDepositCount();
+        params.shouldSucceed = queueLength > 0;
+
+        if (!params.shouldSucceed) {
+            return params;
+        }
+
+        uint256 index = seed % queueLength;
+        params.record = _getDigiftPendingDeposit(index);
+        params.accumulatedDepositBefore = digiftAdapter.accumulatedDeposit();
+    }
+
+    function digiftSettleDepositFlowPreconditions(uint256 seed)
+        internal
+        view
+        returns (DigiftSettleDepositParams memory params)
+    {
+        seed;
+        uint256 queueLength = _forwardedDigiftDepositCount();
+        params.shouldSucceed = queueLength > 0 && digiftAdapter.globalPendingDepositRequest() > 0;
+
+        if (!params.shouldSucceed) {
+            return params;
+        }
+
+        params.records = new DigiftPendingDepositRecord[](queueLength);
+
+        uint256 totalAssets;
+        for (uint256 i = 0; i < queueLength; i++) {
+            DigiftPendingDepositRecord memory record = _getDigiftForwardedDeposit(i);
+            params.records[i] = record;
+            totalAssets += record.assets;
+        }
+
+        if (totalAssets == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.sharesExpected = digiftAdapter.convertToShares(totalAssets);
+        params.assetsExpected = 0;
+    }
+
     function digiftWithdrawPreconditions(uint256 assetSeed) internal returns (DigiftWithdrawParams memory params) {
         uint256 maxAssets = digiftAdapter.maxWithdraw(address(node));
 

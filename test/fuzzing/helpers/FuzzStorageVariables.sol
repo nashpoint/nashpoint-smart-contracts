@@ -44,6 +44,12 @@ import {MerklDistributorMock} from "../../mocks/MerklDistributorMock.sol";
  * @dev Holds protocol deployment artifacts, actor tracking, and fuzz configuration
  */
 contract FuzzStorageVariables is FuzzActors {
+    struct DigiftPendingDepositRecord {
+        address node;
+        address component;
+        uint256 assets;
+    }
+
     // ==============================================================
     // FUZZING SUITE SETUP
     // ==============================================================
@@ -142,6 +148,13 @@ contract FuzzStorageVariables is FuzzActors {
     address[] internal POLICIES;
 
     // ==============================================================
+    // DIGIFT FLOW TRACKING
+    // ==============================================================
+
+    DigiftPendingDepositRecord[] internal DIGIFT_PENDING_DEPOSITS;
+    DigiftPendingDepositRecord[] internal DIGIFT_FORWARDED_DEPOSITS;
+
+    // ==============================================================
     // INTERNAL HELPERS (SHARED)
     // ==============================================================
 
@@ -197,6 +210,72 @@ contract FuzzStorageVariables is FuzzActors {
         }
 
         _setActiveNode(MANAGED_NODES[index]);
+    }
+
+    function _recordDigiftPendingDeposit(address nodeAddr, address component, uint256 assets) internal {
+        if (nodeAddr == address(0) || component == address(0) || assets == 0) {
+            return;
+        }
+
+        DIGIFT_PENDING_DEPOSITS.push(DigiftPendingDepositRecord({node: nodeAddr, component: component, assets: assets}));
+    }
+
+    function _pendingDigiftDepositCount() internal view returns (uint256) {
+        return DIGIFT_PENDING_DEPOSITS.length;
+    }
+
+    function _getDigiftPendingDeposit(uint256 index) internal view returns (DigiftPendingDepositRecord memory) {
+        if (index >= DIGIFT_PENDING_DEPOSITS.length) {
+            return DigiftPendingDepositRecord({node: address(0), component: address(0), assets: 0});
+        }
+        return DIGIFT_PENDING_DEPOSITS[index];
+    }
+
+    function _consumeDigiftPendingDeposit(uint256 index) internal returns (DigiftPendingDepositRecord memory record) {
+        uint256 length = DIGIFT_PENDING_DEPOSITS.length;
+        if (length == 0 || index >= length) {
+            return DigiftPendingDepositRecord({node: address(0), component: address(0), assets: 0});
+        }
+
+        record = DIGIFT_PENDING_DEPOSITS[index];
+        if (index != length - 1) {
+            DIGIFT_PENDING_DEPOSITS[index] = DIGIFT_PENDING_DEPOSITS[length - 1];
+        }
+        DIGIFT_PENDING_DEPOSITS.pop();
+    }
+
+    function _recordDigiftForwardedDeposit(DigiftPendingDepositRecord memory record) internal {
+        if (record.node == address(0) || record.component == address(0) || record.assets == 0) {
+            return;
+        }
+        DIGIFT_FORWARDED_DEPOSITS.push(record);
+    }
+
+    function _forwardedDigiftDepositCount() internal view returns (uint256) {
+        return DIGIFT_FORWARDED_DEPOSITS.length;
+    }
+
+    function _getDigiftForwardedDeposit(uint256 index) internal view returns (DigiftPendingDepositRecord memory) {
+        if (index >= DIGIFT_FORWARDED_DEPOSITS.length) {
+            return DigiftPendingDepositRecord({node: address(0), component: address(0), assets: 0});
+        }
+        return DIGIFT_FORWARDED_DEPOSITS[index];
+    }
+
+    function _consumeDigiftForwardedDeposit(uint256 index)
+        internal
+        returns (DigiftPendingDepositRecord memory record)
+    {
+        uint256 length = DIGIFT_FORWARDED_DEPOSITS.length;
+        if (length == 0 || index >= length) {
+            return DigiftPendingDepositRecord({node: address(0), component: address(0), assets: 0});
+        }
+
+        record = DIGIFT_FORWARDED_DEPOSITS[index];
+        if (index != length - 1) {
+            DIGIFT_FORWARDED_DEPOSITS[index] = DIGIFT_FORWARDED_DEPOSITS[length - 1];
+        }
+        DIGIFT_FORWARDED_DEPOSITS.pop();
     }
 
     function _managedNodeCount() internal view returns (uint256) {

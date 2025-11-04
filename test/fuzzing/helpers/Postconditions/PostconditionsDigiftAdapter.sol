@@ -6,6 +6,68 @@ import "./PostconditionsBase.sol";
 import {DigiftAdapter} from "../../../../src/adapters/digift/DigiftAdapter.sol";
 
 contract PostconditionsDigiftAdapter is PostconditionsBase {
+    function digiftForwardRequestsPostconditions(
+        bool success,
+        bytes memory returnData,
+        DigiftForwardRequestParams memory params
+    ) internal {
+        if (success && params.shouldSucceed) {
+            uint256 forwardedTotal;
+            while (_pendingDigiftDepositCount() > 0) {
+                DigiftPendingDepositRecord memory record =
+                    _consumeDigiftPendingDeposit(_pendingDigiftDepositCount() - 1);
+                forwardedTotal += record.assets;
+                _recordDigiftForwardedDeposit(record);
+            }
+
+            uint256 globalPending = digiftAdapter.globalPendingDepositRequest();
+            if (forwardedTotal > 0) {
+                fl.eq(globalPending, forwardedTotal, "DIGIFT_FORWARD_GLOBAL_PENDING");
+            }
+            onSuccessInvariantsGeneral(returnData);
+        } else if (!success && !params.shouldSucceed) {
+            onFailInvariantsGeneral(returnData);
+        } else if (success && !params.shouldSucceed) {
+            onSuccessInvariantsGeneral(returnData);
+        } else {
+            onFailInvariantsGeneral(returnData);
+        }
+    }
+
+    function digiftSettleDepositFlowPostconditions(
+        bool success,
+        bytes memory returnData,
+        DigiftSettleDepositParams memory params
+    ) internal {
+        if (success && params.shouldSucceed) {
+            uint256 recordsProcessed;
+            for (uint256 i = 0; i < params.records.length; i++) {
+                uint256 remaining = _forwardedDigiftDepositCount();
+                if (remaining == 0) {
+                    break;
+                }
+                DigiftPendingDepositRecord memory record = _consumeDigiftForwardedDeposit(remaining - 1);
+                if (record.node != address(0)) {
+                    uint256 maxMintable = digiftAdapter.maxMint(record.node);
+                    fl.t(maxMintable > 0, "DIGIFT_SETTLE_NO_MINTABLE_SHARES");
+                }
+                recordsProcessed += record.assets;
+            }
+
+            if (recordsProcessed > 0) {
+                uint256 remainingPending = digiftAdapter.globalPendingDepositRequest();
+                fl.eq(remainingPending, 0, "DIGIFT_SETTLE_PENDING_REMAINS");
+            }
+            onSuccessInvariantsGeneral(returnData);
+        } else if (!success && !params.shouldSucceed) {
+            onFailInvariantsGeneral(returnData);
+        } else if (success && !params.shouldSucceed) {
+            onSuccessInvariantsGeneral(returnData);
+        } else {
+            onFailInvariantsGeneral(returnData);
+        }
+    }
+
     function digiftAssetFundingPostconditions(
         bool success,
         bytes memory returnData,

@@ -19,15 +19,3 @@ contract,source,total,comment
  src/adapters/digift/DigiftAdapter.sol,459,1166,523
  src/adapters/digift/DigiftAdapterFactory.sol,14,58,35
  src/adapters/digift/DigiftEventVerifier.sol,135,332,147
-source count: {
-  total: 4245,
-  source: 2129,
-  comment: 1395,
-  single: 815,
-  block: 580,
-  mixed: 12,
-  empty: 733,
-  todo: 0,
-  blockEmpty: 0,
-  commentToSourceRatio: 0.6552372005636449
-}

@@ -503,6 +503,19 @@ contract FuzzStructs is FuzzSetup {
         bool shouldSucceed;
     }
 
+    struct DigiftForwardRequestParams {
+        DigiftPendingDepositRecord record;
+        uint256 accumulatedDepositBefore;
+        bool shouldSucceed;
+    }
+
+    struct DigiftSettleDepositParams {
+        DigiftPendingDepositRecord[] records;
+        uint256 sharesExpected;
+        uint256 assetsExpected;
+        bool shouldSucceed;
+    }
+
     struct DigiftMintParams {
         uint256 shares;
         bool shouldSucceed;

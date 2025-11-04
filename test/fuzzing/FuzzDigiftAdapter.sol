@@ -48,4 +48,18 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
         );
         digiftTransferPostconditions(success, returnData, address(node), params);
     }
+
+    function fuzz_digift_mint(uint256 shareSeed) public {
+        _forceActor(address(node), shareSeed);
+
+        DigiftMintParams memory params = digiftMintPreconditions(shareSeed);
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSignature("mint(uint256,address,address)", params.shares, address(node), address(node)),
+            currentActor
+        );
+
+        digiftMintPostconditions(success, returnData, params);
+    }
 }

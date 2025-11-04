@@ -278,6 +278,8 @@ contract FuzzSetup is FuzzStorageVariables {
         digiftEventVerifier.setWhitelist(address(digiftAdapter), true);
         digiftAdapter.setManager(rebalancer, true);
         digiftAdapter.setNode(address(node), true);
+        node.addComponent(address(digiftAdapter), 0.05 ether, 0.01 ether, address(router7540));
+        node.updateTargetReserveRatio(0.1 ether);
         vm.stopPrank();
 
         subRedManagement.setManager(rebalancer, true);

@@ -936,11 +936,17 @@ contract PostconditionsNode is PostconditionsBase {
         uint256 assetsRequested = abi.decode(returnData, (uint256));
         fl.t(assetsRequested > 0, "ROUTER7540_INVEST_ZERO");
 
-        uint256 pendingAfter = ERC7540Mock(params.component).pendingAssets();
-        fl.t(pendingAfter >= params.pendingDepositBefore, "ROUTER7540_INVEST_PENDING");
+        if (params.component != address(digiftAdapter)) {
+            uint256 pendingAfter = ERC7540Mock(params.component).pendingAssets();
+            fl.t(pendingAfter >= params.pendingDepositBefore, "ROUTER7540_INVEST_PENDING");
+        }
 
         uint256 nodeBalanceAfter = asset.balanceOf(address(node));
         fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER7540_INVEST_NODE_BALANCE");
+
+        if (params.component == address(digiftAdapter)) {
+            _recordDigiftPendingDeposit(address(node), params.component, assetsRequested);
+        }
 
         onSuccessInvariantsGeneral(returnData);
     }

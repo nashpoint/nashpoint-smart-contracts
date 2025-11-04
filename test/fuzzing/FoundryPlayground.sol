@@ -43,6 +43,30 @@ contract FoundryPlayground is FuzzGuided {
         fuzz_requestRedeem(1e18);
     }
 
+    function test_digift_deposit_flow() public {
+        setActor(USERS[0]);
+        fuzz_deposit(5e18);
+
+        setActor(rebalancer);
+        address[] memory asyncComponents = componentsByRouterForTest(address(router7540));
+        uint256 digiftIndex;
+        for (uint256 i = 0; i < asyncComponents.length; i++) {
+            if (asyncComponents[i] == address(digiftAdapter)) {
+                digiftIndex = i;
+                break;
+            }
+        }
+        fuzz_admin_router7540_invest(digiftIndex);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(1);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_settleDeposit(2);
+
+        fuzz_digift_mint(3);
+    }
+
     function test_handler_setOperator() public {
         setActor(USERS[0]);
         fuzz_setOperator(1, true);
