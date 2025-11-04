@@ -336,8 +336,10 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
         lastRebalance = uint64(block.timestamp);
         _updateTotalAssets();
-        _payManagementFees();
-        _updateLastPayment();
+        (bool success,) = _payManagementFees(false);
+        if (success) {
+            _updateLastPayment();
+        }
         _runPolicies();
 
         emit EventsLib.RebalanceStarted(block.timestamp, rebalanceWindow);
@@ -367,31 +369,35 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         returns (uint256 feeForPeriod)
     {
         _updateTotalAssets();
-        feeForPeriod = _payManagementFees();
+        (, feeForPeriod) = _payManagementFees(true);
         if (feeForPeriod > 0) {
             _updateLastPayment();
         }
         _runPolicies();
     }
 
-    function _payManagementFees() internal returns (uint256 feeForPeriod) {
+    function _payManagementFees(bool shouldRevert) internal returns (bool success, uint256 feeForPeriod) {
         feeForPeriod = uint256(annualManagementFee).mulDiv(
             cacheTotalAssets * (block.timestamp - lastPayment), SECONDS_PER_YEAR * WAD
         );
 
         if (feeForPeriod > 0) {
+            if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
+                if (shouldRevert) {
+                    revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
+                } else {
+                    return (false, feeForPeriod);
+                }
+            }
             uint256 protocolFeeAmount = feeForPeriod.mulDiv(INodeRegistry(registry).protocolManagementFee(), WAD);
             uint256 nodeOwnerFeeAmount = feeForPeriod - protocolFeeAmount;
-
-            if (IERC20(asset).balanceOf(address(this)) < feeForPeriod) {
-                revert ErrorsLib.NotEnoughAssetsToPayFees(feeForPeriod, IERC20(asset).balanceOf(address(this)));
-            }
 
             cacheTotalAssets -= feeForPeriod;
             IERC20(asset).safeTransfer(INodeRegistry(registry).protocolFeeAddress(), protocolFeeAmount);
             IERC20(asset).safeTransfer(nodeOwnerFeeAddress, nodeOwnerFeeAmount);
             emit EventsLib.ManagementFeePaid(nodeOwnerFeeAddress, nodeOwnerFeeAmount, protocolFeeAmount);
         }
+        return (true, feeForPeriod);
     }
 
     /// @inheritdoc INode

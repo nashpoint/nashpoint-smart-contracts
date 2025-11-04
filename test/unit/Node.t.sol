@@ -1038,6 +1038,63 @@ contract NodeTest is BaseTest {
         assertEq(node.totalAssets(), 110 ether - 1);
     }
 
+    function test_startRebalance_no_fees_to_collect() external {
+        _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 24 hours);
+
+        vm.startPrank(owner);
+        node.setAnnualManagementFee(1e17);
+        node.updateTargetReserveRatio(0);
+        node.updateComponentAllocation(address(vault), 1e18, 0, address(router4626));
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        router4626.invest(address(node), address(vault), 0);
+        vm.stopPrank();
+
+        uint256 totalAssets = node.totalAssets();
+
+        assertGt(totalAssets, 0, "Non zero total assets");
+        assertEq(asset.balanceOf(address(node)), 0, "Reserve is empty");
+
+        vm.warp(block.timestamp + 10 days);
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        vm.stopPrank();
+
+        assertEq(asset.balanceOf(address(node)), 0, "Reserve is still zero");
+        assertEq(node.totalAssets(), totalAssets, "Total assets haven't changed");
+
+        vm.warp(block.timestamp + 10 days);
+
+        vm.startPrank(owner);
+        node.updateTargetReserveRatio(1e17);
+        node.updateComponentAllocation(address(vault), 9e17, 0, address(router4626));
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        router4626.liquidate(address(node), address(vault), vault.totalSupply() / 10, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 10 days);
+
+        assertGt(asset.balanceOf(address(node)), 0, "Reserve is non-zero");
+        assertEq(node.totalAssets(), totalAssets, "Total assets haven't changed");
+
+        vm.startPrank(rebalancer);
+        vm.expectEmit(true, true, false, false);
+        emit EventsLib.ManagementFeePaid(owner, 0, 0);
+        node.startRebalance();
+        vm.stopPrank();
+
+        assertGt(asset.balanceOf(address(node)), 0, "Reserve is non-zero");
+        assertLt(node.totalAssets(), totalAssets, "Total assets has been reduced");
+    }
+
     function test_startRebalance_revert_CooldownActive() public {
         uint256 lastRebalance = Node(address(node)).lastRebalance();
         assertEq(lastRebalance, block.timestamp);
