@@ -194,6 +194,26 @@ contract FuzzAdminNode is FuzzNode {
         router7540ExecuteWithdrawalPostconditions(success, returnData, params);
     }
 
+    function fuzz_admin_router7540_fulfillRedeemRequest(uint256 controllerSeed, uint256 componentSeed) public {
+        RouterFulfillAsyncRedeemParams memory params =
+            router7540FulfillRedeemPreconditions(controllerSeed, componentSeed);
+        _forceActor(rebalancer, controllerSeed);
+
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
+        params.escrowBalanceBefore = asset.balanceOf(address(escrow));
+        params.componentSharesBefore = IERC20(params.component).balanceOf(address(node));
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(router7540),
+            abi.encodeWithSelector(
+                ERC7540Router.fulfillRedeemRequest.selector, address(node), params.controller, params.component
+            ),
+            currentActor
+        );
+
+        router7540FulfillRedeemPostconditions(success, returnData, params);
+    }
+
     function fuzz_admin_pool_processPendingDeposits(uint256 poolSeed) public {
         PoolProcessParams memory params = poolProcessPendingDepositsPreconditions(poolSeed);
         _forceActor(poolManager, poolSeed);

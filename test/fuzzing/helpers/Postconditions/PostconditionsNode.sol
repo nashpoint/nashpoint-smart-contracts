@@ -1044,6 +1044,31 @@ contract PostconditionsNode is PostconditionsBase {
         onSuccessInvariantsGeneral(returnData);
     }
 
+    function router7540FulfillRedeemPostconditions(
+        bool success,
+        bytes memory returnData,
+        RouterFulfillAsyncRedeemParams memory params
+    ) internal {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 assetsReturned = abi.decode(returnData, (uint256));
+        fl.t(assetsReturned > 0, "ROUTER7540_FULFILL_NO_ASSETS");
+
+        uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
+        fl.t(escrowBalanceAfter >= params.escrowBalanceBefore, "ROUTER7540_FULFILL_ESCROW_BALANCE");
+
+        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+        fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER7540_FULFILL_NODE_BALANCE");
+
+        uint256 componentSharesAfter = IERC20(params.component).balanceOf(address(node));
+        fl.t(componentSharesAfter <= params.componentSharesBefore, "ROUTER7540_FULFILL_COMPONENT_SHARES");
+
+        onSuccessInvariantsGeneral(returnData);
+    }
+
     function poolProcessPendingDepositsPostconditions( // solhint-disable-line max-line-length
     bool success, bytes memory returnData, PoolProcessParams memory params)
         internal

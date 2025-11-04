@@ -62,4 +62,34 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
 
         digiftMintPostconditions(success, returnData, params);
     }
+
+    function fuzz_digift_withdraw(uint256 assetsSeed) public {
+        _forceActor(address(node), assetsSeed);
+
+        DigiftWithdrawParams memory params = digiftWithdrawPreconditions(assetsSeed);
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSignature("withdraw(uint256,address,address)", params.assets, address(node), address(node)),
+            currentActor
+        );
+
+        digiftWithdrawPostconditions(success, returnData, params);
+    }
+
+    function fuzz_digift_requestRedeem(uint256 sharesSeed) public {
+        _forceActor(address(node), sharesSeed);
+
+        DigiftRequestRedeemParams memory params = digiftRequestRedeemFlowPreconditions(sharesSeed);
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSignature(
+                "requestRedeem(uint256,address,address)", params.shares, address(node), address(node)
+            ),
+            currentActor
+        );
+
+        digiftRequestRedeemFlowPostconditions(success, returnData, params);
+    }
 }

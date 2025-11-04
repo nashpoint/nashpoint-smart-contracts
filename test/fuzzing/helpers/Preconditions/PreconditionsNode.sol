@@ -1303,6 +1303,39 @@ contract PreconditionsNode is PreconditionsBase {
         params.shouldSucceed = params.assets > 0 && !router7540.isBlacklisted(params.component);
     }
 
+    function router7540FulfillRedeemPreconditions(uint256 controllerSeed, uint256 componentSeed)
+        internal
+        returns (RouterFulfillAsyncRedeemParams memory params)
+    {
+        _prepareNodeContext(uint256(keccak256(abi.encodePacked(controllerSeed, componentSeed))));
+
+        address[] memory controllers = _getControllersWithPendingRedeems();
+        if (controllers.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.controller = controllers[controllerSeed % controllers.length];
+
+        address[] memory pools = _componentsByRouter(address(router7540));
+        if (pools.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.component = pools[componentSeed % pools.length];
+
+        (uint256 pendingRedeem,,,) = node.requests(params.controller);
+        uint256 componentClaimable = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
+
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
+        params.escrowBalanceBefore = asset.balanceOf(address(escrow));
+        params.componentSharesBefore = IERC20(params.component).balanceOf(address(node));
+
+        params.shouldSucceed =
+            pendingRedeem > 0 && componentClaimable > 0 && !router7540.isBlacklisted(params.component);
+    }
+
     function poolProcessPendingDepositsPreconditions(uint256 poolSeed)
         internal
         returns (PoolProcessParams memory params)
@@ -1339,6 +1372,26 @@ contract PreconditionsNode is PreconditionsBase {
             ComponentAllocation memory allocation = node.getComponentAllocation(component);
             if (allocation.isComponent && allocation.router == targetRouter) {
                 matches[cursor] = component;
+                cursor++;
+            }
+        }
+    }
+
+    function _getControllersWithPendingRedeems() internal view returns (address[] memory controllers) {
+        uint256 count;
+        for (uint256 i = 0; i < USERS.length; i++) {
+            (uint256 pendingRedeem,, uint256 claimableAssets,) = node.requests(USERS[i]);
+            if (pendingRedeem > 0 || claimableAssets > 0) {
+                count++;
+            }
+        }
+
+        controllers = new address[](count);
+        uint256 cursor;
+        for (uint256 i = 0; i < USERS.length; i++) {
+            (uint256 pendingRedeem,, uint256 claimableAssets,) = node.requests(USERS[i]);
+            if (pendingRedeem > 0 || claimableAssets > 0) {
+                controllers[cursor] = USERS[i];
                 cursor++;
             }
         }

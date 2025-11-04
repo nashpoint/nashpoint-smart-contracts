@@ -194,22 +194,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         }
     }
 
-    function digiftRequestRedeemPostconditions(bool success, bytes memory returnData, DigiftRequestParams memory params)
-        internal
-    {
-        if (success && params.shouldSucceed) {
-            uint256 pending = digiftAdapter.pendingRedeemRequest(0, address(node));
-            // fl.eq(pending, params.amount, "DIGIFT_PENDING_REDEEM_ANOMALY");
-            onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
-            onSuccessInvariantsGeneral(returnData);
-        } else {
-            onFailInvariantsGeneral(returnData);
-        }
-    }
-
     function digiftMintPostconditions(bool success, bytes memory returnData, DigiftMintParams memory params) internal {
         if (success && params.shouldSucceed) {
             onSuccessInvariantsGeneral(returnData);
@@ -265,8 +249,38 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         internal
     {
         if (success && params.shouldSucceed) {
+            fl.eq(params.assets, params.maxWithdrawBefore, "DIGIFT_WITHDRAW_ASSET_MISMATCH");
+
+            uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+            fl.t(nodeBalanceAfter >= params.nodeBalanceBefore, "DIGIFT_WITHDRAW_NODE_BALANCE");
+
+            uint256 maxWithdrawAfter = digiftAdapter.maxWithdraw(address(node));
+            fl.eq(maxWithdrawAfter, 0, "DIGIFT_WITHDRAW_MAX_AFTER");
+
             onSuccessInvariantsGeneral(returnData);
         } else if (!params.shouldSucceed && !success) {
+            onFailInvariantsGeneral(returnData);
+        } else if (success && !params.shouldSucceed) {
+            onSuccessInvariantsGeneral(returnData);
+        } else {
+            onFailInvariantsGeneral(returnData);
+        }
+    }
+
+    function digiftRequestRedeemFlowPostconditions(
+        bool success,
+        bytes memory returnData,
+        DigiftRequestRedeemParams memory params
+    ) internal {
+        if (success && params.shouldSucceed) {
+            uint256 pendingAfter = digiftAdapter.pendingRedeemRequest(0, address(node));
+            fl.gt(pendingAfter, params.pendingBefore, "DIGIFT_REQUEST_REDEEM_PENDING");
+
+            uint256 balanceAfter = digiftAdapter.balanceOf(address(node));
+            fl.t(balanceAfter <= params.balanceBefore, "DIGIFT_REQUEST_REDEEM_BALANCE");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else if (!success && !params.shouldSucceed) {
             onFailInvariantsGeneral(returnData);
         } else if (success && !params.shouldSucceed) {
             onSuccessInvariantsGeneral(returnData);

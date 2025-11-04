@@ -164,6 +164,15 @@ contract FuzzStructs is FuzzSetup {
         bool shouldSucceed;
     }
 
+    struct RouterFulfillAsyncRedeemParams {
+        address controller;
+        address component;
+        uint256 nodeAssetBalanceBefore;
+        uint256 escrowBalanceBefore;
+        uint256 componentSharesBefore;
+        bool shouldSucceed;
+    }
+
     struct FluidClaimParams {
         uint256 cumulativeAmount;
         bytes32 positionId;
@@ -533,6 +542,8 @@ contract FuzzStructs is FuzzSetup {
 
     struct DigiftWithdrawParams {
         uint256 assets;
+        uint256 nodeBalanceBefore;
+        uint256 maxWithdrawBefore;
         bool shouldSucceed;
     }
 
@@ -554,6 +565,13 @@ contract FuzzStructs is FuzzSetup {
 
     struct DigiftSetUintParams {
         uint256 value;
+        bool shouldSucceed;
+    }
+
+    struct DigiftRequestRedeemParams {
+        uint256 shares;
+        uint256 balanceBefore;
+        uint256 pendingBefore;
         bool shouldSucceed;
     }
 

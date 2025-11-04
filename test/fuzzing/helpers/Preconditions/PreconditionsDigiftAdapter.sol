@@ -169,15 +169,34 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
     }
 
     function digiftWithdrawPreconditions(uint256 assetSeed) internal returns (DigiftWithdrawParams memory params) {
-        uint256 maxAssets = digiftAdapter.maxWithdraw(address(node));
+        params.maxWithdrawBefore = digiftAdapter.maxWithdraw(address(node));
+        params.nodeBalanceBefore = asset.balanceOf(address(node));
 
-        if (maxAssets > 0) {
-            params.assets = maxAssets;
+        if (params.maxWithdrawBefore > 0) {
+            params.assets = params.maxWithdrawBefore;
             params.shouldSucceed = true;
         } else {
-            params.assets = fl.clamp(assetSeed, 1, type(uint128).max);
+            params.assets = 0;
             params.shouldSucceed = false;
         }
+    }
+
+    function digiftRequestRedeemFlowPreconditions(uint256 sharesSeed)
+        internal
+        returns (DigiftRequestRedeemParams memory params)
+    {
+        params.balanceBefore = digiftAdapter.balanceOf(address(node));
+        params.pendingBefore = digiftAdapter.pendingRedeemRequest(0, address(node));
+
+        uint256 minShares = digiftAdapter.minRedeemAmount();
+        if (params.balanceBefore < minShares) {
+            params.shares = 0;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shares = fl.clamp(sharesSeed + 1, minShares, params.balanceBefore);
+        params.shouldSucceed = params.shares >= minShares && params.shares <= params.balanceBefore;
     }
 
     function digiftAssetFundingPreconditions(uint256 amountSeed)

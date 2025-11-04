@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./FuzzGuided.sol";
+import {MerklRouter} from "../../src/routers/MerklRouter.sol";
 
 /**
  * @notice Tests removed due to handler deletion:
@@ -151,6 +152,46 @@ contract FoundryPlayground is FuzzGuided {
     function test_handler_donate() public {
         setActor(USERS[2]);
         fuzz_donate(0, 1, 1e18);
+    }
+
+    function test_handler_fluid_claimRewards() public {
+        setActor(rebalancer);
+        fuzz_fluid_claimRewards(1, 1, 1e6);
+    }
+
+    function test_handler_incentra_claimRewards() public {
+        setActor(rebalancer);
+        fuzz_incentra_claimRewards(2, 5e6);
+    }
+
+    function test_handler_merkl_claimRewards() public {
+        setActor(rebalancer);
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(asset);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1e18;
+
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = keccak256(abi.encodePacked(tokens[0], amounts[0]));
+        bytes32[][] memory proofs = _wrapProof(proof);
+
+        bytes memory callData =
+            abi.encodeWithSelector(MerklRouter.claim.selector, address(node), tokens, amounts, proofs);
+        vm.startPrank(rebalancer);
+        (bool ok, bytes memory ret) = address(routerMerkl).call(callData);
+        vm.stopPrank();
+        if (!ok) {
+            emit log_bytes(ret);
+        }
+        assertTrue(ok, "merkl direct call failed");
+
+        fuzz_merkl_claimRewards(3e18);
+    }
+
+    function _wrapProof(bytes32[] memory proof) internal pure returns (bytes32[][] memory wrapped) {
+        wrapped = new bytes32[][](1);
+        wrapped[0] = proof;
     }
 
     function test_handler_digiftVerifier_verifySettlement_subscribe() public {

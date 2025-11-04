@@ -8,6 +8,7 @@ import "./FuzzDigiftEventVerifier.sol";
 import "./FuzzNodeFactory.sol";
 import "./FuzzAdmin/FuzzAdminNode.sol";
 import "./FuzzAdmin/FuzzAdminDigiftAdapter.sol";
+import "./FuzzRewardRouters.sol";
 
 /**
  * @title FuzzGuided
@@ -22,5 +23,6 @@ contract FuzzGuided is
     FuzzDigiftAdapter,
     FuzzAdminDigiftAdapter,
     FuzzDigiftEventVerifier,
-    FuzzNodeFactory
+    FuzzNodeFactory,
+    FuzzRewardRouters
 {}
