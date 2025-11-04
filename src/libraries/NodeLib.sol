@@ -36,8 +36,8 @@ library NodeLib {
             if (sigPolicy[sigs[i]][policies_[i]]) revert ErrorsLib.PolicyAlreadyAdded(sigs[i], policies_[i]);
             policies[sigs[i]].push(policies_[i]);
             sigPolicy[sigs[i]][policies_[i]] = true;
+            emit EventsLib.PolicyAdded(sigs[i], policies_[i]);
         }
-        emit EventsLib.PoliciesAdded(sigs, policies_);
     }
 
     /// @notice Removes policies from selectors
@@ -55,8 +55,8 @@ library NodeLib {
             if (!sigPolicy[sigs[i]][policies_[i]]) revert ErrorsLib.PolicyAlreadyRemoved(sigs[i], policies_[i]);
             remove(policies[sigs[i]], policies_[i]);
             delete sigPolicy[sigs[i]][policies_[i]];
+            emit EventsLib.PolicyRemoved(sigs[i], policies_[i]);
         }
-        emit EventsLib.PoliciesRemoved(sigs, policies_);
     }
 
     /// @notice Forwards auxiliary data to a registered policy

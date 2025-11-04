@@ -2344,7 +2344,8 @@ contract NodeTest is BaseTest {
             abi.encode(true)
         );
         vm.expectEmit(true, true, true, true);
-        emit EventsLib.PoliciesAdded(firstSigs, firstPolicies);
+        emit EventsLib.PolicyAdded(firstSigs[0], firstPolicies[0]);
+        emit EventsLib.PolicyAdded(firstSigs[1], firstPolicies[1]);
         node.addPolicies(proof, proofFlags, firstSigs, firstPolicies);
 
         assertEq(node.getPolicies(0x00000001).length, 1);
@@ -2371,7 +2372,7 @@ contract NodeTest is BaseTest {
             abi.encode(true)
         );
         vm.expectEmit(true, true, true, true);
-        emit EventsLib.PoliciesAdded(secondSigs, secondPolicies);
+        emit EventsLib.PolicyAdded(secondSigs[0], secondPolicies[0]);
         node.addPolicies(proof, proofFlags, secondSigs, secondPolicies);
 
         assertEq(node.getPolicies(0x00000001).length, 2);
@@ -2409,7 +2410,7 @@ contract NodeTest is BaseTest {
         address[] memory removePolicies = new address[](1);
         removePolicies[0] = address(0x11);
         vm.expectEmit(true, true, true, true);
-        emit EventsLib.PoliciesRemoved(removeSigs, removePolicies);
+        emit EventsLib.PolicyRemoved(removeSigs[0], removePolicies[0]);
         node.removePolicies(removeSigs, removePolicies);
 
         assertEq(node.getPolicies(0x00000001).length, 1);

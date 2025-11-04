@@ -118,9 +118,12 @@ library EventsLib {
     /// @notice Emitted when execution fee has been taken
     event ExecutionFeeTaken(uint256 amount);
 
-    event PoliciesAdded(bytes4[] indexed sigs, address[] policies);
+    /// @notice Emitted when policy is added for selector
+    event PolicyAdded(bytes4 indexed sig, address indexed policy);
 
-    event PoliciesRemoved(bytes4[] indexed sigs, address[] policies);
+    /// @notice Emitted when policy is removed for selector
+    event PolicyRemoved(bytes4 indexed sig, address indexed policy);
 
+    /// @notice Emitted when policy root on NodeRegistry is updated
     event PoliciesRootUpdate(bytes32 newRoot);
 }
