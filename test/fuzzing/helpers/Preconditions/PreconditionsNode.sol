@@ -20,7 +20,7 @@ import {ERC4626NegativeYieldVault} from "../../../mocks/vaults/ERC4626NegativeYi
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {IERC7540Deposit} from "../../../../src/interfaces/IERC7540.sol";
+import {IERC7540Deposit, IERC7540Redeem} from "../../../../src/interfaces/IERC7540.sol";
 import {IERC7575} from "../../../../src/interfaces/IERC7575.sol";
 
 contract PreconditionsNode is PreconditionsBase {
@@ -1126,6 +1126,8 @@ contract PreconditionsNode is PreconditionsBase {
 
         params.expectedDeposit = targetHoldings > currentComponentAssets ? targetHoldings - currentComponentAssets : 0;
         params.minSharesOut = 0;
+        params.sharesBefore = IERC20(params.component).balanceOf(address(node));
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
 
         uint256 idealCashReserve = Math.mulDiv(totalAssets, node.targetReserveRatio(), 1e18);
         uint256 currentCash = node.getCashAfterRedemptions();
@@ -1154,6 +1156,35 @@ contract PreconditionsNode is PreconditionsBase {
 
         (params.pendingBefore,,,) = node.requests(params.controller);
         params.shouldSucceed = params.pendingBefore > 0 && !router4626.isBlacklisted(params.component);
+    }
+
+    function router4626LiquidatePreconditions(uint256 componentSeed, uint256 sharesSeed)
+        internal
+        returns (RouterLiquidateParams memory params)
+    {
+        _prepareNodeContext(uint256(keccak256(abi.encodePacked(componentSeed, sharesSeed))));
+
+        address[] memory syncComponents = _componentsByRouter(address(router4626));
+        if (syncComponents.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.component = syncComponents[componentSeed % syncComponents.length];
+
+        _ensureRouter4626Position(params.component);
+
+        params.sharesBefore = IERC20(params.component).balanceOf(address(node));
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
+
+        if (params.sharesBefore == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shares = fl.clamp(sharesSeed + 1, 1, params.sharesBefore);
+        params.minAssetsOut = 0;
+        params.shouldSucceed = params.shares > 0 && !router4626.isBlacklisted(params.component);
     }
 
     function router7540InvestPreconditions(uint256 componentSeed)
@@ -1205,6 +1236,71 @@ contract PreconditionsNode is PreconditionsBase {
         params.claimableAssetsBefore = ERC7540Mock(params.component).claimableDepositRequests(address(node));
         params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
         params.shouldSucceed = params.claimableAssetsBefore > 0 && !router7540.isBlacklisted(params.component);
+    }
+
+    function router7540RequestWithdrawalPreconditions(uint256 componentSeed, uint256 sharesSeed)
+        internal
+        returns (RouterRequestAsyncWithdrawalParams memory params)
+    {
+        _prepareNodeContext(uint256(keccak256(abi.encodePacked(componentSeed, sharesSeed))));
+
+        address[] memory pools = _componentsByRouter(address(router7540));
+        if (pools.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.component = pools[componentSeed % pools.length];
+        params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
+        params.pendingRedeemBefore = IERC7540Redeem(params.component).pendingRedeemRequest(0, address(node));
+
+        if (params.shareBalanceBefore == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        // Check if component has a minimum redeem amount requirement
+        uint256 minShares = 1;
+        if (params.component == address(digiftAdapter)) {
+            minShares = digiftAdapter.minRedeemAmount();
+        }
+
+        // Ensure we have enough balance to meet the minimum
+        if (params.shareBalanceBefore < minShares) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shares = fl.clamp(sharesSeed + 1, minShares, params.shareBalanceBefore);
+        params.shouldSucceed = params.shares > 0 && !router7540.isBlacklisted(params.component);
+    }
+
+    function router7540ExecuteWithdrawalPreconditions(uint256 componentSeed, uint256 assetsSeed)
+        internal
+        returns (RouterExecuteAsyncWithdrawalParams memory params)
+    {
+        assetsSeed;
+        _prepareNodeContext(uint256(keccak256(abi.encodePacked(componentSeed, assetsSeed))));
+
+        address[] memory pools = _componentsByRouter(address(router7540));
+        if (pools.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.component = pools[componentSeed % pools.length];
+        params.claimableAssetsBefore = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
+
+        params.maxWithdrawBefore = IERC7575(params.component).maxWithdraw(address(node));
+
+        if (params.maxWithdrawBefore == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.assets = params.maxWithdrawBefore;
+        params.shouldSucceed = params.assets > 0 && !router7540.isBlacklisted(params.component);
     }
 
     function poolProcessPendingDepositsPreconditions(uint256 poolSeed)
@@ -1424,5 +1520,23 @@ contract PreconditionsNode is PreconditionsBase {
         }
         uint256 range = maxValue - minValue;
         return minValue + (seed % (range + 1));
+    }
+
+    function _ensureRouter4626Position(address component) internal {
+        if (IERC20(component).balanceOf(address(node)) > 0) {
+            return;
+        }
+
+        address depositor = USERS.length > 0 ? USERS[0] : owner;
+        uint256 depositAmount = 1_000 ether;
+
+        vm.startPrank(depositor);
+        asset.approve(address(node), type(uint256).max);
+        try node.deposit(depositAmount, depositor) {} catch {}
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        try router4626.invest(address(node), component, 0) {} catch {}
+        vm.stopPrank();
     }
 }

@@ -50,6 +50,12 @@ contract FuzzStorageVariables is FuzzActors {
         uint256 assets;
     }
 
+    struct DigiftPendingRedemptionRecord {
+        address node;
+        address component;
+        uint256 shares;
+    }
+
     // ==============================================================
     // FUZZING SUITE SETUP
     // ==============================================================
@@ -153,6 +159,8 @@ contract FuzzStorageVariables is FuzzActors {
 
     DigiftPendingDepositRecord[] internal DIGIFT_PENDING_DEPOSITS;
     DigiftPendingDepositRecord[] internal DIGIFT_FORWARDED_DEPOSITS;
+    DigiftPendingRedemptionRecord[] internal DIGIFT_PENDING_REDEMPTIONS;
+    DigiftPendingRedemptionRecord[] internal DIGIFT_FORWARDED_REDEMPTIONS;
 
     // ==============================================================
     // INTERNAL HELPERS (SHARED)
@@ -276,6 +284,81 @@ contract FuzzStorageVariables is FuzzActors {
             DIGIFT_FORWARDED_DEPOSITS[index] = DIGIFT_FORWARDED_DEPOSITS[length - 1];
         }
         DIGIFT_FORWARDED_DEPOSITS.pop();
+    }
+
+    function _recordDigiftPendingRedemption(address nodeAddr, address component, uint256 shares) internal {
+        if (nodeAddr == address(0) || component == address(0) || shares == 0) {
+            return;
+        }
+
+        DIGIFT_PENDING_REDEMPTIONS.push(
+            DigiftPendingRedemptionRecord({node: nodeAddr, component: component, shares: shares})
+        );
+    }
+
+    function _pendingDigiftRedemptionCount() internal view returns (uint256) {
+        return DIGIFT_PENDING_REDEMPTIONS.length;
+    }
+
+    function _getDigiftPendingRedemption(uint256 index) internal view returns (DigiftPendingRedemptionRecord memory) {
+        if (index >= DIGIFT_PENDING_REDEMPTIONS.length) {
+            return DigiftPendingRedemptionRecord({node: address(0), component: address(0), shares: 0});
+        }
+        return DIGIFT_PENDING_REDEMPTIONS[index];
+    }
+
+    function _consumeDigiftPendingRedemption(uint256 index)
+        internal
+        returns (DigiftPendingRedemptionRecord memory record)
+    {
+        uint256 length = DIGIFT_PENDING_REDEMPTIONS.length;
+        if (length == 0 || index >= length) {
+            return DigiftPendingRedemptionRecord({node: address(0), component: address(0), shares: 0});
+        }
+
+        record = DIGIFT_PENDING_REDEMPTIONS[index];
+        if (index != length - 1) {
+            DIGIFT_PENDING_REDEMPTIONS[index] = DIGIFT_PENDING_REDEMPTIONS[length - 1];
+        }
+        DIGIFT_PENDING_REDEMPTIONS.pop();
+    }
+
+    function _recordDigiftForwardedRedemption(DigiftPendingRedemptionRecord memory record) internal {
+        if (record.node == address(0) || record.component == address(0) || record.shares == 0) {
+            return;
+        }
+        DIGIFT_FORWARDED_REDEMPTIONS.push(record);
+    }
+
+    function _forwardedDigiftRedemptionCount() internal view returns (uint256) {
+        return DIGIFT_FORWARDED_REDEMPTIONS.length;
+    }
+
+    function _getDigiftForwardedRedemption(uint256 index)
+        internal
+        view
+        returns (DigiftPendingRedemptionRecord memory)
+    {
+        if (index >= DIGIFT_FORWARDED_REDEMPTIONS.length) {
+            return DigiftPendingRedemptionRecord({node: address(0), component: address(0), shares: 0});
+        }
+        return DIGIFT_FORWARDED_REDEMPTIONS[index];
+    }
+
+    function _consumeDigiftForwardedRedemption(uint256 index)
+        internal
+        returns (DigiftPendingRedemptionRecord memory record)
+    {
+        uint256 length = DIGIFT_FORWARDED_REDEMPTIONS.length;
+        if (length == 0 || index >= length) {
+            return DigiftPendingRedemptionRecord({node: address(0), component: address(0), shares: 0});
+        }
+
+        record = DIGIFT_FORWARDED_REDEMPTIONS[index];
+        if (index != length - 1) {
+            DIGIFT_FORWARDED_REDEMPTIONS[index] = DIGIFT_FORWARDED_REDEMPTIONS[length - 1];
+        }
+        DIGIFT_FORWARDED_REDEMPTIONS.pop();
     }
 
     function _managedNodeCount() internal view returns (uint256) {

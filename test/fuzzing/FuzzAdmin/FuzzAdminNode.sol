@@ -16,6 +16,8 @@ import {ERC7540Mock} from "../../mocks/ERC7540Mock.sol";
 import {ERC4626Router} from "../../../src/routers/ERC4626Router.sol";
 import {ERC7540Router} from "../../../src/routers/ERC7540Router.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC7540Redeem} from "../../../src/interfaces/IERC7540.sol";
+import {IERC7575} from "../../../src/interfaces/IERC7575.sol";
 
 contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_node_startRebalance(uint256 seed) public {
@@ -84,6 +86,21 @@ contract FuzzAdminNode is FuzzNode {
         router4626InvestPostconditions(success, returnData, params);
     }
 
+    function fuzz_admin_router4626_liquidate(uint256 componentSeed, uint256 sharesSeed) public {
+        RouterLiquidateParams memory params = router4626LiquidatePreconditions(componentSeed, sharesSeed);
+        _forceActor(rebalancer, componentSeed);
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(router4626),
+            abi.encodeWithSelector(
+                ERC4626Router.liquidate.selector, address(node), params.component, params.shares, params.minAssetsOut
+            ),
+            currentActor
+        );
+
+        router4626LiquidatePostconditions(success, returnData, params);
+    }
+
     function fuzz_admin_router4626_fulfillRedeem(uint256 controllerSeed, uint256 componentSeed) public {
         RouterFulfillParams memory params = router4626FulfillPreconditions(controllerSeed, componentSeed);
         _forceActor(rebalancer, controllerSeed);
@@ -135,6 +152,46 @@ contract FuzzAdminNode is FuzzNode {
         );
 
         router7540MintClaimablePostconditions(success, returnData, params);
+    }
+
+    function fuzz_admin_router7540_requestAsyncWithdrawal(uint256 componentSeed, uint256 sharesSeed) public {
+        RouterRequestAsyncWithdrawalParams memory params =
+            router7540RequestWithdrawalPreconditions(componentSeed, sharesSeed);
+        _forceActor(rebalancer, componentSeed);
+
+        params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
+        params.pendingRedeemBefore = IERC7540Redeem(params.component).pendingRedeemRequest(0, address(node));
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(router7540),
+            abi.encodeWithSelector(
+                ERC7540Router.requestAsyncWithdrawal.selector, address(node), params.component, params.shares
+            ),
+            currentActor
+        );
+
+        router7540RequestWithdrawalPostconditions(success, returnData, params);
+    }
+
+    function fuzz_admin_router7540_executeAsyncWithdrawal(uint256 componentSeed, uint256 assetsSeed) public {
+        RouterExecuteAsyncWithdrawalParams memory params =
+            router7540ExecuteWithdrawalPreconditions(componentSeed, assetsSeed);
+        _forceActor(rebalancer, componentSeed);
+
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
+        params.claimableAssetsBefore = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
+        params.maxWithdrawBefore = IERC7575(params.component).maxWithdraw(address(node));
+        params.assets = params.maxWithdrawBefore;
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(router7540),
+            abi.encodeWithSelector(
+                ERC7540Router.executeAsyncWithdrawal.selector, address(node), params.component, params.assets
+            ),
+            currentActor
+        );
+
+        router7540ExecuteWithdrawalPostconditions(success, returnData, params);
     }
 
     function fuzz_admin_pool_processPendingDeposits(uint256 poolSeed) public {

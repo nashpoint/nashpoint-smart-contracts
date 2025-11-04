@@ -77,21 +77,27 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         }
     }
 
-    function digiftForwardRequestsPreconditions(uint256 seed)
+    function digiftForwardRequestsPreconditions(uint256)
         internal
         view
         returns (DigiftForwardRequestParams memory params)
     {
-        uint256 queueLength = _pendingDigiftDepositCount();
-        params.shouldSucceed = queueLength > 0;
+        uint256 depositCount = _pendingDigiftDepositCount();
+        uint256 redeemCount = _pendingDigiftRedemptionCount();
 
-        if (!params.shouldSucceed) {
-            return params;
+        params.deposits = new DigiftPendingDepositRecord[](depositCount);
+        for (uint256 i = 0; i < depositCount; i++) {
+            params.deposits[i] = _getDigiftPendingDeposit(i);
         }
 
-        uint256 index = seed % queueLength;
-        params.record = _getDigiftPendingDeposit(index);
+        params.redemptions = new DigiftPendingRedemptionRecord[](redeemCount);
+        for (uint256 i = 0; i < redeemCount; i++) {
+            params.redemptions[i] = _getDigiftPendingRedemption(i);
+        }
+
         params.accumulatedDepositBefore = digiftAdapter.accumulatedDeposit();
+        params.accumulatedRedeemBefore = digiftAdapter.accumulatedRedemption();
+        params.shouldSucceed = params.deposits.length > 0 || params.redemptions.length > 0;
     }
 
     function digiftSettleDepositFlowPreconditions(uint256 seed)
@@ -123,6 +129,43 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
 
         params.sharesExpected = digiftAdapter.convertToShares(totalAssets);
         params.assetsExpected = 0;
+    }
+
+    function digiftSettleRedeemFlowPreconditions(uint256 seed)
+        internal
+        returns (DigiftSettleRedeemParams memory params)
+    {
+        seed;
+        uint256 queueLength = _forwardedDigiftRedemptionCount();
+        uint256 pendingRedeemGlobal = digiftAdapter.globalPendingRedeemRequest();
+        params.shouldSucceed = queueLength > 0 && pendingRedeemGlobal > 0;
+
+        if (!params.shouldSucceed) {
+            return params;
+        }
+
+        params.records = new DigiftPendingRedemptionRecord[](queueLength);
+
+        uint256 totalShares;
+        for (uint256 i = 0; i < queueLength; i++) {
+            DigiftPendingRedemptionRecord memory record = _getDigiftForwardedRedemption(i);
+            params.records[i] = record;
+            totalShares += record.shares;
+        }
+
+        if (totalShares == 0 || totalShares != pendingRedeemGlobal) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.sharesExpected = 0;
+        params.assetsExpected = digiftAdapter.convertToAssets(pendingRedeemGlobal);
+
+        // Fund the DigiftAdapter with assets to simulate Digift redemption payout
+        // In reality, Digift would burn stTokens and transfer USDC to the adapter
+        if (params.assetsExpected > 0) {
+            assetToken.mint(address(digiftAdapter), params.assetsExpected);
+        }
     }
 
     function digiftWithdrawPreconditions(uint256 assetSeed) internal returns (DigiftWithdrawParams memory params) {

@@ -12,17 +12,30 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftForwardRequestParams memory params
     ) internal {
         if (success && params.shouldSucceed) {
-            uint256 forwardedTotal;
+            uint256 forwardedDeposits;
             while (_pendingDigiftDepositCount() > 0) {
                 DigiftPendingDepositRecord memory record =
                     _consumeDigiftPendingDeposit(_pendingDigiftDepositCount() - 1);
-                forwardedTotal += record.assets;
+                forwardedDeposits += record.assets;
                 _recordDigiftForwardedDeposit(record);
             }
 
-            uint256 globalPending = digiftAdapter.globalPendingDepositRequest();
-            if (forwardedTotal > 0) {
-                fl.eq(globalPending, forwardedTotal, "DIGIFT_FORWARD_GLOBAL_PENDING");
+            if (forwardedDeposits > 0) {
+                uint256 globalPendingDeposit = digiftAdapter.globalPendingDepositRequest();
+                fl.eq(globalPendingDeposit, forwardedDeposits, "DIGIFT_FORWARD_DEPOSIT_PENDING");
+            }
+
+            uint256 forwardedRedemptions;
+            while (_pendingDigiftRedemptionCount() > 0) {
+                DigiftPendingRedemptionRecord memory record =
+                    _consumeDigiftPendingRedemption(_pendingDigiftRedemptionCount() - 1);
+                forwardedRedemptions += record.shares;
+                _recordDigiftForwardedRedemption(record);
+            }
+
+            if (forwardedRedemptions > 0) {
+                uint256 globalPendingRedeem = digiftAdapter.globalPendingRedeemRequest();
+                fl.eq(globalPendingRedeem, forwardedRedemptions, "DIGIFT_FORWARD_REDEEM_PENDING");
             }
             onSuccessInvariantsGeneral(returnData);
         } else if (!success && !params.shouldSucceed) {
@@ -57,6 +70,46 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             if (recordsProcessed > 0) {
                 uint256 remainingPending = digiftAdapter.globalPendingDepositRequest();
                 fl.eq(remainingPending, 0, "DIGIFT_SETTLE_PENDING_REMAINS");
+            }
+            onSuccessInvariantsGeneral(returnData);
+        } else if (!success && !params.shouldSucceed) {
+            onFailInvariantsGeneral(returnData);
+        } else if (success && !params.shouldSucceed) {
+            onSuccessInvariantsGeneral(returnData);
+        } else {
+            onFailInvariantsGeneral(returnData);
+        }
+    }
+
+    function digiftSettleRedeemFlowPostconditions(
+        bool success,
+        bytes memory returnData,
+        DigiftSettleRedeemParams memory params
+    ) internal {
+        if (success && params.shouldSucceed) {
+            uint256 recordsProcessed;
+            uint256 totalMaxWithdrawable;
+            for (uint256 i = 0; i < params.records.length; i++) {
+                uint256 remaining = _forwardedDigiftRedemptionCount();
+                if (remaining == 0) {
+                    break;
+                }
+                DigiftPendingRedemptionRecord memory record = _consumeDigiftForwardedRedemption(remaining - 1);
+                if (record.node != address(0)) {
+                    uint256 maxWithdrawable = digiftAdapter.maxWithdraw(record.node);
+                    fl.t(maxWithdrawable > 0, "DIGIFT_SETTLE_REDEEM_NO_ASSETS");
+                    totalMaxWithdrawable += maxWithdrawable;
+                }
+                recordsProcessed += record.shares;
+            }
+
+            if (recordsProcessed > 0) {
+                uint256 remainingPending = digiftAdapter.globalPendingRedeemRequest();
+                fl.eq(remainingPending, 0, "DIGIFT_SETTLE_REDEEM_PENDING");
+            }
+
+            if (params.assetsExpected > 0) {
+                fl.eq(totalMaxWithdrawable, params.assetsExpected, "DIGIFT_SETTLE_REDEEM_ASSETS_EXPECTED");
             }
             onSuccessInvariantsGeneral(returnData);
         } else if (!success && !params.shouldSucceed) {

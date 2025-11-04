@@ -63,6 +63,35 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
 
         digiftSettleDepositFlowPostconditions(success, returnData, params);
     }
+
+    function fuzz_admin_digift_settleRedeem(uint256 seed) public {
+        _forceActor(rebalancer, seed);
+
+        DigiftSettleRedeemParams memory params = digiftSettleRedeemFlowPreconditions(seed);
+
+        if (params.shouldSucceed) {
+            vm.startPrank(owner);
+            digiftEventVerifier.configureSettlement(
+                DigiftEventVerifier.EventType.REDEEM, params.sharesExpected, params.assetsExpected
+            );
+            vm.stopPrank();
+        }
+
+        address[] memory nodes = new address[](params.records.length);
+        for (uint256 i = 0; i < params.records.length; i++) {
+            nodes[i] = params.records[i].node;
+        }
+
+        DigiftEventVerifier.OffchainArgs memory verifyArgs;
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSelector(DigiftAdapter.settleRedeem.selector, nodes, verifyArgs),
+            currentActor
+        );
+
+        digiftSettleRedeemFlowPostconditions(success, returnData, params);
+    }
     // ========================================
     // CATEGORY 2: ADMIN FUNCTIONS (onlyRegistryOwner)
     // ========================================

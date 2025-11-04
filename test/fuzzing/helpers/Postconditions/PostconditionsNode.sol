@@ -6,6 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Node} from "../../../../src/Node.sol";
 import {ComponentAllocation} from "../../../../src/interfaces/INode.sol";
 import {IERC7575} from "../../../../src/interfaces/IERC7575.sol";
+import {IERC7540Redeem} from "../../../../src/interfaces/IERC7540.sol";
 import {ERC7540Mock} from "../../../mocks/ERC7540Mock.sol";
 
 contract PostconditionsNode is PostconditionsBase {
@@ -903,6 +904,28 @@ contract PostconditionsNode is PostconditionsBase {
         onSuccessInvariantsGeneral(returnData);
     }
 
+    function router4626LiquidatePostconditions(
+        bool success,
+        bytes memory returnData,
+        RouterLiquidateParams memory params
+    ) internal {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 assetsReturned = abi.decode(returnData, (uint256));
+        fl.t(assetsReturned > 0, "ROUTER4626_LIQUIDATE_NO_ASSETS");
+
+        uint256 sharesAfter = IERC20(params.component).balanceOf(address(node));
+        fl.t(sharesAfter <= params.sharesBefore, "ROUTER4626_LIQUIDATE_SHARES");
+
+        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+        fl.t(nodeBalanceAfter >= params.nodeAssetBalanceBefore, "ROUTER4626_LIQUIDATE_NODE_BALANCE");
+
+        onSuccessInvariantsGeneral(returnData);
+    }
+
     function router4626FulfillPostconditions(bool success, bytes memory returnData, RouterFulfillParams memory params)
         internal
     {
@@ -968,6 +991,55 @@ contract PostconditionsNode is PostconditionsBase {
 
         uint256 claimableAfter = ERC7540Mock(params.component).claimableDepositRequests(address(node));
         fl.t(claimableAfter <= params.claimableAssetsBefore, "ROUTER7540_MINT_CLAIMABLE");
+
+        onSuccessInvariantsGeneral(returnData);
+    }
+
+    function router7540RequestWithdrawalPostconditions(
+        bool success,
+        bytes memory returnData,
+        RouterRequestAsyncWithdrawalParams memory params
+    ) internal {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 pendingAfter = IERC7540Redeem(params.component).pendingRedeemRequest(0, address(node));
+        fl.t(pendingAfter >= params.pendingRedeemBefore, "ROUTER7540_REQUEST_PENDING");
+
+        uint256 shareBalanceAfter = IERC20(params.component).balanceOf(address(node));
+        fl.t(shareBalanceAfter <= params.shareBalanceBefore, "ROUTER7540_REQUEST_SHARES");
+
+        if (params.component == address(digiftAdapter)) {
+            _recordDigiftPendingRedemption(address(node), params.component, params.shares);
+        }
+
+        onSuccessInvariantsGeneral(returnData);
+    }
+
+    function router7540ExecuteWithdrawalPostconditions(
+        bool success,
+        bytes memory returnData,
+        RouterExecuteAsyncWithdrawalParams memory params
+    ) internal {
+        if (!success) {
+            onFailInvariantsGeneral(returnData);
+            return;
+        }
+
+        uint256 assetsReturned = abi.decode(returnData, (uint256));
+        fl.t(assetsReturned > 0, "ROUTER7540_EXECUTE_NO_ASSETS");
+        fl.eq(params.assets, params.maxWithdrawBefore, "ROUTER7540_EXECUTE_ASSET_PARAM");
+
+        uint256 claimableAfter = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
+        fl.t(claimableAfter <= params.claimableAssetsBefore, "ROUTER7540_EXECUTE_CLAIMABLE");
+
+        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+        fl.t(nodeBalanceAfter >= params.nodeAssetBalanceBefore, "ROUTER7540_EXECUTE_NODE_BALANCE");
+
+        uint256 maxWithdrawAfter = IERC7575(params.component).maxWithdraw(address(node));
+        fl.eq(maxWithdrawAfter, 0, "ROUTER7540_EXECUTE_MAX_WITHDRAW");
 
         onSuccessInvariantsGeneral(returnData);
     }

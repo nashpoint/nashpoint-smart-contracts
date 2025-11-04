@@ -67,6 +67,62 @@ contract FoundryPlayground is FuzzGuided {
         fuzz_digift_mint(3);
     }
 
+    function test_digift_redemption_flow() public {
+        setActor(USERS[0]);
+        fuzz_deposit(6e18);
+
+        setActor(rebalancer);
+        address[] memory asyncComponents = componentsByRouterForTest(address(router7540));
+        uint256 digiftIndex;
+        for (uint256 i = 0; i < asyncComponents.length; i++) {
+            if (asyncComponents[i] == address(digiftAdapter)) {
+                digiftIndex = i;
+                break;
+            }
+        }
+        fuzz_admin_router7540_invest(digiftIndex);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(1);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_settleDeposit(2);
+
+        fuzz_digift_mint(3);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(digiftIndex, 0);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(4);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_settleRedeem(5);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_executeAsyncWithdrawal(digiftIndex, 0);
+    }
+
+    function test_router4626_liquidate_flow() public {
+        setActor(USERS[1]);
+        fuzz_deposit(8e18);
+
+        address[] memory syncComponents = componentsByRouterForTest(address(router4626));
+        uint256 vaultIndex;
+        for (uint256 i = 0; i < syncComponents.length; i++) {
+            if (syncComponents[i] == address(vault)) {
+                vaultIndex = i;
+                break;
+            }
+        }
+
+        setActor(rebalancer);
+        fuzz_admin_router4626_invest(vaultIndex, 0);
+
+        setActor(rebalancer);
+        fuzz_admin_router4626_liquidate(vaultIndex, 0);
+    }
+
     function test_handler_setOperator() public {
         setActor(USERS[0]);
         fuzz_setOperator(1, true);

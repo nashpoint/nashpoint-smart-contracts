@@ -158,6 +158,7 @@ contract FuzzStructs is FuzzSetup {
     struct RouterExecuteAsyncWithdrawalParams {
         address component;
         uint256 assets;
+        uint256 maxWithdrawBefore;
         uint256 nodeAssetBalanceBefore;
         uint256 claimableAssetsBefore;
         bool shouldSucceed;
@@ -504,13 +505,22 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct DigiftForwardRequestParams {
-        DigiftPendingDepositRecord record;
+        DigiftPendingDepositRecord[] deposits;
+        DigiftPendingRedemptionRecord[] redemptions;
         uint256 accumulatedDepositBefore;
+        uint256 accumulatedRedeemBefore;
         bool shouldSucceed;
     }
 
     struct DigiftSettleDepositParams {
         DigiftPendingDepositRecord[] records;
+        uint256 sharesExpected;
+        uint256 assetsExpected;
+        bool shouldSucceed;
+    }
+
+    struct DigiftSettleRedeemParams {
+        DigiftPendingRedemptionRecord[] records;
         uint256 sharesExpected;
         uint256 assetsExpected;
         bool shouldSucceed;
