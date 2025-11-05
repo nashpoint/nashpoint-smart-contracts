@@ -56,6 +56,7 @@ contract DigiftForkTest is BaseTest {
                 // 1%
                 1e16,
                 10 days,
+                10 days,
                 // set 100 USDC instead of 1000
                 100e6,
                 // set 1 stToken instead of 10
