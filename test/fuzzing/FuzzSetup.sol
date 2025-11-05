@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./helpers/FuzzStorageVariables.sol";
+import "./helpers/HelperFunctions.sol";
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -21,7 +21,7 @@ import {SimpleProxy} from "./mocks/SimpleProxy.sol";
  * @notice Responsible for deploying and configuring the Node protocol test environment
  * @dev Mirrors the deployment pattern used in the Foundry test suite to keep behaviour aligned
  */
-contract FuzzSetup is FuzzStorageVariables {
+contract FuzzSetup is HelperFunctions {
     // ==============================================================
     // PRIMARY ENTRYPOINTS
     // ==============================================================

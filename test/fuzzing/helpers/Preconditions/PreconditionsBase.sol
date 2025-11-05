@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../HelperFunctions.sol";
+import "../FuzzStructs.sol";
 
-contract PreconditionsBase is HelperFunctions {
+contract PreconditionsBase is FuzzStructs {
     event LogAddress(address actor);
 
     modifier setCurrentActor(uint256 seed) {
