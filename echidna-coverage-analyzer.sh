@@ -115,6 +115,59 @@ get_contracts_from_scope() {
     printf "%s" "$contracts"
 }
 
+# Function to check if scope.csv contains test files
+has_test_files_in_scope() {
+    local scope_file=$1
+    if [[ ! -f "$scope_file" ]]; then
+        return 1
+    fi
+
+    # Use grep safely with set -e
+    if grep -q "/test/" "$scope_file" 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+# Function to extract test files from scope.csv
+get_test_files_from_scope() {
+    local scope_file=$1
+    if [[ ! -f "$scope_file" ]]; then
+        printf ""
+        return
+    fi
+
+    local test_files
+    # Extract only files that contain /test/ in their path (grep with || true for set -e safety)
+    test_files=$(tail -n +2 "$scope_file" | cut -d',' -f1 | { grep "/test/" || true; } | sed 's|.*/||' | sed 's|^|/|' | tr '\n' ',' | sed 's/,$//')
+
+    if [[ -n "$test_files" ]]; then
+        printf "[%s]" "$test_files"
+    else
+        printf ""
+    fi
+}
+
+# Function to get contracts from src directory as fallback
+get_contracts_from_src() {
+    local src_dir="${BASH_SOURCE[0]%/*}/src"
+
+    if [[ ! -d "$src_dir" ]]; then
+        printf ""
+        return
+    fi
+
+    local contracts
+    # Find all .sol files in src directory
+    contracts=$(find "$src_dir" -name "*.sol" -type f | sed 's|.*/||' | sed 's|^|/|' | tr '\n' ',' | sed 's/,$//')
+
+    if [[ -n "$contracts" ]]; then
+        printf "[%s]" "$contracts"
+    else
+        printf ""
+    fi
+}
+
 # Function to build package mapping from scope.csv
 get_package_mapping() {
     local scope_file=$1
@@ -168,27 +221,44 @@ run_echidna_coverage() {
     local contracts=$2
     local verbose=$3
     local all_flag=$4
-    
+    local scope_file=$5
+    local source_only=$6
+    local logical=$7
+
     local cmd="echidna-coverage -f \"$coverage_file\" -vv"
-    
+
     if [[ -n "$all_flag" ]]; then
         cmd="$cmd -af"
     fi
-    
+
     # Always use -vv for detailed output, but add extra -vv if verbose requested
     if [[ -n "$verbose" ]]; then
         # Already have -vv, so this gives us maximum verbosity
         cmd="$cmd"
     fi
-    
+
     if [[ -n "$contracts" ]]; then
         # Contracts should already be in array format [contract1.sol, contract2.sol]
         cmd="$cmd -c \"$contracts\""
     fi
-    
+
+    # Add scope file for total coverage calculation
+    if [[ -n "$scope_file" ]]; then
+        cmd="$cmd -s \"$scope_file\""
+    fi
+
+    # Add filter flags
+    if [[ -n "$source_only" ]]; then
+        cmd="$cmd --source-only"
+    fi
+
+    if [[ -n "$logical" ]]; then
+        cmd="$cmd --logical"
+    fi
+
     print_color "$CYAN" "Running: $cmd"
     echo ""
-    
+
     # Run the command and capture output
     local output
     if output=$(eval "$cmd" 2>&1); then
@@ -197,6 +267,16 @@ run_echidna_coverage() {
     else
         print_color "$RED" "Error running echidna-coverage:"
         printf "%s\n" "$output"
+        return 1
+    fi
+}
+
+# Function to check if logicalCoverage files exist in coverage file
+check_logical_coverage_exists() {
+    local coverage_file=$1
+    if grep -q "/logicalCoverage/logical.*\.sol" "$coverage_file"; then
+        return 0
+    else
         return 1
     fi
 }
@@ -229,6 +309,10 @@ generate_markdown_report() {
     local contract_data=""
     local current_contract=""
     local in_contract=false
+    local use_scoped_totals=false
+    local scoped_total_lines=0
+    local scoped_covered_lines=0
+    local scoped_coverage_pct=0
     
     # Arrays to store contract details
     local contract_names=()
@@ -370,6 +454,24 @@ generate_markdown_report() {
             fi
         fi
         
+        # Detect TOTAL COVERAGE (Scoped Contracts) section
+        if [[ "$clean_line" =~ "TOTAL COVERAGE (Scoped Contracts)" ]]; then
+            use_scoped_totals=true
+        fi
+
+        # Extract scoped totals if in TOTAL COVERAGE section
+        if [[ "$use_scoped_totals" == true ]]; then
+            if [[ "$clean_line" =~ "Total Lines".*\|[[:space:]]*([0-9]+)[[:space:]]*\| ]]; then
+                scoped_total_lines="${BASH_REMATCH[1]}"
+            fi
+            if [[ "$clean_line" =~ "Total Covered Lines".*\|[[:space:]]*([0-9]+)[[:space:]]*\| ]]; then
+                scoped_covered_lines="${BASH_REMATCH[1]}"
+            fi
+            if [[ "$clean_line" =~ "Total Coverage %".*\|[[:space:]]*\'([0-9.]+)%\'[[:space:]]*\| ]]; then
+                scoped_coverage_pct="${BASH_REMATCH[1]}"
+            fi
+        fi
+
         # Extract total and covered lines from clean line (table format with | separator)
         if [[ "$clean_line" =~ coveredLines.*\|[[:space:]]*([0-9]+)[[:space:]]*\| ]]; then
             covered_lines=$((covered_lines + ${BASH_REMATCH[1]}))
@@ -385,13 +487,20 @@ generate_markdown_report() {
         contract_uncovered_functions+=("$uncovered_functions_data")
         contract_uncovered_lines+=("$uncovered_lines_data")
     fi
-    
-    # Calculate overall coverage
-    local overall_coverage=0
-    if [[ $total_lines -gt 0 ]]; then
-        overall_coverage=$(echo "scale=2; $covered_lines * 100 / $total_lines" | bc)
+
+    # Use scoped totals if available, otherwise use accumulated totals
+    if [[ "$use_scoped_totals" == true ]] && [[ $scoped_total_lines -gt 0 ]]; then
+        total_lines=$scoped_total_lines
+        covered_lines=$scoped_covered_lines
+        overall_coverage=$scoped_coverage_pct
+    else
+        # Calculate overall coverage from accumulated values
+        local overall_coverage=0
+        if [[ $total_lines -gt 0 ]]; then
+            overall_coverage=$(echo "scale=2; $covered_lines * 100 / $total_lines" | bc)
+        fi
     fi
-    
+
     # Get total contracts from arrays
     total_contracts=${#contract_names[@]}
     
@@ -802,34 +911,75 @@ fi
 print_color "$GREEN" "Analyzing contracts: $CONTRACTS"
 echo ""
 
-# Run echidna-coverage
-OUTPUT=$(run_echidna_coverage "$COVERAGE_FILE" "$CONTRACTS" "$VERBOSE" "$ALL_FLAG")
+# Generate source-only coverage report
+print_color "$BOLD" "\n=== Generating Source-Only Coverage Report ==="
 
-# Display output based on format
-case $OUTPUT_FORMAT in
-    detailed)
-        printf "%s\n" "$OUTPUT"
-        ;;
-    json)
-        # Convert output to JSON format (basic implementation)
-        printf '{"timestamp": "%s", "contracts": "%s", "output": "%s"}\n' \
-            "$TIMESTAMP" "$CONTRACTS" "$(printf "%s" "$OUTPUT" | sed 's/"/\\"/g' | tr '\n' ' ')"
-        ;;
-    markdown)
-        # Generate markdown report only
-        generate_markdown_report "$OUTPUT" "$CONTRACTS" "$COVERAGE_FILE" "$TIMESTAMP" "$MARKDOWN_FILE"
-        ;;
-    summary|*)
-        # Show the full output from echidna-coverage
-        printf "%s\n" "$OUTPUT"
-        # Add our custom summary
-        summarize_coverage "$OUTPUT" "$CONTRACTS"
-        ;;
-esac
+# Run source-only coverage for source contracts
+SOURCE_OUTPUT=$(run_echidna_coverage "$COVERAGE_FILE" "$CONTRACTS" "$VERBOSE" "$ALL_FLAG" "$SCOPE_FILE" "yes" "")
 
-# If markdown file is specified alongside another format, generate it
-if [[ -n "$MARKDOWN_FILE" ]] && [[ "$OUTPUT_FORMAT" != "markdown" ]]; then
-    generate_markdown_report "$OUTPUT" "$CONTRACTS" "$COVERAGE_FILE" "$TIMESTAMP" "$MARKDOWN_FILE"
+# Check if output is empty or has no contracts
+HAS_CONTRACTS=false
+if [[ -n "$SOURCE_OUTPUT" ]]; then
+    if printf "%s" "$SOURCE_OUTPUT" | grep -q "File:" 2>/dev/null; then
+        HAS_CONTRACTS=true
+    fi
+fi
+
+if [[ "$HAS_CONTRACTS" == false ]]; then
+    print_color "$YELLOW" "⚠️  No coverage data found with current scope."
+    print_color "$YELLOW" "Attempting fallback to src/ directory..."
+
+    # Try to get contracts from src directory
+    FALLBACK_CONTRACTS=$(get_contracts_from_src)
+    if [[ -n "$FALLBACK_CONTRACTS" ]]; then
+        print_color "$BLUE" "Found contracts in src/: $FALLBACK_CONTRACTS"
+        SOURCE_OUTPUT=$(run_echidna_coverage "$COVERAGE_FILE" "$FALLBACK_CONTRACTS" "$VERBOSE" "$ALL_FLAG" "" "yes" "")
+    else
+        print_color "$RED" "Error: No contracts found in src/ directory either"
+        exit 1
+    fi
+fi
+
+# Check if scope.csv contains test files and analyze them separately
+if has_test_files_in_scope "$SCOPE_FILE"; then
+    TEST_FILES=$(get_test_files_from_scope "$SCOPE_FILE")
+    if [[ -n "$TEST_FILES" ]]; then
+        print_color "$BOLD" "\n=== Analyzing Test Files from Scope ==="
+        print_color "$YELLOW" "Found test files in scope: $TEST_FILES"
+
+        # Run without --source-only flag for test files
+        TEST_OUTPUT=$(run_echidna_coverage "$COVERAGE_FILE" "$TEST_FILES" "$VERBOSE" "$ALL_FLAG" "$SCOPE_FILE" "" "")
+
+        # Combine source and test outputs
+        if [[ -n "$TEST_OUTPUT" ]]; then
+            print_color "$GREEN" "✓ Combining source and test coverage data"
+            COMBINED_OUTPUT="${SOURCE_OUTPUT}"$'\n\n'"${TEST_OUTPUT}"
+            SOURCE_OUTPUT="$COMBINED_OUTPUT"
+        fi
+    fi
+fi
+
+SOURCE_MD_FILE="coverage-source-only-${TIMESTAMP}.md"
+print_color "$BLUE" "Generating markdown report: $SOURCE_MD_FILE"
+generate_markdown_report "$SOURCE_OUTPUT" "$CONTRACTS" "$COVERAGE_FILE" "$TIMESTAMP" "$SOURCE_MD_FILE"
+print_color "$GREEN" "✓ Source-only report saved to: $SOURCE_MD_FILE"
+
+# Check if logical coverage files exist and generate report if they do
+if check_logical_coverage_exists "$COVERAGE_FILE"; then
+    print_color "$BOLD" "\n=== Generating Logical Coverage Report ==="
+    # Don't filter by contracts for logical coverage - logical files have different names
+    LOGICAL_OUTPUT=$(run_echidna_coverage "$COVERAGE_FILE" "" "$VERBOSE" "$ALL_FLAG" "" "" "yes")
+    LOGICAL_MD_FILE="coverage-logical-${TIMESTAMP}.md"
+    print_color "$BLUE" "Generating markdown report: $LOGICAL_MD_FILE"
+    generate_markdown_report "$LOGICAL_OUTPUT" "" "$COVERAGE_FILE" "$TIMESTAMP" "$LOGICAL_MD_FILE"
+    print_color "$GREEN" "✓ Logical coverage report saved to: $LOGICAL_MD_FILE"
+else
+    print_color "$YELLOW" "\n⚠️  No logicalCoverage files found, skipping logical coverage report"
 fi
 
 print_color "$GREEN" "\n${BOLD}Analysis complete!${NC}"
+print_color "$CYAN" "Reports generated:"
+print_color "$CYAN" "  - $SOURCE_MD_FILE (source coverage)"
+if check_logical_coverage_exists "$COVERAGE_FILE"; then
+    print_color "$CYAN" "  - $LOGICAL_MD_FILE (logical coverage)"
+fi

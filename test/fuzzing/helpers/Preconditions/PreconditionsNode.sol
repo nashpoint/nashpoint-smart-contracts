@@ -102,13 +102,22 @@ contract PreconditionsNode is PreconditionsBase {
         uint256 userCount = USERS.length;
         address controller = USERS[controllerSeed % userCount];
 
+        uint256 desiredShares = Math.max(1e18, node.balanceOf(controller) / 4 + 1);
+        _ensurePendingRedeem(controller, desiredShares);
+        _startRebalance();
+
         (uint256 pendingRedeem,,,) = node.requests(controller);
         params.controller = controller;
         params.pendingBefore = pendingRedeem;
-        uint256 window = uint256(Node(address(node)).rebalanceWindow());
-        uint256 lastRebalance = uint256(Node(address(node)).lastRebalance());
-        bool rebalancingActive = block.timestamp < lastRebalance + window;
-        params.shouldSucceed = pendingRedeem > 0 && rebalancingActive;
+
+        bool forceFailure = controllerSeed % 5 == 0;
+        if (forceFailure) {
+            _drainNodeReserve();
+        } else if (asset.balanceOf(address(node)) == 0) {
+            assetToken.mint(address(node), 50e18);
+        }
+
+        params.shouldSucceed = !forceFailure;
     }
 
     function withdrawPreconditions(uint256 controllerSeed, uint256 assetsSeed)
@@ -118,34 +127,42 @@ contract PreconditionsNode is PreconditionsBase {
         _prepareNodeContext(controllerSeed);
 
         uint256 userCount = USERS.length;
-        address candidate;
+        address candidate = USERS[controllerSeed % userCount];
 
-        for (uint256 i = 0; i < userCount; i++) {
-            candidate = USERS[(controllerSeed + i) % userCount];
-            (
-                ,
-                uint256 claimableRedeemRequest,
-                uint256 claimableAssets,
-                /* sharesAdjusted */
-            ) = node.requests(candidate);
+        // Always ensure claimable redeem exists for the selected user
+        _ensureClaimableRedeem(candidate, 2e18);
 
-            if (claimableAssets > 0) {
-                params.controller = candidate;
-                params.receiver = candidate;
-                params.claimableAssetsBefore = claimableAssets;
-                params.claimableSharesBefore = claimableRedeemRequest;
-                params.assets = fl.clamp(assetsSeed, 1, claimableAssets);
-                params.shouldSucceed = params.assets > 0;
-                return params;
-            }
+        (
+            ,
+            uint256 claimableRedeemRequest,
+            uint256 claimableAssets,
+            /* sharesAdjusted */
+        ) = node.requests(candidate);
+
+        params.controller = candidate;
+        params.receiver = candidate;
+        params.claimableAssetsBefore = claimableAssets;
+        params.claimableSharesBefore = claimableRedeemRequest;
+
+        // Only proceed if we actually have claimable assets
+        if (claimableAssets == 0) {
+            params.assets = 0;
+            params.shouldSucceed = false;
+            return params;
         }
 
-        params.controller = USERS[controllerSeed % userCount];
-        params.receiver = params.controller;
-        params.assets = 0;
-        params.shouldSucceed = false;
-        params.claimableAssetsBefore = 0;
-        params.claimableSharesBefore = 0;
+        // Branch 1 (90%): Normal withdrawal within bounds
+        // Branch 2 (10%): Attempt to withdraw more than max to trigger ExceedsMaxWithdraw
+        if (assetsSeed % 10 < 9) {
+            // Happy path: withdraw within claimable range
+            uint256 maxAssets = claimableAssets;
+            params.assets = fl.clamp(assetsSeed + 1, 1, maxAssets);
+            params.shouldSucceed = params.assets > 0 && params.assets <= maxAssets;
+        } else {
+            // Error path: try to withdraw more than max
+            params.assets = claimableAssets + 1;
+            params.shouldSucceed = false;
+        }
     }
 
     function setOperatorPreconditions(uint256 operatorSeed, bool approvalSeed)
@@ -228,58 +245,70 @@ contract PreconditionsNode is PreconditionsBase {
     {
         _prepareNodeContext(ownerSeed);
 
-        bool attemptSuccess = ownerSeed % 5 != 0;
         address ownerCandidate = USERS[ownerSeed % USERS.length];
-        if (!attemptSuccess) {
-            params.owner = ownerCandidate;
-            params.receiver = address(0);
-            params.amount = 0;
-            params.allowanceBefore = node.allowance(ownerCandidate, currentActor);
-            params.shouldSucceed = false;
-            return params;
-        }
 
+        // Ensure owner != currentActor to test transferFrom (not direct transfer)
         if (ownerCandidate == currentActor) {
             ownerCandidate = USERS[(ownerSeed + 1) % USERS.length];
         }
 
         uint256 ownerBalance = node.balanceOf(ownerCandidate);
-        uint256 allowance = node.allowance(ownerCandidate, currentActor);
-        uint256 maxTransferable = ownerBalance < allowance ? ownerBalance : allowance;
 
-        if (maxTransferable == 0) {
-            params.owner = ownerCandidate;
-            params.receiver = USERS[(ownerSeed + 2) % USERS.length];
-            params.amount = 0;
-            params.allowanceBefore = allowance;
-            params.shouldSucceed = false;
-            return params;
+        // Ensure owner has some balance
+        if (ownerBalance == 0) {
+            _userDeposits(ownerCandidate, 5e18);
+            ownerBalance = node.balanceOf(ownerCandidate);
         }
 
         address receiver = USERS[(ownerSeed + 3) % USERS.length];
-        if (receiver == ownerCandidate) {
+        if (receiver == ownerCandidate || receiver == currentActor) {
             receiver = owner;
         }
-        if (receiver == currentActor) {
-            receiver = protocolFeesAddress;
-        }
 
-        if (receiver == address(0) || receiver == ownerCandidate) {
+        // Branch 1 (70%): Caller has sufficient allowance → _spendAllowance succeeds
+        // Branch 2 (20%): Caller has some allowance but tries to transfer more → ExceedsAllowance
+        // Branch 3 (10%): Caller has NO allowance/approval → InvalidOwner
+        uint256 branchSelector = amountSeed % 10;
+
+        if (branchSelector < 7) {
+            // Happy path: Ensure allowance exists and transfer within it
+            uint256 currentAllowance = node.allowance(ownerCandidate, currentActor);
+            if (currentAllowance == 0) {
+                // Grant allowance from owner to currentActor
+                vm.prank(ownerCandidate);
+                node.approve(currentActor, type(uint256).max);
+                currentAllowance = type(uint256).max;
+            }
+
+            uint256 maxTransferable = ownerBalance < currentAllowance ? ownerBalance : currentAllowance;
             params.owner = ownerCandidate;
             params.receiver = receiver;
-            params.amount = 0;
-            params.allowanceBefore = allowance;
+            params.amount = fl.clamp(amountSeed + 1, 1, maxTransferable);
+            params.allowanceBefore = node.allowance(ownerCandidate, currentActor);
+            params.shouldSucceed = true;
+        } else if (branchSelector < 9) {
+            // Error path: Has allowance but tries to exceed it
+            uint256 currentAllowance = node.allowance(ownerCandidate, currentActor);
+            if (currentAllowance == 0) {
+                vm.prank(ownerCandidate);
+                node.approve(currentActor, ownerBalance / 2);
+                currentAllowance = ownerBalance / 2;
+            }
+
+            params.owner = ownerCandidate;
+            params.receiver = receiver;
+            params.amount = currentAllowance + 1; // Exceed allowance
+            params.allowanceBefore = currentAllowance;
             params.shouldSucceed = false;
-            return params;
+        } else {
+            // Error path: No allowance/approval → InvalidOwner
+            // Ensure currentActor has NO allowance and is NOT an operator
+            params.owner = ownerCandidate;
+            params.receiver = receiver;
+            params.amount = 1;
+            params.allowanceBefore = 0; // Explicitly no allowance
+            params.shouldSucceed = false;
         }
-
-        uint256 amount = fl.clamp(amountSeed + 1, 1, maxTransferable);
-
-        params.owner = ownerCandidate;
-        params.receiver = receiver;
-        params.amount = amount;
-        params.allowanceBefore = allowance;
-        params.shouldSucceed = amount > 0;
     }
 
     function nodeRedeemPreconditions(uint256 sharesSeed) internal returns (NodeRedeemParams memory params) {
@@ -287,25 +316,33 @@ contract PreconditionsNode is PreconditionsBase {
         params.controller = controller;
         params.receiver = controller;
 
-        uint256 claimableShares;
-        uint256 claimableAssets;
-        {
-            (, uint256 _claimableShares, uint256 _claimableAssets,) = node.requests(controller);
-            claimableShares = _claimableShares;
-            claimableAssets = _claimableAssets;
-        }
+        // Always ensure claimable redeem exists for the selected user
+        _ensureClaimableRedeem(controller, 2e18);
+
+        (, uint256 claimableShares, uint256 claimableAssets,) = node.requests(controller);
+
+        params.claimableAssetsBefore = claimableAssets;
+        params.claimableSharesBefore = claimableShares;
+
+        // Only proceed if we actually have claimable shares
         if (claimableShares == 0) {
             params.shares = 0;
-            params.claimableAssetsBefore = claimableAssets;
-            params.claimableSharesBefore = claimableShares;
             params.shouldSucceed = false;
             return params;
         }
 
-        params.claimableAssetsBefore = claimableAssets;
-        params.claimableSharesBefore = claimableShares;
-        params.shares = fl.clamp(sharesSeed + 1, 1, claimableShares);
-        params.shouldSucceed = params.shares > 0;
+        // Branch 1 (90%): Normal redeem within bounds
+        // Branch 2 (10%): Attempt to redeem more than max to trigger ExceedsMaxRedeem
+        if (sharesSeed % 10 < 9) {
+            // Happy path: redeem within claimable range
+            uint256 maxShares = claimableShares;
+            params.shares = fl.clamp(sharesSeed + 1, 1, maxShares);
+            params.shouldSucceed = params.shares > 0 && params.shares <= maxShares;
+        } else {
+            // Error path: try to redeem more than max
+            params.shares = claimableShares + 1;
+            params.shouldSucceed = false;
+        }
     }
 
     function nodeRenounceOwnershipPreconditions(uint256 seed)
@@ -1575,6 +1612,80 @@ contract PreconditionsNode is PreconditionsBase {
         return minValue + (seed % (range + 1));
     }
 
+    function _ensureClaimableRedeem(address controller, uint256 minShares) internal {
+        (, uint256 claimableShares, uint256 claimableAssets,) = node.requests(controller);
+        if (claimableAssets > 0 && claimableShares > 0) {
+            return;
+        }
+
+        uint256 depositAmount = Math.max(minShares, 5e18);
+        if (node.balanceOf(controller) < depositAmount) {
+            _userDeposits(controller, depositAmount * 2);
+        }
+
+        uint256 redeemShares = Math.max(minShares, node.balanceOf(controller) / 2);
+        if (redeemShares == 0) {
+            redeemShares = node.balanceOf(controller);
+        }
+
+        vm.startPrank(controller);
+        try node.requestRedeem(redeemShares, controller, controller) {} catch {}
+        vm.stopPrank();
+
+        if (asset.balanceOf(address(node)) < redeemShares) {
+            assetToken.mint(address(node), redeemShares * 2);
+        }
+
+        _startRebalance();
+        vm.startPrank(rebalancer);
+        try node.fulfillRedeemFromReserve(controller) {} catch {}
+        vm.stopPrank();
+    }
+
+    function _ensurePendingRedeem(address controller, uint256 shares) internal {
+        (uint256 pending,,,) = node.requests(controller);
+        if (pending > 0) {
+            return;
+        }
+
+        if (node.balanceOf(controller) < shares) {
+            _userDeposits(controller, shares + 5e18);
+        }
+
+        vm.startPrank(controller);
+        try node.requestRedeem(shares, controller, controller) {} catch {}
+        vm.stopPrank();
+    }
+
+    function _startRebalance() internal {
+        _openRebalanceWindow();
+        vm.startPrank(rebalancer);
+        try node.startRebalance() {} catch {}
+        vm.stopPrank();
+    }
+
+    function _openRebalanceWindow() internal {
+        uint256 window = uint256(Node(address(node)).rebalanceWindow());
+        uint256 cooldown = uint256(Node(address(node)).rebalanceCooldown());
+        uint256 last = uint256(Node(address(node)).lastRebalance());
+
+        uint256 target = last + window + cooldown + 1;
+        if (block.timestamp < target) {
+            vm.warp(target);
+        }
+    }
+
+    function _drainNodeReserve() internal {
+        uint256 balance = asset.balanceOf(address(node));
+        if (balance == 0) {
+            return;
+        }
+
+        vm.startPrank(address(node));
+        asset.transfer(owner, balance);
+        vm.stopPrank();
+    }
+
     function _ensureRouter4626Position(address component) internal {
         if (IERC20(component).balanceOf(address(node)) > 0) {
             return;
@@ -1591,5 +1702,49 @@ contract PreconditionsNode is PreconditionsBase {
         vm.startPrank(rebalancer);
         try router4626.invest(address(node), component, 0) {} catch {}
         vm.stopPrank();
+    }
+
+    /**
+     * @notice Preconditions for OneInch swap operation
+     * @dev Sets up:
+     *      1. Whitelists incentive token and executor
+     *      2. Mints incentive tokens to node
+     *      3. Encodes expected return in swapCalldata
+     *      4. Ensures minAssetsOut is reasonable
+     */
+    function oneInchSwapPreconditions(uint256 seed) internal returns (OneInchSwapParams memory params) {
+        // Create or use existing incentive token
+        // For simplicity, create a new mock token as "incentive"
+        ERC20Mock incentiveToken = new ERC20Mock("Incentive Token", "INCENT");
+        params.incentive = address(incentiveToken);
+
+        // Select executor from USERS
+        params.executor = USERS[seed % USERS.length];
+        if (params.executor == address(node) || params.executor == address(0)) {
+            params.executor = rebalancer;
+        }
+
+        // Whitelist incentive and executor
+        vm.startPrank(owner);
+        routerOneInch.setIncentiveWhitelistStatus(params.incentive, true);
+        routerOneInch.setExecutorWhitelistStatus(params.executor, true);
+        vm.stopPrank();
+
+        // Mint incentive tokens to node
+        params.incentiveAmount = fl.clamp(seed + 1, 1e18, 1000e18);
+        incentiveToken.mint(address(node), params.incentiveAmount);
+
+        params.incentiveBalanceBefore = incentiveToken.balanceOf(address(node));
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
+
+        // Calculate expected return (simulate 1:1 swap with small slippage)
+        // In a real scenario, this would come from price oracle or DEX quote
+        params.expectedReturn = params.incentiveAmount; // 1:1 for simplicity
+        params.minAssetsOut = (params.expectedReturn * 95) / 100; // 5% slippage tolerance
+
+        // Encode expected return in swapCalldata (mock expects this format)
+        params.swapCalldata = abi.encode(params.expectedReturn);
+
+        params.shouldSucceed = true;
     }
 }

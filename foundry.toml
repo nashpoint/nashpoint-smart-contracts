@@ -5,14 +5,12 @@ libs = ["lib", "../fuzzlib"]
 
 evm_version = "cancun"
 solc = "0.8.28"
-optimizer = true
-optimizer-runs = 200
+optimizer = false
+optimizer-runs = 0
 via-ir = false
 
 ffi = true
-fs_permissions = [
-  { access = "read", path = "./deployments" }
-]
+fs_permissions = [{ access = "read", path = "./deployments" }]
 
 [profile.deploy]
 evm_version = "cancun"
@@ -26,4 +24,4 @@ via-ir = true
 runs = 10
 
 [etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}" } 
+mainnet = { key = "${ETHERSCAN_API_KEY}" }

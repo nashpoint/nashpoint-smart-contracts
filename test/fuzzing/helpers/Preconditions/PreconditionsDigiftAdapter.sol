@@ -6,6 +6,7 @@ import "./PreconditionsBase.sol";
 import {DigiftAdapter} from "../../../../src/adapters/digift/DigiftAdapter.sol";
 import {DigiftEventVerifier} from "../../../../src/adapters/digift/DigiftEventVerifier.sol";
 import {DigiftEventVerifierMock} from "../../../mocks/DigiftEventVerifierMock.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract PreconditionsDigiftAdapter is PreconditionsBase {
     function digiftApprovePreconditions(uint256 spenderSeed, uint256 amountSeed)
@@ -68,11 +69,19 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
     function digiftMintPreconditions(uint256 shareSeed) internal returns (DigiftMintParams memory params) {
         uint256 maxMintable = digiftAdapter.maxMint(address(node));
 
+        // If no mintable shares, prime the contract by settling a deposit
+        if (maxMintable == 0) {
+            uint256 minAssets = Math.max(digiftAdapter.minDepositAmount(), 5_000e6);
+            uint256 sharesMinted = _prepareDigiftDeposit(minAssets);
+
+            maxMintable = digiftAdapter.maxMint(address(node));
+        }
+
         if (maxMintable > 0) {
             params.shares = maxMintable;
             params.shouldSucceed = true;
         } else {
-            params.shares = fl.clamp(shareSeed, 1, type(uint128).max);
+            params.shares = 0;
             params.shouldSucceed = false;
         }
     }
@@ -135,7 +144,10 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         internal
         returns (DigiftSettleRedeemParams memory params)
     {
-        seed;
+        uint8 recordCount = uint8(2 + (seed % 2));
+        uint256 totalShares = Math.max(digiftAdapter.minRedeemAmount() * recordCount, 5e18);
+        uint256 assetsExpected = _prepareDigiftRedemption(totalShares, recordCount);
+
         uint256 queueLength = _forwardedDigiftRedemptionCount();
         uint256 pendingRedeemGlobal = digiftAdapter.globalPendingRedeemRequest();
         params.shouldSucceed = queueLength > 0 && pendingRedeemGlobal > 0;
@@ -146,25 +158,24 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
 
         params.records = new DigiftPendingRedemptionRecord[](queueLength);
 
-        uint256 totalShares;
+        uint256 totalSharesAggregated;
         for (uint256 i = 0; i < queueLength; i++) {
             DigiftPendingRedemptionRecord memory record = _getDigiftForwardedRedemption(i);
             params.records[i] = record;
-            totalShares += record.shares;
+            totalSharesAggregated += record.shares;
         }
 
-        if (totalShares == 0 || totalShares != pendingRedeemGlobal) {
+        if (totalSharesAggregated == 0 || totalSharesAggregated != pendingRedeemGlobal) {
             params.shouldSucceed = false;
             return params;
         }
 
         params.sharesExpected = 0;
-        params.assetsExpected = digiftAdapter.convertToAssets(pendingRedeemGlobal);
+        params.assetsExpected = assetsExpected;
 
-        // Fund the DigiftAdapter with assets to simulate Digift redemption payout
-        // In reality, Digift would burn stTokens and transfer USDC to the adapter
-        if (params.assetsExpected > 0) {
-            assetToken.mint(address(digiftAdapter), params.assetsExpected);
+        if (seed % 5 == 0) {
+            params.shouldSucceed = false;
+            params.assetsExpected = assetsExpected / 2 + 1;
         }
     }
 
@@ -172,10 +183,38 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         params.maxWithdrawBefore = digiftAdapter.maxWithdraw(address(node));
         params.nodeBalanceBefore = asset.balanceOf(address(node));
 
+        // If no withdrawable assets, prime the contract by settling a redemption
+        if (params.maxWithdrawBefore == 0) {
+            uint256 totalShares = Math.max(digiftAdapter.minRedeemAmount(), 5e18);
+            uint256 assetsExpected = _prepareDigiftRedemption(totalShares, 2);
+
+            address[] memory nodesArr = _singleton(address(node));
+            DigiftEventVerifier.OffchainArgs memory verifyArgs;
+
+            vm.prank(owner);
+            digiftEventVerifier.configureSettlement(DigiftEventVerifier.EventType.REDEEM, 0, assetsExpected);
+
+            vm.prank(rebalancer);
+            try digiftAdapter.settleRedeem(nodesArr, verifyArgs) {} catch {}
+
+            params.maxWithdrawBefore = digiftAdapter.maxWithdraw(address(node));
+            params.nodeBalanceBefore = asset.balanceOf(address(node));
+        }
+
+        // Branch 1 (90%): Withdraw exact max amount (happy path)
+        // Branch 2 (10%): Try to withdraw more than max → WithdrawAllAssetsOnly()
         if (params.maxWithdrawBefore > 0) {
-            params.assets = params.maxWithdrawBefore;
-            params.shouldSucceed = true;
+            if (assetSeed % 10 < 9) {
+                // Happy path: withdraw exactly maxWithdraw
+                params.assets = params.maxWithdrawBefore;
+                params.shouldSucceed = true;
+            } else {
+                // Error path: try to withdraw more than max
+                params.assets = params.maxWithdrawBefore + 1;
+                params.shouldSucceed = false;
+            }
         } else {
+            // No withdrawable assets
             params.assets = 0;
             params.shouldSucceed = false;
         }
@@ -185,6 +224,8 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         internal
         returns (DigiftRequestRedeemParams memory params)
     {
+        _ensureDigiftShares(digiftAdapter.minRedeemAmount() * 2);
+
         params.balanceBefore = digiftAdapter.balanceOf(address(node));
         params.pendingBefore = digiftAdapter.pendingRedeemRequest(0, address(node));
 
@@ -263,6 +304,127 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
     {
         params.value = valueSeed % maxValue;
         params.shouldSucceed = true;
+    }
+
+    function _ensureDigiftShares(uint256 minShares) internal {
+        if (digiftAdapter.balanceOf(address(node)) >= minShares) {
+            return;
+        }
+
+        uint256 minAssets = Math.max(digiftAdapter.minDepositAmount(), 5_000e6);
+        uint256 sharesMinted = _prepareDigiftDeposit(minAssets);
+        if (sharesMinted < minShares) {
+            _prepareDigiftDeposit(minAssets * 2);
+        }
+    }
+
+    function _prepareDigiftDeposit(uint256 assetsAmount) internal returns (uint256 sharesMinted) {
+        _clearDigiftQueues();
+
+        vm.startPrank(address(node));
+        try digiftAdapter.requestDeposit(assetsAmount, address(node), address(node)) {} catch {}
+        vm.stopPrank();
+
+        _recordDigiftPendingDeposit(address(node), address(digiftAdapter), assetsAmount);
+
+        vm.prank(rebalancer);
+        try digiftAdapter.forwardRequestsToDigift() {} catch {}
+
+        _flushPendingDeposits();
+
+        sharesMinted = digiftAdapter.convertToShares(assetsAmount);
+        if (sharesMinted == 0) {
+            sharesMinted = assetsAmount;
+        }
+
+        vm.prank(owner);
+        digiftEventVerifier.configureSettlement(DigiftEventVerifier.EventType.SUBSCRIBE, sharesMinted, 0);
+
+        address[] memory nodesArr = _singleton(address(node));
+        DigiftEventVerifier.OffchainArgs memory verifyArgs;
+
+        vm.prank(rebalancer);
+        try digiftAdapter.settleDeposit(nodesArr, verifyArgs) {} catch {}
+
+        vm.startPrank(address(node));
+        try digiftAdapter.mint(sharesMinted, address(node), address(node)) {} catch {}
+        vm.stopPrank();
+
+        _clearDigiftQueues();
+    }
+
+    function _prepareDigiftRedemption(uint256 totalShares, uint8 recordCount)
+        internal
+        returns (uint256 assetsExpected)
+    {
+        _ensureDigiftShares(totalShares * 2);
+        _clearDigiftRedemptionQueues();
+
+        uint256 basePortion = totalShares / recordCount;
+        uint256 remainder = totalShares % recordCount;
+
+        for (uint8 i = 0; i < recordCount; i++) {
+            uint256 sharesPortion = basePortion;
+            if (i == recordCount - 1) {
+                sharesPortion += remainder;
+            }
+            sharesPortion = Math.max(sharesPortion, digiftAdapter.minRedeemAmount());
+            sharesPortion = Math.min(sharesPortion, digiftAdapter.balanceOf(address(node)));
+
+            vm.startPrank(address(node));
+            try digiftAdapter.requestRedeem(sharesPortion, address(node), address(node)) {} catch {}
+            vm.stopPrank();
+
+            _recordDigiftPendingRedemption(address(node), address(digiftAdapter), sharesPortion);
+        }
+
+        vm.prank(rebalancer);
+        try digiftAdapter.forwardRequestsToDigift() {} catch {}
+
+        _flushPendingRedemptions();
+
+        uint256 pendingRedeemGlobal = digiftAdapter.globalPendingRedeemRequest();
+        assetsExpected = digiftAdapter.convertToAssets(pendingRedeemGlobal);
+        if (assetsExpected == 0) {
+            assetsExpected = pendingRedeemGlobal;
+        }
+
+        if (assetsExpected > 0) {
+            assetToken.mint(address(digiftAdapter), assetsExpected);
+        }
+    }
+
+    function _clearDigiftQueues() internal {
+        while (_pendingDigiftDepositCount() > 0) {
+            _consumeDigiftPendingDeposit(_pendingDigiftDepositCount() - 1);
+        }
+        while (_forwardedDigiftDepositCount() > 0) {
+            _consumeDigiftForwardedDeposit(_forwardedDigiftDepositCount() - 1);
+        }
+    }
+
+    function _clearDigiftRedemptionQueues() internal {
+        while (_pendingDigiftRedemptionCount() > 0) {
+            _consumeDigiftPendingRedemption(_pendingDigiftRedemptionCount() - 1);
+        }
+        while (_forwardedDigiftRedemptionCount() > 0) {
+            _consumeDigiftForwardedRedemption(_forwardedDigiftRedemptionCount() - 1);
+        }
+    }
+
+    function _flushPendingDeposits() internal {
+        while (_pendingDigiftDepositCount() > 0) {
+            DigiftPendingDepositRecord memory record = _consumeDigiftPendingDeposit(_pendingDigiftDepositCount() - 1);
+            _recordDigiftForwardedDeposit(record);
+        }
+    }
+
+    function _flushPendingRedemptions() internal {
+        while (_pendingDigiftRedemptionCount() > 0) {
+            DigiftPendingRedemptionRecord memory record =
+                _consumeDigiftPendingRedemption(_pendingDigiftRedemptionCount() - 1);
+            _recordDigiftForwardedRedemption(record);
+        }
     }
 
     function _selectAddressFromSeed(uint256 seed) internal view returns (address) {
