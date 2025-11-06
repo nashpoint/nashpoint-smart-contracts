@@ -1,7 +1,7 @@
 [profile.default]
 src = "src"
 out = "out"
-libs = ["lib", "../fuzzlib"]
+libs = ["lib"]
 
 evm_version = "cancun"
 solc = "0.8.28"

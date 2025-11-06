@@ -5,4 +5,4 @@ forge-std/=lib/forge-std/src/
 ds-test/=lib/forge-std/lib/ds-test/src/
 optimism/=lib/optimism/packages/contracts-bedrock/src/
 solady/=lib/optimism/packages/contracts-bedrock/lib/solady/src/
-@perimetersec/fuzzlib/=../fuzzlib/
+@perimetersec/fuzzlib/=lib/fuzzlib/

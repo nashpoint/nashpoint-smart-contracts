@@ -22,3 +22,6 @@ docs/
 coverage
 lcov.info
 /echidna-corpus
+
+# Fuzzlib (installed via forge install)
+lib/fuzzlib
