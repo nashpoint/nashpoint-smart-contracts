@@ -1,114 +1,444 @@
-# NashPoint 
-[![Foundry](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml) [![Slither Analysis](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/slither-actions.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/slither-actions.yml)
-[![License: BUSL 1.1](https://img.shields.io/badge/License-BUSL%201.1-blue.svg)](LICENSE)
+# Guardian Nashpoint UniversalFuzzing Suite
 
+**Production-grade, stateful fuzzing framework for Nashpoint protocol security testing**
 
-NashPoint enables flexible deployment of investment nodes that can manage positions across multiple ERC4626 and ERC7540 vaults. The protocol was designed to provide a standardized way to manage complex investment strategies. Investors can deposit using ERC4626 synchronous functions, and redeem using the ERC7540 asynchronous tokenized vault standard.
+This fuzzing suite was developed by Guardian for comprehensive security testing of Nashpoint's core protocol contracts. It implements the UniversalFuzzing framework - a handler-based architecture with advanced revert management, explicit precondition/postcondition separation, and industrial-strength error categorization.
 
-## Architecture
+## Overview
 
-### Smart Contracts:
+### Tested Contracts
 
-- **Node**: An ERC7540-compliant vault that enables investors to deposit and withdraw assets. The Node manages component allocations and delegates execution to Routers.
-- **NodeRegistry**: Central registry that manages system-wide permissions for factories, routers, quoters, and rebalancers, ensuring secure access control across the protocol.
-- **NodeFactory**: Handles the deployment of new Node instances and their associated contracts.
-- **Escrow**: Securely holds assets during pending deposit and redemption operations.
+This suite provides comprehensive fuzzing coverage for Nashpoint's core protocol:
 
-- **Routers**: Specialized contracts that execute operations on component vaults:
-  - ERC4626Router: Manages interactions with standard ERC4626 vaults
-  - ERC7540Router: Manages interactions with asynchronous ERC7540 vaults
-- **Quoters**:
-  - QuoterV1: Calculates Swing Pricing Bonus or Penalty for deposits and withdrawals.
+| Contract | Handlers | Focus Areas |
+|----------|----------|-------------|
+| **Node** | 15+ | Deposits, withdrawals, rebalancing, router management, claims |
+| **NodeFactory** | 5+ | Node creation, configuration, upgrades |
+| **DigiftAdapter** | 8+ | Cross-chain operations, event verification, liquidity management |
+| **RewardRouters** | 4+ | Reward distribution, router configuration |
+| **NodeRegistry** | 5+ | Node registration, whitelisting, operator management |
+| **OneInch** | 3+ | DEX integration, swap operations |
 
-### Key Roles:
-**Owner:** Owns the node. Sets the strategy by selecting the underlying assets and what proportions to allocate into them. Also sets the parameters for features like swing pricing and rebalancing frequency.
-**Rebalancer:** Address set by the owner. Has allowances to execute asset management functions such as investing to a strategy or processing a user withdrawal according to the parameters defined by the owner.
+**Total:** 40+ handlers testing complex multi-contract interactions
 
-## License
+### Key Features
 
-This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE) file for details.
+✅ **Stateful Fuzzing** - Tracks before/after state across all operations
 
-## Audits
-[![](images/black-NashPoint.svg)](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)
+✅ **Multi-Actor Testing** - Multiple concurrent users with randomized operations
 
-| Scope                                      | Date          | Report                                                                                     |
-|--------------------------------------------|---------------|--------------------------------------------------------------------------------------------|
-| [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | January 2025 | [Cantina](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)              |
+✅ **Comprehensive Coverage** - Protocol invariants validated
 
-### Additional Code Review
+✅ **Guided Scenarios** - Complex multi-step workflows
 
-[Guardian Audits](https://guardianaudits.com/) conducted an additional code review and identified recommended bug fixes. Implemented changes are accessable [here](https://github.com/nashpoint/nashpoint-smart-contracts/pull/264).
+✅ **Donation Testing** - Unexpected token transfer handling
 
-## Technical Details
+✅ **Error Categorization** - Sophisticated revert analysis
 
-### Versions Used
+✅ **Production Ready** - Optimized configuration
 
-- Solidity [0.8.28](https://github.com/ethereum/solidity/releases/tag/v0.8.28)
-- Foundry [v1.0.0](https://github.com/foundry-rs/foundry/releases/tag/stable)
-- Open Zeppelin [v5.2.0](https://github.com/OpenZeppelin/openzeppelin-contracts/releases/tag/v5.2.0)
-- prb-math [v4.1.0](https://github.com/PaulRBerg/prb-math/releases/tag/v4.1.0)
+---
 
-## Documentation
+## Quick Start
 
-For a full protocol overview and detailed information see the [NashPoint Documentation](https://nashpoint.gitbook.io/nashpoint)
+### Prerequisites
 
-## Development
-
-This project uses Foundry for development and testing. Follow these steps to get the project up and running on your local machine.
-
-#### Prerequisites
-
-- Install [Foundry](https://book.getfoundry.sh/getting-started/installation.html) 1.0.0
-
-#### Setup
-
-1. Clone the repository:
-
-```
-git clone https://github.com/nashpoint/nashpoint-smart-contracts
-
-cd nashpoint-smart-contracts
+```bash
+# Required
+- Foundry (latest)
+- Echidna 2.2.7+
+- Python 3.8+ (for analysis tools)
 ```
 
-Update Foundry:
+### Installation
 
-```
-foundryup -v 1.0.0
-```
+**✅ The Setup One-Liner**
 
-Install pre-commit:
-
-- On MacOS
-
-```
-brew install pre-commit
-```
-
-- Using pip
-
-```
-pip install pre-commit
-```
-
-and activate it:
-
-```
-pre-commit install
-```
-
-#### Building
-Compile the contracts:
-```
+```bash
+git clone -b fuzz-suite https://github.com/GuardianOrg/nashpoint-smart-contracts-fuzz-1761255023649.git && \
+cd nashpoint-smart-contracts-fuzz-1761255023649 && \
+git submodule update --init --recursive && \
+forge install perimetersec/fuzzlib --no-git && \
+./patch-optimism.sh && \
 forge build
 ```
 
-#### Testing
-Run the test suite locally with anvil:
+**📋 Step-by-Step Instructions**
+
+1. **Clone repository**
+
+```bash
+git clone -b fuzz-suite https://github.com/GuardianOrg/nashpoint-smart-contracts-fuzz-1761255023649.git
+cd nashpoint-smart-contracts-fuzz-1761255023649
 ```
-forge test
+
+2. **Verify branch**
+
+```bash
+git branch --show-current
+# Output: fuzz-suite
 ```
 
+3. **Initialize submodules**
 
+```bash
+git submodule update --init --recursive
+```
 
+4. **Install fuzzlib**
 
+```bash
+forge install perimetersec/fuzzlib --no-git
+```
 
+5. **Patch Optimism library** *(required for Echidna compatibility)*
+
+```bash
+./patch-optimism.sh
+```
+
+6. **Build contracts**
+
+```bash
+forge build
+```
+
+### Running Fuzzer
+
+```bash
+# Standard fuzzing campaign
+echidna test/fuzzing/Fuzz.sol --contract Fuzz --config echidna.yaml
+```
+
+### Foundry Reproductions
+
+```bash
+# Run the reproducer
+forge test --mt test_coverage_ -vvvv
+```
+
+## Guardian Fuzz Central
+
+### Custom command
+
+```bash
+pip install crytic-compile && git submodule update --init --recursive && forge install perimetersec/fuzzlib --no-git && ./patch-optimism.sh
+```
+
+### Path
+
+```bash
+test/fuzzing/Fuzz.sol --contract Fuzz
+```
+
+---
+
+## Architecture
+
+### Directory Structure
+
+```
+test/fuzzing/
+├── Fuzz.sol                          # Main entry point (Echidna target)
+├── FuzzSetup.sol                     # Nashpoint deployment & initialization
+├── FuzzGuided.sol                    # Complex multi-step scenarios
+│
+├── Handler Contracts (Operation-specific)
+│   ├── FuzzNode.sol                  # Node operations (deposits/withdrawals)
+│   ├── FuzzNodeFactory.sol           # Node creation & configuration
+│   ├── FuzzDigiftAdapter.sol         # Cross-chain operations
+│   ├── FuzzDigiftEventVerifier.sol   # Event verification
+│   ├── FuzzRewardRouters.sol         # Reward distribution
+│   ├── FuzzDonate.sol                # Unexpected token transfers
+│   │
+│   └── FuzzAdmin/                    # Admin operations
+│       ├── FuzzNodeRegistry.sol      # Node registration
+│       └── FuzzOneInch.sol           # DEX integration
+│
+├── helpers/
+│   ├── FuzzStorageVariables.sol      # Global state & config
+│   ├── FuzzStructs.sol               # Parameter structs
+│   ├── BeforeAfter.sol               # State snapshot system
+│   ├── HelperFunctions.sol           # Utility functions
+│   │
+│   ├── Preconditions/                # Input validation & clamping
+│   │   ├── PreconditionsBase.sol
+│   │   ├── PreconditionsNode.sol
+│   │   ├── PreconditionsNodeFactory.sol
+│   │   ├── PreconditionsDigiftAdapter.sol
+│   │   ├── PreconditionsDigiftEventVerifier.sol
+│   │   ├── PreconditionsRewardRouters.sol
+│   │   ├── PreconditionsNodeRegistry.sol
+│   │   ├── PreconditionsOneInch.sol
+│   │   └── PreconditionsDonate.sol
+│   │
+│   └── Postconditions/               # State validation & invariants
+│       ├── PostconditionsBase.sol
+│       ├── PostconditionsNode.sol
+│       ├── PostconditionsNodeFactory.sol
+│       ├── PostconditionsDigiftAdapter.sol
+│       ├── PostconditionsDigiftEventVerifier.sol
+│       ├── PostconditionsRewardRouters.sol
+│       ├── PostconditionsNodeRegistry.sol
+│       ├── PostconditionsOneInch.sol
+│       └── PostconditionsDonate.sol
+│
+├── properties/
+│   ├── Properties.sol                # All protocol invariants
+│   ├── PropertiesBase.sol            # Base property helpers
+│   ├── PropertiesDescriptions.sol    # Human-readable descriptions
+│   ├── Properties_ERR.sol            # Error allowlist configuration
+│   └── RevertHandler.sol             # Revert categorization engine
+│
+├── mocks/
+│   └── MockERC20.sol                 # Test tokens
+│
+├── utils/
+│   ├── FuzzActors.sol                # User management
+│   └── FuzzConstants.sol             # Protocol constants
+│
+├── foundry/                          # Foundry-specific tests
+│
+└── FoundryPlayground.sol             # Failure reproductions
+```
+
+### Core Components
+
+#### 1. Entry Point (`Fuzz.sol`)
+
+Single entry point for Echidna campaigns:
+
+```solidity
+contract Fuzz is FuzzGuided {
+    constructor() payable {
+        fuzzSetup(true);  # Deploy Nashpoint
+    }
+}
+```
+
+#### 2. Setup Layer (`FuzzSetup.sol`)
+
+Deploys complete Nashpoint protocol:
+
+```solidity
+function fuzzSetup(bool deployProtocol) internal {
+    _initUsers();                          // Create test users
+    if (deployProtocol) {
+        deployNashpointLocal();            // Deploy all contracts
+    }
+    setupFuzzingArrays();                  // DONATEES, TOKENS arrays
+    mintTokensToUsers();                   // Fund users with assets
+    setupInitialDeposits();                // Initial node deposits
+    configureRewardRouters();              // Set up reward distribution
+    labelAll();                            // VM labels for debugging
+}
+```
+
+**Deployed Assets:**
+- **Nodes:** Multiple test nodes with varying configurations
+- **Tokens:** Test ERC20 tokens for deposits and rewards
+- **Users:** Funded actors with initial deposits
+- **Adapters:** Cross-chain integration components
+
+#### 3. Handler Pattern
+
+All operations follow the same structure:
+
+```solidity
+// In FuzzNode.sol
+function fuzz_deposit(
+    uint256 assetsSeed,
+    uint256 receiverSeed
+) public setCurrentActor {
+    // 1. PRECONDITIONS - Validate & clamp inputs
+    NodeDepositParams memory params = depositPreconditions(
+        assetsSeed, receiverSeed
+    );
+
+    // 2. SETUP ACTORS - Track affected addresses
+    address[] memory actorsToUpdate = new address[](2);
+    actorsToUpdate[0] = currentActor;
+    actorsToUpdate[1] = params.receiver;
+
+    // 3. BEFORE SNAPSHOT - Save state
+    _before(actorsToUpdate);
+
+    // 4. EXECUTE - Call via FuzzLib proxy
+    (bool success, bytes memory returnData) = fl.doFunctionCall(
+        address(node),
+        abi.encodeWithSelector(
+            node.deposit.selector,
+            params.assets,
+            params.receiver
+        ),
+        currentActor
+    );
+
+    // 5. POSTCONDITIONS - Validate results
+    depositPostconditions(success, returnData, actorsToUpdate, params);
+}
+```
+
+#### 4. State Tracking (`BeforeAfter.sol`)
+
+Captures comprehensive state snapshots:
+
+```solidity
+struct StateSnapshot {
+    // Per-actor state
+    mapping(address => ActorState) actorStates;
+
+    // Node state
+    mapping(address => uint256) nodeTotalAssets;
+    mapping(address => uint256) nodeTotalSupply;
+    mapping(address => uint256) nodeSharesExiting;
+
+    // Token balances
+    mapping(address => mapping(address => uint256)) tokenBalances;
+
+    // Reward state
+    mapping(address => uint256) pendingRewards;
+}
+
+struct ActorState {
+    // Node shares
+    mapping(address => uint256) nodeShares;
+
+    // Withdrawal state
+    uint256 pendingWithdrawals;
+
+    // Nonces
+    uint256 depositNonce;
+}
+
+StateSnapshot[2] internal states;  // [0]=before, [1]=after
+```
+
+#### 5. Error Management (`RevertHandler.sol`)
+
+Sophisticated error categorization:
+
+```solidity
+function invariant_ERR(bytes memory returnData) internal {
+    if (returnData.length == 0) {
+        if (CATCH_EMPTY_REVERTS) {
+            fl.t(false, ERR_01);  // "Unexpected Error"
+        }
+        return;
+    }
+
+    bytes4 errorSelector;
+    assembly {
+        errorSelector := mload(add(returnData, 0x20))
+    }
+
+    // Route to appropriate handler
+    if (errorSelector == bytes4(keccak256("Panic(uint256)"))) {
+        _handlePanic(returnData);
+    } else if (errorSelector == bytes4(keccak256("Error(string)"))) {
+        _handleError(returnData);
+    } else if (returnData.length == 4) {
+        _handleSoladyError(returnData);
+    } else {
+        _handleCustomError(returnData);
+    }
+}
+```
+
+---
+
+## Coverage
+
+### Contracts Under Test
+
+| Contract | Functions Fuzzed | Handlers | Key Operations |
+|----------|-----------------|----------|----------------|
+| **Node** | 15+ | 15+ | `deposit`, `mint`, `withdraw`, `redeem`, `claimYield`, `rebalance`, `addRouter`, `removeRouter` |
+| **NodeFactory** | 5+ | 5+ | `createNode`, `upgradeNode`, `setImplementation`, `configureNode` |
+| **DigiftAdapter** | 8+ | 8+ | `initiateCrossChain`, `verifyEvent`, `executeLiquidity`, `claimCrossChain` |
+| **RewardRouters** | 4+ | 4+ | `distributeRewards`, `configureRouter`, `claimRewards` |
+| **NodeRegistry** | 5+ | 5+ | `registerNode`, `whitelistOperator`, `deregisterNode` |
+| **OneInch** | 3+ | 3+ | `swap`, `configureAggregator` |
+
+### Foundry Testing
+
+#### FoundryPlayground.sol
+
+Repository for reproducing Echidna findings:
+
+```solidity
+contract FoundryPlayground is FuzzGuided {
+    function setUp() public {
+        fuzzSetup(true);
+    }
+
+    // Reproduce specific scenarios
+    function test_coverage_deposit() public {
+        setActor(USERS[0]);
+        fuzz_deposit(1000e18, 0);
+    }
+
+    function test_coverage_withdraw() public {
+        setActor(USERS[0]);
+        fuzz_deposit(5000e18, 0);
+
+        vm.warp(block.timestamp + 1 days);
+
+        fuzz_withdraw(1000e18, 0, 0);
+    }
+}
+```
+
+**⚠️ IMPORTANT:** Always use `setActor(USERS[0])` before calling handlers
+
+---
+
+### File Locations
+
+| Component | Location |
+|-----------|----------|
+| Entry point | `test/fuzzing/Fuzz.sol` |
+| Setup | `test/fuzzing/FuzzSetup.sol` |
+| Handlers | `test/fuzzing/Fuzz*.sol` |
+| Preconditions | `helpers/Preconditions/*.sol` |
+| Postconditions | `helpers/Postconditions/*.sol` |
+| Properties | `properties/Properties.sol` |
+| Error config | `properties/Properties_ERR.sol` |
+| Reproductions | `FoundryPlayground.sol` |
+| Config | `echidna.yaml`, `foundry.toml` |
+
+---
+
+## Protocol Invariants
+
+The suite validates critical protocol invariants:
+
+- **GLOB_01**: Total assets must cover node balance
+- **INV_01**: Exiting shares cannot exceed total supply
+- Additional invariants are continuously validated during fuzzing campaigns
+
+---
+
+## Development
+
+### Adding New Handlers
+
+1. Create handler in `test/fuzzing/FuzzContractName.sol`
+2. Add preconditions in `helpers/Preconditions/PreconditionsContractName.sol`
+3. Add postconditions in `helpers/Postconditions/PostconditionsContractName.sol`
+4. Update `FuzzGuided.sol` to inherit new handler
+5. Test with Foundry first in `FoundryPlayground.sol`
+
+### Debugging
+
+Use Foundry's verbose output for detailed traces:
+
+```bash
+forge test --mt test_coverage_ -vvvvv
+```
+
+---
+
+## Contributing
+
+This is a Guardian-maintained fuzzing suite. For issues or improvements, please contact the Guardian team.
