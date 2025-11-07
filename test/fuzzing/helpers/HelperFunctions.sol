@@ -62,6 +62,7 @@ contract HelperFunctions is FuzzStorageVariables {
                 return;
             }
             MANAGED_NODES.push(nodeAddr);
+            _appendUnique(TOKENS, nodeAddr);
             _appendUnique(DONATEES, nodeAddr);
             _appendUnique(DONATEES, escrowAddr);
         }
@@ -260,5 +261,18 @@ contract HelperFunctions is FuzzStorageVariables {
         arr = new address[](2);
         arr[0] = addr1;
         arr[1] = addr2;
+    }
+
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    function _donateeIndexForNode(address target) internal view returns (uint256) {
+        for (uint256 i = 0; i < DONATEES.length; i++) {
+            if (DONATEES[i] == target) {
+                return i;
+            }
+        }
+        revert("fuzz_guided_node_withdraw: donatee missing");
     }
 }

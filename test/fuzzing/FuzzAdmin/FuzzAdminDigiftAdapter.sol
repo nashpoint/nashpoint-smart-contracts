@@ -24,7 +24,7 @@ import {DigiftEventVerifier} from "../../../src/adapters/digift/DigiftEventVerif
  */
 contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAdapter {
     function fuzz_admin_digift_forwardRequests(uint256 seed) public {
-        _forceActor(rebalancer, seed);
+        forceActor(rebalancer, seed);
 
         DigiftForwardRequestParams memory params = digiftForwardRequestsPreconditions(seed);
 
@@ -36,7 +36,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     }
 
     function fuzz_admin_digift_settleDeposit(uint256 seed) public {
-        _forceActor(rebalancer, seed);
+        forceActor(rebalancer, seed);
 
         DigiftSettleDepositParams memory params = digiftSettleDepositFlowPreconditions(seed);
 
@@ -65,7 +65,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     }
 
     function fuzz_admin_digift_settleRedeem(uint256 seed) public {
-        _forceActor(rebalancer, seed);
+        forceActor(rebalancer, seed);
 
         DigiftSettleRedeemParams memory params = digiftSettleRedeemFlowPreconditions(seed);
 

@@ -216,6 +216,10 @@ contract FoundryPlayground is FuzzGuided {
         fuzz_withdraw(0, 0);
     }
 
+    function test_guided_node_withdraw() public {
+        fuzz_guided_node_withdraw(0, 5e18, 2e18, 1e18);
+    }
+
     function test_handler_digiftVerifier_verifySettlement_subscribe() public {
         fuzz_digiftVerifier_verifySettlement(9, true);
     }
@@ -242,10 +246,11 @@ contract FoundryPlayground is FuzzGuided {
     /**
      * @notice Note: withdraw/redeem preconditions have been enhanced
      * @dev Updated preconditions in PreconditionsNode.sol:
-     *      - withdrawPreconditions: Now uses _ensureClaimableRedeem and branches on assetsSeed % 10
+     *      - withdrawPreconditions: Scans for controllers that already have claimable assets (populated
+     *        by dedicated handlers) and branches on assetsSeed % 10
      *        - 90% of calls: withdraw within bounds (happy path)
      *        - 10% of calls: attempt claimableAssets + 1 to trigger ExceedsMaxWithdraw
-     *      - nodeRedeemPreconditions: Similar branching for shares
+     *      - nodeRedeemPreconditions: Similar branching for shares using the same claimable lookup
      *        - 90% of calls: redeem within bounds (happy path)
      *        - 10% of calls: attempt claimableShares + 1 to trigger ExceedsMaxRedeem
      *

@@ -16,29 +16,25 @@ contract PostconditionsNode is PostconditionsBase {
         address[] memory actors,
         DepositParams memory params
     ) internal {
-        if (!success) {
-            // fl.t(!params.shouldSucceed, "NODE_DEPOSIT_EXPECTED_SUCCESS");
+        if (success) {
+            _after(actors);
+
+            uint256 mintedShares = abi.decode(returnData, (uint256));
+
+            ActorState storage beforeActor = states[0].actorStates[params.receiver];
+            ActorState storage afterActor = states[1].actorStates[params.receiver];
+
+            // fl.t(mintedShares > 0, "NODE_DEPOSIT_ZERO_SHARES");
+            // fl.eq(afterActor.shareBalance, beforeActor.shareBalance + mintedShares, "NODE_DEPOSIT_SHARE_DELTA");
+            // fl.eq(afterActor.assetBalance, beforeActor.assetBalance - params.assets, "NODE_DEPOSIT_ASSET_DELTA");
+            // fl.eq(states[1].nodeAssetBalance, states[0].nodeAssetBalance + params.assets, "NODE_DEPOSIT_NODE_ASSETS");
+            // fl.eq(states[1].nodeTotalAssets, states[0].nodeTotalAssets + params.assets, "NODE_DEPOSIT_TOTAL_ASSETS");
+            // fl.eq(states[1].nodeTotalSupply, states[0].nodeTotalSupply + mintedShares, "NODE_DEPOSIT_SUPPLY_DELTA");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(params.shouldSucceed, "NODE_DEPOSIT_UNEXPECTED_SUCCESS");
-
-        _after(actors);
-
-        uint256 mintedShares = abi.decode(returnData, (uint256));
-
-        ActorState storage beforeActor = states[0].actorStates[params.receiver];
-        ActorState storage afterActor = states[1].actorStates[params.receiver];
-
-        // fl.t(mintedShares > 0, "NODE_DEPOSIT_ZERO_SHARES");
-        // fl.eq(afterActor.shareBalance, beforeActor.shareBalance + mintedShares, "NODE_DEPOSIT_SHARE_DELTA");
-        // fl.eq(afterActor.assetBalance, beforeActor.assetBalance - params.assets, "NODE_DEPOSIT_ASSET_DELTA");
-        // fl.eq(states[1].nodeAssetBalance, states[0].nodeAssetBalance + params.assets, "NODE_DEPOSIT_NODE_ASSETS");
-        // fl.eq(states[1].nodeTotalAssets, states[0].nodeTotalAssets + params.assets, "NODE_DEPOSIT_TOTAL_ASSETS");
-        // fl.eq(states[1].nodeTotalSupply, states[0].nodeTotalSupply + mintedShares, "NODE_DEPOSIT_SUPPLY_DELTA");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function mintPostconditions(
@@ -47,29 +43,25 @@ contract PostconditionsNode is PostconditionsBase {
         address[] memory actors,
         MintParams memory params
     ) internal {
-        if (!success) {
-            // fl.t(!params.shouldSucceed, "NODE_MINT_EXPECTED_SUCCESS");
+        if (success) {
+            _after(actors);
+
+            uint256 assetsSpent = abi.decode(returnData, (uint256));
+
+            ActorState storage beforeActor = states[0].actorStates[params.receiver];
+            ActorState storage afterActor = states[1].actorStates[params.receiver];
+
+            // fl.t(assetsSpent > 0, "NODE_MINT_ZERO_ASSETS");
+            // fl.eq(afterActor.shareBalance, beforeActor.shareBalance + params.shares, "NODE_MINT_SHARE_DELTA");
+            // fl.eq(afterActor.assetBalance, beforeActor.assetBalance - assetsSpent, "NODE_MINT_ASSET_DELTA");
+            // fl.eq(states[1].nodeAssetBalance, states[0].nodeAssetBalance + assetsSpent, "NODE_MINT_NODE_ASSETS");
+            // fl.eq(states[1].nodeTotalAssets, states[0].nodeTotalAssets + assetsSpent, "NODE_MINT_TOTAL_ASSETS");
+            // fl.eq(states[1].nodeTotalSupply, states[0].nodeTotalSupply + params.shares, "NODE_MINT_SUPPLY_DELTA");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(params.shouldSucceed, "NODE_MINT_UNEXPECTED_SUCCESS");
-
-        _after(actors);
-
-        uint256 assetsSpent = abi.decode(returnData, (uint256));
-
-        ActorState storage beforeActor = states[0].actorStates[params.receiver];
-        ActorState storage afterActor = states[1].actorStates[params.receiver];
-
-        // fl.t(assetsSpent > 0, "NODE_MINT_ZERO_ASSETS");
-        // fl.eq(afterActor.shareBalance, beforeActor.shareBalance + params.shares, "NODE_MINT_SHARE_DELTA");
-        // fl.eq(afterActor.assetBalance, beforeActor.assetBalance - assetsSpent, "NODE_MINT_ASSET_DELTA");
-        // fl.eq(states[1].nodeAssetBalance, states[0].nodeAssetBalance + assetsSpent, "NODE_MINT_NODE_ASSETS");
-        // fl.eq(states[1].nodeTotalAssets, states[0].nodeTotalAssets + assetsSpent, "NODE_MINT_TOTAL_ASSETS");
-        // fl.eq(states[1].nodeTotalSupply, states[0].nodeTotalSupply + params.shares, "NODE_MINT_SUPPLY_DELTA");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function requestRedeemPostconditions(
@@ -78,43 +70,39 @@ contract PostconditionsNode is PostconditionsBase {
         address[] memory actors,
         RequestRedeemParams memory params
     ) internal {
-        if (!success) {
-            // fl.t(!params.shouldSucceed, "NODE_REQUEST_REDEEM_EXPECTED_SUCCESS");
+        if (success) {
+            _after(actors);
+
+            ActorState storage beforeOwner = states[0].actorStates[params.owner];
+            ActorState storage afterOwner = states[1].actorStates[params.owner];
+            ActorState storage afterEscrow = states[1].actorStates[address(escrow)];
+
+            // fl.eq(afterOwner.shareBalance, beforeOwner.shareBalance - params.shares, "NODE_REQUEST_REDEEM_SHARE_DELTA");
+            // fl.eq(
+            // afterEscrow.shareBalance,
+            // states[0].actorStates[address(escrow)].shareBalance + params.shares,
+            // "NODE_REQUEST_REDEEM_ESCROW_BALANCE"
+            // );
+
+            (uint256 pendingRedeemAfter, uint256 claimableRedeemAfter, uint256 claimableAssetsAfter,) =
+                node.requests(params.controller);
+
+            // fl.eq(pendingRedeemAfter, params.pendingBefore + params.shares, "NODE_REQUEST_REDEEM_PENDING");
+            // fl.eq(
+            // claimableRedeemAfter,
+            // states[0].actorStates[params.controller].claimableRedeem,
+            // "NODE_REQUEST_REDEEM_CLAIMABLE_SHARES"
+            // );
+            // fl.eq(
+            // claimableAssetsAfter,
+            // states[0].actorStates[params.controller].claimableAssets,
+            // "NODE_REQUEST_REDEEM_CLAIMABLE_ASSETS"
+            // );
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(params.shouldSucceed, "NODE_REQUEST_REDEEM_UNEXPECTED_SUCCESS");
-
-        _after(actors);
-
-        ActorState storage beforeOwner = states[0].actorStates[params.owner];
-        ActorState storage afterOwner = states[1].actorStates[params.owner];
-        ActorState storage afterEscrow = states[1].actorStates[address(escrow)];
-
-        // fl.eq(afterOwner.shareBalance, beforeOwner.shareBalance - params.shares, "NODE_REQUEST_REDEEM_SHARE_DELTA");
-        // fl.eq(
-        // afterEscrow.shareBalance,
-        // states[0].actorStates[address(escrow)].shareBalance + params.shares,
-        // "NODE_REQUEST_REDEEM_ESCROW_BALANCE"
-        // );
-
-        (uint256 pendingRedeemAfter, uint256 claimableRedeemAfter, uint256 claimableAssetsAfter,) =
-            node.requests(params.controller);
-
-        // fl.eq(pendingRedeemAfter, params.pendingBefore + params.shares, "NODE_REQUEST_REDEEM_PENDING");
-        // fl.eq(
-        // claimableRedeemAfter,
-        // states[0].actorStates[params.controller].claimableRedeem,
-        // "NODE_REQUEST_REDEEM_CLAIMABLE_SHARES"
-        // );
-        // fl.eq(
-        // claimableAssetsAfter,
-        // states[0].actorStates[params.controller].claimableAssets,
-        // "NODE_REQUEST_REDEEM_CLAIMABLE_ASSETS"
-        // );
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function fulfillRedeemPostconditions(
@@ -123,32 +111,28 @@ contract PostconditionsNode is PostconditionsBase {
         address[] memory actors,
         FulfillRedeemParams memory params
     ) internal {
-        if (!success) {
-            // fl.t(!params.shouldSucceed, "NODE_FULFILL_EXPECTED_SUCCESS");
+        if (success) {
+            _after(actors);
+
+            ActorState storage beforeController = states[0].actorStates[params.controller];
+            ActorState storage afterController = states[1].actorStates[params.controller];
+
+            // fl.t(afterController.pendingRedeem < beforeController.pendingRedeem, "NODE_FULFILL_PENDING_NOT_REDUCED");
+            // fl.t(
+            // afterController.claimableAssets > beforeController.claimableAssets,
+            // "NODE_FULFILL_CLAIMABLE_ASSETS_NOT_INCREASED"
+            // );
+            // fl.t(
+            // afterController.claimableRedeem > beforeController.claimableRedeem,
+            // "NODE_FULFILL_CLAIMABLE_SHARES_NOT_INCREASED"
+            // );
+            // fl.t(states[1].nodeAssetBalance < states[0].nodeAssetBalance, "NODE_FULFILL_NODE_ASSETS_NOT_SENT");
+            // fl.t(states[1].nodeEscrowAssetBalance > states[0].nodeEscrowAssetBalance, "NODE_FULFILL_ESCROW_NOT_FUNDED");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(params.shouldSucceed, "NODE_FULFILL_UNEXPECTED_SUCCESS");
-
-        _after(actors);
-
-        ActorState storage beforeController = states[0].actorStates[params.controller];
-        ActorState storage afterController = states[1].actorStates[params.controller];
-
-        // fl.t(afterController.pendingRedeem < beforeController.pendingRedeem, "NODE_FULFILL_PENDING_NOT_REDUCED");
-        // fl.t(
-        // afterController.claimableAssets > beforeController.claimableAssets,
-        // "NODE_FULFILL_CLAIMABLE_ASSETS_NOT_INCREASED"
-        // );
-        // fl.t(
-        // afterController.claimableRedeem > beforeController.claimableRedeem,
-        // "NODE_FULFILL_CLAIMABLE_SHARES_NOT_INCREASED"
-        // );
-        // fl.t(states[1].nodeAssetBalance < states[0].nodeAssetBalance, "NODE_FULFILL_NODE_ASSETS_NOT_SENT");
-        // fl.t(states[1].nodeEscrowAssetBalance > states[0].nodeEscrowAssetBalance, "NODE_FULFILL_ESCROW_NOT_FUNDED");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function withdrawPostconditions(
@@ -157,58 +141,50 @@ contract PostconditionsNode is PostconditionsBase {
         address[] memory actors,
         WithdrawParams memory params
     ) internal {
-        if (!success) {
-            // fl.t(!params.shouldSucceed, "NODE_WITHDRAW_EXPECTED_SUCCESS");
+        if (success) {
+            _after(actors);
+
+            uint256 sharesBurned = abi.decode(returnData, (uint256));
+
+            ActorState storage beforeController = states[0].actorStates[params.controller];
+            ActorState storage afterController = states[1].actorStates[params.controller];
+            ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
+            ActorState storage afterReceiver = states[1].actorStates[params.receiver];
+
+            // fl.eq(
+            // afterController.claimableAssets,
+            // beforeController.claimableAssets - params.assets,
+            // "NODE_WITHDRAW_CLAIMABLE_ASSETS"
+            // );
+            // fl.eq(
+            // afterController.claimableRedeem,
+            // beforeController.claimableRedeem - sharesBurned,
+            // "NODE_WITHDRAW_CLAIMABLE_SHARES"
+            // );
+            // fl.eq(afterReceiver.assetBalance, beforeReceiver.assetBalance + params.assets, "NODE_WITHDRAW_RECEIVER_BALANCE");
+            // fl.eq(
+            // states[1].nodeEscrowAssetBalance,
+            // states[0].nodeEscrowAssetBalance - params.assets,
+            // "NODE_WITHDRAW_ESCROW_BALANCE"
+            // );
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(params.shouldSucceed, "NODE_WITHDRAW_UNEXPECTED_SUCCESS");
-
-        _after(actors);
-
-        uint256 sharesBurned = abi.decode(returnData, (uint256));
-
-        ActorState storage beforeController = states[0].actorStates[params.controller];
-        ActorState storage afterController = states[1].actorStates[params.controller];
-        ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
-        ActorState storage afterReceiver = states[1].actorStates[params.receiver];
-
-        // fl.eq(
-        // afterController.claimableAssets,
-        // beforeController.claimableAssets - params.assets,
-        // "NODE_WITHDRAW_CLAIMABLE_ASSETS"
-        // );
-        // fl.eq(
-        // afterController.claimableRedeem,
-        // beforeController.claimableRedeem - sharesBurned,
-        // "NODE_WITHDRAW_CLAIMABLE_SHARES"
-        // );
-        // fl.eq(afterReceiver.assetBalance, beforeReceiver.assetBalance + params.assets, "NODE_WITHDRAW_RECEIVER_BALANCE");
-        // fl.eq(
-        // states[1].nodeEscrowAssetBalance,
-        // states[0].nodeEscrowAssetBalance - params.assets,
-        // "NODE_WITHDRAW_ESCROW_BALANCE"
-        // );
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function setOperatorPostconditions(bool success, bytes memory returnData, SetOperatorParams memory params)
         internal
     {
-        if (!success) {
-            // fl.t(!params.shouldSucceed, "NODE_OPERATOR_EXPECTED_SUCCESS");
+        if (success) {
+            bool isApproved = node.isOperator(params.controller, params.operator);
+            // fl.eq(isApproved, params.approved, "NODE_OPERATOR_STATUS");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(params.shouldSucceed, "NODE_OPERATOR_UNEXPECTED_SUCCESS");
-
-        bool isApproved = node.isOperator(params.controller, params.operator);
-        // fl.eq(isApproved, params.approved, "NODE_OPERATOR_STATUS");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function nodeApprovePostconditions(
@@ -218,17 +194,14 @@ contract PostconditionsNode is PostconditionsBase {
         address caller,
         NodeApproveParams memory params
     ) internal {
-        if (!params.shouldSucceed) {
-            // fl.t(!success, "NODE_APPROVE_EXPECTED_REVERT");
+        if (success) {
+            _after(actors);
+            uint256 allowance = node.allowance(caller, params.spender);
+            // fl.eq(allowance, params.amount, "NODE_APPROVE_ALLOWANCE");
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(success, "NODE_APPROVE_SUCCESS");
-        _after(actors);
-        uint256 allowance = node.allowance(caller, params.spender);
-        // fl.eq(allowance, params.amount, "NODE_APPROVE_ALLOWANCE");
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function nodeTransferPostconditions(
@@ -238,28 +211,25 @@ contract PostconditionsNode is PostconditionsBase {
         address sender,
         NodeTransferParams memory params
     ) internal {
-        if (!params.shouldSucceed) {
-            // fl.t(!success, "NODE_TRANSFER_EXPECTED_REVERT");
+        if (success) {
+            _after(actors);
+
+            ActorState storage beforeSender = states[0].actorStates[sender];
+            ActorState storage afterSender = states[1].actorStates[sender];
+            ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
+            ActorState storage afterReceiver = states[1].actorStates[params.receiver];
+
+            // fl.eq(afterSender.shareBalance, beforeSender.shareBalance - params.amount, "NODE_TRANSFER_SENDER_BALANCE");
+            // fl.eq(
+            // afterReceiver.shareBalance,
+            // beforeReceiver.shareBalance + params.amount,
+            // "NODE_TRANSFER_RECEIVER_BALANCE"
+            // );
+            // fl.eq(states[1].nodeTotalSupply, states[0].nodeTotalSupply, "NODE_TRANSFER_TOTAL_SUPPLY");
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(success, "NODE_TRANSFER_SUCCESS");
-        _after(actors);
-
-        ActorState storage beforeSender = states[0].actorStates[sender];
-        ActorState storage afterSender = states[1].actorStates[sender];
-        ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
-        ActorState storage afterReceiver = states[1].actorStates[params.receiver];
-
-        // fl.eq(afterSender.shareBalance, beforeSender.shareBalance - params.amount, "NODE_TRANSFER_SENDER_BALANCE");
-        // fl.eq(
-        // afterReceiver.shareBalance,
-        // beforeReceiver.shareBalance + params.amount,
-        // "NODE_TRANSFER_RECEIVER_BALANCE"
-        // );
-        // fl.eq(states[1].nodeTotalSupply, states[0].nodeTotalSupply, "NODE_TRANSFER_TOTAL_SUPPLY");
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function nodeTransferFromPostconditions(
@@ -269,31 +239,28 @@ contract PostconditionsNode is PostconditionsBase {
         address spender,
         NodeTransferFromParams memory params
     ) internal {
-        if (!params.shouldSucceed) {
-            // fl.t(!success, "NODE_TRANSFER_FROM_EXPECTED_REVERT");
+        if (success) {
+            _after(actors);
+
+            ActorState storage beforeOwner = states[0].actorStates[params.owner];
+            ActorState storage afterOwner = states[1].actorStates[params.owner];
+            ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
+            ActorState storage afterReceiver = states[1].actorStates[params.receiver];
+
+            // fl.eq(afterOwner.shareBalance, beforeOwner.shareBalance - params.amount, "NODE_TRANSFER_FROM_OWNER_BAL");
+            // fl.eq(afterReceiver.shareBalance, beforeReceiver.shareBalance + params.amount, "NODE_TRANSFER_FROM_RCV_BAL");
+
+            uint256 allowanceAfter = node.allowance(params.owner, spender);
+            // fl.eq(
+            // allowanceAfter,
+            // params.allowanceBefore >= params.amount ? params.allowanceBefore - params.amount : 0,
+            // "NODE_TRANSFER_FROM_ALLOWANCE"
+            // );
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(success, "NODE_TRANSFER_FROM_SUCCESS");
-        _after(actors);
-
-        ActorState storage beforeOwner = states[0].actorStates[params.owner];
-        ActorState storage afterOwner = states[1].actorStates[params.owner];
-        ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
-        ActorState storage afterReceiver = states[1].actorStates[params.receiver];
-
-        // fl.eq(afterOwner.shareBalance, beforeOwner.shareBalance - params.amount, "NODE_TRANSFER_FROM_OWNER_BAL");
-        // fl.eq(afterReceiver.shareBalance, beforeReceiver.shareBalance + params.amount, "NODE_TRANSFER_FROM_RCV_BAL");
-
-        uint256 allowanceAfter = node.allowance(params.owner, spender);
-        // fl.eq(
-        // allowanceAfter,
-        // params.allowanceBefore >= params.amount ? params.allowanceBefore - params.amount : 0,
-        // "NODE_TRANSFER_FROM_ALLOWANCE"
-        // );
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function nodeRedeemPostconditions(
@@ -302,39 +269,36 @@ contract PostconditionsNode is PostconditionsBase {
         address[] memory actors,
         NodeRedeemParams memory params
     ) internal {
-        if (!params.shouldSucceed) {
-            // fl.t(!success, "NODE_REDEEM_EXPECTED_REVERT");
+        if (success) {
+            uint256 assetsReturned = abi.decode(returnData, (uint256));
+            _after(actors);
+
+            ActorState storage beforeController = states[0].actorStates[params.controller];
+            ActorState storage afterController = states[1].actorStates[params.controller];
+            ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
+            ActorState storage afterReceiver = states[1].actorStates[params.receiver];
+
+            // fl.eq(
+            // afterController.claimableRedeem,
+            // beforeController.claimableRedeem - params.shares,
+            // "NODE_REDEEM_CLAIMABLE_SHARES"
+            // );
+            // fl.eq(
+            // afterController.claimableAssets,
+            // beforeController.claimableAssets - assetsReturned,
+            // "NODE_REDEEM_CLAIMABLE_ASSETS"
+            // );
+            // fl.eq(afterReceiver.assetBalance, beforeReceiver.assetBalance + assetsReturned, "NODE_REDEEM_RECEIVER_ASSETS");
+            // fl.eq(
+            // states[1].nodeEscrowAssetBalance,
+            // states[0].nodeEscrowAssetBalance - assetsReturned,
+            // "NODE_REDEEM_ESCROW_BALANCE"
+            // );
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        // fl.t(success, "NODE_REDEEM_SUCCESS");
-        uint256 assetsReturned = abi.decode(returnData, (uint256));
-        _after(actors);
-
-        ActorState storage beforeController = states[0].actorStates[params.controller];
-        ActorState storage afterController = states[1].actorStates[params.controller];
-        ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
-        ActorState storage afterReceiver = states[1].actorStates[params.receiver];
-
-        // fl.eq(
-        // afterController.claimableRedeem,
-        // beforeController.claimableRedeem - params.shares,
-        // "NODE_REDEEM_CLAIMABLE_SHARES"
-        // );
-        // fl.eq(
-        // afterController.claimableAssets,
-        // beforeController.claimableAssets - assetsReturned,
-        // "NODE_REDEEM_CLAIMABLE_ASSETS"
-        // );
-        // fl.eq(afterReceiver.assetBalance, beforeReceiver.assetBalance + assetsReturned, "NODE_REDEEM_RECEIVER_ASSETS");
-        // fl.eq(
-        // states[1].nodeEscrowAssetBalance,
-        // states[0].nodeEscrowAssetBalance - assetsReturned,
-        // "NODE_REDEEM_ESCROW_BALANCE"
-        // );
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function nodeRenounceOwnershipPostconditions(
@@ -366,12 +330,10 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeSetAnnualFeePostconditions(bool success, bytes memory returnData, NodeFeeParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SET_ANNUAL_FEE_SUCCESS");
+        if (success) {
             // fl.eq(node.annualManagementFee(), params.fee, "NODE_SET_ANNUAL_FEE_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SET_ANNUAL_FEE_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -379,12 +341,10 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeSetMaxDepositPostconditions(bool success, bytes memory returnData, NodeUintParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SET_MAX_DEPOSIT_SUCCESS");
+        if (success) {
             // fl.eq(node.maxDepositSize(), params.value, "NODE_SET_MAX_DEPOSIT_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SET_MAX_DEPOSIT_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -394,12 +354,10 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeAddressParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SET_FEE_ADDRESS_SUCCESS");
+        if (success) {
             // fl.eq(node.nodeOwnerFeeAddress(), params.target, "NODE_SET_FEE_ADDRESS_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SET_FEE_ADDRESS_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -407,12 +365,10 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeSetQuoterPostconditions(bool success, bytes memory returnData, NodeAddressParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SET_QUOTER_SUCCESS");
+        if (success) {
             // fl.eq(address(node.quoter()), params.target, "NODE_SET_QUOTER_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SET_QUOTER_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -420,12 +376,10 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeSetRebalanceCooldownPostconditions(bool success, bytes memory returnData, NodeFeeParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SET_COOLDOWN_SUCCESS");
+        if (success) {
             // fl.eq(uint256(Node(address(node)).rebalanceCooldown()), uint256(params.fee), "NODE_SET_COOLDOWN_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SET_COOLDOWN_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -433,12 +387,10 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeSetRebalanceWindowPostconditions(bool success, bytes memory returnData, NodeFeeParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SET_WINDOW_SUCCESS");
+        if (success) {
             // fl.eq(uint256(Node(address(node)).rebalanceWindow()), uint256(params.fee), "NODE_SET_WINDOW_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SET_WINDOW_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -446,8 +398,7 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeSetLiquidationQueuePostconditions(bool success, bytes memory returnData, NodeQueueParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SET_QUEUE_SUCCESS");
+        if (success) {
             address[] memory queue = node.getLiquidationsQueue();
             // fl.eq(queue.length, params.queue.length, "NODE_SET_QUEUE_LENGTH");
             for (uint256 i = 0; i < queue.length; i++) {
@@ -455,7 +406,6 @@ contract PostconditionsNode is PostconditionsBase {
             }
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SET_QUEUE_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -463,8 +413,7 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeRescueTokensPostconditions(bool success, bytes memory returnData, NodeRescueParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_RESCUE_SUCCESS");
+        if (success) {
             uint256 nodeBalanceAfter = IERC20(params.token).balanceOf(address(node));
             uint256 recipientBalanceAfter = IERC20(params.token).balanceOf(params.recipient);
 
@@ -477,7 +426,6 @@ contract PostconditionsNode is PostconditionsBase {
 
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_RESCUE_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -487,8 +435,7 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeComponentAllocationParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_ADD_COMPONENT_SUCCESS");
+        if (success) {
             // fl.t(node.isComponent(params.component), "NODE_ADD_COMPONENT_STATUS");
             ComponentAllocation memory allocation = node.getComponentAllocation(params.component);
             // fl.eq(uint256(allocation.targetWeight), uint256(uint64(params.targetWeight)), "NODE_ADD_COMPONENT_WEIGHT");
@@ -505,7 +452,6 @@ contract PostconditionsNode is PostconditionsBase {
 
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_ADD_COMPONENT_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -515,8 +461,7 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeRemoveComponentParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_REMOVE_COMPONENT_SUCCESS");
+        if (success) {
             // fl.t(!node.isComponent(params.component), "NODE_REMOVE_COMPONENT_STATUS");
             _removeAddress(COMPONENTS, params.component);
             _removeAddress(REMOVABLE_COMPONENTS, params.component);
@@ -524,7 +469,6 @@ contract PostconditionsNode is PostconditionsBase {
             _removeAddress(COMPONENTS_ERC7540, params.component);
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_REMOVE_COMPONENT_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -534,15 +478,13 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeComponentAllocationParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_UPDATE_COMPONENT_ALLOCATION_SUCCESS");
+        if (success) {
             ComponentAllocation memory allocation = node.getComponentAllocation(params.component);
             // fl.eq(uint256(allocation.targetWeight), uint256(uint64(params.targetWeight)), "NODE_UPDATE_COMPONENT_WEIGHT");
             // fl.eq(uint256(allocation.maxDelta), uint256(uint64(params.maxDelta)), "NODE_UPDATE_COMPONENT_DELTA");
             // fl.eq(allocation.router, params.router, "NODE_UPDATE_COMPONENT_ROUTER");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_UPDATE_COMPONENT_ALLOCATION_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -552,12 +494,10 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeTargetReserveParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_UPDATE_TARGET_RESERVE_SUCCESS");
+        if (success) {
             // fl.eq(uint256(Node(address(node)).targetReserveRatio()), uint256(params.target), "NODE_UPDATE_TARGET_RESERVE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_UPDATE_TARGET_RESERVE_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -567,13 +507,11 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeSwingPricingParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_ENABLE_SWING_PRICING_SUCCESS");
+        if (success) {
             // fl.eq(Node(address(node)).swingPricingEnabled(), params.status, "NODE_SWING_PRICING_STATUS");
             // fl.eq(uint256(Node(address(node)).maxSwingFactor()), uint256(params.maxSwingFactor), "NODE_SWING_PRICING_FACTOR");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_ENABLE_SWING_PRICING_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -581,15 +519,13 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeAddPoliciesPostconditions(bool success, bytes memory returnData, NodePoliciesParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_ADD_POLICIES_SUCCESS");
+        if (success) {
             for (uint256 i = 0; i < params.selectors.length; i++) {
                 // fl.t(node.isSigPolicy(params.selectors[i], params.policies[i]), "NODE_POLICY_REGISTERED");
                 _pushUniquePolicyBinding(params.selectors[i], params.policies[i]);
             }
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_ADD_POLICIES_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -599,15 +535,13 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodePoliciesRemovalParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_REMOVE_POLICIES_SUCCESS");
+        if (success) {
             for (uint256 i = 0; i < params.selectors.length; i++) {
                 // fl.t(!node.isSigPolicy(params.selectors[i], params.policies[i]), "NODE_POLICY_REMOVED");
                 _removePolicyBinding(params.selectors[i], params.policies[i]);
             }
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_REMOVE_POLICIES_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -615,13 +549,11 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeAddRebalancerPostconditions(bool success, bytes memory returnData, NodeAddressParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_ADD_REBALANCER_SUCCESS");
+        if (success) {
             // fl.t(node.isRebalancer(params.target), "NODE_ADD_REBALANCER_STATUS");
             _pushUnique(REBALANCERS, params.target);
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_ADD_REBALANCER_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -629,12 +561,10 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeRemoveRebalancerPostconditions(bool success, bytes memory returnData, NodeAddressParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_REMOVE_REBALANCER_SUCCESS");
+        if (success) {
             // fl.t(!node.isRebalancer(params.target), "NODE_REMOVE_REBALANCER_STATUS");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_REMOVE_REBALANCER_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -642,13 +572,11 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeAddRouterPostconditions(bool success, bytes memory returnData, NodeAddressParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_ADD_ROUTER_SUCCESS");
+        if (success) {
             // fl.t(node.isRouter(params.target), "NODE_ADD_ROUTER_STATUS");
             _pushUnique(ROUTERS, params.target);
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_ADD_ROUTER_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -656,12 +584,10 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeRemoveRouterPostconditions(bool success, bytes memory returnData, NodeAddressParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_REMOVE_ROUTER_SUCCESS");
+        if (success) {
             // fl.t(!node.isRouter(params.target), "NODE_REMOVE_ROUTER_STATUS");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_REMOVE_ROUTER_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -671,8 +597,7 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeStartRebalanceParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_START_REBALANCE_SUCCESS");
+        if (success) {
             uint256 lastRebalanceAfter = uint256(Node(address(node)).lastRebalance());
             // fl.t(lastRebalanceAfter >= params.lastRebalanceBefore, "NODE_START_REBALANCE_TIMESTAMP");
             // fl.t(node.isCacheValid(), "NODE_START_REBALANCE_CACHE");
@@ -691,7 +616,6 @@ contract PostconditionsNode is PostconditionsBase {
             // fl.t(states[1].nodeTotalAssets <= states[0].nodeTotalAssets, "NODE_START_REBALANCE_TOTAL_ASSETS");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_START_REBALANCE_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -701,8 +625,7 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodePayManagementFeesParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_PAY_FEES_SUCCESS");
+        if (success) {
             uint256 feeForPeriod = abi.decode(returnData, (uint256));
 
             ActorState storage ownerBefore = states[0].actorStates[node.nodeOwnerFeeAddress()];
@@ -724,7 +647,6 @@ contract PostconditionsNode is PostconditionsBase {
             }
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_PAY_FEES_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -734,12 +656,10 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeUpdateTotalAssetsParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_UPDATE_TOTAL_ASSETS_SUCCESS");
+        if (success) {
             // fl.t(uint256(node.totalAssets()) == states[1].nodeTotalAssets, "NODE_UPDATE_TOTAL_ASSETS_CACHE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_UPDATE_TOTAL_ASSETS_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -749,8 +669,7 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeSubtractExecutionFeeParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SUBTRACT_FEE_SUCCESS");
+        if (success) {
             ActorState storage protocolBefore = states[0].actorStates[protocolFeesAddress];
             ActorState storage protocolAfter = states[1].actorStates[protocolFeesAddress];
 
@@ -761,7 +680,6 @@ contract PostconditionsNode is PostconditionsBase {
             // fl.eq(protocolDelta, params.fee, "NODE_SUBTRACT_FEE_PROTOCOL_DELTA");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SUBTRACT_FEE_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -769,14 +687,12 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeExecutePostconditions(bool success, bytes memory returnData, NodeExecuteParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_EXECUTE_SUCCESS");
+        if (success) {
             uint256 allowanceAfter = asset.allowance(address(node), params.allowanceSpender);
             // fl.eq(allowanceAfter, params.allowance, "NODE_EXECUTE_ALLOWANCE");
             // fl.eq(states[0].nodeAssetBalance, states[1].nodeAssetBalance, "NODE_EXECUTE_NODE_BALANCE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_EXECUTE_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -786,11 +702,9 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeSubmitPolicyDataParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_SUBMIT_POLICY_SUCCESS");
+        if (success) {
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_SUBMIT_POLICY_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -800,9 +714,7 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeFinalizeParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_FINALIZE_SUCCESS");
-
+        if (success) {
             ActorState storage controllerBefore = states[0].actorStates[params.controller];
             ActorState storage controllerAfter = states[1].actorStates[params.controller];
             ActorState storage escrowAfter = states[1].actorStates[address(escrow)];
@@ -837,7 +749,6 @@ contract PostconditionsNode is PostconditionsBase {
             // fl.eq(states[1].sharesExiting, params.sharesExitingBefore - params.sharesAdjusted, "NODE_FINALIZE_SHARES_EXITING");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_FINALIZE_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -845,11 +756,9 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeMulticallPostconditions(bool success, bytes memory returnData, NodeMulticallParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "NODE_MULTICALL_SUCCESS");
+        if (success) {
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "NODE_MULTICALL_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -857,51 +766,44 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeGainBackingPostconditions(bool success, bytes memory returnData, NodeYieldParams memory params)
         internal
     {
-        if (!params.shouldSucceed) {
-            fl.t(!success, "NODE_GAIN_BACKING_EXPECTED_REVERT");
+        if (success) {
+            uint256 balanceAfter = asset.balanceOf(params.component);
+            fl.eq(balanceAfter, params.currentBacking + params.delta, "NODE_GAIN_BACKING_BALANCE_MISMATCH");
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        fl.t(success, "NODE_GAIN_BACKING_UNEXPECTED_REVERT");
-        uint256 balanceAfter = asset.balanceOf(params.component);
-        fl.eq(balanceAfter, params.currentBacking + params.delta, "NODE_GAIN_BACKING_BALANCE_MISMATCH");
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function nodeLoseBackingPostconditions(bool success, bytes memory returnData, NodeYieldParams memory params)
         internal
     {
-        if (!params.shouldSucceed) {
-            fl.t(!success, "NODE_LOSE_BACKING_EXPECTED_REVERT");
+        if (success) {
+            uint256 balanceAfter = asset.balanceOf(params.component);
+            fl.eq(balanceAfter, params.currentBacking - params.delta, "NODE_LOSE_BACKING_BALANCE_MISMATCH");
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        fl.t(success, "NODE_LOSE_BACKING_UNEXPECTED_REVERT");
-        uint256 balanceAfter = asset.balanceOf(params.component);
-        fl.eq(balanceAfter, params.currentBacking - params.delta, "NODE_LOSE_BACKING_BALANCE_MISMATCH");
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function router4626InvestPostconditions(bool success, bytes memory returnData, RouterInvestParams memory params)
         internal
     {
-        if (!success) {
+        if (success) {
+            uint256 depositAmount = abi.decode(returnData, (uint256));
+            fl.t(depositAmount > 0, "ROUTER4626_INVEST_ZERO_DEPOSIT");
+
+            uint256 sharesAfter = IERC20(params.component).balanceOf(address(node));
+            fl.t(sharesAfter >= params.sharesBefore, "ROUTER4626_INVEST_SHARES");
+
+            uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+            fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER4626_INVEST_NODE_BALANCE");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 depositAmount = abi.decode(returnData, (uint256));
-        fl.t(depositAmount > 0, "ROUTER4626_INVEST_ZERO_DEPOSIT");
-
-        uint256 sharesAfter = IERC20(params.component).balanceOf(address(node));
-        fl.t(sharesAfter >= params.sharesBefore, "ROUTER4626_INVEST_SHARES");
-
-        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-        fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER4626_INVEST_NODE_BALANCE");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function router4626LiquidatePostconditions(
@@ -909,41 +811,39 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         RouterLiquidateParams memory params
     ) internal {
-        if (!success) {
+        if (success) {
+            uint256 assetsReturned = abi.decode(returnData, (uint256));
+            fl.t(assetsReturned > 0, "ROUTER4626_LIQUIDATE_NO_ASSETS");
+
+            uint256 sharesAfter = IERC20(params.component).balanceOf(address(node));
+            fl.t(sharesAfter <= params.sharesBefore, "ROUTER4626_LIQUIDATE_SHARES");
+
+            uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+            fl.t(nodeBalanceAfter >= params.nodeAssetBalanceBefore, "ROUTER4626_LIQUIDATE_NODE_BALANCE");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 assetsReturned = abi.decode(returnData, (uint256));
-        fl.t(assetsReturned > 0, "ROUTER4626_LIQUIDATE_NO_ASSETS");
-
-        uint256 sharesAfter = IERC20(params.component).balanceOf(address(node));
-        fl.t(sharesAfter <= params.sharesBefore, "ROUTER4626_LIQUIDATE_SHARES");
-
-        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-        fl.t(nodeBalanceAfter >= params.nodeAssetBalanceBefore, "ROUTER4626_LIQUIDATE_NODE_BALANCE");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function router4626FulfillPostconditions(bool success, bytes memory returnData, RouterFulfillParams memory params)
         internal
     {
-        if (!success) {
+        if (success) {
+            uint256 assetsReturned = abi.decode(returnData, (uint256));
+            fl.t(assetsReturned > 0, "ROUTER4626_FULFILL_NO_ASSETS");
+
+            uint256 escrowAfter = asset.balanceOf(address(escrow));
+            uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+
+            fl.t(escrowAfter >= params.escrowBalanceBefore, "ROUTER4626_FULFILL_ESCROW");
+            fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER4626_FULFILL_NODE_BALANCE");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 assetsReturned = abi.decode(returnData, (uint256));
-        fl.t(assetsReturned > 0, "ROUTER4626_FULFILL_NO_ASSETS");
-
-        uint256 escrowAfter = asset.balanceOf(address(escrow));
-        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-
-        fl.t(escrowAfter >= params.escrowBalanceBefore, "ROUTER4626_FULFILL_ESCROW");
-        fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER4626_FULFILL_NODE_BALANCE");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function router7540InvestPostconditions(
@@ -951,48 +851,46 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         RouterAsyncInvestParams memory params
     ) internal {
-        if (!success) {
+        if (success) {
+            uint256 assetsRequested = abi.decode(returnData, (uint256));
+            fl.t(assetsRequested > 0, "ROUTER7540_INVEST_ZERO");
+
+            if (params.component != address(digiftAdapter)) {
+                uint256 pendingAfter = ERC7540Mock(params.component).pendingAssets();
+                fl.t(pendingAfter >= params.pendingDepositBefore, "ROUTER7540_INVEST_PENDING");
+            }
+
+            uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+            fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER7540_INVEST_NODE_BALANCE");
+
+            if (params.component == address(digiftAdapter)) {
+                _recordDigiftPendingDeposit(address(node), params.component, assetsRequested);
+            }
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 assetsRequested = abi.decode(returnData, (uint256));
-        fl.t(assetsRequested > 0, "ROUTER7540_INVEST_ZERO");
-
-        if (params.component != address(digiftAdapter)) {
-            uint256 pendingAfter = ERC7540Mock(params.component).pendingAssets();
-            fl.t(pendingAfter >= params.pendingDepositBefore, "ROUTER7540_INVEST_PENDING");
-        }
-
-        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-        fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER7540_INVEST_NODE_BALANCE");
-
-        if (params.component == address(digiftAdapter)) {
-            _recordDigiftPendingDeposit(address(node), params.component, assetsRequested);
-        }
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function router7540MintClaimablePostconditions( // solhint-disable-line max-line-length
     bool success, bytes memory returnData, RouterMintClaimableParams memory params)
         internal
     {
-        if (!success) {
+        if (success) {
+            uint256 sharesReceived = abi.decode(returnData, (uint256));
+            fl.t(sharesReceived > 0, "ROUTER7540_MINT_ZERO");
+
+            uint256 shareBalanceAfter = IERC20(params.component).balanceOf(address(node));
+            fl.t(shareBalanceAfter >= params.shareBalanceBefore + sharesReceived, "ROUTER7540_MINT_SHARES");
+
+            uint256 claimableAfter = ERC7540Mock(params.component).claimableDepositRequests(address(node));
+            fl.t(claimableAfter <= params.claimableAssetsBefore, "ROUTER7540_MINT_CLAIMABLE");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 sharesReceived = abi.decode(returnData, (uint256));
-        fl.t(sharesReceived > 0, "ROUTER7540_MINT_ZERO");
-
-        uint256 shareBalanceAfter = IERC20(params.component).balanceOf(address(node));
-        fl.t(shareBalanceAfter >= params.shareBalanceBefore + sharesReceived, "ROUTER7540_MINT_SHARES");
-
-        uint256 claimableAfter = ERC7540Mock(params.component).claimableDepositRequests(address(node));
-        fl.t(claimableAfter <= params.claimableAssetsBefore, "ROUTER7540_MINT_CLAIMABLE");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function router7540RequestWithdrawalPostconditions(
@@ -1000,22 +898,21 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         RouterRequestAsyncWithdrawalParams memory params
     ) internal {
-        if (!success) {
+        if (success) {
+            uint256 pendingAfter = IERC7540Redeem(params.component).pendingRedeemRequest(0, address(node));
+            fl.t(pendingAfter >= params.pendingRedeemBefore, "ROUTER7540_REQUEST_PENDING");
+
+            uint256 shareBalanceAfter = IERC20(params.component).balanceOf(address(node));
+            fl.t(shareBalanceAfter <= params.shareBalanceBefore, "ROUTER7540_REQUEST_SHARES");
+
+            if (params.component == address(digiftAdapter)) {
+                _recordDigiftPendingRedemption(address(node), params.component, params.shares);
+            }
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 pendingAfter = IERC7540Redeem(params.component).pendingRedeemRequest(0, address(node));
-        fl.t(pendingAfter >= params.pendingRedeemBefore, "ROUTER7540_REQUEST_PENDING");
-
-        uint256 shareBalanceAfter = IERC20(params.component).balanceOf(address(node));
-        fl.t(shareBalanceAfter <= params.shareBalanceBefore, "ROUTER7540_REQUEST_SHARES");
-
-        if (params.component == address(digiftAdapter)) {
-            _recordDigiftPendingRedemption(address(node), params.component, params.shares);
-        }
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function router7540ExecuteWithdrawalPostconditions(
@@ -1023,25 +920,24 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         RouterExecuteAsyncWithdrawalParams memory params
     ) internal {
-        if (!success) {
+        if (success) {
+            uint256 assetsReturned = abi.decode(returnData, (uint256));
+            fl.t(assetsReturned > 0, "ROUTER7540_EXECUTE_NO_ASSETS");
+            fl.eq(params.assets, params.maxWithdrawBefore, "ROUTER7540_EXECUTE_ASSET_PARAM");
+
+            uint256 claimableAfter = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
+            fl.t(claimableAfter <= params.claimableAssetsBefore, "ROUTER7540_EXECUTE_CLAIMABLE");
+
+            uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+            fl.t(nodeBalanceAfter >= params.nodeAssetBalanceBefore, "ROUTER7540_EXECUTE_NODE_BALANCE");
+
+            uint256 maxWithdrawAfter = IERC7575(params.component).maxWithdraw(address(node));
+            fl.eq(maxWithdrawAfter, 0, "ROUTER7540_EXECUTE_MAX_WITHDRAW");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 assetsReturned = abi.decode(returnData, (uint256));
-        fl.t(assetsReturned > 0, "ROUTER7540_EXECUTE_NO_ASSETS");
-        fl.eq(params.assets, params.maxWithdrawBefore, "ROUTER7540_EXECUTE_ASSET_PARAM");
-
-        uint256 claimableAfter = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
-        fl.t(claimableAfter <= params.claimableAssetsBefore, "ROUTER7540_EXECUTE_CLAIMABLE");
-
-        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-        fl.t(nodeBalanceAfter >= params.nodeAssetBalanceBefore, "ROUTER7540_EXECUTE_NODE_BALANCE");
-
-        uint256 maxWithdrawAfter = IERC7575(params.component).maxWithdraw(address(node));
-        fl.eq(maxWithdrawAfter, 0, "ROUTER7540_EXECUTE_MAX_WITHDRAW");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function router7540FulfillRedeemPostconditions(
@@ -1049,39 +945,37 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         RouterFulfillAsyncRedeemParams memory params
     ) internal {
-        if (!success) {
+        if (success) {
+            uint256 assetsReturned = abi.decode(returnData, (uint256));
+            fl.t(assetsReturned > 0, "ROUTER7540_FULFILL_NO_ASSETS");
+
+            uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
+            fl.t(escrowBalanceAfter >= params.escrowBalanceBefore, "ROUTER7540_FULFILL_ESCROW_BALANCE");
+
+            uint256 nodeBalanceAfter = asset.balanceOf(address(node));
+            fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER7540_FULFILL_NODE_BALANCE");
+
+            uint256 componentSharesAfter = IERC20(params.component).balanceOf(address(node));
+            fl.t(componentSharesAfter <= params.componentSharesBefore, "ROUTER7540_FULFILL_COMPONENT_SHARES");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 assetsReturned = abi.decode(returnData, (uint256));
-        fl.t(assetsReturned > 0, "ROUTER7540_FULFILL_NO_ASSETS");
-
-        uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
-        fl.t(escrowBalanceAfter >= params.escrowBalanceBefore, "ROUTER7540_FULFILL_ESCROW_BALANCE");
-
-        uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-        fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER7540_FULFILL_NODE_BALANCE");
-
-        uint256 componentSharesAfter = IERC20(params.component).balanceOf(address(node));
-        fl.t(componentSharesAfter <= params.componentSharesBefore, "ROUTER7540_FULFILL_COMPONENT_SHARES");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function poolProcessPendingDepositsPostconditions( // solhint-disable-line max-line-length
     bool success, bytes memory returnData, PoolProcessParams memory params)
         internal
     {
-        if (!success) {
+        if (success) {
+            uint256 pendingAfter = ERC7540Mock(params.pool).pendingAssets();
+            fl.t(pendingAfter <= params.pendingBefore, "POOL_PROCESS_PENDING_DELTA");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        uint256 pendingAfter = ERC7540Mock(params.pool).pendingAssets();
-        fl.t(pendingAfter <= params.pendingBefore, "POOL_PROCESS_PENDING_DELTA");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 
     function _pushUnique(address[] storage list, address candidate) internal {
@@ -1145,37 +1039,32 @@ contract PostconditionsNode is PostconditionsBase {
         address[] memory actors,
         OneInchSwapParams memory params
     ) internal {
-        if (!success) {
-            // Should fail
-            fl.t(!params.shouldSucceed, "OneInch swap should fail when expected");
+        if (success) {
+            _after(actors);
+
+            address nodeAddr = actors[0];
+            address executorAddr = actors[1];
+
+            // Node should have received assets
+            uint256 nodeAssetBalanceAfter = asset.balanceOf(nodeAddr);
+            uint256 assetGain = nodeAssetBalanceAfter - params.nodeAssetBalanceBefore;
+
+            // Assets should be at least minAssetsOut (after fee)
+            // Fee is subtracted by _subtractExecutionFee, so actual amount might be slightly less
+            fl.t(assetGain >= (params.minAssetsOut * 99) / 100, "Node should receive close to expected assets");
+
+            // Incentive tokens should be transferred from node
+            uint256 incentiveBalanceAfter = IERC20(params.incentive).balanceOf(nodeAddr);
+            uint256 incentiveLoss = params.incentiveBalanceBefore - incentiveBalanceAfter;
+            fl.eq(incentiveLoss, params.incentiveAmount, "Node should have spent incentive amount");
+
+            // Executor should have received incentive tokens
+            uint256 executorIncentiveBalance = IERC20(params.incentive).balanceOf(executorAddr);
+            fl.gte(executorIncentiveBalance, params.incentiveAmount, "Executor should receive incentive tokens");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
             onFailInvariantsGeneral(returnData);
-            return;
         }
-
-        fl.t(params.shouldSucceed, "OneInch swap should succeed");
-
-        _after(actors);
-
-        address nodeAddr = actors[0];
-        address executorAddr = actors[1];
-
-        // Node should have received assets
-        uint256 nodeAssetBalanceAfter = asset.balanceOf(nodeAddr);
-        uint256 assetGain = nodeAssetBalanceAfter - params.nodeAssetBalanceBefore;
-
-        // Assets should be at least minAssetsOut (after fee)
-        // Fee is subtracted by _subtractExecutionFee, so actual amount might be slightly less
-        fl.t(assetGain >= (params.minAssetsOut * 99) / 100, "Node should receive close to expected assets");
-
-        // Incentive tokens should be transferred from node
-        uint256 incentiveBalanceAfter = IERC20(params.incentive).balanceOf(nodeAddr);
-        uint256 incentiveLoss = params.incentiveBalanceBefore - incentiveBalanceAfter;
-        fl.eq(incentiveLoss, params.incentiveAmount, "Node should have spent incentive amount");
-
-        // Executor should have received incentive tokens
-        uint256 executorIncentiveBalance = IERC20(params.incentive).balanceOf(executorAddr);
-        fl.gte(executorIncentiveBalance, params.incentiveAmount, "Executor should receive incentive tokens");
-
-        onSuccessInvariantsGeneral(returnData);
     }
 }

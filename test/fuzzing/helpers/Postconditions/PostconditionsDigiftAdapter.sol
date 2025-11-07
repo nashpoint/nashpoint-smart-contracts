@@ -11,7 +11,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bytes memory returnData,
         DigiftForwardRequestParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             uint256 forwardedDeposits;
             while (_pendingDigiftDepositCount() > 0) {
                 DigiftPendingDepositRecord memory record =
@@ -38,10 +38,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
                 fl.eq(globalPendingRedeem, forwardedRedemptions, "DIGIFT_FORWARD_REDEEM_PENDING");
             }
             onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
-            onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
         }
@@ -52,7 +48,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bytes memory returnData,
         DigiftSettleDepositParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             uint256 recordsProcessed;
             for (uint256 i = 0; i < params.records.length; i++) {
                 uint256 remaining = _forwardedDigiftDepositCount();
@@ -72,10 +68,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
                 fl.eq(remainingPending, 0, "DIGIFT_SETTLE_PENDING_REMAINS");
             }
             onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
-            onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
         }
@@ -86,7 +78,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bytes memory returnData,
         DigiftSettleRedeemParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             uint256 recordsProcessed;
             uint256 totalMaxWithdrawable;
             for (uint256 i = 0; i < params.records.length; i++) {
@@ -112,10 +104,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
                 fl.eq(totalMaxWithdrawable, params.assetsExpected, "DIGIFT_SETTLE_REDEEM_ASSETS_EXPECTED");
             }
             onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
-            onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
         }
@@ -126,7 +114,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bytes memory returnData,
         DigiftAssetFundingParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -138,7 +126,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bytes memory returnData,
         DigiftAssetApprovalParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             uint256 allowance = asset.allowance(address(node), address(digiftAdapter));
             // fl.eq(allowance, params.amount, "DIGIFT_ASSET_ALLOWANCE_MISMATCH");
             onSuccessInvariantsGeneral(returnData);
@@ -153,7 +141,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         address owner,
         DigiftApproveParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             uint256 allowance = digiftAdapter.allowance(owner, params.spender);
             // fl.eq(allowance, params.amount, "DIGIFT_APPROVE_AMOUNT_MISMATCH");
             onSuccessInvariantsGeneral(returnData);
@@ -168,12 +156,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         address from,
         DigiftTransferParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             // fl.eq(digiftAdapter.balanceOf(params.to), digiftAdapter.balanceOf(params.to), "DIGIFT_TRANSFER_PLACEHOLDER");
-            onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -185,7 +169,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bytes memory returnData,
         DigiftRequestParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             uint256 pending = digiftAdapter.pendingDepositRequest(0, address(node));
             // fl.eq(pending, params.amount, "DIGIFT_PENDING_DEPOSIT_ANOMALY");
             onSuccessInvariantsGeneral(returnData);
@@ -195,12 +179,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
     }
 
     function digiftMintPostconditions(bool success, bytes memory returnData, DigiftMintParams memory params) internal {
-        if (success && params.shouldSucceed) {
-            onSuccessInvariantsGeneral(returnData);
-        } else if (!params.shouldSucceed && !success) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
-            // unexpected success - still treat as success for invariants coverage
+        if (success) {
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -210,7 +189,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
     function digiftForwardPostconditions(bool success, bytes memory returnData, DigiftForwardParams memory params)
         internal
     {
-        if (success && params.shouldSucceed) {
+        if (success) {
             if (!params.expectDeposit) {
                 // fl.eq(digiftAdapter.globalPendingDepositRequest(), 0, "DIGIFT_FORWARD_DEPOSIT_PENDING");
             }
@@ -229,16 +208,12 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftSettleParams memory params,
         bool isDeposit
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             if (isDeposit) {
                 // fl.eq(digiftAdapter.globalPendingDepositRequest(), 0, "DIGIFT_SETTLE_DEPOSIT_PENDING");
             } else {
                 // fl.eq(digiftAdapter.globalPendingRedeemRequest(), 0, "DIGIFT_SETTLE_REDEEM_PENDING");
             }
-            onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -248,7 +223,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
     function digiftWithdrawPostconditions(bool success, bytes memory returnData, DigiftWithdrawParams memory params)
         internal
     {
-        if (success && params.shouldSucceed) {
+        if (success) {
             fl.eq(params.assets, params.maxWithdrawBefore, "DIGIFT_WITHDRAW_ASSET_MISMATCH");
 
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
@@ -257,10 +232,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             uint256 maxWithdrawAfter = digiftAdapter.maxWithdraw(address(node));
             fl.eq(maxWithdrawAfter, 0, "DIGIFT_WITHDRAW_MAX_AFTER");
 
-            onSuccessInvariantsGeneral(returnData);
-        } else if (!params.shouldSucceed && !success) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -272,17 +243,13 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bytes memory returnData,
         DigiftRequestRedeemParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             uint256 pendingAfter = digiftAdapter.pendingRedeemRequest(0, address(node));
             fl.gt(pendingAfter, params.pendingBefore, "DIGIFT_REQUEST_REDEEM_PENDING");
 
             uint256 balanceAfter = digiftAdapter.balanceOf(address(node));
             fl.t(balanceAfter <= params.balanceBefore, "DIGIFT_REQUEST_REDEEM_BALANCE");
 
-            onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -295,7 +262,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftSetAddressBoolParams memory params,
         bool isManager
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             if (isManager) {
                 // fl.eq(digiftAdapter.managerWhitelisted(params.target), params.status, "DIGIFT_MANAGER_STATUS");
             } else {
@@ -313,7 +280,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftSetUintParams memory params,
         uint8 selector
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             if (selector == 0) {
                 // fl.eq(digiftAdapter.minDepositAmount(), params.value, "DIGIFT_MIN_DEPOSIT");
             } else if (selector == 1) {

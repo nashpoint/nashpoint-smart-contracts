@@ -71,7 +71,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_withdraw(uint256 controllerSeed, uint256 assetsSeed) public {
         WithdrawParams memory params = withdrawPreconditions(controllerSeed, assetsSeed);
 
-        _forceActor(params.controller, controllerSeed);
+        forceActor(params.controller, controllerSeed);
 
         address[] memory actorsToUpdate = new address[](3);
         actorsToUpdate[0] = params.controller;
@@ -91,7 +91,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_node_redeem(uint256 shareSeed) public {
         NodeRedeemParams memory params = nodeRedeemPreconditions(shareSeed);
 
-        _forceActor(params.controller, shareSeed);
+        forceActor(params.controller, shareSeed);
 
         address[] memory actors = new address[](3);
         actors[0] = params.controller;
@@ -171,7 +171,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
     function fuzz_node_submitPolicyData(uint256 seed) public {
         NodeSubmitPolicyDataParams memory params = nodeSubmitPolicyDataPreconditions(seed);
-        _forceActor(params.caller, seed);
+        forceActor(params.caller, seed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -184,7 +184,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
     function fuzz_node_multicall(uint256 seed) public {
         NodeMulticallParams memory params = nodeMulticallPreconditions(seed);
-        _forceActor(params.caller, seed);
+        forceActor(params.caller, seed);
 
         bytes4 multicallSelector = bytes4(keccak256("multicall(bytes[])"));
 
@@ -201,7 +201,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_component_gainBacking(uint256 componentSeed, uint256 amountSeed) public {
         NodeYieldParams memory params = nodeGainBackingPreconditions(componentSeed, amountSeed);
 
-        _forceActor(params.caller, componentSeed);
+        forceActor(params.caller, componentSeed);
 
         fl.log("GAIN_BACKING:component", params.component);
         fl.log("GAIN_BACKING:delta", params.delta);
@@ -219,7 +219,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_component_loseBacking(uint256 componentSeed, uint256 amountSeed) public {
         NodeYieldParams memory params = nodeLoseBackingPreconditions(componentSeed, amountSeed);
 
-        _forceActor(params.caller, componentSeed);
+        forceActor(params.caller, componentSeed);
 
         fl.log("LOSE_BACKING:component", params.component);
         fl.log("LOSE_BACKING:delta", params.delta);

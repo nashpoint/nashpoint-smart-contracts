@@ -22,7 +22,7 @@ import {IERC7575} from "../../../src/interfaces/IERC7575.sol";
 contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_node_startRebalance(uint256 seed) public {
         NodeStartRebalanceParams memory params = nodeStartRebalancePreconditions(seed);
-        _forceActor(params.caller, seed);
+        forceActor(params.caller, seed);
 
         address[] memory tracked = new address[](2);
         tracked[0] = node.nodeOwnerFeeAddress();
@@ -39,7 +39,7 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_node_fulfillRedeem(uint256 controllerSeed) public {
         FulfillRedeemParams memory params = fulfillRedeemPreconditions(controllerSeed);
-        _forceActor(rebalancer, controllerSeed);
+        forceActor(rebalancer, controllerSeed);
 
         address[] memory actors = new address[](2);
         actors[0] = params.controller;
@@ -57,7 +57,7 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_node_updateTotalAssets(uint256 seed) public {
         NodeUpdateTotalAssetsParams memory params = nodeUpdateTotalAssetsPreconditions(seed);
-        _forceActor(params.caller, seed);
+        forceActor(params.caller, seed);
 
         address[] memory tracked = new address[](0);
         _before(tracked);
@@ -72,7 +72,7 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_router4626_invest(uint256 componentSeed, uint256 minOutSeed) public {
         RouterInvestParams memory params = router4626InvestPreconditions(componentSeed, minOutSeed);
-        _forceActor(rebalancer, componentSeed);
+        forceActor(rebalancer, componentSeed);
 
         params.sharesBefore = IERC20(params.component).balanceOf(address(node));
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
@@ -88,7 +88,7 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_router4626_liquidate(uint256 componentSeed, uint256 sharesSeed) public {
         RouterLiquidateParams memory params = router4626LiquidatePreconditions(componentSeed, sharesSeed);
-        _forceActor(rebalancer, componentSeed);
+        forceActor(rebalancer, componentSeed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(router4626),
@@ -103,7 +103,7 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_router4626_fulfillRedeem(uint256 controllerSeed, uint256 componentSeed) public {
         RouterFulfillParams memory params = router4626FulfillPreconditions(controllerSeed, componentSeed);
-        _forceActor(rebalancer, controllerSeed);
+        forceActor(rebalancer, controllerSeed);
 
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
         params.escrowBalanceBefore = asset.balanceOf(address(escrow));
@@ -125,7 +125,7 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_router7540_invest(uint256 componentSeed) public {
         RouterAsyncInvestParams memory params = router7540InvestPreconditions(componentSeed);
-        _forceActor(rebalancer, componentSeed);
+        forceActor(rebalancer, componentSeed);
 
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
 
@@ -140,7 +140,7 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_router7540_mintClaimable(uint256 componentSeed) public {
         RouterMintClaimableParams memory params = router7540MintClaimablePreconditions(componentSeed);
-        _forceActor(rebalancer, componentSeed);
+        forceActor(rebalancer, componentSeed);
 
         params.claimableAssetsBefore = ERC7540Mock(params.component).claimableDepositRequests(address(node));
         params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
@@ -157,7 +157,7 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router7540_requestAsyncWithdrawal(uint256 componentSeed, uint256 sharesSeed) public {
         RouterRequestAsyncWithdrawalParams memory params =
             router7540RequestWithdrawalPreconditions(componentSeed, sharesSeed);
-        _forceActor(rebalancer, componentSeed);
+        forceActor(rebalancer, componentSeed);
 
         params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
         params.pendingRedeemBefore = IERC7540Redeem(params.component).pendingRedeemRequest(0, address(node));
@@ -176,7 +176,7 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router7540_executeAsyncWithdrawal(uint256 componentSeed, uint256 assetsSeed) public {
         RouterExecuteAsyncWithdrawalParams memory params =
             router7540ExecuteWithdrawalPreconditions(componentSeed, assetsSeed);
-        _forceActor(rebalancer, componentSeed);
+        forceActor(rebalancer, componentSeed);
 
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
         params.claimableAssetsBefore = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
@@ -197,7 +197,7 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router7540_fulfillRedeemRequest(uint256 controllerSeed, uint256 componentSeed) public {
         RouterFulfillAsyncRedeemParams memory params =
             router7540FulfillRedeemPreconditions(controllerSeed, componentSeed);
-        _forceActor(rebalancer, controllerSeed);
+        forceActor(rebalancer, controllerSeed);
 
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
         params.escrowBalanceBefore = asset.balanceOf(address(escrow));
@@ -216,7 +216,7 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_pool_processPendingDeposits(uint256 poolSeed) public {
         PoolProcessParams memory params = poolProcessPendingDepositsPreconditions(poolSeed);
-        _forceActor(poolManager, poolSeed);
+        forceActor(poolManager, poolSeed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             params.pool, abi.encodeWithSelector(ERC7540Mock.processPendingDeposits.selector), currentActor
@@ -225,7 +225,7 @@ contract FuzzAdminNode is FuzzNode {
         poolProcessPendingDepositsPostconditions(success, returnData, params);
     }
     // function fuzz_admin_node_setAnnualManagementFee(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeFeeParams memory params = nodeSetAnnualFeePreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -236,7 +236,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_setMaxDepositSize(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeUintParams memory params = nodeSetMaxDepositPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -247,7 +247,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_setNodeOwnerFeeAddress(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeAddressParams memory params = nodeSetNodeOwnerFeeAddressPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -258,7 +258,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_setQuoter() public {
-    //     _forceActor(owner, 0);
+    //     forceActor(owner, 0);
     //     NodeAddressParams memory params = nodeSetQuoterPreconditions();
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -269,7 +269,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_setRebalanceCooldown(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeFeeParams memory params = nodeSetRebalanceCooldownPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -280,7 +280,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_setRebalanceWindow(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeFeeParams memory params = nodeSetRebalanceWindowPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -291,7 +291,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_setLiquidationQueue(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeQueueParams memory params = nodeSetLiquidationQueuePreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -302,7 +302,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_rescueTokens(uint256 amountSeed) public {
-    //     _forceActor(owner, amountSeed);
+    //     forceActor(owner, amountSeed);
     //     NodeRescueParams memory params = nodeRescueTokensPreconditions(amountSeed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -315,7 +315,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_addComponent(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeComponentAllocationParams memory params = nodeAddComponentPreconditions(seed);
     //
     //     uint64 targetWeight = uint64(params.targetWeight);
@@ -333,7 +333,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_removeComponent(uint256 seed, bool forceFlag) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeRemoveComponentParams memory params = nodeRemoveComponentPreconditions(seed, forceFlag);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -346,7 +346,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_updateComponentAllocation(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeComponentAllocationParams memory params = nodeUpdateComponentAllocationPreconditions(seed);
     //
     //     uint64 targetWeight = uint64(params.targetWeight);
@@ -366,7 +366,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_updateTargetReserveRatio(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeTargetReserveParams memory params = nodeUpdateTargetReserveRatioPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -377,7 +377,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_enableSwingPricing(uint256 seed, bool statusSeed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeSwingPricingParams memory params = nodeEnableSwingPricingPreconditions(seed, statusSeed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -390,7 +390,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_addPolicies(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodePoliciesParams memory params = nodeAddPoliciesPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -405,7 +405,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_removePolicies(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodePoliciesRemovalParams memory params = nodeRemovePoliciesPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -418,7 +418,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_addRebalancer(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeAddressParams memory params = nodeAddRebalancerPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -429,7 +429,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_removeRebalancer(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeAddressParams memory params = nodeRemoveRebalancerPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -440,7 +440,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_addRouter(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeAddressParams memory params = nodeAddRouterPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -451,7 +451,7 @@ contract FuzzAdminNode is FuzzNode {
     // }
 
     // function fuzz_admin_node_removeRouter(uint256 seed) public {
-    //     _forceActor(owner, seed);
+    //     forceActor(owner, seed);
     //     NodeAddressParams memory params = nodeRemoveRouterPreconditions(seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -463,7 +463,7 @@ contract FuzzAdminNode is FuzzNode {
 
     // function fuzz_admin_node_renounceOwnership(uint256 seed) public {
     //     NodeOwnershipParams memory params = nodeRenounceOwnershipPreconditions(seed);
-    //     _forceActor(params.caller, seed);
+    //     forceActor(params.caller, seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(node), abi.encodeWithSelector(bytes4(keccak256("renounceOwnership()"))), currentActor
@@ -474,7 +474,7 @@ contract FuzzAdminNode is FuzzNode {
 
     // function fuzz_admin_node_transferOwnership(uint256 seed) public {
     //     NodeOwnershipParams memory params = nodeTransferOwnershipPreconditions(seed);
-    //     _forceActor(params.caller, seed);
+    //     forceActor(params.caller, seed);
     //
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(node),
@@ -487,7 +487,7 @@ contract FuzzAdminNode is FuzzNode {
 
     // function fuzz_admin_node_payManagementFees(uint256 seed) public {
     //     NodePayManagementFeesParams memory params = nodePayManagementFeesPreconditions(seed);
-    //     _forceActor(params.caller, seed);
+    //     forceActor(params.caller, seed);
     //
     //     address[] memory tracked = new address[](2);
     //     tracked[0] = node.nodeOwnerFeeAddress();
@@ -503,7 +503,7 @@ contract FuzzAdminNode is FuzzNode {
 
     // function fuzz_admin_node_updateTotalAssets(uint256 seed) public {
     //     NodeUpdateTotalAssetsParams memory params = nodeUpdateTotalAssetsPreconditions(seed);
-    //     _forceActor(params.caller, seed);
+    //     forceActor(params.caller, seed);
     //
     //     _before();
     //
@@ -524,7 +524,7 @@ contract FuzzAdminNode is FuzzNode {
      * @param seed Used to generate test parameters
      */
     function fuzz_admin_oneinch_swap(uint256 seed) public {
-        _forceActor(rebalancer, seed);
+        forceActor(rebalancer, seed);
 
         OneInchSwapParams memory params = oneInchSwapPreconditions(seed);
 

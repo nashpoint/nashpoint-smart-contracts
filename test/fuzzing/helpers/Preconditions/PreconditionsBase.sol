@@ -70,7 +70,7 @@ contract PreconditionsBase is FuzzStructs {
         require(iterationFound, "User index not found by setter");
     }
 
-    function _forceActor(address actor, uint256 seed) internal {
+    function forceActor(address actor, uint256 seed) internal {
         require(protocolSet, "PreconditionsBase: Protocol not set");
 
         currentActor = actor;

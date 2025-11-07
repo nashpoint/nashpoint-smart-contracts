@@ -10,7 +10,7 @@ import {MerklRouter} from "../../src/routers/MerklRouter.sol";
 
 contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRouters {
     function fuzz_fluid_claimRewards(uint256 positionIdSeed, uint256 cycleSeed, uint256 amountSeed) public {
-        _forceActor(rebalancer, positionIdSeed);
+        forceActor(rebalancer, positionIdSeed);
 
         FluidClaimParams memory params = fluidClaimPreconditions(positionIdSeed, cycleSeed, amountSeed);
 
@@ -31,7 +31,7 @@ contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRo
     }
 
     function fuzz_incentra_claimRewards(uint256 campaignSeed, uint256 amountSeed) public {
-        _forceActor(rebalancer, campaignSeed);
+        forceActor(rebalancer, campaignSeed);
 
         IncentraClaimParams memory params = incentraClaimPreconditions(campaignSeed, amountSeed);
 
@@ -45,7 +45,7 @@ contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRo
     }
 
     function fuzz_merkl_claimRewards(uint256 amountSeed) public {
-        _forceActor(rebalancer, amountSeed);
+        forceActor(rebalancer, amountSeed);
 
         MerklClaimParams memory params = merklClaimPreconditions(amountSeed);
 

@@ -16,7 +16,7 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     // Standard ERC20 functions accessible to end users
 
     function fuzz_digift_approve(uint256 spenderSeed, uint256 amountSeed) public {
-        _forceActor(address(node), amountSeed);
+        forceActor(address(node), amountSeed);
         DigiftApproveParams memory params = digiftApprovePreconditions(spenderSeed, amountSeed);
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
@@ -27,7 +27,7 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     }
 
     function fuzz_digift_transfer(uint256 recipientSeed, uint256 amountSeed) public {
-        _forceActor(address(node), amountSeed);
+        forceActor(address(node), amountSeed);
         DigiftTransferParams memory params = digiftTransferPreconditions(recipientSeed, amountSeed);
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
@@ -39,7 +39,7 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
 
     function fuzz_digift_transferFrom(uint256 recipientSeed, uint256 amountSeed) public {
         address spender = _selectAddressFromSeed(amountSeed);
-        _forceActor(spender, amountSeed);
+        forceActor(spender, amountSeed);
         DigiftTransferParams memory params = digiftTransferFromPreconditions(spender, recipientSeed, amountSeed);
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
@@ -50,7 +50,7 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     }
 
     function fuzz_digift_mint(uint256 shareSeed) public {
-        _forceActor(address(node), shareSeed);
+        forceActor(address(node), shareSeed);
 
         DigiftMintParams memory params = digiftMintPreconditions(shareSeed);
 
@@ -64,7 +64,7 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     }
 
     function fuzz_digift_withdraw(uint256 assetsSeed) public {
-        _forceActor(address(node), assetsSeed);
+        forceActor(address(node), assetsSeed);
 
         DigiftWithdrawParams memory params = digiftWithdrawPreconditions(assetsSeed);
 
@@ -78,7 +78,7 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     }
 
     function fuzz_digift_requestRedeem(uint256 sharesSeed) public {
-        _forceActor(address(node), sharesSeed);
+        forceActor(address(node), sharesSeed);
 
         DigiftRequestRedeemParams memory params = digiftRequestRedeemFlowPreconditions(sharesSeed);
 

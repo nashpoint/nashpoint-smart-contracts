@@ -9,7 +9,7 @@ import {MerklDistributorMock} from "../../../mocks/MerklDistributorMock.sol";
 
 contract PostconditionsRewardRouters is PostconditionsBase {
     function fluidClaimPostconditions(bool success, bytes memory returnData, FluidClaimParams memory params) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             (
                 address recipient,
                 uint256 cumulativeAmount,
@@ -26,10 +26,6 @@ contract PostconditionsRewardRouters is PostconditionsBase {
             fl.t(proofHash == params.proofHash, "FLUID_CLAIM_PROOF");
 
             onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
-            onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
         }
@@ -38,15 +34,11 @@ contract PostconditionsRewardRouters is PostconditionsBase {
     function incentraClaimPostconditions(bool success, bytes memory returnData, IncentraClaimParams memory params)
         internal
     {
-        if (success && params.shouldSucceed) {
+        if (success) {
             fl.eq(incentraDistributor.lastEarner(), address(node), "INCENTRA_EARNER");
             fl.t(incentraDistributor.lastCampaignAddrsHash() == params.campaignAddrsHash, "INCENTRA_CAMPAIGNS");
             fl.t(incentraDistributor.lastRewardsHash() == params.rewardsHash, "INCENTRA_REWARDS");
 
-            onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -54,7 +46,7 @@ contract PostconditionsRewardRouters is PostconditionsBase {
     }
 
     function merklClaimPostconditions(bool success, bytes memory returnData, MerklClaimParams memory params) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             address[] memory users = merklDistributor.getLastUsers();
             address[] memory tokens = merklDistributor.getLastTokens();
             uint256[] memory amounts = merklDistributor.getLastAmounts();
@@ -64,10 +56,6 @@ contract PostconditionsRewardRouters is PostconditionsBase {
             fl.t(keccak256(abi.encode(amounts)) == params.amountsHash, "MERKL_AMOUNTS");
             fl.t(merklDistributor.lastProofsHash() == params.proofsHash, "MERKL_PROOFS");
 
-            onSuccessInvariantsGeneral(returnData);
-        } else if (!success && !params.shouldSucceed) {
-            onFailInvariantsGeneral(returnData);
-        } else if (success && !params.shouldSucceed) {
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

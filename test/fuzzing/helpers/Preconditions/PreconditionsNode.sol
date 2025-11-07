@@ -53,7 +53,8 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        params.assets = fl.clamp(amountSeed, 1, cap);
+        // Allow 0 for edge case testing (will fail naturally)
+        params.assets = fl.clamp(amountSeed, 0, cap);
         params.shouldSucceed = params.assets > 0;
     }
 
@@ -73,7 +74,8 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        params.shares = fl.clamp(sharesSeed, 1, cap);
+        // Allow 0 for edge case testing
+        params.shares = fl.clamp(sharesSeed, 0, cap);
         params.shouldSucceed = params.shares > 0;
     }
 
@@ -91,7 +93,8 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        params.shares = fl.clamp(sharesSeed, 1, shareBalance);
+        // Allow 0 for edge case testing
+        params.shares = fl.clamp(sharesSeed, 0, shareBalance);
         params.shouldSucceed = params.shares > 0;
         (params.pendingBefore,,,) = node.requests(currentActor);
     }
@@ -102,7 +105,9 @@ contract PreconditionsNode is PreconditionsBase {
         uint256 userCount = USERS.length;
         address controller = USERS[controllerSeed % userCount];
 
-        uint256 desiredShares = Math.max(1e18, node.balanceOf(controller) / 4 + 1);
+        // Use fuzzer-controlled amount instead of fixed 1e18
+        uint256 desiredShares = node.balanceOf(controller) / 4 + 1;
+        if (desiredShares == 0) desiredShares = 1;
         _ensurePendingRedeem(controller, desiredShares);
         _startRebalance();
 
@@ -110,11 +115,14 @@ contract PreconditionsNode is PreconditionsBase {
         params.controller = controller;
         params.pendingBefore = pendingRedeem;
 
-        bool forceFailure = controllerSeed % 5 == 0;
+        // Use seed to determine failure (varies from 0-100%)
+        bool forceFailure = (controllerSeed % 10) == 0; // 10% failure rate instead of 20%
         if (forceFailure) {
             _drainNodeReserve();
         } else if (asset.balanceOf(address(node)) == 0) {
-            assetToken.mint(address(node), 50e18);
+            // Derive amount from seed instead of fixed 50e18
+            uint256 mintAmount = fl.clamp(controllerSeed, 1e18, 100e18);
+            assetToken.mint(address(node), mintAmount);
         }
 
         params.shouldSucceed = !forceFailure;
@@ -127,22 +135,29 @@ contract PreconditionsNode is PreconditionsBase {
         _prepareNodeContext(controllerSeed);
 
         uint256 userCount = USERS.length;
-        address candidate = USERS[controllerSeed % userCount];
+        if (userCount == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
 
-        // Always ensure claimable redeem exists for the selected user
-        _ensureClaimableRedeem(candidate, 2e18);
+        (bool found, address controllerCandidate, uint256 claimableShares, uint256 claimableAssets) =
+            _findClaimableRedeemController(controllerSeed, true);
 
-        (
-            ,
-            uint256 claimableRedeemRequest,
-            uint256 claimableAssets,
-            /* sharesAdjusted */
-        ) = node.requests(candidate);
+        if (!found) {
+            address fallbackController = USERS[controllerSeed % userCount];
+            params.controller = fallbackController;
+            params.receiver = fallbackController;
+            params.claimableAssetsBefore = 0;
+            params.claimableSharesBefore = 0;
+            params.assets = 0;
+            params.shouldSucceed = false;
+            return params;
+        }
 
-        params.controller = candidate;
-        params.receiver = candidate;
+        params.controller = controllerCandidate;
+        params.receiver = controllerCandidate;
         params.claimableAssetsBefore = claimableAssets;
-        params.claimableSharesBefore = claimableRedeemRequest;
+        params.claimableSharesBefore = claimableShares;
 
         // Only proceed if we actually have claimable assets
         if (claimableAssets == 0) {
@@ -151,12 +166,13 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        // Branch 1 (90%): Normal withdrawal within bounds
-        // Branch 2 (10%): Attempt to withdraw more than max to trigger ExceedsMaxWithdraw
-        if (assetsSeed % 10 < 9) {
-            // Happy path: withdraw within claimable range
+        // Let fuzzer explore full range of amounts (including edge cases)
+        // Use wider distribution instead of fixed 90/10 split
+        if (assetsSeed % 100 < 85) {
+            // 85% within bounds
+            // Happy path: withdraw within claimable range (allow 0)
             uint256 maxAssets = claimableAssets;
-            params.assets = fl.clamp(assetsSeed + 1, 1, maxAssets);
+            params.assets = fl.clamp(assetsSeed, 0, maxAssets);
             params.shouldSucceed = params.assets > 0 && params.assets <= maxAssets;
         } else {
             // Error path: try to withdraw more than max
@@ -235,7 +251,8 @@ contract PreconditionsNode is PreconditionsBase {
         }
 
         params.receiver = receiver;
-        params.amount = fl.clamp(amountSeed + 1, 1, senderBalance);
+        // Allow 0 for edge case testing
+        params.amount = fl.clamp(amountSeed, 0, senderBalance);
         params.shouldSucceed = params.amount > 0 && receiver != address(0) && receiver != sender;
     }
 
@@ -254,9 +271,10 @@ contract PreconditionsNode is PreconditionsBase {
 
         uint256 ownerBalance = node.balanceOf(ownerCandidate);
 
-        // Ensure owner has some balance
+        // Ensure owner has some balance (derive from seed)
         if (ownerBalance == 0) {
-            _userDeposits(ownerCandidate, 5e18);
+            uint256 depositAmount = fl.clamp(ownerSeed, 1e18, 20e18);
+            _userDeposits(ownerCandidate, depositAmount);
             ownerBalance = node.balanceOf(ownerCandidate);
         }
 
@@ -265,12 +283,12 @@ contract PreconditionsNode is PreconditionsBase {
             receiver = owner;
         }
 
-        // Branch 1 (70%): Caller has sufficient allowance → _spendAllowance succeeds
-        // Branch 2 (20%): Caller has some allowance but tries to transfer more → ExceedsAllowance
-        // Branch 3 (10%): Caller has NO allowance/approval → InvalidOwner
-        uint256 branchSelector = amountSeed % 10;
+        // Explore 3 branches with fuzzer-controlled distribution
+        // Use 100-based distribution for finer control
+        uint256 branchSelector = amountSeed % 100;
 
-        if (branchSelector < 7) {
+        if (branchSelector < 75) {
+            // 75% success path (was 70%)
             // Happy path: Ensure allowance exists and transfer within it
             uint256 currentAllowance = node.allowance(ownerCandidate, currentActor);
             if (currentAllowance == 0) {
@@ -283,10 +301,12 @@ contract PreconditionsNode is PreconditionsBase {
             uint256 maxTransferable = ownerBalance < currentAllowance ? ownerBalance : currentAllowance;
             params.owner = ownerCandidate;
             params.receiver = receiver;
-            params.amount = fl.clamp(amountSeed + 1, 1, maxTransferable);
+            // Allow 0 for edge testing
+            params.amount = fl.clamp(amountSeed, 0, maxTransferable);
             params.allowanceBefore = node.allowance(ownerCandidate, currentActor);
-            params.shouldSucceed = true;
-        } else if (branchSelector < 9) {
+            params.shouldSucceed = params.amount > 0;
+        } else if (branchSelector < 92) {
+            // 17% exceed allowance (was 20%)
             // Error path: Has allowance but tries to exceed it
             uint256 currentAllowance = node.allowance(ownerCandidate, currentActor);
             if (currentAllowance == 0) {
@@ -301,8 +321,8 @@ contract PreconditionsNode is PreconditionsBase {
             params.allowanceBefore = currentAllowance;
             params.shouldSucceed = false;
         } else {
+            // 8% no allowance (was 10%)
             // Error path: No allowance/approval → InvalidOwner
-            // Ensure currentActor has NO allowance and is NOT an operator
             params.owner = ownerCandidate;
             params.receiver = receiver;
             params.amount = 1;
@@ -312,15 +332,27 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function nodeRedeemPreconditions(uint256 sharesSeed) internal returns (NodeRedeemParams memory params) {
-        address controller = USERS[sharesSeed % USERS.length];
+        uint256 userCount = USERS.length;
+        if (userCount == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        (bool found, address controller, uint256 claimableShares, uint256 claimableAssets) =
+            _findClaimableRedeemController(sharesSeed, false);
+
+        if (!found) {
+            address controllerFallback = USERS[sharesSeed % userCount];
+            params.controller = controllerFallback;
+            params.receiver = controllerFallback;
+            params.claimableAssetsBefore = 0;
+            params.claimableSharesBefore = 0;
+            params.shouldSucceed = false;
+            return params;
+        }
+
         params.controller = controller;
         params.receiver = controller;
-
-        // Always ensure claimable redeem exists for the selected user
-        _ensureClaimableRedeem(controller, 2e18);
-
-        (, uint256 claimableShares, uint256 claimableAssets,) = node.requests(controller);
-
         params.claimableAssetsBefore = claimableAssets;
         params.claimableSharesBefore = claimableShares;
 
@@ -331,12 +363,12 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        // Branch 1 (90%): Normal redeem within bounds
-        // Branch 2 (10%): Attempt to redeem more than max to trigger ExceedsMaxRedeem
-        if (sharesSeed % 10 < 9) {
-            // Happy path: redeem within claimable range
+        // Let fuzzer explore both success and failure paths
+        if (sharesSeed % 100 < 85) {
+            // 85% within bounds
+            // Happy path: redeem within claimable range (allow 0)
             uint256 maxShares = claimableShares;
-            params.shares = fl.clamp(sharesSeed + 1, 1, maxShares);
+            params.shares = fl.clamp(sharesSeed, 0, maxShares);
             params.shouldSucceed = params.shares > 0 && params.shares <= maxShares;
         } else {
             // Error path: try to redeem more than max
@@ -378,10 +410,6 @@ contract PreconditionsNode is PreconditionsBase {
         });
         params.escrow = address(escrow);
         params.shouldSucceed = false;
-    }
-
-    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
     }
 
     function nodeSetAnnualFeePreconditions(uint256 seed) internal returns (NodeFeeParams memory params) {
@@ -460,7 +488,8 @@ contract PreconditionsNode is PreconditionsBase {
             }
         }
 
-        bool attemptSuccess = seed % 5 != 0;
+        // Use percentage-based approach (20% failure)
+        bool attemptSuccess = (seed % 100) >= 20;
         if (!attemptSuccess) {
             params.queue = new address[](1);
             params.queue[0] = address(0);
@@ -481,14 +510,16 @@ contract PreconditionsNode is PreconditionsBase {
 
     function nodeRescueTokensPreconditions(uint256 amountSeed) internal returns (NodeRescueParams memory params) {
         ERC20Mock token = new ERC20Mock("RescueToken", "RSQ");
-        uint256 mintAmount = fl.clamp(amountSeed + 1, 1e16, 1_000_000e18);
+        // Expand mint range to explore wider amounts
+        uint256 mintAmount = fl.clamp(amountSeed, 1e15, 10_000_000e18);
         token.mint(address(node), mintAmount);
 
         params.token = address(token);
         params.recipient = USERS[amountSeed % USERS.length];
         params.nodeBalanceBefore = token.balanceOf(address(node));
         params.recipientBalanceBefore = token.balanceOf(params.recipient);
-        params.amount = fl.clamp((amountSeed % params.nodeBalanceBefore) + 1, 1, params.nodeBalanceBefore);
+        // Allow 0 for edge testing
+        params.amount = fl.clamp(amountSeed % (params.nodeBalanceBefore + 1), 0, params.nodeBalanceBefore);
         params.shouldSucceed = params.amount > 0 && params.recipient != address(0);
     }
 
@@ -498,10 +529,11 @@ contract PreconditionsNode is PreconditionsBase {
     {
         _ensureNotRebalancing();
 
-        uint256 weightMin = 0.05 ether;
-        uint256 weightMax = 0.3 ether;
-        uint256 deltaMin = 0.001 ether;
-        uint256 deltaMax = 0.05 ether;
+        // Expand ranges to explore wider allocation strategies
+        uint256 weightMin = 0.01 ether; // Allow smaller weights (1%)
+        uint256 weightMax = 0.5 ether; // Allow larger weights (50%)
+        uint256 deltaMin = 0.0001 ether; // Allow smaller deltas (0.01%)
+        uint256 deltaMax = 0.1 ether; // Allow larger deltas (10%)
 
         uint256 reserveRatio = uint256(Node(address(node)).targetReserveRatio());
         if (reserveRatio <= weightMin) {
@@ -519,10 +551,11 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        params.targetWeight = _clampValue(seed + 1, weightMin, upperBound);
-        params.maxDelta = _clampValue((seed >> 1) + 1, deltaMin, deltaMax);
+        params.targetWeight = _clampValue(seed, weightMin, upperBound);
+        params.maxDelta = _clampValue(seed >> 1, deltaMin, deltaMax);
 
-        bool attemptSuccess = seed % 5 != 0;
+        // Use percentage-based approach (20% failure instead of fixed modulo)
+        bool attemptSuccess = (seed % 100) >= 20;
 
         if (!attemptSuccess) {
             if (COMPONENTS.length == 0) {
@@ -549,8 +582,10 @@ contract PreconditionsNode is PreconditionsBase {
             router4626.setWhitelistStatus(params.component, true);
             vm.stopPrank();
         } else if (selector == 1) {
+            // Expand yield range: 0-10% APY instead of 3-4%
+            uint256 yieldRate = seed % 1e17; // 0-10%
             ERC4626LinearYieldVault newVault =
-                new ERC4626LinearYieldVault(address(asset), "Dynamic Linear Vault", "dLV", 3e13 + (seed % 1e13));
+                new ERC4626LinearYieldVault(address(asset), "Dynamic Linear Vault", "dLV", yieldRate);
             params.component = address(newVault);
             params.router = address(router4626);
 
@@ -558,8 +593,10 @@ contract PreconditionsNode is PreconditionsBase {
             router4626.setWhitelistStatus(params.component, true);
             vm.stopPrank();
         } else if (selector == 2) {
+            // Expand negative yield range: 0-10% instead of 2-3%
+            uint256 yieldRate = seed % 1e17; // 0-10%
             ERC4626NegativeYieldVault newVault =
-                new ERC4626NegativeYieldVault(address(asset), "Dynamic Negative Vault", "dNV", 2e13 + (seed % 1e13));
+                new ERC4626NegativeYieldVault(address(asset), "Dynamic Negative Vault", "dNV", yieldRate);
             params.component = address(newVault);
             params.router = address(router4626);
 
@@ -567,8 +604,10 @@ contract PreconditionsNode is PreconditionsBase {
             router4626.setWhitelistStatus(params.component, true);
             vm.stopPrank();
         } else if (selector == 3) {
+            // Expand yield range: 0-10% APY instead of 2-3%
+            uint256 yieldRate = seed % 1e17; // 0-10%
             ERC7540LinearYieldVault newPool = new ERC7540LinearYieldVault(
-                IERC20(address(asset)), "Dynamic Async Vault", "dAV", poolManager, 2e13 + (seed % 1e13)
+                IERC20(address(asset)), "Dynamic Async Vault", "dAV", poolManager, yieldRate
             );
             params.component = address(newPool);
             params.router = address(router7540);
@@ -577,8 +616,10 @@ contract PreconditionsNode is PreconditionsBase {
             router7540.setWhitelistStatus(params.component, true);
             vm.stopPrank();
         } else {
+            // Expand negative yield range: 0-10% instead of 1-2%
+            uint256 yieldRate = seed % 1e17; // 0-10%
             ERC7540NegativeYieldVault newPool = new ERC7540NegativeYieldVault(
-                IERC20(address(asset)), "Dynamic Negative Async Vault", "dnAV", poolManager, 1e13 + (seed % 1e13)
+                IERC20(address(asset)), "Dynamic Negative Async Vault", "dnAV", poolManager, yieldRate
             );
             params.component = address(newPool);
             params.router = address(router7540);
@@ -648,15 +689,17 @@ contract PreconditionsNode is PreconditionsBase {
         ComponentAllocation memory allocation = node.getComponentAllocation(params.component);
         params.router = allocation.router;
 
-        uint256 weightMin = 0.05 ether;
-        uint256 weightMax = 0.95 ether;
-        uint256 deltaMin = 0.001 ether;
-        uint256 deltaMax = 0.08 ether;
+        // Expand ranges for update operations
+        uint256 weightMin = 0.01 ether; // Allow 1%
+        uint256 weightMax = 0.98 ether; // Allow up to 98%
+        uint256 deltaMin = 0.0001 ether; // Allow 0.01%
+        uint256 deltaMax = 0.15 ether; // Allow 15%
 
-        params.targetWeight = _clampValue(seed + 3, weightMin, weightMax);
-        params.maxDelta = _clampValue((seed >> 1) + 3, deltaMin, deltaMax);
+        params.targetWeight = _clampValue(seed, weightMin, weightMax);
+        params.maxDelta = _clampValue(seed >> 1, deltaMin, deltaMax);
 
-        bool attemptSuccess = seed % 6 != 0;
+        // Use percentage-based approach (17% failure)
+        bool attemptSuccess = (seed % 100) >= 17;
         if (!attemptSuccess) {
             params.router = address(0);
             params.shouldSucceed = false;
@@ -670,12 +713,14 @@ contract PreconditionsNode is PreconditionsBase {
         internal
         returns (NodeTargetReserveParams memory params)
     {
-        bool attemptSuccess = seed % 4 != 0;
+        // Use percentage-based approach (25% failure)
+        bool attemptSuccess = (seed % 100) >= 25;
 
         _ensureNotRebalancing();
 
         if (attemptSuccess) {
-            params.target = uint64(_clampUint64(seed + 11, 0, 0.95 ether));
+            // Allow wider range: 0-99%
+            params.target = uint64(_clampUint64(seed, 0, 0.99 ether));
             params.shouldSucceed = true;
         } else {
             params.target = uint64(1e18);
@@ -696,9 +741,10 @@ contract PreconditionsNode is PreconditionsBase {
 
         params.status = statusSeed;
 
-        bool attemptSuccess = seed % 5 != 0;
+        // Use percentage-based approach (20% failure)
+        bool attemptSuccess = (seed % 100) >= 20;
         if (attemptSuccess) {
-            params.maxSwingFactor = uint64(_clampUint64(seed + 9, minAllowed, maxAllowed));
+            params.maxSwingFactor = uint64(_clampUint64(seed, minAllowed, maxAllowed));
             params.shouldSucceed = true;
         } else {
             params.maxSwingFactor = maxAllowed + 1;
@@ -718,7 +764,8 @@ contract PreconditionsNode is PreconditionsBase {
 
         bytes32 leaf = _policyLeaf(selector, policy);
         bool alreadyRegistered = node.isSigPolicy(selector, policy);
-        bool attemptSuccess = seed % 3 != 0;
+        // Use percentage-based approach (33% failure)
+        bool attemptSuccess = (seed % 100) >= 33;
 
         if (attemptSuccess && !alreadyRegistered) {
             vm.startPrank(owner);
@@ -760,7 +807,8 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function nodeAddRebalancerPreconditions(uint256 seed) internal returns (NodeAddressParams memory params) {
-        bool attemptSuccess = seed % 5 != 0;
+        // Use percentage-based approach (20% failure)
+        bool attemptSuccess = (seed % 100) >= 20;
 
         if (!attemptSuccess) {
             params.target = rebalancer;
@@ -807,7 +855,8 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function nodeAddRouterPreconditions(uint256 seed) internal returns (NodeAddressParams memory params) {
-        bool attemptSuccess = seed % 5 != 0;
+        // Use percentage-based approach (20% failure)
+        bool attemptSuccess = (seed % 100) >= 20;
         if (!attemptSuccess) {
             address existing = ROUTERS[seed % ROUTERS.length];
             params.target = existing;
@@ -880,7 +929,8 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function nodeStartRebalancePreconditions(uint256 seed) internal returns (NodeStartRebalanceParams memory params) {
-        params.caller = seed % 9 == 0 ? randomUser : rebalancer;
+        // Use percentage-based approach (11% use randomUser)
+        params.caller = (seed % 100) < 11 ? randomUser : rebalancer;
 
         if (params.caller != rebalancer) {
             params.shouldSucceed = false;
@@ -903,7 +953,9 @@ contract PreconditionsNode is PreconditionsBase {
     {
         _ensureNotRebalancing();
 
-        params.caller = seed % 5 == 0 ? randomUser : (seed % 2 == 0 ? owner : rebalancer);
+        // Use percentage-based caller selection (20% randomUser, 40% owner, 40% rebalancer)
+        uint256 callerSelector = seed % 100;
+        params.caller = callerSelector < 20 ? randomUser : (callerSelector < 60 ? owner : rebalancer);
         params.shouldSucceed = params.caller == owner || params.caller == rebalancer;
         params.lastPaymentBefore = uint256(Node(address(node)).lastPayment());
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
@@ -911,7 +963,8 @@ contract PreconditionsNode is PreconditionsBase {
         params.protocolFeeBalanceBefore = asset.balanceOf(protocolFeesAddress);
         params.nodeOwnerBalanceBefore = asset.balanceOf(node.nodeOwnerFeeAddress());
 
-        vm.warp(block.timestamp + 1 hours + (seed % 4) * 1 hours);
+        // Expand time warp range: 1-10 hours instead of 1-4
+        vm.warp(block.timestamp + 1 hours + (seed % 10) * 1 hours);
     }
 
     function nodeUpdateTotalAssetsPreconditions(uint256 seed)
@@ -928,16 +981,21 @@ contract PreconditionsNode is PreconditionsBase {
         returns (NodeSubtractExecutionFeeParams memory params)
     {
         uint256 nodeBalance = asset.balanceOf(address(node));
-        if (nodeBalance < 1e15) {
-            assetToken.mint(address(node), 1e18);
+        // Expand low balance threshold and top-up amount
+        if (nodeBalance < 1e14) {
+            // Lower threshold (0.0001 instead of 0.001)
+            uint256 topUp = fl.clamp(seed, 1e17, 10e18); // Variable top-up
+            assetToken.mint(address(node), topUp);
             nodeBalance = asset.balanceOf(address(node));
         }
 
-        bool attemptSuccess = seed % 6 != 0 && ROUTERS.length > 0;
+        // Use percentage-based approach (17% failure)
+        bool attemptSuccess = (seed % 100) >= 17 && ROUTERS.length > 0;
 
         if (attemptSuccess) {
             params.caller = ROUTERS[seed % ROUTERS.length];
-            params.fee = _clampValue(seed + 1, 1e15, nodeBalance);
+            // Allow smaller fees, remove +1 offset
+            params.fee = _clampValue(seed, 1e14, nodeBalance);
             if (node.isRouter(params.caller)) {
                 vm.startPrank(owner);
                 node.updateTotalAssets();
@@ -958,7 +1016,8 @@ contract PreconditionsNode is PreconditionsBase {
     }
 
     function nodeExecutePreconditions(uint256 seed) internal returns (NodeExecuteParams memory params) {
-        bool attemptSuccess = ROUTERS.length > 0 && seed % 5 != 0;
+        // Use percentage-based approach (20% failure)
+        bool attemptSuccess = ROUTERS.length > 0 && (seed % 100) >= 20;
 
         if (attemptSuccess) {
             _normalizeTargetReserveRatio();
@@ -970,7 +1029,8 @@ contract PreconditionsNode is PreconditionsBase {
             params.caller = ROUTERS[seed % ROUTERS.length];
             params.target = address(asset);
             params.allowanceSpender = params.caller;
-            params.allowance = _clampValue(seed + 1, 1e15, 1e21);
+            // Expand allowance range, remove +1 offset
+            params.allowance = _clampValue(seed, 1e14, 1e22);
             params.data = abi.encodeWithSelector(IERC20.approve.selector, params.allowanceSpender, params.allowance);
             params.allowanceBefore = asset.allowance(address(node), params.allowanceSpender);
             params.shouldSucceed = node.isRouter(params.caller);
@@ -1018,7 +1078,8 @@ contract PreconditionsNode is PreconditionsBase {
     function nodeFinalizeRedemptionPreconditions(uint256 seed) internal returns (NodeFinalizeParams memory params) {
         _prepareNodeContext(seed);
 
-        bool attemptSuccess = ROUTERS.length > 0 && seed % 6 != 0;
+        // Use percentage-based approach (17% failure)
+        bool attemptSuccess = ROUTERS.length > 0 && (seed % 100) >= 17;
         params.router = attemptSuccess ? ROUTERS[seed % ROUTERS.length] : randomUser;
         params.controller = USERS[(seed + 1) % USERS.length];
 
@@ -1030,7 +1091,8 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        uint256 depositAssets = _clampValue(seed + 5, 1e15, 1e21);
+        // Expand deposit range, remove +5 offset
+        uint256 depositAssets = _clampValue(seed, 1e14, 1e22);
 
         assetToken.mint(params.controller, depositAssets);
 
@@ -1485,13 +1547,11 @@ contract PreconditionsNode is PreconditionsBase {
         } catch {
             assetsBefore = 0;
         }
-
         try IRouter(allocation.router).isBlacklisted(candidate) returns (bool status) {
             routerBlacklisted = status;
         } catch {
             routerBlacklisted = false;
         }
-
         if (!forceFlag && assetsBefore == 0) {
             params.component = candidate;
             params.router = allocation.router;
@@ -1612,34 +1672,32 @@ contract PreconditionsNode is PreconditionsBase {
         return minValue + (seed % (range + 1));
     }
 
-    function _ensureClaimableRedeem(address controller, uint256 minShares) internal {
-        (, uint256 claimableShares, uint256 claimableAssets,) = node.requests(controller);
-        if (claimableAssets > 0 && claimableShares > 0) {
-            return;
+    function _findClaimableRedeemController(uint256 seed, bool requireAssets)
+        internal
+        view
+        returns (bool found, address controller, uint256 claimableShares, uint256 claimableAssets)
+    {
+        uint256 userCount = USERS.length;
+        if (userCount == 0) {
+            return (false, address(0), 0, 0);
         }
 
-        uint256 depositAmount = Math.max(minShares, 5e18);
-        if (node.balanceOf(controller) < depositAmount) {
-            _userDeposits(controller, depositAmount * 2);
+        for (uint256 i = 0; i < userCount; i++) {
+            address candidate = USERS[(seed + i) % userCount];
+            (, uint256 foundClaimableShares, uint256 foundClaimableAssets,) = node.requests(candidate);
+
+            if (foundClaimableShares == 0) {
+                continue;
+            }
+
+            if (requireAssets && foundClaimableAssets == 0) {
+                continue;
+            }
+
+            return (true, candidate, foundClaimableShares, foundClaimableAssets);
         }
 
-        uint256 redeemShares = Math.max(minShares, node.balanceOf(controller) / 2);
-        if (redeemShares == 0) {
-            redeemShares = node.balanceOf(controller);
-        }
-
-        vm.startPrank(controller);
-        try node.requestRedeem(redeemShares, controller, controller) {} catch {}
-        vm.stopPrank();
-
-        if (asset.balanceOf(address(node)) < redeemShares) {
-            assetToken.mint(address(node), redeemShares * 2);
-        }
-
-        _startRebalance();
-        vm.startPrank(rebalancer);
-        try node.fulfillRedeemFromReserve(controller) {} catch {}
-        vm.stopPrank();
+        return (false, address(0), 0, 0);
     }
 
     function _ensurePendingRedeem(address controller, uint256 shares) internal {
@@ -1730,17 +1788,18 @@ contract PreconditionsNode is PreconditionsBase {
         routerOneInch.setExecutorWhitelistStatus(params.executor, true);
         vm.stopPrank();
 
-        // Mint incentive tokens to node
-        params.incentiveAmount = fl.clamp(seed + 1, 1e18, 1000e18);
+        // Expand incentive amount range
+        params.incentiveAmount = fl.clamp(seed, 1e17, 10_000e18); // 0.1 to 10,000
         incentiveToken.mint(address(node), params.incentiveAmount);
 
         params.incentiveBalanceBefore = incentiveToken.balanceOf(address(node));
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
 
-        // Calculate expected return (simulate 1:1 swap with small slippage)
-        // In a real scenario, this would come from price oracle or DEX quote
+        // Calculate expected return (simulate 1:1 swap with variable slippage)
         params.expectedReturn = params.incentiveAmount; // 1:1 for simplicity
-        params.minAssetsOut = (params.expectedReturn * 95) / 100; // 5% slippage tolerance
+        // Variable slippage: 0-15% based on seed
+        uint256 slippagePercent = (seed % 16); // 0-15%
+        params.minAssetsOut = (params.expectedReturn * (100 - slippagePercent)) / 100;
 
         // Encode expected return in swapCalldata (mock expects this format)
         params.swapCalldata = abi.encode(params.expectedReturn);

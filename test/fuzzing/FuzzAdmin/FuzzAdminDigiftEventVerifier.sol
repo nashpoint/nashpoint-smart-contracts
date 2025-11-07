@@ -21,9 +21,8 @@ contract FuzzAdminDigiftEventVerifier is PreconditionsDigiftEventVerifier, Postc
 // ========================================
 // CATEGORY 2: ADMIN FUNCTIONS (onlyRegistryOwner)
 // ========================================
-
 // function fuzz_admin_digiftVerifier_setWhitelist(uint256 seed, bool status) public {
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //     DigiftVerifierWhitelistParams memory params = digiftVerifierSetWhitelistPreconditions(seed, status);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -34,9 +33,8 @@ contract FuzzAdminDigiftEventVerifier is PreconditionsDigiftEventVerifier, Postc
 //
 //     digiftVerifierWhitelistPostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_digiftVerifier_setBlockHash(uint256 seed) public {
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //     DigiftVerifierBlockHashParams memory params = digiftVerifierSetBlockHashPreconditions(seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -47,13 +45,11 @@ contract FuzzAdminDigiftEventVerifier is PreconditionsDigiftEventVerifier, Postc
 //
 //     digiftVerifierBlockHashPostconditions(success, returnData, params);
 // }
-
 // ========================================
 // CATEGORY 3: INTERNAL/HELPER FUNCTIONS
 // ========================================
-
 // function fuzz_admin_digiftVerifier_configureSettlement(uint256 seed, bool isSubscribe) public {
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //     DigiftVerifierConfigureParams memory params = digiftVerifierConfigurePreconditions(seed, isSubscribe);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(

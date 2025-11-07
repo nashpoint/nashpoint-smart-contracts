@@ -75,7 +75,6 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         _prepareNodeApprovals(deployedNodeAddr);
         _seedNodeLiquidity(deployedNodeAddr, deployedEscrowAddr, ownerActor, entropy);
 
-        _registerManagedNode(deployedNodeAddr, deployedEscrowAddr);
         _setActiveNode(deployedNodeAddr);
     }
 

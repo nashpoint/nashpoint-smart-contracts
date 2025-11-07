@@ -11,7 +11,7 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
         bytes memory returnData,
         DigiftVerifierConfigureParams memory params
     ) internal {
-        if (success && params.shouldSucceed) {
+        if (success) {
             (uint256 shares, uint256 assets) =
                 DigiftEventVerifierMock(address(digiftEventVerifier)).getExpectedSettlement(params.eventType);
             // fl.eq(shares, params.expectedShares, "DIGIFT_VERIFIER_CONFIGURE_SHARES");
@@ -27,13 +27,11 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
         bytes memory returnData,
         DigiftVerifierWhitelistParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "DIGIFT_VERIFIER_WHITELIST_SUCCESS");
+        if (success) {
             bool stored = DigiftEventVerifierMock(address(digiftEventVerifier)).whitelist(params.adapter);
             // fl.eq(stored, params.status, "DIGIFT_VERIFIER_WHITELIST_STATUS");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "DIGIFT_VERIFIER_WHITELIST_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -43,11 +41,9 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
         bytes memory returnData,
         DigiftVerifierBlockHashParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "DIGIFT_VERIFIER_BLOCKHASH_SUCCESS");
+        if (success) {
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "DIGIFT_VERIFIER_BLOCKHASH_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -57,14 +53,12 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
         bytes memory returnData,
         DigiftVerifierVerifyParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "DIGIFT_VERIFIER_VERIFY_SUCCESS");
+        if (success) {
             (uint256 shares, uint256 assets) = abi.decode(returnData, (uint256, uint256));
             // fl.eq(shares, params.expectedShares, "DIGIFT_VERIFIER_VERIFY_SHARES");
             // fl.eq(assets, params.expectedAssets, "DIGIFT_VERIFIER_VERIFY_ASSETS");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "DIGIFT_VERIFIER_VERIFY_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }

@@ -26,7 +26,7 @@ import {NodeRegistry} from "../../../src/NodeRegistry.sol";
 contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeRegistry {
 // function fuzz_admin_registry_setProtocolFeeAddress(uint256 seed) public {
 //     RegistryAddressParams memory params = registrySetProtocolFeeAddressPreconditions(seed);
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry),
@@ -36,10 +36,9 @@ contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeR
 //
 //     registrySetProtocolFeeAddressPostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_registry_setProtocolManagementFee(uint256 seed) public {
 //     RegistryFeeParams memory params = registrySetProtocolManagementFeePreconditions(seed);
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry),
@@ -49,10 +48,9 @@ contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeR
 //
 //     registrySetProtocolManagementFeePostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_registry_setProtocolExecutionFee(uint256 seed) public {
 //     RegistryExecutionFeeParams memory params = registrySetProtocolExecutionFeePreconditions(seed);
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry),
@@ -62,10 +60,9 @@ contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeR
 //
 //     registrySetProtocolExecutionFeePostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_registry_setProtocolMaxSwingFactor(uint256 seed) public {
 //     RegistrySwingParams memory params = registrySetProtocolMaxSwingFactorPreconditions(seed);
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry),
@@ -75,10 +72,9 @@ contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeR
 //
 //     registrySetProtocolMaxSwingFactorPostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_registry_setPoliciesRoot(uint256 seed) public {
 //     RegistryPoliciesParams memory params = registrySetPoliciesRootPreconditions(seed);
-//     _forceActor(params.shouldSucceed ? owner : randomUser, seed);
+//     forceActor(params.shouldSucceed ? owner : randomUser, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry), abi.encodeWithSelector(NodeRegistry.setPoliciesRoot.selector, params.root), currentActor
@@ -86,10 +82,9 @@ contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeR
 //
 //     registrySetPoliciesRootPostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_registry_setRegistryType(uint256 seed) public {
 //     RegistrySetTypeParams memory params = registrySetRegistryTypePreconditions(seed);
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry),
@@ -101,10 +96,9 @@ contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeR
 //
 //     registrySetRegistryTypePostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_registry_transferOwnership(uint256 seed) public {
 //     RegistryTransferOwnershipParams memory params = registryTransferOwnershipPreconditions(seed);
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry),
@@ -114,10 +108,9 @@ contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeR
 //
 //     registryTransferOwnershipPostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_registry_renounceOwnership(uint256 seed) public {
 //     RegistryOwnershipCallParams memory params = registryRenounceOwnershipPreconditions(seed);
-//     _forceActor(params.caller, seed);
+//     forceActor(params.caller, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry), abi.encodeWithSelector(bytes4(keccak256("renounceOwnership()"))), currentActor
@@ -125,10 +118,9 @@ contract FuzzAdminNodeRegistry is PreconditionsNodeRegistry, PostconditionsNodeR
 //
 //     registryRenounceOwnershipPostconditions(success, returnData, params);
 // }
-
 // function fuzz_admin_registry_upgradeToAndCall(uint256 seed) public {
 //     RegistryUpgradeParams memory params = registryUpgradeToAndCallPreconditions(seed);
-//     _forceActor(owner, seed);
+//     forceActor(owner, seed);
 //
 //     (bool success, bytes memory returnData) = fl.doFunctionCall(
 //         address(registry),

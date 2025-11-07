@@ -12,12 +12,10 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         bytes memory returnData,
         RegistryAddressParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "REGISTRY_FEE_ADDRESS_SUCCESS");
+        if (success) {
             // fl.t(registry.protocolFeeAddress() == params.target, "REGISTRY_FEE_ADDRESS_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "REGISTRY_FEE_ADDRESS_EXPECTED_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -27,12 +25,10 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         bytes memory returnData,
         RegistryFeeParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "REGISTRY_MANAGEMENT_FEE_SUCCESS");
+        if (success) {
             // fl.t(registry.protocolManagementFee() == params.value, "REGISTRY_MANAGEMENT_FEE_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "REGISTRY_MANAGEMENT_FEE_EXPECTED_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -42,12 +38,10 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         bytes memory returnData,
         RegistryExecutionFeeParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "REGISTRY_EXECUTION_FEE_SUCCESS");
+        if (success) {
             // fl.t(registry.protocolExecutionFee() == params.value, "REGISTRY_EXECUTION_FEE_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "REGISTRY_EXECUTION_FEE_EXPECTED_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -57,12 +51,10 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         bytes memory returnData,
         RegistrySwingParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "REGISTRY_SWING_FACTOR_SUCCESS");
+        if (success) {
             // fl.t(registry.protocolMaxSwingFactor() == params.value, "REGISTRY_SWING_FACTOR_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "REGISTRY_SWING_FACTOR_EXPECTED_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -72,12 +64,10 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         bytes memory returnData,
         RegistryPoliciesParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "REGISTRY_POLICIES_ROOT_SUCCESS");
+        if (success) {
             // fl.t(registry.policiesRoot() == params.root, "REGISTRY_POLICIES_ROOT_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "REGISTRY_POLICIES_ROOT_EXPECTED_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -87,13 +77,11 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         bytes memory returnData,
         RegistrySetTypeParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "REGISTRY_TYPE_SUCCESS");
+        if (success) {
             bool status = registry.isRegistryType(params.target, params.typeEnum);
             // fl.t(status == params.status, "REGISTRY_TYPE_STATUS");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "REGISTRY_TYPE_EXPECTED_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -101,12 +89,10 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
     function registryAddNodePostconditions(bool success, bytes memory returnData, RegistryAddNodeParams memory params)
         internal
     {
-        if (params.shouldSucceed) {
-            // fl.t(success, "REGISTRY_ADD_NODE_SUCCESS");
+        if (success) {
             // fl.t(registry.isNode(params.node), "REGISTRY_ADD_NODE_STATUS");
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "REGISTRY_ADD_NODE_EXPECTED_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
@@ -116,8 +102,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         bytes memory returnData,
         RegistryTransferOwnershipParams memory params
     ) internal {
-        if (params.shouldSucceed) {
-            // fl.t(success, "REGISTRY_TRANSFER_OWNER_SUCCESS");
+        if (success) {
             address newOwner = registry.owner();
             // fl.t(newOwner == params.newOwner, "REGISTRY_TRANSFER_OWNER_VALUE");
 
@@ -128,7 +113,6 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
 
             onSuccessInvariantsGeneral(returnData);
         } else {
-            // fl.t(!success, "REGISTRY_TRANSFER_OWNER_EXPECTED_REVERT");
             onFailInvariantsGeneral(returnData);
         }
     }
