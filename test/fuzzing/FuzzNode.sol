@@ -24,9 +24,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_deposit(uint256 amountSeed) public setCurrentActor(amountSeed) {
         DepositParams memory params = depositPreconditions(amountSeed);
 
-        address[] memory actorsToUpdate = new address[](1);
-        actorsToUpdate[0] = params.receiver;
-        _before(actorsToUpdate);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -34,30 +32,25 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
             currentActor
         );
 
-        depositPostconditions(success, returnData, actorsToUpdate, params);
+        depositPostconditions(success, returnData, params);
     }
 
     function fuzz_mint(uint256 shareSeed) public setCurrentActor(shareSeed) {
         MintParams memory params = mintPreconditions(shareSeed);
 
-        address[] memory actorsToUpdate = new address[](1);
-        actorsToUpdate[0] = params.receiver;
-        _before(actorsToUpdate);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node), abi.encodeWithSelector(IERC7575.mint.selector, params.shares, params.receiver), currentActor
         );
 
-        mintPostconditions(success, returnData, actorsToUpdate, params);
+        mintPostconditions(success, returnData, params);
     }
 
     function fuzz_requestRedeem(uint256 shareSeed) public setCurrentActor(shareSeed) {
         RequestRedeemParams memory params = requestRedeemPreconditions(shareSeed);
 
-        address[] memory actorsToUpdate = new address[](2);
-        actorsToUpdate[0] = params.owner;
-        actorsToUpdate[1] = address(escrow);
-        _before(actorsToUpdate);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -65,17 +58,13 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
             currentActor
         );
 
-        requestRedeemPostconditions(success, returnData, actorsToUpdate, params);
+        requestRedeemPostconditions(success, returnData, params);
     }
 
     function fuzz_withdraw(uint256 controllerSeed, uint256 assetsSeed) public {
         WithdrawParams memory params = withdrawPreconditions(controllerSeed, assetsSeed);
 
-        address[] memory actorsToUpdate = new address[](3);
-        actorsToUpdate[0] = params.controller;
-        actorsToUpdate[1] = params.receiver;
-        actorsToUpdate[2] = address(escrow);
-        _before(actorsToUpdate);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -83,17 +72,13 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
             params.controller
         );
 
-        withdrawPostconditions(success, returnData, actorsToUpdate, params);
+        withdrawPostconditions(success, returnData, params);
     }
 
     function fuzz_node_redeem(uint256 shareSeed) public {
         NodeRedeemParams memory params = nodeRedeemPreconditions(shareSeed);
 
-        address[] memory actors = new address[](3);
-        actors[0] = params.controller;
-        actors[1] = params.receiver;
-        actors[2] = address(escrow);
-        _before(actors);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -101,11 +86,13 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
             params.controller
         );
 
-        nodeRedeemPostconditions(success, returnData, actors, params);
+        nodeRedeemPostconditions(success, returnData, params);
     }
 
     function fuzz_setOperator(uint256 operatorSeed, bool approvalSeed) public setCurrentActor(operatorSeed) {
         SetOperatorParams memory params = setOperatorPreconditions(operatorSeed, approvalSeed);
+
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -119,25 +106,19 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_node_approve(uint256 spenderSeed, uint256 amountSeed) public setCurrentActor(spenderSeed) {
         NodeApproveParams memory params = nodeApprovePreconditions(spenderSeed, amountSeed);
 
-        address[] memory actors = new address[](2);
-        actors[0] = currentActor;
-        actors[1] = params.spender;
-        _before(actors);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node), abi.encodeWithSelector(IERC20.approve.selector, params.spender, params.amount), currentActor
         );
 
-        nodeApprovePostconditions(success, returnData, actors, currentActor, params);
+        nodeApprovePostconditions(success, returnData, currentActor, params);
     }
 
     function fuzz_node_transfer(uint256 receiverSeed, uint256 amountSeed) public setCurrentActor(receiverSeed) {
         NodeTransferParams memory params = nodeTransferPreconditions(receiverSeed, amountSeed);
 
-        address[] memory actors = new address[](2);
-        actors[0] = currentActor;
-        actors[1] = params.receiver;
-        _before(actors);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -145,16 +126,13 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
             currentActor
         );
 
-        nodeTransferPostconditions(success, returnData, actors, currentActor, params);
+        nodeTransferPostconditions(success, returnData, currentActor, params);
     }
 
     function fuzz_node_transferFrom(uint256 ownerSeed, uint256 amountSeed) public setCurrentActor(ownerSeed) {
         NodeTransferFromParams memory params = nodeTransferFromPreconditions(ownerSeed, amountSeed);
 
-        address[] memory actors = new address[](2);
-        actors[0] = params.owner;
-        actors[1] = params.receiver;
-        _before(actors);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -162,11 +140,13 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
             currentActor
         );
 
-        nodeTransferFromPostconditions(success, returnData, actors, currentActor, params);
+        nodeTransferFromPostconditions(success, returnData, currentActor, params);
     }
 
     function fuzz_node_submitPolicyData(uint256 seed) public {
         NodeSubmitPolicyDataParams memory params = nodeSubmitPolicyDataPreconditions(seed);
+
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
@@ -179,6 +159,8 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
     function fuzz_node_multicall(uint256 seed) public {
         NodeMulticallParams memory params = nodeMulticallPreconditions(seed);
+
+        _before();
 
         bytes4 multicallSelector = bytes4(keccak256("multicall(bytes[])"));
 
@@ -195,6 +177,8 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_component_gainBacking(uint256 componentSeed, uint256 amountSeed) public {
         NodeYieldParams memory params = nodeGainBackingPreconditions(componentSeed, amountSeed);
 
+        _before();
+
         fl.log("GAIN_BACKING:component", params.component);
         fl.log("GAIN_BACKING:delta", params.delta);
         fl.log("GAIN_BACKING:backingToken", params.backingToken);
@@ -210,6 +194,8 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
     function fuzz_component_loseBacking(uint256 componentSeed, uint256 amountSeed) public {
         NodeYieldParams memory params = nodeLoseBackingPreconditions(componentSeed, amountSeed);
+
+        _before();
 
         fl.log("LOSE_BACKING:component", params.component);
         fl.log("LOSE_BACKING:delta", params.delta);

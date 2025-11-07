@@ -26,6 +26,8 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     function fuzz_admin_digift_forwardRequests(uint256 seed) public {
         DigiftForwardRequestParams memory params = digiftForwardRequestsPreconditions(seed);
 
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSelector(DigiftAdapter.forwardRequestsToDigift.selector),
@@ -53,6 +55,8 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
 
         DigiftEventVerifier.OffchainArgs memory verifyArgs;
 
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSelector(DigiftAdapter.settleDeposit.selector, nodes, verifyArgs),
@@ -79,6 +83,8 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
         }
 
         DigiftEventVerifier.OffchainArgs memory verifyArgs;
+
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),

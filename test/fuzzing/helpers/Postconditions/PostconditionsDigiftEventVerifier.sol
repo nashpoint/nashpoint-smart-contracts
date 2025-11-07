@@ -54,6 +54,8 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
         DigiftVerifierVerifyParams memory params
     ) internal {
         if (success) {
+            _after();
+
             (uint256 shares, uint256 assets) = abi.decode(returnData, (uint256, uint256));
             // fl.eq(shares, params.expectedShares, "DIGIFT_VERIFIER_VERIFY_SHARES");
             // fl.eq(assets, params.expectedAssets, "DIGIFT_VERIFIER_VERIFY_ASSETS");

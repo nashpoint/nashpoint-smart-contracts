@@ -10,14 +10,9 @@ import {IERC7540Redeem} from "../../../../src/interfaces/IERC7540.sol";
 import {ERC7540Mock} from "../../../mocks/ERC7540Mock.sol";
 
 contract PostconditionsNode is PostconditionsBase {
-    function depositPostconditions(
-        bool success,
-        bytes memory returnData,
-        address[] memory actors,
-        DepositParams memory params
-    ) internal {
+    function depositPostconditions(bool success, bytes memory returnData, DepositParams memory params) internal {
         if (success) {
-            _after(actors);
+            _after();
 
             uint256 mintedShares = abi.decode(returnData, (uint256));
 
@@ -37,14 +32,9 @@ contract PostconditionsNode is PostconditionsBase {
         }
     }
 
-    function mintPostconditions(
-        bool success,
-        bytes memory returnData,
-        address[] memory actors,
-        MintParams memory params
-    ) internal {
+    function mintPostconditions(bool success, bytes memory returnData, MintParams memory params) internal {
         if (success) {
-            _after(actors);
+            _after();
 
             uint256 assetsSpent = abi.decode(returnData, (uint256));
 
@@ -64,14 +54,11 @@ contract PostconditionsNode is PostconditionsBase {
         }
     }
 
-    function requestRedeemPostconditions(
-        bool success,
-        bytes memory returnData,
-        address[] memory actors,
-        RequestRedeemParams memory params
-    ) internal {
+    function requestRedeemPostconditions(bool success, bytes memory returnData, RequestRedeemParams memory params)
+        internal
+    {
         if (success) {
-            _after(actors);
+            _after();
 
             ActorState storage beforeOwner = states[0].actorStates[params.owner];
             ActorState storage afterOwner = states[1].actorStates[params.owner];
@@ -105,14 +92,11 @@ contract PostconditionsNode is PostconditionsBase {
         }
     }
 
-    function fulfillRedeemPostconditions(
-        bool success,
-        bytes memory returnData,
-        address[] memory actors,
-        FulfillRedeemParams memory params
-    ) internal {
+    function fulfillRedeemPostconditions(bool success, bytes memory returnData, FulfillRedeemParams memory params)
+        internal
+    {
         if (success) {
-            _after(actors);
+            _after();
 
             ActorState storage beforeController = states[0].actorStates[params.controller];
             ActorState storage afterController = states[1].actorStates[params.controller];
@@ -135,14 +119,9 @@ contract PostconditionsNode is PostconditionsBase {
         }
     }
 
-    function withdrawPostconditions(
-        bool success,
-        bytes memory returnData,
-        address[] memory actors,
-        WithdrawParams memory params
-    ) internal {
+    function withdrawPostconditions(bool success, bytes memory returnData, WithdrawParams memory params) internal {
         if (success) {
-            _after(actors);
+            _after();
 
             uint256 sharesBurned = abi.decode(returnData, (uint256));
 
@@ -178,6 +157,8 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             bool isApproved = node.isOperator(params.controller, params.operator);
             // fl.eq(isApproved, params.approved, "NODE_OPERATOR_STATUS");
 
@@ -190,12 +171,11 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeApprovePostconditions(
         bool success,
         bytes memory returnData,
-        address[] memory actors,
         address caller,
         NodeApproveParams memory params
     ) internal {
         if (success) {
-            _after(actors);
+            _after();
             uint256 allowance = node.allowance(caller, params.spender);
             // fl.eq(allowance, params.amount, "NODE_APPROVE_ALLOWANCE");
             onSuccessInvariantsGeneral(returnData);
@@ -207,12 +187,11 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeTransferPostconditions(
         bool success,
         bytes memory returnData,
-        address[] memory actors,
         address sender,
         NodeTransferParams memory params
     ) internal {
         if (success) {
-            _after(actors);
+            _after();
 
             ActorState storage beforeSender = states[0].actorStates[sender];
             ActorState storage afterSender = states[1].actorStates[sender];
@@ -235,12 +214,11 @@ contract PostconditionsNode is PostconditionsBase {
     function nodeTransferFromPostconditions(
         bool success,
         bytes memory returnData,
-        address[] memory actors,
         address spender,
         NodeTransferFromParams memory params
     ) internal {
         if (success) {
-            _after(actors);
+            _after();
 
             ActorState storage beforeOwner = states[0].actorStates[params.owner];
             ActorState storage afterOwner = states[1].actorStates[params.owner];
@@ -263,15 +241,10 @@ contract PostconditionsNode is PostconditionsBase {
         }
     }
 
-    function nodeRedeemPostconditions(
-        bool success,
-        bytes memory returnData,
-        address[] memory actors,
-        NodeRedeemParams memory params
-    ) internal {
+    function nodeRedeemPostconditions(bool success, bytes memory returnData, NodeRedeemParams memory params) internal {
         if (success) {
             uint256 assetsReturned = abi.decode(returnData, (uint256));
-            _after(actors);
+            _after();
 
             ActorState storage beforeController = states[0].actorStates[params.controller];
             ActorState storage afterController = states[1].actorStates[params.controller];
@@ -598,6 +571,8 @@ contract PostconditionsNode is PostconditionsBase {
         NodeStartRebalanceParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 lastRebalanceAfter = uint256(Node(address(node)).lastRebalance());
             // fl.t(lastRebalanceAfter >= params.lastRebalanceBefore, "NODE_START_REBALANCE_TIMESTAMP");
             // fl.t(node.isCacheValid(), "NODE_START_REBALANCE_CACHE");
@@ -703,6 +678,8 @@ contract PostconditionsNode is PostconditionsBase {
         NodeSubmitPolicyDataParams memory params
     ) internal {
         if (success) {
+            _after();
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -715,6 +692,8 @@ contract PostconditionsNode is PostconditionsBase {
         NodeFinalizeParams memory params
     ) internal {
         if (success) {
+            _after();
+
             ActorState storage controllerBefore = states[0].actorStates[params.controller];
             ActorState storage controllerAfter = states[1].actorStates[params.controller];
             ActorState storage escrowAfter = states[1].actorStates[address(escrow)];
@@ -757,6 +736,8 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -767,6 +748,8 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             uint256 balanceAfter = asset.balanceOf(params.component);
             fl.eq(balanceAfter, params.currentBacking + params.delta, "NODE_GAIN_BACKING_BALANCE_MISMATCH");
             onSuccessInvariantsGeneral(returnData);
@@ -779,6 +762,8 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             uint256 balanceAfter = asset.balanceOf(params.component);
             fl.eq(balanceAfter, params.currentBacking - params.delta, "NODE_LOSE_BACKING_BALANCE_MISMATCH");
             onSuccessInvariantsGeneral(returnData);
@@ -791,6 +776,8 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             uint256 depositAmount = abi.decode(returnData, (uint256));
             fl.t(depositAmount > 0, "ROUTER4626_INVEST_ZERO_DEPOSIT");
 
@@ -812,6 +799,8 @@ contract PostconditionsNode is PostconditionsBase {
         RouterLiquidateParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 assetsReturned = abi.decode(returnData, (uint256));
             fl.t(assetsReturned > 0, "ROUTER4626_LIQUIDATE_NO_ASSETS");
 
@@ -831,6 +820,8 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             uint256 assetsReturned = abi.decode(returnData, (uint256));
             fl.t(assetsReturned > 0, "ROUTER4626_FULFILL_NO_ASSETS");
 
@@ -852,6 +843,8 @@ contract PostconditionsNode is PostconditionsBase {
         RouterAsyncInvestParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 assetsRequested = abi.decode(returnData, (uint256));
             fl.t(assetsRequested > 0, "ROUTER7540_INVEST_ZERO");
 
@@ -878,6 +871,8 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             uint256 sharesReceived = abi.decode(returnData, (uint256));
             fl.t(sharesReceived > 0, "ROUTER7540_MINT_ZERO");
 
@@ -899,6 +894,8 @@ contract PostconditionsNode is PostconditionsBase {
         RouterRequestAsyncWithdrawalParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 pendingAfter = IERC7540Redeem(params.component).pendingRedeemRequest(0, address(node));
             fl.t(pendingAfter >= params.pendingRedeemBefore, "ROUTER7540_REQUEST_PENDING");
 
@@ -921,6 +918,8 @@ contract PostconditionsNode is PostconditionsBase {
         RouterExecuteAsyncWithdrawalParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 assetsReturned = abi.decode(returnData, (uint256));
             fl.t(assetsReturned > 0, "ROUTER7540_EXECUTE_NO_ASSETS");
             fl.eq(params.assets, params.maxWithdrawBefore, "ROUTER7540_EXECUTE_ASSET_PARAM");
@@ -946,6 +945,8 @@ contract PostconditionsNode is PostconditionsBase {
         RouterFulfillAsyncRedeemParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 assetsReturned = abi.decode(returnData, (uint256));
             fl.t(assetsReturned > 0, "ROUTER7540_FULFILL_NO_ASSETS");
 
@@ -969,6 +970,8 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             uint256 pendingAfter = ERC7540Mock(params.pool).pendingAssets();
             fl.t(pendingAfter <= params.pendingBefore, "POOL_PROCESS_PENDING_DELTA");
 
@@ -1033,17 +1036,14 @@ contract PostconditionsNode is PostconditionsBase {
      *      3. Asset tokens were received by node
      *      4. Asset amount accounts for execution fee subtraction
      */
-    function oneInchSwapPostconditions(
-        bool success,
-        bytes memory returnData,
-        address[] memory actors,
-        OneInchSwapParams memory params
-    ) internal {
+    function oneInchSwapPostconditions(bool success, bytes memory returnData, OneInchSwapParams memory params)
+        internal
+    {
         if (success) {
-            _after(actors);
+            _after();
 
-            address nodeAddr = actors[0];
-            address executorAddr = actors[1];
+            address nodeAddr = address(node);
+            address executorAddr = params.executor;
 
             // Node should have received assets
             uint256 nodeAssetBalanceAfter = asset.balanceOf(nodeAddr);

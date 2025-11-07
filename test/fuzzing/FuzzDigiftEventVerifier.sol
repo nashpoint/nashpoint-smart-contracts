@@ -34,6 +34,8 @@ contract FuzzDigiftEventVerifier is PreconditionsDigiftEventVerifier, Postcondit
             currencyToken: params.currencyToken
         });
 
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftEventVerifier),
             abi.encodeWithSelector(DigiftEventVerifier.verifySettlementEvent.selector, offchain, onchain),

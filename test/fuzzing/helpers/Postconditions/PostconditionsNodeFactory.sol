@@ -17,6 +17,8 @@ contract PostconditionsNodeFactory is PostconditionsBase {
         caller; // silence warning
 
         if (success) {
+            _after();
+
             (address deployedNode, address deployedEscrow) = abi.decode(returnData, (address, address));
             // fl.t(deployedNode != address(0), "NODE_FACTORY_DEPLOYED_ZERO");
             // fl.t(deployedEscrow != address(0), "NODE_FACTORY_ESCROW_ZERO");

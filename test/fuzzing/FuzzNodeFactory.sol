@@ -37,6 +37,8 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
 
         NodeFactoryDeployParams memory params = nodeFactoryDeployPreconditions(seed);
 
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(factory),
             abi.encodeWithSelector(NodeFactory.deployFullNode.selector, params.initArgs, params.payload, params.salt),

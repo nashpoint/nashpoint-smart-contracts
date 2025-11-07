@@ -12,6 +12,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftForwardRequestParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 forwardedDeposits;
             while (_pendingDigiftDepositCount() > 0) {
                 DigiftPendingDepositRecord memory record =
@@ -49,6 +51,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftSettleDepositParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 recordsProcessed;
             for (uint256 i = 0; i < params.records.length; i++) {
                 uint256 remaining = _forwardedDigiftDepositCount();
@@ -79,6 +83,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftSettleRedeemParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 recordsProcessed;
             uint256 totalMaxWithdrawable;
             for (uint256 i = 0; i < params.records.length; i++) {
@@ -142,6 +148,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftApproveParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 allowance = digiftAdapter.allowance(owner, params.spender);
             // fl.eq(allowance, params.amount, "DIGIFT_APPROVE_AMOUNT_MISMATCH");
             onSuccessInvariantsGeneral(returnData);
@@ -157,6 +165,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftTransferParams memory params
     ) internal {
         if (success) {
+            _after();
+
             // fl.eq(digiftAdapter.balanceOf(params.to), digiftAdapter.balanceOf(params.to), "DIGIFT_TRANSFER_PLACEHOLDER");
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -180,6 +190,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
 
     function digiftMintPostconditions(bool success, bytes memory returnData, DigiftMintParams memory params) internal {
         if (success) {
+            _after();
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -224,6 +236,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             fl.eq(params.assets, params.maxWithdrawBefore, "DIGIFT_WITHDRAW_ASSET_MISMATCH");
 
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
@@ -244,6 +258,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftRequestRedeemParams memory params
     ) internal {
         if (success) {
+            _after();
+
             uint256 pendingAfter = digiftAdapter.pendingRedeemRequest(0, address(node));
             fl.gt(pendingAfter, params.pendingBefore, "DIGIFT_REQUEST_REDEEM_PENDING");
 

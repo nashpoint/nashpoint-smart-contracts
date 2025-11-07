@@ -13,6 +13,8 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryAddressParams memory params
     ) internal {
         if (success) {
+            _after();
+
             // fl.t(registry.protocolFeeAddress() == params.target, "REGISTRY_FEE_ADDRESS_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -26,6 +28,8 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryFeeParams memory params
     ) internal {
         if (success) {
+            _after();
+
             // fl.t(registry.protocolManagementFee() == params.value, "REGISTRY_MANAGEMENT_FEE_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -39,6 +43,8 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryExecutionFeeParams memory params
     ) internal {
         if (success) {
+            _after();
+
             // fl.t(registry.protocolExecutionFee() == params.value, "REGISTRY_EXECUTION_FEE_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -52,6 +58,8 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistrySwingParams memory params
     ) internal {
         if (success) {
+            _after();
+
             // fl.t(registry.protocolMaxSwingFactor() == params.value, "REGISTRY_SWING_FACTOR_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -65,6 +73,8 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryPoliciesParams memory params
     ) internal {
         if (success) {
+            _after();
+
             // fl.t(registry.policiesRoot() == params.root, "REGISTRY_POLICIES_ROOT_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -78,6 +88,8 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistrySetTypeParams memory params
     ) internal {
         if (success) {
+            _after();
+
             bool status = registry.isRegistryType(params.target, params.typeEnum);
             // fl.t(status == params.status, "REGISTRY_TYPE_STATUS");
             onSuccessInvariantsGeneral(returnData);
@@ -90,6 +102,8 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             // fl.t(registry.isNode(params.node), "REGISTRY_ADD_NODE_STATUS");
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -103,6 +117,8 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryTransferOwnershipParams memory params
     ) internal {
         if (success) {
+            _after();
+
             address newOwner = registry.owner();
             // fl.t(newOwner == params.newOwner, "REGISTRY_TRANSFER_OWNER_VALUE");
 

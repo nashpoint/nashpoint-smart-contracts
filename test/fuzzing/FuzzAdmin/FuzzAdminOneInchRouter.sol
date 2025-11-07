@@ -21,10 +21,7 @@ contract FuzzAdminOneInchRouter is PreconditionsOneInch, PostconditionsOneInch {
             return;
         }
 
-        address[] memory actors = new address[](2);
-        actors[0] = address(node);
-        actors[1] = params.executor;
-        _before(actors);
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(routerOneInch),
@@ -40,6 +37,6 @@ contract FuzzAdminOneInchRouter is PreconditionsOneInch, PostconditionsOneInch {
             params.caller
         );
 
-        oneInchSwapPostconditions(success, returnData, actors, params);
+        oneInchSwapPostconditions(success, returnData, params);
     }
 }

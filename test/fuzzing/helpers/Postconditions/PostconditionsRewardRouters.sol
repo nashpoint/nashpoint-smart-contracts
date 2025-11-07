@@ -10,6 +10,8 @@ import {MerklDistributorMock} from "../../../mocks/MerklDistributorMock.sol";
 contract PostconditionsRewardRouters is PostconditionsBase {
     function fluidClaimPostconditions(bool success, bytes memory returnData, FluidClaimParams memory params) internal {
         if (success) {
+            _after();
+
             (
                 address recipient,
                 uint256 cumulativeAmount,
@@ -35,6 +37,8 @@ contract PostconditionsRewardRouters is PostconditionsBase {
         internal
     {
         if (success) {
+            _after();
+
             fl.eq(incentraDistributor.lastEarner(), address(node), "INCENTRA_EARNER");
             fl.t(incentraDistributor.lastCampaignAddrsHash() == params.campaignAddrsHash, "INCENTRA_CAMPAIGNS");
             fl.t(incentraDistributor.lastRewardsHash() == params.rewardsHash, "INCENTRA_REWARDS");
@@ -47,6 +51,8 @@ contract PostconditionsRewardRouters is PostconditionsBase {
 
     function merklClaimPostconditions(bool success, bytes memory returnData, MerklClaimParams memory params) internal {
         if (success) {
+            _after();
+
             fl.t(merklDistributor.lastUsersHash() == params.usersHash, "MERKL_USERS");
             fl.t(merklDistributor.lastTokensHash() == params.tokensHash, "MERKL_TOKENS");
             fl.t(merklDistributor.lastAmountsHash() == params.amountsHash, "MERKL_AMOUNTS");

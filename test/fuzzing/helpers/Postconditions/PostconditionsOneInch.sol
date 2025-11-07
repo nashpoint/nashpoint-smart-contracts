@@ -13,17 +13,14 @@ contract PostconditionsOneInch is PostconditionsBase {
      *      3. Asset tokens were received by node
      *      4. Asset amount accounts for execution fee subtraction
      */
-    function oneInchSwapPostconditions(
-        bool success,
-        bytes memory returnData,
-        address[] memory actors,
-        OneInchSwapParams memory params
-    ) internal {
+    function oneInchSwapPostconditions(bool success, bytes memory returnData, OneInchSwapParams memory params)
+        internal
+    {
         if (success) {
-            _after(actors);
+            _after();
 
-            address nodeAddr = actors[0];
-            address executorAddr = actors[1];
+            address nodeAddr = address(node);
+            address executorAddr = params.executor;
 
             // Node should have received assets
             uint256 nodeAssetBalanceAfter = asset.balanceOf(nodeAddr);

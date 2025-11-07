@@ -17,6 +17,9 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
 
     function fuzz_digift_approve(uint256 spenderSeed, uint256 amountSeed) public {
         DigiftApproveParams memory params = digiftApprovePreconditions(spenderSeed, amountSeed);
+
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSelector(IERC20.approve.selector, params.spender, params.amount),
@@ -27,6 +30,9 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
 
     function fuzz_digift_transfer(uint256 recipientSeed, uint256 amountSeed) public {
         DigiftTransferParams memory params = digiftTransferPreconditions(recipientSeed, amountSeed);
+
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSelector(IERC20.transfer.selector, params.to, params.amount),
@@ -38,6 +44,9 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     function fuzz_digift_transferFrom(uint256 recipientSeed, uint256 amountSeed) public {
         address spender = _selectAddressFromSeed(amountSeed);
         DigiftTransferParams memory params = digiftTransferFromPreconditions(spender, recipientSeed, amountSeed);
+
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSelector(IERC20.transferFrom.selector, address(node), params.to, params.amount),
@@ -48,6 +57,8 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
 
     function fuzz_digift_mint(uint256 shareSeed) public {
         DigiftMintParams memory params = digiftMintPreconditions(shareSeed);
+
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
@@ -61,6 +72,8 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     function fuzz_digift_withdraw(uint256 assetsSeed) public {
         DigiftWithdrawParams memory params = digiftWithdrawPreconditions(assetsSeed);
 
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSignature("withdraw(uint256,address,address)", params.assets, address(node), address(node)),
@@ -72,6 +85,8 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
 
     function fuzz_digift_requestRedeem(uint256 sharesSeed) public {
         DigiftRequestRedeemParams memory params = digiftRequestRedeemFlowPreconditions(sharesSeed);
+
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),

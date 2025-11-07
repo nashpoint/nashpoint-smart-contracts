@@ -12,6 +12,8 @@ contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRo
     function fuzz_fluid_claimRewards(uint256 positionIdSeed, uint256 cycleSeed, uint256 amountSeed) public {
         FluidClaimParams memory params = fluidClaimPreconditions(positionIdSeed, cycleSeed, amountSeed);
 
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(routerFluid),
             abi.encodeWithSelector(
@@ -31,6 +33,8 @@ contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRo
     function fuzz_incentra_claimRewards(uint256 campaignSeed, uint256 amountSeed) public {
         IncentraClaimParams memory params = incentraClaimPreconditions(campaignSeed, amountSeed);
 
+        _before();
+
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(routerIncentra),
             abi.encodeWithSelector(IncentraRouter.claim.selector, address(node), params.campaignAddrs, params.rewards),
@@ -42,6 +46,8 @@ contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRo
 
     function fuzz_merkl_claimRewards(uint256 amountSeed) public {
         MerklClaimParams memory params = merklClaimPreconditions(amountSeed);
+
+        _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(routerMerkl),
