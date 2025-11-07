@@ -19,7 +19,6 @@ contract FuzzDigiftEventVerifier is PreconditionsDigiftEventVerifier, Postcondit
 
     function fuzz_digiftVerifier_verifySettlement(uint256 seed, bool isSubscribe) public {
         DigiftVerifierVerifyParams memory params = digiftVerifierVerifyPreconditions(seed, isSubscribe);
-        forceActor(params.adapter, seed);
 
         DigiftEventVerifier.OffchainArgs memory offchain = DigiftEventVerifier.OffchainArgs({
             blockNumber: block.number,

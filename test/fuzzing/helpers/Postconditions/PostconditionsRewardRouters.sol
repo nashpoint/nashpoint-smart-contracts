@@ -47,13 +47,9 @@ contract PostconditionsRewardRouters is PostconditionsBase {
 
     function merklClaimPostconditions(bool success, bytes memory returnData, MerklClaimParams memory params) internal {
         if (success) {
-            address[] memory users = merklDistributor.getLastUsers();
-            address[] memory tokens = merklDistributor.getLastTokens();
-            uint256[] memory amounts = merklDistributor.getLastAmounts();
-
-            fl.t(keccak256(abi.encode(users)) == params.usersHash, "MERKL_USERS");
-            fl.t(keccak256(abi.encode(tokens)) == params.tokensHash, "MERKL_TOKENS");
-            fl.t(keccak256(abi.encode(amounts)) == params.amountsHash, "MERKL_AMOUNTS");
+            fl.t(merklDistributor.lastUsersHash() == params.usersHash, "MERKL_USERS");
+            fl.t(merklDistributor.lastTokensHash() == params.tokensHash, "MERKL_TOKENS");
+            fl.t(merklDistributor.lastAmountsHash() == params.amountsHash, "MERKL_AMOUNTS");
             fl.t(merklDistributor.lastProofsHash() == params.proofsHash, "MERKL_PROOFS");
 
             onSuccessInvariantsGeneral(returnData);

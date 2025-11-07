@@ -46,6 +46,18 @@ contract PreconditionsOneInch is PreconditionsBase {
         // Encode expected return in swapCalldata (mock expects this format)
         params.swapCalldata = abi.encode(params.expectedReturn);
 
-        params.shouldSucceed = true;
+        console.log("override flag", _hasPreferredAdminActor, _preferredAdminActor);
+        console.log("pre-oneinch override flag", _hasPreferredAdminActor, _preferredAdminActor);
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        bool authorized = _rand("ONEINCH_CALLER", seed) % 17 != 0;
+        params.caller = authorized ? rebalancer : randomUser;
+        params.shouldSucceed = authorized;
     }
 }

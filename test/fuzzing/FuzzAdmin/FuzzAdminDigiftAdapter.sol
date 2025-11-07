@@ -24,20 +24,18 @@ import {DigiftEventVerifier} from "../../../src/adapters/digift/DigiftEventVerif
  */
 contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAdapter {
     function fuzz_admin_digift_forwardRequests(uint256 seed) public {
-        forceActor(rebalancer, seed);
-
         DigiftForwardRequestParams memory params = digiftForwardRequestsPreconditions(seed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
-            address(digiftAdapter), abi.encodeWithSelector(DigiftAdapter.forwardRequestsToDigift.selector), currentActor
+            address(digiftAdapter),
+            abi.encodeWithSelector(DigiftAdapter.forwardRequestsToDigift.selector),
+            params.caller
         );
 
         digiftForwardRequestsPostconditions(success, returnData, params);
     }
 
     function fuzz_admin_digift_settleDeposit(uint256 seed) public {
-        forceActor(rebalancer, seed);
-
         DigiftSettleDepositParams memory params = digiftSettleDepositFlowPreconditions(seed);
 
         if (params.shouldSucceed) {
@@ -58,15 +56,13 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSelector(DigiftAdapter.settleDeposit.selector, nodes, verifyArgs),
-            currentActor
+            params.caller
         );
 
         digiftSettleDepositFlowPostconditions(success, returnData, params);
     }
 
     function fuzz_admin_digift_settleRedeem(uint256 seed) public {
-        forceActor(rebalancer, seed);
-
         DigiftSettleRedeemParams memory params = digiftSettleRedeemFlowPreconditions(seed);
 
         if (params.shouldSucceed) {
@@ -87,7 +83,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSelector(DigiftAdapter.settleRedeem.selector, nodes, verifyArgs),
-            currentActor
+            params.caller
         );
 
         digiftSettleRedeemFlowPostconditions(success, returnData, params);

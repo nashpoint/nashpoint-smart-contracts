@@ -115,6 +115,9 @@ contract PreconditionsNode is PreconditionsBase {
         params.controller = controller;
         params.pendingBefore = pendingRedeem;
 
+        bool authorizedCaller = _rand("NODE_FULFILL_CALLER", controllerSeed) % 19 != 0;
+        params.caller = authorizedCaller ? rebalancer : randomUser;
+
         // Use seed to determine failure (varies from 0-100%)
         bool forceFailure = (controllerSeed % 10) == 0; // 10% failure rate instead of 20%
         if (forceFailure) {
@@ -125,7 +128,15 @@ contract PreconditionsNode is PreconditionsBase {
             assetToken.mint(address(node), mintAmount);
         }
 
-        params.shouldSucceed = !forceFailure;
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = !forceFailure && params.caller == rebalancer;
+            return params;
+        }
+
+        params.shouldSucceed = !forceFailure && authorizedCaller;
     }
 
     function withdrawPreconditions(uint256 controllerSeed, uint256 assetsSeed)
@@ -338,41 +349,47 @@ contract PreconditionsNode is PreconditionsBase {
             return params;
         }
 
-        (bool found, address controller, uint256 claimableShares, uint256 claimableAssets) =
-            _findClaimableRedeemController(sharesSeed, false);
-
-        if (!found) {
-            address controllerFallback = USERS[sharesSeed % userCount];
-            params.controller = controllerFallback;
-            params.receiver = controllerFallback;
-            params.claimableAssetsBefore = 0;
-            params.claimableSharesBefore = 0;
-            params.shouldSucceed = false;
-            return params;
+        address controllerOverride;
+        if (_hasPreferredAdminActor) {
+            controllerOverride = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
         }
 
-        params.controller = controller;
-        params.receiver = controller;
-        params.claimableAssetsBefore = claimableAssets;
-        params.claimableSharesBefore = claimableShares;
+        if (controllerOverride != address(0)) {
+            params.controller = controllerOverride;
+            params.receiver = controllerOverride;
+        } else {
+            (bool found, address controller, uint256 claimableSharesExisting, uint256 claimableAssetsExisting) =
+                _findClaimableRedeemController(sharesSeed, false);
 
-        // Only proceed if we actually have claimable shares
-        if (claimableShares == 0) {
+            if (found) {
+                params.controller = controller;
+                params.receiver = controller;
+                params.claimableSharesBefore = claimableSharesExisting;
+                params.claimableAssetsBefore = claimableAssetsExisting;
+            } else {
+                address fallbackController = USERS[sharesSeed % userCount];
+                params.controller = fallbackController;
+                params.receiver = fallbackController;
+            }
+        }
+
+        (params.claimableSharesBefore, params.claimableAssetsBefore) =
+            _ensureClaimableRedeemState(params.controller, sharesSeed);
+
+        if (params.claimableSharesBefore == 0) {
             params.shares = 0;
             params.shouldSucceed = false;
             return params;
         }
 
-        // Let fuzzer explore both success and failure paths
         if (sharesSeed % 100 < 85) {
-            // 85% within bounds
-            // Happy path: redeem within claimable range (allow 0)
-            uint256 maxShares = claimableShares;
-            params.shares = fl.clamp(sharesSeed, 0, maxShares);
+            uint256 maxShares = params.claimableSharesBefore;
+            params.shares = fl.clamp(sharesSeed, 1, maxShares);
             params.shouldSucceed = params.shares > 0 && params.shares <= maxShares;
         } else {
-            // Error path: try to redeem more than max
-            params.shares = claimableShares + 1;
+            params.shares = params.claimableSharesBefore + 1;
             params.shouldSucceed = false;
         }
     }
@@ -930,7 +947,13 @@ contract PreconditionsNode is PreconditionsBase {
 
     function nodeStartRebalancePreconditions(uint256 seed) internal returns (NodeStartRebalanceParams memory params) {
         // Use percentage-based approach (11% use randomUser)
-        params.caller = (seed % 100) < 11 ? randomUser : rebalancer;
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+        } else {
+            params.caller = (seed % 100) < 11 ? randomUser : rebalancer;
+        }
 
         if (params.caller != rebalancer) {
             params.shouldSucceed = false;
@@ -1230,11 +1253,31 @@ contract PreconditionsNode is PreconditionsBase {
 
         uint256 idealCashReserve = Math.mulDiv(totalAssets, node.targetReserveRatio(), 1e18);
         uint256 currentCash = node.getCashAfterRedemptions();
-        bool reserveAboveTarget = currentCash > idealCashReserve;
-        bool componentUnderweight = params.expectedDeposit > 0;
-        bool componentAllowed = !router4626.isBlacklisted(params.component);
 
-        params.shouldSucceed = reserveAboveTarget && componentUnderweight && componentAllowed;
+        if (
+            currentCash <= idealCashReserve || params.expectedDeposit == 0 || router4626.isBlacklisted(params.component)
+        ) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        params.caller = rebalancer;
+        if (_rand("R4626_INVEST_CALLER", componentSeed, minSharesSeed) % 23 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = true;
     }
 
     function router4626FulfillPreconditions(uint256 controllerSeed, uint256 componentSeed)
@@ -1254,7 +1297,29 @@ contract PreconditionsNode is PreconditionsBase {
         params.minAssetsOut = 0;
 
         (params.pendingBefore,,,) = node.requests(params.controller);
-        params.shouldSucceed = params.pendingBefore > 0 && !router4626.isBlacklisted(params.component);
+
+        if (params.pendingBefore == 0 || router4626.isBlacklisted(params.component)) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        params.caller = rebalancer;
+        if (_rand("R4626_FULFILL_CALLER", controllerSeed, componentSeed) % 23 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = true;
     }
 
     function router4626LiquidatePreconditions(uint256 componentSeed, uint256 sharesSeed)
@@ -1283,7 +1348,29 @@ contract PreconditionsNode is PreconditionsBase {
 
         params.shares = fl.clamp(sharesSeed + 1, 1, params.sharesBefore);
         params.minAssetsOut = 0;
-        params.shouldSucceed = params.shares > 0 && !router4626.isBlacklisted(params.component);
+
+        if (params.shares == 0 || router4626.isBlacklisted(params.component)) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        params.caller = rebalancer;
+        if (_rand("R4626_LIQUIDATE_CALLER", componentSeed, sharesSeed) % 23 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = true;
     }
 
     function router7540InvestPreconditions(uint256 componentSeed)
@@ -1312,11 +1399,32 @@ contract PreconditionsNode is PreconditionsBase {
 
         uint256 idealCashReserve = Math.mulDiv(totalAssets, node.targetReserveRatio(), 1e18);
         uint256 currentCash = node.getCashAfterRedemptions();
-        bool reserveAboveTarget = currentCash > idealCashReserve;
-        bool componentUnderweight = componentAssets < targetHoldings;
-        bool componentAllowed = !router7540.isBlacklisted(params.component);
 
-        params.shouldSucceed = reserveAboveTarget && componentUnderweight && componentAllowed;
+        if (
+            currentCash <= idealCashReserve || componentAssets >= targetHoldings
+                || router7540.isBlacklisted(params.component)
+        ) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        params.caller = rebalancer;
+        if (_rand("R7540_INVEST_CALLER", componentSeed) % 29 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = true;
     }
 
     function router7540MintClaimablePreconditions(uint256 componentSeed)
@@ -1334,7 +1442,29 @@ contract PreconditionsNode is PreconditionsBase {
         params.component = pools[componentSeed % pools.length];
         params.claimableAssetsBefore = ERC7540Mock(params.component).claimableDepositRequests(address(node));
         params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
-        params.shouldSucceed = params.claimableAssetsBefore > 0 && !router7540.isBlacklisted(params.component);
+
+        if (params.claimableAssetsBefore == 0 || router7540.isBlacklisted(params.component)) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        params.caller = rebalancer;
+        if (_rand("R7540_MINT_CALLER", componentSeed) % 29 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = true;
     }
 
     function router7540RequestWithdrawalPreconditions(uint256 componentSeed, uint256 sharesSeed)
@@ -1371,7 +1501,29 @@ contract PreconditionsNode is PreconditionsBase {
         }
 
         params.shares = fl.clamp(sharesSeed + 1, minShares, params.shareBalanceBefore);
-        params.shouldSucceed = params.shares > 0 && !router7540.isBlacklisted(params.component);
+
+        if (params.shares == 0 || router7540.isBlacklisted(params.component)) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        params.caller = rebalancer;
+        if (_rand("R7540_REQUEST_CALLER", componentSeed, sharesSeed) % 29 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = true;
     }
 
     function router7540ExecuteWithdrawalPreconditions(uint256 componentSeed, uint256 assetsSeed)
@@ -1399,7 +1551,29 @@ contract PreconditionsNode is PreconditionsBase {
         }
 
         params.assets = params.maxWithdrawBefore;
-        params.shouldSucceed = params.assets > 0 && !router7540.isBlacklisted(params.component);
+
+        if (params.assets == 0 || router7540.isBlacklisted(params.component)) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        params.caller = rebalancer;
+        if (_rand("R7540_EXECUTE_CALLER", componentSeed, assetsSeed) % 29 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = true;
     }
 
     function router7540FulfillRedeemPreconditions(uint256 controllerSeed, uint256 componentSeed)
@@ -1431,8 +1605,31 @@ contract PreconditionsNode is PreconditionsBase {
         params.escrowBalanceBefore = asset.balanceOf(address(escrow));
         params.componentSharesBefore = IERC20(params.component).balanceOf(address(node));
 
-        params.shouldSucceed =
-            pendingRedeem > 0 && componentClaimable > 0 && !router7540.isBlacklisted(params.component);
+        if (
+            pendingRedeem == 0 || componentClaimable == 0 || router7540.isBlacklisted(params.component)
+                || params.componentSharesBefore == 0
+        ) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        params.caller = rebalancer;
+        if (_rand("R7540_FULFILL_CALLER", controllerSeed, componentSeed) % 29 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = true;
     }
 
     function poolProcessPendingDepositsPreconditions(uint256 poolSeed)
@@ -1450,6 +1647,22 @@ contract PreconditionsNode is PreconditionsBase {
 
         params.pool = pools[poolSeed % pools.length];
         params.pendingBefore = ERC7540Mock(params.pool).pendingAssets();
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.pendingBefore > 0 && params.caller == poolManager;
+            return params;
+        }
+
+        params.caller = poolManager;
+        if (_rand("POOL_PROCESS_CALLER", poolSeed) % 23 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
         params.shouldSucceed = params.pendingBefore > 0;
     }
 
@@ -1700,6 +1913,38 @@ contract PreconditionsNode is PreconditionsBase {
         return (false, address(0), 0, 0);
     }
 
+    function _ensureClaimableRedeemState(address controller, uint256 seed)
+        internal
+        returns (uint256 claimableShares, uint256 claimableAssets)
+    {
+        (, uint256 existingClaimableShares, uint256 existingClaimableAssets,) = node.requests(controller);
+        if (existingClaimableShares > 0 && existingClaimableAssets > 0) {
+            return (existingClaimableShares, existingClaimableAssets);
+        }
+
+        uint256 desiredShares = fl.clamp(seed, 1e16, 50e18);
+        if (desiredShares == 0) {
+            desiredShares = 1e16;
+        }
+
+        _ensurePendingRedeem(controller, desiredShares);
+
+        uint256 assetsNeeded = node.convertToAssets(desiredShares);
+        uint256 reserveBalance = asset.balanceOf(address(node));
+        if (assetsNeeded > 0 && reserveBalance < assetsNeeded) {
+            uint256 shortfall = assetsNeeded - reserveBalance;
+            assetToken.mint(address(node), shortfall + 1e18);
+        }
+
+        _startRebalance();
+
+        vm.startPrank(rebalancer);
+        try node.fulfillRedeemFromReserve(controller) {} catch {}
+        vm.stopPrank();
+
+        (, claimableShares, claimableAssets,) = node.requests(controller);
+    }
+
     function _ensurePendingRedeem(address controller, uint256 shares) internal {
         (uint256 pending,,,) = node.requests(controller);
         if (pending > 0) {
@@ -1804,6 +2049,16 @@ contract PreconditionsNode is PreconditionsBase {
         // Encode expected return in swapCalldata (mock expects this format)
         params.swapCalldata = abi.encode(params.expectedReturn);
 
-        params.shouldSucceed = true;
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        bool authorized = _rand("ONEINCH_CALLER", seed) % 17 != 0;
+        params.caller = authorized ? rebalancer : randomUser;
+        params.shouldSucceed = authorized;
     }
 }

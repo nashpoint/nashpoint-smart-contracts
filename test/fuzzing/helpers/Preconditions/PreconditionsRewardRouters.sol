@@ -20,7 +20,18 @@ contract PreconditionsRewardRouters is PreconditionsBase {
         params.merkleProof[0] = keccak256(abi.encodePacked(params.positionId, params.cycle));
 
         params.proofHash = keccak256(abi.encode(params.merkleProof));
-        params.shouldSucceed = true;
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        bool authorized = _rand("FLUID_CALLER", positionIdSeed, cycleSeed) % 17 != 0;
+        params.caller = authorized ? rebalancer : randomUser;
+        params.shouldSucceed = authorized;
     }
 
     function incentraClaimPreconditions(uint256 campaignSeed, uint256 amountSeed)
@@ -41,7 +52,18 @@ contract PreconditionsRewardRouters is PreconditionsBase {
 
         params.campaignAddrsHash = keccak256(abi.encode(params.campaignAddrs));
         params.rewardsHash = keccak256(abi.encode(params.rewards));
-        params.shouldSucceed = true;
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        bool authorized = _rand("INCENTRA_CALLER", campaignSeed, amountSeed) % 17 != 0;
+        params.caller = authorized ? rebalancer : randomUser;
+        params.shouldSucceed = authorized;
     }
 
     function merklClaimPreconditions(uint256 amountSeed) internal returns (MerklClaimParams memory params) {
@@ -64,6 +86,17 @@ contract PreconditionsRewardRouters is PreconditionsBase {
         params.tokensHash = keccak256(abi.encode(params.tokens));
         params.amountsHash = keccak256(abi.encode(params.amounts));
         params.proofsHash = keccak256(abi.encode(params.proofs));
-        params.shouldSucceed = true;
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        bool authorized = _rand("MERKL_CALLER", amountSeed) % 17 != 0;
+        params.caller = authorized ? rebalancer : randomUser;
+        params.shouldSucceed = authorized;
     }
 }

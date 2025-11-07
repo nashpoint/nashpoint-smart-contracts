@@ -2,9 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "../FuzzStructs.sol";
+import "forge-std/console.sol";
 
 contract PreconditionsBase is FuzzStructs {
     event LogAddress(address actor);
+
+    address internal _preferredAdminActor;
+    bool internal _hasPreferredAdminActor;
 
     modifier setCurrentActor(uint256 seed) {
         require(protocolSet, "PreconditionsBase: Protocol not set");
@@ -25,6 +29,10 @@ contract PreconditionsBase is FuzzStructs {
             } else {
                 lastTimestamp = block.timestamp;
             }
+        }
+        if (_hasPreferredAdminActor) {
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
         }
         emit LogAddress(currentActor);
         _;
@@ -68,26 +76,17 @@ contract PreconditionsBase is FuzzStructs {
         }
 
         require(iterationFound, "User index not found by setter");
+
+        _preferredAdminActor = targetUser;
+        _hasPreferredAdminActor = true;
+        console.log("setActor override", targetUser);
     }
 
-    function forceActor(address actor, uint256 seed) internal {
-        require(protocolSet, "PreconditionsBase: Protocol not set");
+    function _rand(bytes32 tag, uint256 seedA) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(tag, seedA, SEED)));
+    }
 
-        currentActor = actor;
-
-        if (_setActor) {
-            iteration += 1;
-
-            console.log("Force pranking:", toString(actor));
-            console.log("Block timestamp:", block.timestamp);
-
-            if (block.timestamp < lastTimestamp) {
-                vm.warp(lastTimestamp);
-            } else {
-                lastTimestamp = block.timestamp;
-            }
-        }
-
-        emit LogAddress(currentActor);
+    function _rand(bytes32 tag, uint256 seedA, uint256 seedB) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(tag, seedA, seedB, SEED)));
     }
 }

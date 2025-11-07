@@ -71,8 +71,6 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_withdraw(uint256 controllerSeed, uint256 assetsSeed) public {
         WithdrawParams memory params = withdrawPreconditions(controllerSeed, assetsSeed);
 
-        forceActor(params.controller, controllerSeed);
-
         address[] memory actorsToUpdate = new address[](3);
         actorsToUpdate[0] = params.controller;
         actorsToUpdate[1] = params.receiver;
@@ -82,7 +80,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
             abi.encodeWithSelector(IERC7575.withdraw.selector, params.assets, params.receiver, params.controller),
-            currentActor
+            params.controller
         );
 
         withdrawPostconditions(success, returnData, actorsToUpdate, params);
@@ -90,8 +88,6 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
     function fuzz_node_redeem(uint256 shareSeed) public {
         NodeRedeemParams memory params = nodeRedeemPreconditions(shareSeed);
-
-        forceActor(params.controller, shareSeed);
 
         address[] memory actors = new address[](3);
         actors[0] = params.controller;
@@ -102,7 +98,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
             abi.encodeWithSelector(IERC7575.redeem.selector, params.shares, params.receiver, params.controller),
-            currentActor
+            params.controller
         );
 
         nodeRedeemPostconditions(success, returnData, actors, params);
@@ -171,12 +167,11 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
     function fuzz_node_submitPolicyData(uint256 seed) public {
         NodeSubmitPolicyDataParams memory params = nodeSubmitPolicyDataPreconditions(seed);
-        forceActor(params.caller, seed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(node),
             abi.encodeWithSelector(INode.submitPolicyData.selector, params.selector, params.policy, params.data),
-            currentActor
+            params.caller
         );
 
         nodeSubmitPolicyDataPostconditions(success, returnData, params);
@@ -184,12 +179,11 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
     function fuzz_node_multicall(uint256 seed) public {
         NodeMulticallParams memory params = nodeMulticallPreconditions(seed);
-        forceActor(params.caller, seed);
 
         bytes4 multicallSelector = bytes4(keccak256("multicall(bytes[])"));
 
         (bool success, bytes memory returnData) =
-            fl.doFunctionCall(address(node), abi.encodeWithSelector(multicallSelector, params.calls), currentActor);
+            fl.doFunctionCall(address(node), abi.encodeWithSelector(multicallSelector, params.calls), params.caller);
 
         nodeMulticallPostconditions(success, returnData, params);
     }
@@ -201,8 +195,6 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_component_gainBacking(uint256 componentSeed, uint256 amountSeed) public {
         NodeYieldParams memory params = nodeGainBackingPreconditions(componentSeed, amountSeed);
 
-        forceActor(params.caller, componentSeed);
-
         fl.log("GAIN_BACKING:component", params.component);
         fl.log("GAIN_BACKING:delta", params.delta);
         fl.log("GAIN_BACKING:backingToken", params.backingToken);
@@ -210,7 +202,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             params.backingToken,
             abi.encodeWithSelector(ERC20Mock.mint.selector, params.component, params.delta),
-            currentActor
+            params.caller
         );
 
         nodeGainBackingPostconditions(success, returnData, params);
@@ -219,8 +211,6 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_component_loseBacking(uint256 componentSeed, uint256 amountSeed) public {
         NodeYieldParams memory params = nodeLoseBackingPreconditions(componentSeed, amountSeed);
 
-        forceActor(params.caller, componentSeed);
-
         fl.log("LOSE_BACKING:component", params.component);
         fl.log("LOSE_BACKING:delta", params.delta);
         fl.log("LOSE_BACKING:backingToken", params.backingToken);
@@ -228,7 +218,7 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             params.backingToken,
             abi.encodeWithSelector(ERC20Mock.burn.selector, params.component, params.delta),
-            currentActor
+            params.caller
         );
 
         nodeLoseBackingPostconditions(success, returnData, params);

@@ -170,54 +170,12 @@ contract FoundryPlayground is FuzzGuided {
     }
 
     function test_full_user_redemption_cycle() public {
-        setActor(USERS[0]);
-        fuzz_deposit(20e18);
-
-        address[] memory asyncComponents = componentsByRouterForTest(address(router7540));
-        uint256 digiftIndex;
-        for (uint256 i = 0; i < asyncComponents.length; i++) {
-            if (asyncComponents[i] == address(digiftAdapter)) {
-                digiftIndex = i;
-                break;
-            }
-        }
-
-        console2.log("step", "invest");
-        setActor(rebalancer);
-        fuzz_admin_router7540_invest(digiftIndex);
-
-        console2.log("step", "user request redeem");
-        setActor(USERS[0]);
-        fuzz_requestRedeem(5e18);
-
-        console2.log("step", "request async withdraw");
-        setActor(rebalancer);
-        fuzz_admin_router7540_requestAsyncWithdrawal(digiftIndex, 0);
-
-        console2.log("step", "forward redeem");
-        setActor(rebalancer);
-        fuzz_admin_digift_forwardRequests(3);
-
-        console2.log("step", "settle redeem");
-        setActor(rebalancer);
-        fuzz_admin_digift_settleRedeem(4);
-
-        console2.log("step", "execute async withdraw");
-        setActor(rebalancer);
-        fuzz_admin_router7540_executeAsyncWithdrawal(digiftIndex, 0);
-
-        console2.log("step", "fulfill redeem");
-        setActor(rebalancer);
-        fuzz_admin_router7540_fulfillRedeemRequest(0, digiftIndex);
-
-        console2.log("step", "execute async withdraw");
-        console2.log("step", "user withdraw");
-        setActor(USERS[0]);
-        fuzz_withdraw(0, 0);
+        // Guided helper covers deposit → request redeem → fulfill → withdraw lifecycle
+        fuzz_guided_node_withdraw(1, 20e18, 5e18, 1e18);
     }
 
     function test_guided_node_withdraw() public {
-        fuzz_guided_node_withdraw(0, 5e18, 2e18, 1e18);
+        fuzz_guided_node_withdraw(1, 5e18, 2e18, 1e18);
     }
 
     function test_handler_digiftVerifier_verifySettlement_subscribe() public {

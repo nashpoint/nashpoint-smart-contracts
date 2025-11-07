@@ -61,6 +61,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct FulfillRedeemParams {
+        address caller;
         address controller;
         bool shouldSucceed;
         uint256 pendingBefore;
@@ -83,6 +84,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct RouterInvestParams {
+        address caller;
         address component;
         uint256 minSharesOut;
         uint256 expectedDeposit;
@@ -92,6 +94,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct RouterLiquidateParams {
+        address caller;
         address component;
         uint256 shares;
         uint256 minAssetsOut;
@@ -101,6 +104,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct RouterFulfillParams {
+        address caller;
         address controller;
         address component;
         uint256 minAssetsOut;
@@ -128,6 +132,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct RouterAsyncInvestParams {
+        address caller;
         address component;
         uint256 nodeAssetBalanceBefore;
         uint256 pendingDepositBefore;
@@ -135,6 +140,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct RouterMintClaimableParams {
+        address caller;
         address component;
         uint256 claimableAssetsBefore;
         uint256 shareBalanceBefore;
@@ -142,12 +148,14 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct PoolProcessParams {
+        address caller;
         address pool;
         uint256 pendingBefore;
         bool shouldSucceed;
     }
 
     struct RouterRequestAsyncWithdrawalParams {
+        address caller;
         address component;
         uint256 shares;
         uint256 shareBalanceBefore;
@@ -156,6 +164,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct RouterExecuteAsyncWithdrawalParams {
+        address caller;
         address component;
         uint256 assets;
         uint256 maxWithdrawBefore;
@@ -165,6 +174,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct RouterFulfillAsyncRedeemParams {
+        address caller;
         address controller;
         address component;
         uint256 nodeAssetBalanceBefore;
@@ -174,6 +184,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct FluidClaimParams {
+        address caller;
         uint256 cumulativeAmount;
         bytes32 positionId;
         uint256 cycle;
@@ -183,6 +194,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct IncentraClaimParams {
+        address caller;
         address[] campaignAddrs;
         IIncentraDistributor.CampaignReward[] rewards;
         bytes32 campaignAddrsHash;
@@ -191,6 +203,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct MerklClaimParams {
+        address caller;
         address[] tokens;
         uint256[] amounts;
         bytes32[][] proofs;
@@ -202,6 +215,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct OneInchSwapParams {
+        address caller;
         address incentive;
         uint256 incentiveAmount;
         uint256 minAssetsOut;
@@ -514,6 +528,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct DigiftForwardRequestParams {
+        address caller;
         DigiftPendingDepositRecord[] deposits;
         DigiftPendingRedemptionRecord[] redemptions;
         uint256 accumulatedDepositBefore;
@@ -522,6 +537,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct DigiftSettleDepositParams {
+        address caller;
         DigiftPendingDepositRecord[] records;
         uint256 sharesExpected;
         uint256 assetsExpected;
@@ -529,6 +545,7 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct DigiftSettleRedeemParams {
+        address caller;
         DigiftPendingRedemptionRecord[] records;
         uint256 sharesExpected;
         uint256 assetsExpected;

@@ -25,7 +25,8 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         params.to = _selectAddressFromSeed(recipientSeed);
         params.amount = fl.clamp(amountSeed, 0, type(uint128).max);
 
-        uint256 balance = digiftAdapter.balanceOf(currentActor);
+        address caller = address(node);
+        uint256 balance = digiftAdapter.balanceOf(caller);
         params.shouldSucceed = params.amount <= balance;
     }
 
@@ -86,9 +87,8 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         }
     }
 
-    function digiftForwardRequestsPreconditions(uint256)
+    function digiftForwardRequestsPreconditions(uint256 seed)
         internal
-        view
         returns (DigiftForwardRequestParams memory params)
     {
         uint256 depositCount = _pendingDigiftDepositCount();
@@ -106,19 +106,29 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
 
         params.accumulatedDepositBefore = digiftAdapter.accumulatedDeposit();
         params.accumulatedRedeemBefore = digiftAdapter.accumulatedRedemption();
-        params.shouldSucceed = params.deposits.length > 0 || params.redemptions.length > 0;
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed =
+                (params.deposits.length > 0 || params.redemptions.length > 0) && params.caller == rebalancer;
+            return params;
+        }
+
+        bool authorized = _rand("DIGIFT_FORWARD_CALLER", seed) % 23 != 0;
+        params.caller = authorized ? rebalancer : randomUser;
+        params.shouldSucceed = (params.deposits.length > 0 || params.redemptions.length > 0) && authorized;
     }
 
     function digiftSettleDepositFlowPreconditions(uint256 seed)
         internal
-        view
         returns (DigiftSettleDepositParams memory params)
     {
-        seed;
         uint256 queueLength = _forwardedDigiftDepositCount();
-        params.shouldSucceed = queueLength > 0 && digiftAdapter.globalPendingDepositRequest() > 0;
-
-        if (!params.shouldSucceed) {
+        bool queueReady = queueLength > 0 && digiftAdapter.globalPendingDepositRequest() > 0;
+        if (!queueReady) {
+            params.shouldSucceed = false;
             return params;
         }
 
@@ -138,21 +148,49 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
 
         params.sharesExpected = digiftAdapter.convertToShares(totalAssets);
         params.assetsExpected = 0;
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        bool authorized = _rand("DIGIFT_SETTLE_DEPOSIT_CALLER", seed) % 23 != 0;
+        params.caller = authorized ? rebalancer : randomUser;
+        params.shouldSucceed = authorized;
     }
 
     function digiftSettleRedeemFlowPreconditions(uint256 seed)
         internal
         returns (DigiftSettleRedeemParams memory params)
     {
-        uint8 recordCount = uint8(2 + (seed % 2));
-        uint256 totalShares = Math.max(digiftAdapter.minRedeemAmount() * recordCount, 5e18);
-        uint256 assetsExpected = _prepareDigiftRedemption(totalShares, recordCount);
-
         uint256 queueLength = _forwardedDigiftRedemptionCount();
         uint256 pendingRedeemGlobal = digiftAdapter.globalPendingRedeemRequest();
-        params.shouldSucceed = queueLength > 0 && pendingRedeemGlobal > 0;
+        uint256 assetsExpected;
 
-        if (!params.shouldSucceed) {
+        if (queueLength == 0 || pendingRedeemGlobal == 0) {
+            uint8 recordCount = uint8(2 + (seed % 2));
+            uint256 totalShares = Math.max(digiftAdapter.minRedeemAmount() * recordCount, 5e18);
+            assetsExpected = _prepareDigiftRedemption(totalShares, recordCount);
+
+            queueLength = _forwardedDigiftRedemptionCount();
+            pendingRedeemGlobal = digiftAdapter.globalPendingRedeemRequest();
+        } else {
+            assetsExpected = digiftAdapter.convertToAssets(pendingRedeemGlobal);
+            if (assetsExpected == 0) {
+                assetsExpected = pendingRedeemGlobal;
+            }
+
+            uint256 adapterBalance = asset.balanceOf(address(digiftAdapter));
+            if (assetsExpected > 0 && adapterBalance < assetsExpected) {
+                assetToken.mint(address(digiftAdapter), assetsExpected - adapterBalance);
+            }
+        }
+
+        if (queueLength == 0 || pendingRedeemGlobal == 0) {
+            params.shouldSucceed = false;
             return params;
         }
 
@@ -172,6 +210,18 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
 
         params.sharesExpected = 0;
         params.assetsExpected = assetsExpected;
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.caller == rebalancer;
+            return params;
+        }
+
+        bool authorized = _rand("DIGIFT_SETTLE_REDEEM_CALLER", seed) % 23 != 0;
+        params.caller = authorized ? rebalancer : randomUser;
+        params.shouldSucceed = authorized;
 
         if (seed % 5 == 0) {
             params.shouldSucceed = false;

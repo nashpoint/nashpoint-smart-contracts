@@ -16,7 +16,6 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     // Standard ERC20 functions accessible to end users
 
     function fuzz_digift_approve(uint256 spenderSeed, uint256 amountSeed) public {
-        forceActor(address(node), amountSeed);
         DigiftApproveParams memory params = digiftApprovePreconditions(spenderSeed, amountSeed);
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
@@ -27,7 +26,6 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     }
 
     function fuzz_digift_transfer(uint256 recipientSeed, uint256 amountSeed) public {
-        forceActor(address(node), amountSeed);
         DigiftTransferParams memory params = digiftTransferPreconditions(recipientSeed, amountSeed);
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
@@ -39,7 +37,6 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
 
     function fuzz_digift_transferFrom(uint256 recipientSeed, uint256 amountSeed) public {
         address spender = _selectAddressFromSeed(amountSeed);
-        forceActor(spender, amountSeed);
         DigiftTransferParams memory params = digiftTransferFromPreconditions(spender, recipientSeed, amountSeed);
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
@@ -50,36 +47,30 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
     }
 
     function fuzz_digift_mint(uint256 shareSeed) public {
-        forceActor(address(node), shareSeed);
-
         DigiftMintParams memory params = digiftMintPreconditions(shareSeed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSignature("mint(uint256,address,address)", params.shares, address(node), address(node)),
-            currentActor
+            address(node)
         );
 
         digiftMintPostconditions(success, returnData, params);
     }
 
     function fuzz_digift_withdraw(uint256 assetsSeed) public {
-        forceActor(address(node), assetsSeed);
-
         DigiftWithdrawParams memory params = digiftWithdrawPreconditions(assetsSeed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
             abi.encodeWithSignature("withdraw(uint256,address,address)", params.assets, address(node), address(node)),
-            currentActor
+            address(node)
         );
 
         digiftWithdrawPostconditions(success, returnData, params);
     }
 
     function fuzz_digift_requestRedeem(uint256 sharesSeed) public {
-        forceActor(address(node), sharesSeed);
-
         DigiftRequestRedeemParams memory params = digiftRequestRedeemFlowPreconditions(sharesSeed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -87,7 +78,7 @@ contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAd
             abi.encodeWithSignature(
                 "requestRedeem(uint256,address,address)", params.shares, address(node), address(node)
             ),
-            currentActor
+            address(node)
         );
 
         digiftRequestRedeemFlowPostconditions(success, returnData, params);

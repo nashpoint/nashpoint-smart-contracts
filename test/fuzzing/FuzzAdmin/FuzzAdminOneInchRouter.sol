@@ -15,8 +15,6 @@ contract FuzzAdminOneInchRouter is PreconditionsOneInch, PostconditionsOneInch {
      * @param seed Used to generate test parameters
      */
     function fuzz_admin_oneinch_swap(uint256 seed) public {
-        forceActor(rebalancer, seed);
-
         OneInchSwapParams memory params = oneInchSwapPreconditions(seed);
 
         if (!params.shouldSucceed) {
@@ -39,7 +37,7 @@ contract FuzzAdminOneInchRouter is PreconditionsOneInch, PostconditionsOneInch {
                 params.executor,
                 params.swapCalldata
             ),
-            currentActor
+            params.caller
         );
 
         oneInchSwapPostconditions(success, returnData, actors, params);

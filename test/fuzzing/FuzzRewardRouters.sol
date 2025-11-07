@@ -10,8 +10,6 @@ import {MerklRouter} from "../../src/routers/MerklRouter.sol";
 
 contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRouters {
     function fuzz_fluid_claimRewards(uint256 positionIdSeed, uint256 cycleSeed, uint256 amountSeed) public {
-        forceActor(rebalancer, positionIdSeed);
-
         FluidClaimParams memory params = fluidClaimPreconditions(positionIdSeed, cycleSeed, amountSeed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -24,29 +22,25 @@ contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRo
                 params.cycle,
                 params.merkleProof
             ),
-            currentActor
+            params.caller
         );
 
         fluidClaimPostconditions(success, returnData, params);
     }
 
     function fuzz_incentra_claimRewards(uint256 campaignSeed, uint256 amountSeed) public {
-        forceActor(rebalancer, campaignSeed);
-
         IncentraClaimParams memory params = incentraClaimPreconditions(campaignSeed, amountSeed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(routerIncentra),
             abi.encodeWithSelector(IncentraRouter.claim.selector, address(node), params.campaignAddrs, params.rewards),
-            currentActor
+            params.caller
         );
 
         incentraClaimPostconditions(success, returnData, params);
     }
 
     function fuzz_merkl_claimRewards(uint256 amountSeed) public {
-        forceActor(rebalancer, amountSeed);
-
         MerklClaimParams memory params = merklClaimPreconditions(amountSeed);
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -54,7 +48,7 @@ contract FuzzRewardRouters is PreconditionsRewardRouters, PostconditionsRewardRo
             abi.encodeWithSelector(
                 MerklRouter.claim.selector, address(node), params.tokens, params.amounts, params.proofs
             ),
-            currentActor
+            params.caller
         );
 
         merklClaimPostconditions(success, returnData, params);
