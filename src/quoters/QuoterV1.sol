@@ -130,6 +130,7 @@ contract QuoterV1 is IQuoterV1, BaseQuoter {
         // get the required assets in unit terms where actual reserve ratio = target reserve ratio
         uint256 investedAssets = totalAssets - reserveCash;
         uint256 targetReserveAssets = investedAssets.mulDiv(targetReserveRatio, WAD - targetReserveRatio);
+        if (targetReserveAssets == 0) return 0;
 
         // get size of reserve delta closed in unit terms by returning the min of deposit and asset shortfall
         // if we don't take the min then we could overpay the deposit bonus
