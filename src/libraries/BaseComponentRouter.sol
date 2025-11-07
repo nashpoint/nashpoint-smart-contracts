@@ -119,14 +119,14 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
         // gets units of asset required to set component to target ratio
         depositAmount = _getInvestmentSize(node, component);
 
+        // limit deposit by reserve ratio requirements
+        // _validateReserveAboveTargetRatio() ensures currentCash >= idealCashReserve
+        depositAmount = Math.min(depositAmount, currentCash - idealCashReserve);
+
         // Validate deposit amount exceeds minimum threshold
         if (depositAmount < Math.mulDiv(totalAssets, INode(node).getComponentAllocation(component).maxDelta, WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
-
-        // limit deposit by reserve ratio requirements
-        // _validateReserveAboveTargetRatio() ensures currentCash >= idealCashReserve
-        depositAmount = Math.min(depositAmount, currentCash - idealCashReserve);
 
         // subtract execution fee for protocol
         depositAmount = _subtractExecutionFee(depositAmount, node);
