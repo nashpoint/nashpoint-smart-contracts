@@ -159,6 +159,8 @@ contract FuzzSetup is HelperFunctions {
         registry.setRegistryType(address(routerOneInch), RegistryType.ROUTER, true);
         registry.setRegistryType(rebalancer, RegistryType.REBALANCER, true);
         registry.setRegistryType(address(quoter), RegistryType.QUOTER, true);
+        // Ensure execution fee path is exercised during fuzzing (non-zero fee)
+        registry.setProtocolExecutionFee(0.01 ether);
 
         router4626.setWhitelistStatus(address(vault), true);
         router4626.setWhitelistStatus(address(vaultSecondary), true);

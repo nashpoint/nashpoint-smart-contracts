@@ -115,18 +115,24 @@ contract FuzzStructs is FuzzSetup {
     }
 
     struct RouterBatchWhitelistParams {
+        address router;
+        address caller;
         address[] components;
         bool[] statuses;
         bool shouldSucceed;
     }
 
     struct RouterSingleStatusParams {
+        address router;
+        address caller;
         address component;
         bool status;
         bool shouldSucceed;
     }
 
     struct RouterToleranceParams {
+        address router;
+        address caller;
         uint256 newTolerance;
         bool shouldSucceed;
     }

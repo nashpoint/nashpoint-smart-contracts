@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "./FuzzNode.sol";
 import "./FuzzDonate.sol";
 import "./FuzzDigiftAdapter.sol";
-import "./FuzzDigiftEventVerifier.sol";
 import "./FuzzNodeFactory.sol";
 import "./FuzzAdmin/FuzzAdminNode.sol";
 import "./FuzzAdmin/FuzzAdminDigiftAdapter.sol";
@@ -25,7 +24,6 @@ contract FuzzGuided is
     FuzzDonate,
     FuzzDigiftAdapter,
     FuzzAdminDigiftAdapter,
-    FuzzDigiftEventVerifier,
     FuzzNodeFactory,
     FuzzRewardRouters
 {
@@ -159,8 +157,10 @@ contract FuzzGuided is
         }
 
         address controller = USERS[controllerSeed % USERS.length];
+        uint256 depositSeedValue = depositSeed == 0 ? 100e18 : depositSeed;
+
         setActor(controller);
-        fuzz_deposit(depositSeed == 0 ? 1 : depositSeed);
+        fuzz_deposit(depositSeedValue);
 
         uint256 poolSeed = _router7540ComponentSeed(address(liquidityPool));
         if (poolSeed == type(uint256).max) {
@@ -190,6 +190,51 @@ contract FuzzGuided is
         fuzz_admin_router7540_requestAsyncWithdrawal(poolSeed, sharesSeed);
 
         setActor(rebalancer);
+        fuzz_admin_pool_processPendingRedemptions(poolSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_fulfillRedeemRequest(controllerSeed, poolSeed);
+    }
+
+    function fuzz_guided_router7540_partialFulfill(uint256 controllerSeed, uint256 depositSeed, uint256 redeemSeed)
+        public
+    {
+        if (USERS.length == 0) {
+            return;
+        }
+
+        address controller = USERS[controllerSeed % USERS.length];
+        uint256 depositSeedValue = depositSeed == 0 ? 1 : depositSeed;
+
+        setActor(controller);
+        fuzz_deposit(depositSeedValue);
+
+        uint256 poolSeed = _router7540ComponentSeed(address(liquidityPool));
+        if (poolSeed == type(uint256).max) {
+            return;
+        }
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(poolSeed);
+
+        fuzz_admin_pool_processPendingDeposits(poolSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_mintClaimable(poolSeed);
+
+        uint256 redeemSeedValue = redeemSeed == 0 ? depositSeedValue : redeemSeed;
+        setActor(controller);
+        fuzz_requestRedeem(redeemSeedValue);
+
+        (uint256 pending,,,) = node.requests(controller);
+        if (pending <= 1) {
+            return;
+        }
+
+        setActor(rebalancer);
+        // Force a partial scenario by requesting the minimum async withdrawal
+        fuzz_admin_router7540_requestAsyncWithdrawal(poolSeed, 0);
+
         fuzz_admin_pool_processPendingRedemptions(poolSeed);
 
         setActor(rebalancer);

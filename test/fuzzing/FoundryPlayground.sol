@@ -8,8 +8,7 @@ import {INode} from "src/interfaces/INode.sol";
  * @notice Tests removed due to handler deletion:
  * - All fuzz_fulfillRedeem tests (Category 3 - onlyRebalancer, deleted)
  * - All fuzz_digiftFactory_* tests (deleted)
- * - fuzz_digiftVerifier_setWhitelist tests (Category 2 - moved to admin)
- * - fuzz_digiftVerifier_setBlockHash tests (Category 2 - moved to admin)
+ *
  * - All fuzz_router4626_* tests (deleted)
  * - All fuzz_router7540_* tests (deleted)
  * - All other router function tests (deleted)
@@ -18,7 +17,6 @@ import {INode} from "src/interfaces/INode.sol";
  * @notice Remaining tests only call user-facing handlers:
  * - fuzz_deposit, fuzz_mint, fuzz_requestRedeem, fuzz_withdraw
  * - fuzz_setOperator, fuzz_node_approve, fuzz_node_transfer, fuzz_node_transferFrom, fuzz_node_redeem
- * - fuzz_donate, fuzz_digiftVerifier_verifySettlement, fuzz_nodeFactory_deploy
  */
 contract FoundryPlayground is FuzzGuided {
     function setUp() public {
@@ -195,6 +193,22 @@ contract FoundryPlayground is FuzzGuided {
         fuzz_admin_router7540_fulfillRedeemRequest(0, poolSeed);
     }
 
+    function test_router7540_partial_redeem_lifecycle() public {
+        fuzz_guided_router7540_partialFulfill(0, 200e18, 150e18);
+    }
+
+    function test_router_admin_set_blacklist() public {
+        fuzz_admin_router_setBlacklist(0, 0, true);
+    }
+
+    function test_router_admin_batch_whitelist() public {
+        fuzz_admin_router_batchWhitelist(0, 0);
+    }
+
+    function test_router_admin_set_tolerance() public {
+        fuzz_admin_router_setTolerance(0, 42);
+    }
+
     function test_router4626_liquidate_flow() public {
         setActor(USERS[1]);
         fuzz_deposit(8e18);
@@ -267,14 +281,6 @@ contract FoundryPlayground is FuzzGuided {
 
     function test_guided_node_withdraw() public {
         fuzz_guided_node_withdraw(1, 5e18, 2e18, 1e18);
-    }
-
-    function test_handler_digiftVerifier_verifySettlement_subscribe() public {
-        fuzz_digiftVerifier_verifySettlement(9, true);
-    }
-
-    function test_handler_digiftVerifier_verifySettlement_redeem() public {
-        fuzz_digiftVerifier_verifySettlement(11, false);
     }
 
     function test_handler_nodeFactory_deploy() public {

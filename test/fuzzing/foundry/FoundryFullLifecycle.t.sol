@@ -196,10 +196,6 @@ contract FoundryFullLifecycle is FuzzGuided {
         setActor(USERS[1]);
         fuzz_deposit(8e17);
 
-        // Verify events
-        fuzz_digiftVerifier_verifySettlement(1, true);
-        fuzz_digiftVerifier_verifySettlement(2, false);
-
         // More operations
         setActor(USERS[2]);
         fuzz_mint(6e17);
@@ -293,9 +289,6 @@ contract FoundryFullLifecycle is FuzzGuided {
         setActor(USERS[2]);
         fuzz_mint(5e17);
         fuzz_setOperator(3, true);
-
-        // Event verification
-        fuzz_digiftVerifier_verifySettlement(1, true);
 
         // More operations
         setActor(USERS[3]);

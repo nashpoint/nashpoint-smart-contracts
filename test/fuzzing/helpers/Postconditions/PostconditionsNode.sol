@@ -8,6 +8,7 @@ import {ComponentAllocation} from "../../../../src/interfaces/INode.sol";
 import {IERC7575} from "../../../../src/interfaces/IERC7575.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "../../../../src/interfaces/IERC7540.sol";
 import {ERC7540Mock} from "../../../mocks/ERC7540Mock.sol";
+import {BaseComponentRouter} from "../../../../src/libraries/BaseComponentRouter.sol";
 
 contract PostconditionsNode is PostconditionsBase {
     function depositPostconditions(bool success, bytes memory returnData, DepositParams memory params) internal {
@@ -831,6 +832,51 @@ contract PostconditionsNode is PostconditionsBase {
             fl.t(escrowAfter >= params.escrowBalanceBefore, "ROUTER4626_FULFILL_ESCROW");
             fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER4626_FULFILL_NODE_BALANCE");
 
+            onSuccessInvariantsGeneral(returnData);
+        } else {
+            onFailInvariantsGeneral(returnData);
+        }
+    }
+
+    function routerSetBlacklistPostconditions(
+        bool success,
+        bytes memory returnData,
+        RouterSingleStatusParams memory params
+    ) internal {
+        if (success) {
+            _after();
+            bool stored = BaseComponentRouter(params.router).isBlacklisted(params.component);
+            fl.eq(stored, params.status, "ROUTER_BLACKLIST_STATUS");
+            onSuccessInvariantsGeneral(returnData);
+        } else {
+            onFailInvariantsGeneral(returnData);
+        }
+    }
+
+    function routerBatchWhitelistPostconditions(
+        bool success,
+        bytes memory returnData,
+        RouterBatchWhitelistParams memory params
+    ) internal {
+        if (success) {
+            _after();
+            for (uint256 i = 0; i < params.components.length; i++) {
+                bool stored = BaseComponentRouter(params.router).isWhitelisted(params.components[i]);
+                fl.eq(stored, params.statuses[i], "ROUTER_WHITELIST_STATUS");
+            }
+            onSuccessInvariantsGeneral(returnData);
+        } else {
+            onFailInvariantsGeneral(returnData);
+        }
+    }
+
+    function routerTolerancePostconditions(bool success, bytes memory returnData, RouterToleranceParams memory params)
+        internal
+    {
+        if (success) {
+            _after();
+            uint256 stored = BaseComponentRouter(params.router).tolerance();
+            fl.eq(stored, params.newTolerance, "ROUTER_TOLERANCE_VALUE");
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

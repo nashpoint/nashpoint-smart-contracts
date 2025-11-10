@@ -12,4 +12,4 @@ contract,source,total,comment
  src/libraries/BaseComponentRouter.sol,86,186,72
  src/adapters/digift/DigiftAdapter.sol,459,1166,523
  src/adapters/digift/DigiftAdapterFactory.sol,14,58,35
- src/adapters/digift/DigiftEventVerifier.sol,135,332,147
+ test/mocks/DigiftEventVerifierMock.sol,135,332,147

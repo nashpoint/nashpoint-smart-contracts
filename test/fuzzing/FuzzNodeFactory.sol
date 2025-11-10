@@ -9,6 +9,7 @@ import {INode} from "../../src/interfaces/INode.sol";
 import {IERC7575} from "../../src/interfaces/IERC7575.sol";
 import {Node} from "../../src/Node.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title FuzzNodeFactory
@@ -24,6 +25,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  */
 contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory {
     uint256 internal constant WAD = 1e18;
+    uint64 internal constant MIN_SWING_FACTOR = 0.05 ether;
 
     /**
      * @notice Fuzzing handler for deployFullNode function
@@ -72,15 +74,22 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         uint256 entropy =
             uint256(keccak256(abi.encodePacked(seed, deployedNodeAddr, deployedEscrowAddr, block.timestamp)));
 
-        _setupNodeCore(deployedNodeAddr, ownerActor, entropy);
+        bool swingPricingEnabledOnNode = _setupNodeCore(deployedNodeAddr, ownerActor, entropy);
         _configureNodePolicies(deployedNodeAddr, ownerActor);
         _prepareNodeApprovals(deployedNodeAddr);
         _seedNodeLiquidity(deployedNodeAddr, deployedEscrowAddr, ownerActor, entropy);
 
+        if (swingPricingEnabledOnNode) {
+            _exerciseSwingPricingLifecycle(deployedNodeAddr, entropy);
+        }
+
         _setActiveNode(deployedNodeAddr);
     }
 
-    function _setupNodeCore(address nodeAddr, address ownerActor, uint256 entropy) internal {
+    function _setupNodeCore(address nodeAddr, address ownerActor, uint256 entropy)
+        internal
+        returns (bool swingPricingEnabled)
+    {
         _callAs(
             ownerActor,
             nodeAddr,
@@ -150,6 +159,19 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
             abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, reserveRatio),
             "NODE_FACTORY:SET_RESERVE_RATIO"
         );
+
+        uint256 swingSeed = uint256(keccak256(abi.encodePacked(nodeAddr, entropy, "NODE_SWING")));
+        bool shouldEnableSwingPricing = swingSeed % 2 == 0;
+        if (shouldEnableSwingPricing) {
+            uint64 swingFactor = _deriveSwingFactor(swingSeed);
+            _callAs(
+                ownerActor,
+                nodeAddr,
+                abi.encodeWithSelector(INode.enableSwingPricing.selector, true, swingFactor),
+                "NODE_FACTORY:ENABLE_SWING"
+            );
+            swingPricingEnabled = true;
+        }
     }
 
     function _configureNodePolicies(address nodeAddr, address ownerActor) internal {
@@ -310,6 +332,46 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         );
     }
 
+    function _exerciseSwingPricingLifecycle(address nodeAddr, uint256 entropy) internal {
+        uint256 seederShares = IERC20(nodeAddr).balanceOf(vaultSeeder);
+        if (seederShares == 0) {
+            return;
+        }
+
+        uint256 sharesToRedeem = (seederShares * 95) / 100;
+        if (sharesToRedeem == 0) {
+            sharesToRedeem = seederShares;
+        }
+
+        _callAs(
+            vaultSeeder,
+            nodeAddr,
+            abi.encodeWithSelector(INode.requestRedeem.selector, sharesToRedeem, vaultSeeder, vaultSeeder),
+            "NODE_FACTORY:SWING_REDEEM"
+        );
+
+        address depositActor = USERS[entropy % USERS.length];
+        uint256 actorBalance = asset.balanceOf(depositActor);
+        if (actorBalance == 0) {
+            return;
+        }
+
+        uint256 depositAmplitude = 25_000 ether;
+        uint256 depositFloor = 1_000 ether;
+        uint256 desiredDeposit = depositFloor + (entropy % depositAmplitude);
+        uint256 depositAmount = Math.min(desiredDeposit, actorBalance);
+        if (depositAmount == 0) {
+            return;
+        }
+
+        _callAs(
+            depositActor,
+            nodeAddr,
+            abi.encodeWithSelector(IERC7575.deposit.selector, depositAmount, depositActor),
+            "NODE_FACTORY:SWING_DEPOSIT"
+        );
+    }
+
     function _componentOrder(uint256 entropy) internal pure returns (uint8[6] memory order) {
         order = [uint8(0), 1, 2, 3, 4, 5];
         for (uint256 i = 1; i < order.length; i++) {
@@ -355,5 +417,16 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         }
         fl.t(success, err);
         return returnData;
+    }
+
+    function _deriveSwingFactor(uint256 entropy) internal pure returns (uint64 swingFactor) {
+        uint64 maxSwing = DEFAULT_PROTOCOL_MAX_SWING_FACTOR;
+        if (maxSwing <= MIN_SWING_FACTOR) {
+            return maxSwing;
+        }
+
+        uint256 range = uint256(maxSwing - MIN_SWING_FACTOR);
+        uint64 randomDelta = uint64(range == 0 ? 0 : entropy % (range + 1));
+        swingFactor = MIN_SWING_FACTOR + randomDelta;
     }
 }

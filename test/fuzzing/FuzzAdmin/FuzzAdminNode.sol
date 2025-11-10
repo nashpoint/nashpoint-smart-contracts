@@ -18,6 +18,7 @@ import {ERC7540Router} from "../../../src/routers/ERC7540Router.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "../../../src/interfaces/IERC7540.sol";
 import {IERC7575} from "../../../src/interfaces/IERC7575.sol";
+import {BaseComponentRouter} from "../../../src/libraries/BaseComponentRouter.sol";
 
 contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_node_startRebalance(uint256 seed) public {
@@ -59,9 +60,6 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router4626_invest(uint256 componentSeed, uint256 minOutSeed) public {
         RouterInvestParams memory params = router4626InvestPreconditions(componentSeed, minOutSeed);
 
-        params.sharesBefore = IERC20(params.component).balanceOf(address(node));
-        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
-
         _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -92,9 +90,6 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router4626_fulfillRedeem(uint256 controllerSeed, uint256 componentSeed) public {
         RouterFulfillParams memory params = router4626FulfillPreconditions(controllerSeed, componentSeed);
 
-        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
-        params.escrowBalanceBefore = asset.balanceOf(address(escrow));
-
         _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -115,8 +110,6 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router7540_invest(uint256 componentSeed) public {
         RouterAsyncInvestParams memory params = router7540InvestPreconditions(componentSeed);
 
-        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
-
         _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -130,9 +123,6 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_router7540_mintClaimable(uint256 componentSeed) public {
         RouterMintClaimableParams memory params = router7540MintClaimablePreconditions(componentSeed);
-
-        params.claimableAssetsBefore = IERC7540Deposit(params.component).claimableDepositRequest(0, address(node));
-        params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
 
         _before();
 
@@ -148,9 +138,6 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router7540_requestAsyncWithdrawal(uint256 componentSeed, uint256 sharesSeed) public {
         RouterRequestAsyncWithdrawalParams memory params =
             router7540RequestWithdrawalPreconditions(componentSeed, sharesSeed);
-
-        params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
-        params.pendingRedeemBefore = IERC7540Redeem(params.component).pendingRedeemRequest(0, address(node));
 
         _before();
 
@@ -173,11 +160,6 @@ contract FuzzAdminNode is FuzzNode {
             return;
         }
 
-        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
-        params.claimableAssetsBefore = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
-        params.maxWithdrawBefore = IERC7575(params.component).maxWithdraw(address(node));
-        params.assets = params.maxWithdrawBefore;
-
         _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -195,10 +177,6 @@ contract FuzzAdminNode is FuzzNode {
         RouterFulfillAsyncRedeemParams memory params =
             router7540FulfillRedeemPreconditions(controllerSeed, componentSeed);
 
-        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
-        params.escrowBalanceBefore = asset.balanceOf(address(escrow));
-        params.componentSharesBefore = IERC20(params.component).balanceOf(address(node));
-
         _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -210,6 +188,50 @@ contract FuzzAdminNode is FuzzNode {
         );
 
         router7540FulfillRedeemPostconditions(success, returnData, params);
+    }
+
+    function fuzz_admin_router_setBlacklist(uint256 routerSeed, uint256 componentSeed, bool statusSeed) public {
+        RouterSingleStatusParams memory params = routerSetBlacklistPreconditions(routerSeed, componentSeed, statusSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            params.router,
+            abi.encodeWithSelector(BaseComponentRouter.setBlacklistStatus.selector, params.component, params.status),
+            params.caller
+        );
+
+        routerSetBlacklistPostconditions(success, returnData, params);
+    }
+
+    function fuzz_admin_router_batchWhitelist(uint256 routerSeed, uint256 batchSeed) public {
+        RouterBatchWhitelistParams memory params = routerBatchWhitelistPreconditions(routerSeed, batchSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            params.router,
+            abi.encodeWithSelector(
+                BaseComponentRouter.batchSetWhitelistStatus.selector, params.components, params.statuses
+            ),
+            params.caller
+        );
+
+        routerBatchWhitelistPostconditions(success, returnData, params);
+    }
+
+    function fuzz_admin_router_setTolerance(uint256 routerSeed, uint256 toleranceSeed) public {
+        RouterToleranceParams memory params = routerTolerancePreconditions(routerSeed, toleranceSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            params.router,
+            abi.encodeWithSelector(BaseComponentRouter.setTolerance.selector, params.newTolerance),
+            params.caller
+        );
+
+        routerTolerancePostconditions(success, returnData, params);
     }
 
     function fuzz_admin_pool_processPendingDeposits(uint256 poolSeed) public {

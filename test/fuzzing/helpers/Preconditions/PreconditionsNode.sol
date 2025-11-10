@@ -1297,6 +1297,8 @@ contract PreconditionsNode is PreconditionsBase {
         params.minAssetsOut = 0;
 
         (params.pendingBefore,,,) = node.requests(params.controller);
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
+        params.escrowBalanceBefore = asset.balanceOf(address(escrow));
 
         if (params.pendingBefore == 0 || router4626.isBlacklisted(params.component)) {
             params.caller = rebalancer;
@@ -1396,6 +1398,7 @@ contract PreconditionsNode is PreconditionsBase {
         uint256 pendingAssets = IERC7540Deposit(params.component).pendingDepositRequest(0, address(node));
 
         params.pendingDepositBefore = pendingAssets;
+        params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
 
         uint256 idealCashReserve = Math.mulDiv(totalAssets, node.targetReserveRatio(), 1e18);
         uint256 currentCash = node.getCashAfterRedemptions();
@@ -1666,6 +1669,107 @@ contract PreconditionsNode is PreconditionsBase {
         params.shouldSucceed = params.pendingBefore > 0;
     }
 
+    function routerSetBlacklistPreconditions(uint256 routerSeed, uint256 componentSeed, bool statusSeed)
+        internal
+        returns (RouterSingleStatusParams memory params)
+    {
+        uint256 combinedSeed = uint256(keccak256(abi.encodePacked(routerSeed, componentSeed)));
+        _prepareNodeContext(combinedSeed);
+
+        params.router = _selectBaseComponentRouter(routerSeed);
+        params.caller = owner;
+
+        address[] memory components = _componentsByRouter(params.router);
+        if (components.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.component = components[componentSeed % components.length];
+        params.status = statusSeed;
+        params.shouldSucceed = true;
+
+        if (_rand("ROUTER_BLACKLIST_CALLER", routerSeed, componentSeed) % 19 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_rand("ROUTER_BLACKLIST_ZERO", routerSeed, componentSeed) % 23 == 0) {
+            params.component = address(0);
+            params.shouldSucceed = false;
+            return params;
+        }
+    }
+
+    function routerBatchWhitelistPreconditions(uint256 routerSeed, uint256 batchSeed)
+        internal
+        returns (RouterBatchWhitelistParams memory params)
+    {
+        uint256 combinedSeed = uint256(keccak256(abi.encodePacked(routerSeed, batchSeed)));
+        _prepareNodeContext(combinedSeed);
+
+        params.router = _selectBaseComponentRouter(routerSeed);
+        params.caller = owner;
+
+        address[] memory components = _componentsByRouter(params.router);
+        if (components.length == 0) {
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        uint256 count = 1 + (batchSeed % components.length);
+        params.components = new address[](count);
+        params.statuses = new bool[](count);
+        for (uint256 i; i < count; ++i) {
+            params.components[i] = components[(batchSeed + i) % components.length];
+            params.statuses[i] = (_rand("ROUTER_WHITELIST_STATUS", batchSeed, i) & 1) == 1;
+        }
+
+        params.shouldSucceed = true;
+
+        if (count > 1 && _rand("ROUTER_WHITELIST_LENGTH", routerSeed, batchSeed) % 23 == 0) {
+            bool[] memory shorter = new bool[](count - 1);
+            for (uint256 i; i < shorter.length; ++i) {
+                shorter[i] = params.statuses[i];
+            }
+            params.statuses = shorter;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_rand("ROUTER_WHITELIST_ZERO", routerSeed, batchSeed) % 29 == 0) {
+            params.components[0] = address(0);
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        if (_rand("ROUTER_WHITELIST_CALLER", routerSeed, batchSeed) % 31 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+    }
+
+    function routerTolerancePreconditions(uint256 routerSeed, uint256 toleranceSeed)
+        internal
+        returns (RouterToleranceParams memory params)
+    {
+        uint256 combinedSeed = uint256(keccak256(abi.encodePacked(routerSeed, toleranceSeed)));
+        _prepareNodeContext(combinedSeed);
+
+        params.router = _selectBaseComponentRouter(routerSeed);
+        params.caller = owner;
+        params.newTolerance = toleranceSeed % 1e18;
+        params.shouldSucceed = true;
+
+        if (_rand("ROUTER_TOLERANCE_CALLER", routerSeed, toleranceSeed) % 17 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+    }
+
     function poolProcessPendingRedemptionsPreconditions(uint256 poolSeed)
         internal
         returns (PoolProcessRedemptionsParams memory params)
@@ -1698,6 +1802,10 @@ contract PreconditionsNode is PreconditionsBase {
         }
 
         params.shouldSucceed = params.pendingBefore > 0;
+    }
+
+    function _selectBaseComponentRouter(uint256 seed) internal view returns (address router) {
+        router = seed % 2 == 0 ? address(router4626) : address(router7540);
     }
 
     function _componentsByRouter(address targetRouter) internal view returns (address[] memory matches) {
