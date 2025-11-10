@@ -25,3 +25,7 @@ lcov.info
 
 # Fuzzlib (installed via forge install)
 lib/fuzzlib
+
+# Coverage markdown reports
+coverage-*.md
+crytic-export/combined_solc.json

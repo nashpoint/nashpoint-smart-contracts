@@ -16,7 +16,7 @@ import {ERC7540Mock} from "../../mocks/ERC7540Mock.sol";
 import {ERC4626Router} from "../../../src/routers/ERC4626Router.sol";
 import {ERC7540Router} from "../../../src/routers/ERC7540Router.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC7540Redeem} from "../../../src/interfaces/IERC7540.sol";
+import {IERC7540Deposit, IERC7540Redeem} from "../../../src/interfaces/IERC7540.sol";
 import {IERC7575} from "../../../src/interfaces/IERC7575.sol";
 
 contract FuzzAdminNode is FuzzNode {
@@ -131,7 +131,7 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router7540_mintClaimable(uint256 componentSeed) public {
         RouterMintClaimableParams memory params = router7540MintClaimablePreconditions(componentSeed);
 
-        params.claimableAssetsBefore = ERC7540Mock(params.component).claimableDepositRequests(address(node));
+        params.claimableAssetsBefore = IERC7540Deposit(params.component).claimableDepositRequest(0, address(node));
         params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
 
         _before();
@@ -222,6 +222,18 @@ contract FuzzAdminNode is FuzzNode {
         );
 
         poolProcessPendingDepositsPostconditions(success, returnData, params);
+    }
+
+    function fuzz_admin_pool_processPendingRedemptions(uint256 poolSeed) public {
+        PoolProcessRedemptionsParams memory params = poolProcessPendingRedemptionsPreconditions(poolSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            params.pool, abi.encodeWithSelector(ERC7540Mock.processPendingRedemptions.selector), params.caller
+        );
+
+        poolProcessPendingRedemptionsPostconditions(success, returnData, params);
     }
     // function fuzz_admin_node_setAnnualManagementFee(uint256 seed) public {
     //     // Actor selection handled in preconditions

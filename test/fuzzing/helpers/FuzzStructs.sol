@@ -154,6 +154,13 @@ contract FuzzStructs is FuzzSetup {
         bool shouldSucceed;
     }
 
+    struct PoolProcessRedemptionsParams {
+        address caller;
+        address pool;
+        uint256 pendingBefore;
+        bool shouldSucceed;
+    }
+
     struct RouterRequestAsyncWithdrawalParams {
         address caller;
         address component;

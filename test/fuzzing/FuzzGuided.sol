@@ -10,6 +10,7 @@ import "./FuzzAdmin/FuzzAdminNode.sol";
 import "./FuzzAdmin/FuzzAdminDigiftAdapter.sol";
 import "./FuzzRewardRouters.sol";
 import {Node} from "../../src/Node.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title FuzzGuided
@@ -91,5 +92,117 @@ contract FuzzGuided is
 
         uint256 shortfall = assetsNeeded - reserveBalance;
         assetToken.mint(address(node), shortfall);
+    }
+
+    function fuzz_guided_router7540_claimable(uint256 userSeed, uint256 depositSeed) public {
+        if (USERS.length == 0) {
+            return;
+        }
+
+        address controller = USERS[userSeed % USERS.length];
+        setActor(controller);
+        fuzz_deposit(depositSeed == 0 ? 1 : depositSeed);
+
+        uint256 digiftSeed = _router7540ComponentSeed(address(digiftAdapter));
+        if (digiftSeed == type(uint256).max) {
+            return;
+        }
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(digiftSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(1);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_settleDeposit(2);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_mintClaimable(digiftSeed);
+    }
+
+    function fuzz_guided_router7540_executeAsyncWithdrawal(uint256 userSeed, uint256 depositSeed, uint256 withdrawSeed)
+        public
+    {
+        fuzz_guided_router7540_claimable(userSeed, depositSeed);
+
+        uint256 digiftSeed = _router7540ComponentSeed(address(digiftAdapter));
+        if (digiftSeed == type(uint256).max) {
+            return;
+        }
+        uint256 shareBalance = IERC20(address(digiftAdapter)).balanceOf(address(node));
+        if (shareBalance == 0) {
+            return;
+        }
+
+        uint256 sharesSeed = shareBalance > 1 ? shareBalance - 1 : 1;
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(digiftSeed, sharesSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(11);
+
+        setActor(rebalancer);
+        uint256 settleSeed = (withdrawSeed | 1) + 6;
+        fuzz_admin_digift_settleRedeem(settleSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_executeAsyncWithdrawal(digiftSeed, 0);
+    }
+
+    function fuzz_guided_router7540_fulfillRedeem(uint256 controllerSeed, uint256 depositSeed, uint256 redeemSeed)
+        public
+    {
+        if (USERS.length == 0) {
+            return;
+        }
+
+        address controller = USERS[controllerSeed % USERS.length];
+        setActor(controller);
+        fuzz_deposit(depositSeed == 0 ? 1 : depositSeed);
+
+        uint256 poolSeed = _router7540ComponentSeed(address(liquidityPool));
+        if (poolSeed == type(uint256).max) {
+            return;
+        }
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(poolSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_pool_processPendingDeposits(poolSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_mintClaimable(poolSeed);
+
+        setActor(controller);
+        fuzz_requestRedeem(redeemSeed == 0 ? 1 : redeemSeed);
+
+        uint256 poolShares = IERC20(address(liquidityPool)).balanceOf(address(node));
+        if (poolShares == 0) {
+            return;
+        }
+
+        uint256 sharesSeed = poolShares > 1 ? poolShares - 1 : 1;
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(poolSeed, sharesSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_pool_processPendingRedemptions(poolSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_fulfillRedeemRequest(controllerSeed, poolSeed);
+    }
+
+    function _router7540ComponentSeed(address component) internal view returns (uint256) {
+        address[] memory asyncComponents = componentsByRouterForTest(address(router7540));
+        for (uint256 i = 0; i < asyncComponents.length; i++) {
+            if (asyncComponents[i] == component) {
+                return i;
+            }
+        }
+        return type(uint256).max;
     }
 }

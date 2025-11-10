@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./FuzzGuided.sol";
-import "forge-std/console2.sol";
+import {INode} from "src/interfaces/INode.sol";
 
 /**
  * @notice Tests removed due to handler deletion:
@@ -102,6 +102,97 @@ contract FoundryPlayground is FuzzGuided {
 
         setActor(rebalancer);
         fuzz_admin_router7540_executeAsyncWithdrawal(digiftIndex, 0);
+    }
+
+    function test_router7540_claimable_shares_flow() public {
+        setActor(USERS[0]);
+        fuzz_deposit(7e18);
+
+        uint256 digiftSeed = _digiftComponentSeed();
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(digiftSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(3);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_settleDeposit(4);
+
+        uint256 sharesBefore = digiftAdapter.balanceOf(address(node));
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_mintClaimable(digiftSeed);
+
+        uint256 sharesAfter = digiftAdapter.balanceOf(address(node));
+        assertGt(sharesAfter, sharesBefore, "node should hold digift shares after minting");
+    }
+
+    function test_router7540_execute_async_withdrawal_lifecycle() public {
+        setActor(USERS[1]);
+        fuzz_deposit(9e18);
+
+        uint256 digiftSeed = _digiftComponentSeed();
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(digiftSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(7);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_settleDeposit(8);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_mintClaimable(digiftSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(digiftSeed, 0);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(11);
+
+        setActor(rebalancer);
+        fuzz_admin_digift_settleRedeem(13);
+
+        uint256 assetsBefore = asset.balanceOf(address(node));
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_executeAsyncWithdrawal(digiftSeed, 0);
+
+        uint256 assetsAfter = asset.balanceOf(address(node));
+        assertGt(assetsAfter, assetsBefore, "node should receive assets after withdraw");
+    }
+
+    function test_router7540_fulfill_redeem_lifecycle() public {
+        setActor(USERS[2]);
+        fuzz_deposit(11e18);
+
+        uint256 poolSeed = _componentSeed(address(liquidityPool));
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(poolSeed);
+
+        fuzz_admin_pool_processPendingDeposits(poolSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_mintClaimable(poolSeed);
+
+        address controller = USERS[2];
+        uint256 sharesToRedeem = node.balanceOf(controller) / 2;
+        if (sharesToRedeem == 0) {
+            sharesToRedeem = 1;
+        }
+        setActor(controller);
+        fuzz_requestRedeem(sharesToRedeem);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(poolSeed, 0);
+
+        fuzz_admin_pool_processPendingRedemptions(poolSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_fulfillRedeemRequest(0, poolSeed);
     }
 
     function test_router4626_liquidate_flow() public {
@@ -234,5 +325,19 @@ contract FoundryPlayground is FuzzGuided {
     function test_oneinch_swap() public {
         setActor(rebalancer);
         fuzz_admin_oneinch_swap(42);
+    }
+
+    function _digiftComponentSeed() internal view returns (uint256) {
+        return _componentSeed(address(digiftAdapter));
+    }
+
+    function _componentSeed(address target) internal view returns (uint256) {
+        address[] memory asyncComponents = componentsByRouterForTest(address(router7540));
+        for (uint256 i = 0; i < asyncComponents.length; i++) {
+            if (asyncComponents[i] == target) {
+                return i;
+            }
+        }
+        revert("async component missing");
     }
 }

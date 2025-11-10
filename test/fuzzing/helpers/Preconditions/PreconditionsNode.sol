@@ -1440,7 +1440,7 @@ contract PreconditionsNode is PreconditionsBase {
         }
 
         params.component = pools[componentSeed % pools.length];
-        params.claimableAssetsBefore = ERC7540Mock(params.component).claimableDepositRequests(address(node));
+        params.claimableAssetsBefore = IERC7540Deposit(params.component).claimableDepositRequest(0, address(node));
         params.shareBalanceBefore = IERC20(params.component).balanceOf(address(node));
 
         if (params.claimableAssetsBefore == 0 || router7540.isBlacklisted(params.component)) {
@@ -1658,6 +1658,40 @@ contract PreconditionsNode is PreconditionsBase {
 
         params.caller = poolManager;
         if (_rand("POOL_PROCESS_CALLER", poolSeed) % 23 == 0) {
+            params.caller = randomUser;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.shouldSucceed = params.pendingBefore > 0;
+    }
+
+    function poolProcessPendingRedemptionsPreconditions(uint256 poolSeed)
+        internal
+        returns (PoolProcessRedemptionsParams memory params)
+    {
+        _prepareNodeContext(poolSeed);
+
+        address[] memory pools = _componentsByRouter(address(router7540));
+        if (pools.length == 0) {
+            params.pool = address(liquidityPool);
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        params.pool = pools[poolSeed % pools.length];
+        params.pendingBefore = IERC7540Redeem(params.pool).pendingRedeemRequest(0, address(node));
+
+        if (_hasPreferredAdminActor) {
+            params.caller = _preferredAdminActor;
+            _preferredAdminActor = address(0);
+            _hasPreferredAdminActor = false;
+            params.shouldSucceed = params.pendingBefore > 0 && params.caller == poolManager;
+            return params;
+        }
+
+        params.caller = poolManager;
+        if (_rand("POOL_PROCESS_REDEEM_CALLER", poolSeed) % 23 == 0) {
             params.caller = randomUser;
             params.shouldSucceed = false;
             return params;

@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Node} from "../../../../src/Node.sol";
 import {ComponentAllocation} from "../../../../src/interfaces/INode.sol";
 import {IERC7575} from "../../../../src/interfaces/IERC7575.sol";
-import {IERC7540Redeem} from "../../../../src/interfaces/IERC7540.sol";
+import {IERC7540Deposit, IERC7540Redeem} from "../../../../src/interfaces/IERC7540.sol";
 import {ERC7540Mock} from "../../../mocks/ERC7540Mock.sol";
 
 contract PostconditionsNode is PostconditionsBase {
@@ -879,7 +879,7 @@ contract PostconditionsNode is PostconditionsBase {
             uint256 shareBalanceAfter = IERC20(params.component).balanceOf(address(node));
             fl.t(shareBalanceAfter >= params.shareBalanceBefore + sharesReceived, "ROUTER7540_MINT_SHARES");
 
-            uint256 claimableAfter = ERC7540Mock(params.component).claimableDepositRequests(address(node));
+            uint256 claimableAfter = IERC7540Deposit(params.component).claimableDepositRequest(0, address(node));
             fl.t(claimableAfter <= params.claimableAssetsBefore, "ROUTER7540_MINT_CLAIMABLE");
 
             onSuccessInvariantsGeneral(returnData);
@@ -974,6 +974,23 @@ contract PostconditionsNode is PostconditionsBase {
 
             uint256 pendingAfter = ERC7540Mock(params.pool).pendingAssets();
             fl.t(pendingAfter <= params.pendingBefore, "POOL_PROCESS_PENDING_DELTA");
+
+            onSuccessInvariantsGeneral(returnData);
+        } else {
+            onFailInvariantsGeneral(returnData);
+        }
+    }
+
+    function poolProcessPendingRedemptionsPostconditions(
+        bool success,
+        bytes memory returnData,
+        PoolProcessRedemptionsParams memory params
+    ) internal {
+        if (success) {
+            _after();
+
+            uint256 pendingAfter = IERC7540Redeem(params.pool).pendingRedeemRequest(0, address(node));
+            fl.t(pendingAfter == 0, "POOL_PROCESS_REDEEM_PENDING_NOT_ZERO");
 
             onSuccessInvariantsGeneral(returnData);
         } else {
