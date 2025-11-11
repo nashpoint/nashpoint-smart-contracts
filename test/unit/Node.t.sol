@@ -991,6 +991,20 @@ contract NodeTest is BaseTest {
         node.rescueTokens(address(asset), address(user), 100 ether);
     }
 
+    function test_rescueTokens_revert_share() public {
+        address component = makeAddr("ERC7540Component");
+        address share = makeAddr("share");
+        vm.mockCall(component, abi.encodeWithSignature("asset()"), abi.encode(address(asset)));
+        vm.mockCall(component, abi.encodeWithSignature("share()"), abi.encode(share));
+        vm.mockCall(address(router7540), abi.encodeWithSignature("isWhitelisted(address)", component), abi.encode(true));
+        vm.startPrank(owner);
+        vm.warp(block.timestamp + 1 days);
+        node.addRouter(address(router7540));
+        node.addComponent(component, 1 ether, 0, address(router7540));
+        vm.expectRevert(ErrorsLib.InvalidToken.selector);
+        node.rescueTokens(share, address(user), 100 ether);
+    }
+
     function test_rescueTokens_revert_component() public {
         vm.warp(block.timestamp + 1 days);
         deal(address(testComponent), address(node), 100 ether);

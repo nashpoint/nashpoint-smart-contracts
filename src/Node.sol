@@ -321,6 +321,11 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function rescueTokens(address token, address recipient, uint256 amount) external onlyOwner {
         if (token == asset) revert ErrorsLib.InvalidToken();
         if (_isComponent(token)) revert ErrorsLib.InvalidToken();
+        for (uint256 i; i < components.length; i++) {
+            try IERC7575(components[i]).share() returns (address share) {
+                if (token == share) revert ErrorsLib.InvalidToken();
+            } catch {}
+        }
         IERC20(token).safeTransfer(recipient, amount);
         emit EventsLib.RescueTokens(token, recipient, amount);
     }
