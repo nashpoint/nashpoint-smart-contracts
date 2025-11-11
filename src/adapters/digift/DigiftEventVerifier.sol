@@ -259,7 +259,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
             if (currencyTokenList[vars.investorIndex] != nargs.currencyToken) continue;
 
             // Generate unique log hash to prevent double-spending
-            vars.logHash = _hashLog(vars.blockHash, vars.receiptsRoot, fargs.txIndex, i);
+            vars.logHash = _hashLog(vars.blockHash, stToken, nargs.currencyToken, fargs.txIndex, i);
             if (usedLogs[vars.logHash]) revert LogAlreadyUsed();
             usedLogs[vars.logHash] = true;
 
@@ -305,17 +305,20 @@ contract DigiftEventVerifier is RegistryAccessControl {
      * @notice Generates a unique hash for a log entry to prevent double-spending
      * @dev Creates a deterministic hash from block hash, receipts root, transaction index path, and log index
      * @param blockHash The hash of the block containing the log
-     * @param receiptsRoot The receipts root from the block header
+     * @param stToken The address of security token
+     * @param currencyToken The address of currency token
      * @param txIndexPath The transaction index path in the Merkle trie
      * @param logIndex The index of the log within the transaction receipt
      * @return A unique hash identifying this specific log entry
      */
-    function _hashLog(bytes32 blockHash, bytes32 receiptsRoot, bytes memory txIndexPath, uint256 logIndex)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(blockHash, receiptsRoot, txIndexPath, logIndex));
+    function _hashLog(
+        bytes32 blockHash,
+        address stToken,
+        address currencyToken,
+        bytes memory txIndexPath,
+        uint256 logIndex
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(blockHash, stToken, currencyToken, txIndexPath, logIndex));
     }
 
     /**
