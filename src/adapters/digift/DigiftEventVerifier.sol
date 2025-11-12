@@ -235,7 +235,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
         require(bytes32(RLPReader.readBytes(vars.topics[0])) == vars.eventSignature, NoEvent());
 
         // Decode the log data (non-indexed parameters)
-        // Structure: (stToken, investorList, quantityList, currencyTokenList, amountList, timestamp)
+        // Structure: (stToken, investorList, quantityList, currencyTokenList, amountList, feeList)
         (
             address stToken,
             address[] memory investorList,
