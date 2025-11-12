@@ -20,7 +20,6 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
     address public protocolFeeAddress;
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
-    uint64 public protocolMaxSwingFactor;
     mapping(address => mapping(RegistryType => bool)) internal roles;
     bytes32 public policiesRoot;
 
@@ -41,21 +40,16 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
     /// @param feeAddress_ Destination for protocol fees
     /// @param managementFee_ Protocol share of management fees in WAD
     /// @param executionFee_ Protocol execution fee in WAD
-    /// @param maxSwingFactor_ Maximum swing pricing factor allowed for nodes
-    function initialize(
-        address owner,
-        address feeAddress_,
-        uint64 managementFee_,
-        uint64 executionFee_,
-        uint64 maxSwingFactor_
-    ) external initializer {
+    function initialize(address owner, address feeAddress_, uint64 managementFee_, uint64 executionFee_)
+        external
+        initializer
+    {
         __Ownable_init(owner);
         __UUPSUpgradeable_init();
 
         _setProtocolFeeAddress(feeAddress_);
         _setProtocolManagementFee(managementFee_);
         _setProtocolExecutionFee(executionFee_);
-        _setProtocolMaxSwingFactor(maxSwingFactor_);
     }
 
     /// @inheritdoc INodeRegistry
@@ -93,11 +87,6 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
     /// @inheritdoc INodeRegistry
     function setProtocolExecutionFee(uint64 newProtocolExecutionFee) external onlyOwner {
         _setProtocolExecutionFee(newProtocolExecutionFee);
-    }
-
-    /// @inheritdoc INodeRegistry
-    function setProtocolMaxSwingFactor(uint64 newProtocolMaxSwingFactor) external onlyOwner {
-        _setProtocolMaxSwingFactor(newProtocolMaxSwingFactor);
     }
 
     /* VIEW */
@@ -146,12 +135,6 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
         if (newProtocolExecutionFee >= WAD) revert ErrorsLib.InvalidFee();
         protocolExecutionFee = newProtocolExecutionFee;
         emit EventsLib.ProtocolExecutionFeeSet(newProtocolExecutionFee);
-    }
-
-    function _setProtocolMaxSwingFactor(uint64 newProtocolMaxSwingFactor) internal {
-        if (newProtocolMaxSwingFactor >= WAD) revert ErrorsLib.InvalidSwingFactor();
-        protocolMaxSwingFactor = newProtocolMaxSwingFactor;
-        emit EventsLib.ProtocolMaxSwingFactorSet(newProtocolMaxSwingFactor);
     }
 
     function _getLeaf(bytes4 sig, address policy) internal pure returns (bytes32) {

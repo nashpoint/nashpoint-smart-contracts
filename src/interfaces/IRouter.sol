@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-/// @title IQuoterV1
+/// @title IRouter
 /// @author ODND Studios
 interface IRouter {
     function isWhitelisted(address component) external view returns (bool status);

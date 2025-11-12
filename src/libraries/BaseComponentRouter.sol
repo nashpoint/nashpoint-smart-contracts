@@ -147,19 +147,14 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     /// @param sharesPending The pending shares of the redemption request.
     /// @param assetsReturned The amount of assets returned from the redemption.
     /// @param assetsRequested The amount of assets requested from the redemption.
-    /// @param sharesAdjusted The adjusted shares of the redemption request.
     /// @return _sharesPending The downscaled shares pending.
-    /// @return _sharesAdjusted The downscaled shares adjusted.
-    function _calculatePartialFulfill(
-        uint256 sharesPending,
-        uint256 assetsReturned,
-        uint256 assetsRequested,
-        uint256 sharesAdjusted
-    ) internal pure returns (uint256 _sharesPending, uint256 _sharesAdjusted) {
+    function _calculatePartialFulfill(uint256 sharesPending, uint256 assetsReturned, uint256 assetsRequested)
+        internal
+        pure
+        returns (uint256 _sharesPending)
+    {
         _sharesPending =
             Math.min(sharesPending, Math.mulDiv(sharesPending, assetsReturned, assetsRequested, Math.Rounding.Ceil));
-        _sharesAdjusted =
-            Math.min(sharesAdjusted, Math.mulDiv(sharesAdjusted, assetsReturned, assetsRequested, Math.Rounding.Ceil));
     }
 
     /// @notice Returns the node's cash status.

@@ -40,9 +40,6 @@ library ErrorsLib {
     /// @notice Thrown when the controller is invalid.
     error InvalidController();
 
-    /// @notice Thrown when the quoter is not valid for the node
-    error InvalidQuoter();
-
     /// @notice Thrown when the balance is insufficient.
     error InsufficientBalance();
 
@@ -159,9 +156,6 @@ library ErrorsLib {
 
     /// @notice Thrown when the fee is invalid.
     error InvalidFee();
-
-    /// @notice Thrown when the swing factor is invalid.
-    error InvalidSwingFactor();
 
     error PolicyAlreadyAdded(bytes4 sig, address policy);
 

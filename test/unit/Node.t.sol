@@ -20,7 +20,6 @@ import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.so
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
 import {IERC7575, IERC165} from "src/interfaces/IERC7575.sol";
-import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
@@ -53,7 +52,6 @@ contract NodeTest is BaseTest {
     NodeRegistry public testRegistry;
     Node public testNode;
     address public testAsset;
-    address public testQuoter;
     address public testRouter;
     address public testRebalancer;
     address public testComponent;
@@ -95,7 +93,6 @@ contract NodeTest is BaseTest {
         testEscrow = makeAddr("testEscrow");
 
         testAsset = address(testToken);
-        testQuoter = makeAddr("testQuoter");
         testRouter = makeAddr("testRouter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = address(testVault);
@@ -108,7 +105,6 @@ contract NodeTest is BaseTest {
         testRegistry.setRegistryType(address(this), RegistryType.FACTORY, true);
         testRegistry.setRegistryType(address(testRouter), RegistryType.ROUTER, true);
         testRegistry.setRegistryType(address(testRebalancer), RegistryType.REBALANCER, true);
-        testRegistry.setRegistryType(address(testQuoter), RegistryType.QUOTER, true);
 
         testRegistry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
         router4626.setWhitelistStatus(address(testComponent), true);
@@ -120,7 +116,6 @@ contract NodeTest is BaseTest {
         testNode.addRouter(address(testRouter));
         testNode.addRouter(address(router4626));
         testNode.addRebalancer(testRebalancer);
-        testNode.setQuoter(testQuoter);
         ComponentAllocation memory allocation = _defaultComponentAllocations(1)[0];
         testNode.addComponent(testComponent, allocation.targetWeight, allocation.maxDelta, allocation.router);
         testNode.updateTargetReserveRatio(0.1 ether);
@@ -128,7 +123,6 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         vm.label(testAsset, "TestAsset");
-        vm.label(testQuoter, "TestQuoter");
         vm.label(testRouter, "TestRouter");
         vm.label(testRebalancer, "TestRebalancer");
         vm.label(testComponent, "TestComponent");
@@ -595,22 +589,6 @@ contract NodeTest is BaseTest {
         testNode.removeRebalancer(makeAddr("nonexistent"));
     }
 
-    function test_setQuoter() public {
-        address newQuoter = makeAddr("newQuoter");
-
-        vm.startPrank(owner);
-        INodeRegistry(testRegistry).setRegistryType(newQuoter, RegistryType.QUOTER, true);
-        testNode.setQuoter(newQuoter);
-        vm.stopPrank();
-        assertEq(address(testNode.quoter()), newQuoter);
-    }
-
-    function test_setQuoter_revert_NotWhitelisted() public {
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
-        testNode.setQuoter(makeAddr("notWhitelisted"));
-    }
-
     function test_setLiquidationQueue() public {
         vm.mockCall(
             address(router4626),
@@ -879,36 +857,6 @@ contract NodeTest is BaseTest {
 
         vm.prank(rebalancer);
         node.startRebalance();
-    }
-
-    function test_enableSwingPricing() public {
-        uint64 newMaxSwingFactor = 0.1 ether;
-
-        vm.prank(owner);
-        testNode.enableSwingPricing(true, newMaxSwingFactor);
-
-        assertTrue(testNode.swingPricingEnabled());
-        assertEq(testNode.maxSwingFactor(), newMaxSwingFactor);
-    }
-
-    function test_enableSwingPricing_disable() public {
-        uint64 newMaxSwingFactor = 0.1 ether;
-
-        // Enable first
-        vm.prank(owner);
-        testNode.enableSwingPricing(true, newMaxSwingFactor);
-
-        // Then disable
-        vm.prank(owner);
-        testNode.enableSwingPricing(false, 0);
-        assertFalse(testNode.swingPricingEnabled());
-        assertEq(testNode.maxSwingFactor(), 0);
-    }
-
-    function test_enableSwingPricing_revert_notOwner() public {
-        vm.prank(user);
-        vm.expectRevert();
-        testNode.enableSwingPricing(true, 0.1 ether);
     }
 
     function test_setNodeOwnerFeeAddress() public {
@@ -1424,7 +1372,6 @@ contract NodeTest is BaseTest {
     function test_updateTotalAssets() public {
         _seedNode(100 ether);
 
-        // Mock quoter response
         uint256 expectedTotalAssets = 120 ether;
 
         vm.mockCall(
@@ -1521,14 +1468,12 @@ contract NodeTest is BaseTest {
         uint256 totalAssetsBefore = node.totalAssets();
         uint256 sharesAtEscowBefore = node.balanceOf(address(escrow));
 
-        (uint256 pendingBefore, uint256 claimableBefore, uint256 claimableAssetsBefore, uint256 sharesAdjustedBefore) =
-            node.requests(user);
+        (uint256 pendingBefore, uint256 claimableBefore, uint256 claimableAssetsBefore) = node.requests(user);
 
         vm.prank(address(router4626));
-        node.finalizeRedemption(user, 50 ether, sharesToRedeem, sharesToRedeem);
+        node.finalizeRedemption(user, 50 ether, sharesToRedeem);
 
-        (uint256 pendingAfter, uint256 claimableAfter, uint256 claimableAssetsAfter, uint256 sharesAdjustedAfter) =
-            node.requests(user);
+        (uint256 pendingAfter, uint256 claimableAfter, uint256 claimableAssetsAfter) = node.requests(user);
 
         // assert vault state and variables are correctly updated
         assertEq(Node(address(node)).sharesExiting(), 0);
@@ -1539,12 +1484,11 @@ contract NodeTest is BaseTest {
         assertEq(pendingAfter, pendingBefore - sharesToRedeem);
         assertEq(claimableAfter, claimableBefore + sharesToRedeem);
         assertEq(claimableAssetsAfter, claimableAssetsBefore + 50 ether);
-        assertEq(sharesAdjustedAfter, sharesAdjustedBefore - sharesToRedeem);
     }
 
     function test_finalizeRedemption_revert_onlyRouter() public {
         vm.expectRevert(ErrorsLib.InvalidSender.selector);
-        node.finalizeRedemption(user, 50 ether, 100, 100);
+        node.finalizeRedemption(user, 50 ether, 100);
     }
 
     function test_finalizeRedemption_revert_onlyWhenRebalancing() public {
@@ -1552,7 +1496,7 @@ contract NodeTest is BaseTest {
 
         vm.prank(address(router4626));
         vm.expectRevert(ErrorsLib.RebalanceWindowClosed.selector);
-        node.finalizeRedemption(user, 50 ether, 100, 100);
+        node.finalizeRedemption(user, 50 ether, 100);
     }
 
     // ERC-7540 FUNCTIONS
@@ -1615,25 +1559,22 @@ contract NodeTest is BaseTest {
         uint256 pending;
         uint256 claimable;
         uint256 claimableAssets;
-        uint256 sharesAdjusted;
 
-        (pending, claimable, claimableAssets, sharesAdjusted) = node.requests(user);
+        (pending, claimable, claimableAssets) = node.requests(user);
 
         assertEq(pending, 0);
         assertEq(claimable, 0);
         assertEq(claimableAssets, 0);
-        assertEq(sharesAdjusted, 0);
 
         node.approve(address(node), shares);
         node.requestRedeem(shares, user, user);
         vm.stopPrank();
 
-        (pending, claimable, claimableAssets, sharesAdjusted) = node.requests(user);
+        (pending, claimable, claimableAssets) = node.requests(user);
 
         assertEq(pending, shares);
         assertEq(claimable, 0);
         assertEq(claimableAssets, 0);
-        assertEq(sharesAdjusted, shares); // no swing factor applied
     }
 
     function test_pendingRedeemRequest() public {
@@ -1779,11 +1720,10 @@ contract NodeTest is BaseTest {
         assertEq(node.maxWithdraw(user), 0);
         assertEq(node.maxRedeem(user), 0);
 
-        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) = node.requests(user);
+        (uint256 pending, uint256 claimable, uint256 claimableAssets) = node.requests(user);
         assertEq(pending, 0);
         assertEq(claimable, 0);
         assertEq(claimableAssets, 0);
-        assertEq(sharesAdjusted, 0);
     }
 
     function test_withdraw(uint256 depositAmount, uint256 seedAmount, uint256 amountToWithdraw) public {
@@ -2017,20 +1957,18 @@ contract NodeTest is BaseTest {
         node.requestRedeem(sharesToRedeem, user, user);
         vm.stopPrank();
 
-        (uint256 pending, uint256 claimable, uint256 claimableAssets, uint256 sharesAdjusted) = node.requests(user);
+        (uint256 pending, uint256 claimable, uint256 claimableAssets) = node.requests(user);
         assertEq(pending, sharesToRedeem);
         assertEq(claimable, 0);
         assertEq(claimableAssets, 0);
-        assertEq(sharesAdjusted, sharesToRedeem);
 
         vm.prank(rebalancer);
         node.fulfillRedeemFromReserve(user);
 
-        (pending, claimable, claimableAssets, sharesAdjusted) = node.requests(user);
+        (pending, claimable, claimableAssets) = node.requests(user);
         assertEq(pending, 0);
         assertEq(claimable, sharesToRedeem);
         assertEq(claimableAssets, node.convertToAssets(sharesToRedeem));
-        assertEq(sharesAdjusted, 0);
     }
 
     function test_getLiquidationsQueue() public {

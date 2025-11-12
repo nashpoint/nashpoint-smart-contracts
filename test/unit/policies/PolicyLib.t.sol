@@ -53,7 +53,7 @@ contract PolicyLibHarness {
     function decodeFinalizeRedemption(bytes calldata payload)
         external
         view
-        returns (address controller, uint256 assetsToReturn, uint256 sharesPending, uint256 sharesAdjusted)
+        returns (address controller, uint256 assetsToReturn, uint256 sharesPending)
     {
         return PolicyLib.decodeFinalizeRedemption(payload);
     }
@@ -86,21 +86,21 @@ contract PolicyLibTest is Test {
         harness = new PolicyLibHarness();
     }
 
-    function test_decodeDeposit() external {
+    function test_decodeDeposit() external view {
         bytes memory payload = abi.encode(uint256(123), address(0xBEEF));
         (uint256 assets, address receiver) = harness.decodeDeposit(payload);
         assertEq(assets, 123);
         assertEq(receiver, address(0xBEEF));
     }
 
-    function test_decodeMint() external {
+    function test_decodeMint() external view {
         bytes memory payload = abi.encode(uint256(321), address(0xFACE));
         (uint256 shares, address receiver) = harness.decodeMint(payload);
         assertEq(shares, 321);
         assertEq(receiver, address(0xFACE));
     }
 
-    function test_decodeRequestRedeem() external {
+    function test_decodeRequestRedeem() external view {
         bytes memory payload = abi.encode(uint256(111), address(0x1), address(0x2));
         (uint256 shares, address controller, address owner) = harness.decodeRequestRedeem(payload);
         assertEq(shares, 111);
@@ -108,21 +108,21 @@ contract PolicyLibTest is Test {
         assertEq(owner, address(0x2));
     }
 
-    function test_decodeTransfer() external {
+    function test_decodeTransfer() external view {
         bytes memory payload = abi.encode(address(0xABCD), uint256(999));
         (address to, uint256 value) = harness.decodeTransfer(payload);
         assertEq(to, address(0xABCD));
         assertEq(value, 999);
     }
 
-    function test_decodeApprove() external {
+    function test_decodeApprove() external view {
         bytes memory payload = abi.encode(address(0xCAFE), uint256(777));
         (address spender, uint256 value) = harness.decodeApprove(payload);
         assertEq(spender, address(0xCAFE));
         assertEq(value, 777);
     }
 
-    function test_decodeTransferFrom() external {
+    function test_decodeTransferFrom() external view {
         bytes memory payload = abi.encode(address(0xAA), address(0xBB), uint256(555));
         (address from, address to, uint256 value) = harness.decodeTransferFrom(payload);
         assertEq(from, address(0xAA));
@@ -130,7 +130,7 @@ contract PolicyLibTest is Test {
         assertEq(value, 555);
     }
 
-    function test_decodeExecute() external {
+    function test_decodeExecute() external view {
         bytes memory nested = abi.encodeWithSelector(bytes4(uint32(0xDEADBEEF)), uint256(42));
         bytes memory payload = abi.encode(address(0x1234), nested);
         (address target, bytes memory data) = harness.decodeExecute(payload);
@@ -138,36 +138,34 @@ contract PolicyLibTest is Test {
         assertEq(data, nested);
     }
 
-    function test_decodeSubtractProtocolExecutionFee() external {
+    function test_decodeSubtractProtocolExecutionFee() external view {
         bytes memory payload = abi.encode(uint256(12));
         uint256 executionFee = harness.decodeSubtractProtocolExecutionFee(payload);
         assertEq(executionFee, 12);
     }
 
-    function test_decodeFulfillRedeemFromReserve() external {
+    function test_decodeFulfillRedeemFromReserve() external view {
         bytes memory payload = abi.encode(address(0x99));
         address controller = harness.decodeFulfillRedeemFromReserve(payload);
         assertEq(controller, address(0x99));
     }
 
-    function test_decodeFinalizeRedemption() external {
+    function test_decodeFinalizeRedemption() external view {
         bytes memory payload = abi.encode(address(0x10), uint256(200), uint256(300), uint256(400));
-        (address controller, uint256 assetsToReturn, uint256 sharesPending, uint256 sharesAdjusted) =
-            harness.decodeFinalizeRedemption(payload);
+        (address controller, uint256 assetsToReturn, uint256 sharesPending) = harness.decodeFinalizeRedemption(payload);
         assertEq(controller, address(0x10));
         assertEq(assetsToReturn, 200);
         assertEq(sharesPending, 300);
-        assertEq(sharesAdjusted, 400);
     }
 
-    function test_decodeSetOperator() external {
+    function test_decodeSetOperator() external view {
         bytes memory payload = abi.encode(address(0x77), true);
         (address operator, bool approved) = harness.decodeSetOperator(payload);
         assertEq(operator, address(0x77));
         assertTrue(approved);
     }
 
-    function test_decodeWithdraw() external {
+    function test_decodeWithdraw() external view {
         bytes memory payload = abi.encode(uint256(9999), address(0x33), address(0x44));
         (uint256 assets, address receiver, address controller) = harness.decodeWithdraw(payload);
         assertEq(assets, 9999);
@@ -175,7 +173,7 @@ contract PolicyLibTest is Test {
         assertEq(controller, address(0x44));
     }
 
-    function test_decodeRedeem() external {
+    function test_decodeRedeem() external view {
         bytes memory payload = abi.encode(uint256(8888), address(0x55), address(0x66));
         (uint256 shares, address receiver, address controller) = harness.decodeRedeem(payload);
         assertEq(shares, 8888);

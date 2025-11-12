@@ -88,14 +88,13 @@ contract DigiftForkTest is BaseTest {
 
         // create Node2 and invest into DigiftAdapter
         vm.startPrank(owner);
-        bytes[] memory payload = new bytes[](5);
+        bytes[] memory payload = new bytes[](4);
         payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router7540));
         payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
         payload[2] = abi.encodeWithSelector(
             INode.addComponent.selector, address(digiftAdapter), 0.9 ether, 0.01 ether, address(router7540)
         );
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
-        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
 
         (node2,) = factory.deployFullNode(
             NodeInitArgs("Test Node 2", "TNODE2", address(asset), owner), payload, keccak256("new salt")

@@ -10,18 +10,16 @@ NashPoint enables flexible deployment of investment nodes that can manage positi
 ### Smart Contracts:
 
 - **Node**: An ERC7540-compliant vault that enables investors to deposit and withdraw assets. The Node manages component allocations and delegates execution to Routers.
-- **NodeRegistry**: Central registry that manages system-wide permissions for factories, routers, quoters, and rebalancers, ensuring secure access control across the protocol.
+- **NodeRegistry**: Central registry that manages system-wide permissions for factories, routers, and rebalancers, ensuring secure access control across the protocol.
 - **NodeFactory**: Handles the deployment of new Node instances and their associated contracts.
 - **Escrow**: Securely holds assets during pending deposit and redemption operations.
 
 - **Routers**: Specialized contracts that execute operations on component vaults:
   - ERC4626Router: Manages interactions with standard ERC4626 vaults
   - ERC7540Router: Manages interactions with asynchronous ERC7540 vaults
-- **Quoters**:
-  - QuoterV1: Calculates Swing Pricing Bonus or Penalty for deposits and withdrawals.
 
 ### Key Roles:
-**Owner:** Owns the node. Sets the strategy by selecting the underlying assets and what proportions to allocate into them. Also sets the parameters for features like swing pricing and rebalancing frequency.
+**Owner:** Owns the node. Sets the strategy by selecting the underlying assets and what proportions to allocate into them. Also sets the parameters for features like rebalancing frequency.
 **Rebalancer:** Address set by the owner. Has allowances to execute asset management functions such as investing to a strategy or processing a user withdrawal according to the parameters defined by the owner.
 
 ## License

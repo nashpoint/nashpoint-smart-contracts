@@ -23,7 +23,6 @@ contract NodeFactoryTest is BaseTest {
     ERC20Mock public testAsset;
     ERC4626Mock public testComponent;
     ERC4626Router public testRouter;
-    address public testQuoter;
     address public testRebalancer;
     address nodeImplementation;
 
@@ -72,7 +71,6 @@ contract NodeFactoryTest is BaseTest {
         );
 
         testAsset = new ERC20Mock("Test Asset", "TASSET");
-        testQuoter = makeAddr("testQuoter");
         testRebalancer = makeAddr("testRebalancer");
         testComponent = new ERC4626Mock(address(testAsset));
         testRouter = new ERC4626Router(address(testRegistry));
@@ -84,14 +82,12 @@ contract NodeFactoryTest is BaseTest {
         testRegistry.setRegistryType(address(testFactory), RegistryType.FACTORY, true);
         testRegistry.setRegistryType(address(testRouter), RegistryType.ROUTER, true);
         testRegistry.setRegistryType(address(testRebalancer), RegistryType.REBALANCER, true);
-        testRegistry.setRegistryType(address(testQuoter), RegistryType.QUOTER, true);
 
         testRouter.setWhitelistStatus(address(testComponent), true);
 
         vm.stopPrank();
 
         vm.label(address(testAsset), "TestAsset");
-        vm.label(testQuoter, "TestQuoter");
         vm.label(address(testRouter), "TestRouter");
         vm.label(testRebalancer, "TestRebalancer");
         vm.label(address(testComponent), "TestComponent");
@@ -100,14 +96,13 @@ contract NodeFactoryTest is BaseTest {
     }
 
     function _defaultPayload() internal view returns (bytes[] memory) {
-        bytes[] memory payload = new bytes[](5);
+        bytes[] memory payload = new bytes[](4);
         payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(testRouter));
         payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, testRebalancer);
         payload[2] = abi.encodeWithSelector(
             INode.addComponent.selector, address(testComponent), 0.5 ether, 0.01 ether, address(testRouter)
         );
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
-        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(testQuoter));
         return payload;
     }
 

@@ -8,7 +8,6 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 import {BaseComponentRouter} from "src/libraries/BaseComponentRouter.sol";
 import {INode} from "src/interfaces/INode.sol";
-import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
@@ -58,8 +57,8 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
-        (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).requests(controller);
-        uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
+        (uint256 sharesPending,,) = INode(node).requests(controller);
+        uint256 assetsRequested = INode(node).convertToAssets(sharesPending);
 
         // Validate that the component is top of the liquidation queue
         INode(node).enforceLiquidationOrder(component, assetsRequested);
@@ -70,14 +69,13 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         // execute the withdrawal
         assetsReturned = _executeAsyncWithdrawal(node, component, Math.min(assetsRequested, maxClaimableAssets));
 
-        // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
+        // downscale sharesPending if assetsReturned is less than assetsRequested
         if (assetsReturned < assetsRequested) {
-            (sharesPending, sharesAdjusted) =
-                _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested, sharesAdjusted);
+            sharesPending = _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested);
         }
 
         // update the redemption request state on the node and transfer the assets to the escrow
-        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
+        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending);
         emit FulfilledRedeemRequest(node, component, assetsReturned);
         return assetsReturned;
     }

@@ -3,7 +3,6 @@ pragma solidity 0.8.28;
 
 import {INode, ComponentAllocation, NodeInitArgs, Request, IERC7575, IERC165} from "src/interfaces/INode.sol";
 import {IERC7540Redeem, IERC7540Operator} from "src/interfaces/IERC7540.sol";
-import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 import {IRouter} from "src/interfaces/IRouter.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {IPolicy} from "src/interfaces/IPolicy.sol";
@@ -41,7 +40,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     mapping(address => ComponentAllocation) internal componentAllocations;
 
     /* PROTOCOL ADDRESSES */
-    IQuoterV1 public quoter;
     address public escrow;
     mapping(address => bool) public isRebalancer;
     mapping(address => bool) public isRouter;
@@ -61,12 +59,11 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     address public nodeOwnerFeeAddress;
     mapping(address => Request) public requests;
 
-    /* SWING PRICING */
-    uint64 public maxSwingFactor;
-    bool public swingPricingEnabled;
-
+    /* Policies */
     mapping(bytes4 => address[]) internal policies;
     mapping(bytes4 => mapping(address => bool)) internal sigPolicy;
+
+    /* Decimals */
     uint8 internal _decimals;
 
     /* CONSTRUCTOR */
@@ -220,7 +217,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc INode
     function updateTargetReserveRatio(uint64 targetReserveRatio_) external onlyOwner onlyWhenNotRebalancing {
-        if (targetReserveRatio_ >= WAD) revert ErrorsLib.InvalidComponentRatios();
+        if (targetReserveRatio_ > WAD) revert ErrorsLib.InvalidComponentRatios();
         targetReserveRatio = targetReserveRatio_;
         emit EventsLib.TargetReserveRatioUpdated(targetReserveRatio_);
     }
@@ -257,13 +254,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     /// @inheritdoc INode
-    function setQuoter(address newQuoter) external onlyOwner {
-        if (!INodeRegistry(registry).isRegistryType(newQuoter, RegistryType.QUOTER)) revert ErrorsLib.NotWhitelisted();
-        quoter = IQuoterV1(newQuoter);
-        emit EventsLib.QuoterSet(newQuoter);
-    }
-
-    /// @inheritdoc INode
     function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
         _validateNoDuplicateComponents(newQueue);
 
@@ -287,15 +277,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     /// @inheritdoc INode
-    function enableSwingPricing(bool status_, uint64 maxSwingFactor_) external onlyOwner {
-        _nonZeroAddress(address(quoter));
-        if (maxSwingFactor_ > INodeRegistry(registry).protocolMaxSwingFactor()) revert ErrorsLib.InvalidSwingFactor();
-        swingPricingEnabled = status_;
-        maxSwingFactor = maxSwingFactor_;
-        emit EventsLib.SwingPricingStatusUpdated(status_, maxSwingFactor_);
-    }
-
-    /// @inheritdoc INode
     function setNodeOwnerFeeAddress(address newNodeOwnerFeeAddress) external onlyOwner {
         _nonZeroAddress(newNodeOwnerFeeAddress);
         if (newNodeOwnerFeeAddress == nodeOwnerFeeAddress) revert ErrorsLib.AlreadySet();
@@ -305,7 +286,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc INode
     function setAnnualManagementFee(uint64 newAnnualManagementFee) external onlyOwner {
-        if (newAnnualManagementFee >= WAD) revert ErrorsLib.InvalidFee();
+        if (newAnnualManagementFee > WAD) revert ErrorsLib.InvalidFee();
         annualManagementFee = newAnnualManagementFee;
         emit EventsLib.AnnualManagementFeeSet(newAnnualManagementFee);
     }
@@ -429,13 +410,13 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     /// @inheritdoc INode
-    function finalizeRedemption(
-        address controller,
-        uint256 assetsToReturn,
-        uint256 sharesPending,
-        uint256 sharesAdjusted
-    ) external onlyRouter onlyWhenRebalancing nonReentrant {
-        _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
+    function finalizeRedemption(address controller, uint256 assetsToReturn, uint256 sharesPending)
+        external
+        onlyRouter
+        onlyWhenRebalancing
+        nonReentrant
+    {
+        _finalizeRedemption(controller, assetsToReturn, sharesPending);
         _runPolicies();
     }
 
@@ -449,20 +430,9 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         if (balanceOf(owner) < shares) revert ErrorsLib.InsufficientBalance();
         if (shares == 0) revert ErrorsLib.ZeroAmount();
 
-        uint256 adjustedShares = 0;
-        if (swingPricingEnabled) {
-            uint256 adjustedAssets = quoter.calculateRedeemPenalty(
-                shares, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
-            );
-            adjustedShares = Math.min(convertToShares(adjustedAssets), shares);
-        } else {
-            adjustedShares = shares;
-        }
-
         Request storage request = requests[controller];
         request.pendingRedeemRequest += shares;
-        request.sharesAdjusted += adjustedShares;
-        sharesExiting += adjustedShares;
+        sharesExiting += shares;
         _transfer(owner, address(escrow), shares);
         _runPolicies();
         emit IERC7540Redeem.RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
@@ -503,7 +473,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         if (assets > maxDeposit(receiver)) {
             revert ErrorsLib.ExceedsMaxDeposit();
         }
-        shares = _calculateSharesAfterSwingPricing(assets);
+        shares = convertToShares(assets);
         _deposit(msg.sender, receiver, assets, shares);
         _runPolicies();
         return shares;
@@ -607,7 +577,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc INode
     function previewDeposit(uint256 assets) external view returns (uint256 shares) {
-        return _calculateSharesAfterSwingPricing(assets);
+        return convertToShares(assets);
     }
 
     /// @inheritdoc INode
@@ -745,24 +715,17 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         if (request.pendingRedeemRequest == 0) revert ErrorsLib.NoPendingRedeemRequest();
 
         uint256 balance = Math.max(IERC20(asset).balanceOf(address(this)), 1);
-        uint256 assetsToReturn = convertToAssets(request.sharesAdjusted);
+        uint256 assetsToReturn = convertToAssets(request.pendingRedeemRequest);
         uint256 sharesPending = request.pendingRedeemRequest;
-        uint256 sharesAdjusted = request.sharesAdjusted;
 
         if (assetsToReturn > balance) {
             sharesPending = (sharesPending * balance - 1) / assetsToReturn + 1;
-            sharesAdjusted = (sharesAdjusted * balance - 1) / assetsToReturn + 1;
             assetsToReturn = balance;
         }
-        _finalizeRedemption(controller, assetsToReturn, sharesPending, sharesAdjusted);
+        _finalizeRedemption(controller, assetsToReturn, sharesPending);
     }
 
-    function _finalizeRedemption(
-        address controller,
-        uint256 assetsToReturn,
-        uint256 sharesPending,
-        uint256 sharesAdjusted
-    ) internal {
+    function _finalizeRedemption(address controller, uint256 assetsToReturn, uint256 sharesPending) internal {
         Request storage request = requests[controller];
 
         _burn(escrow, sharesPending);
@@ -770,9 +733,8 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         request.pendingRedeemRequest -= sharesPending;
         request.claimableRedeemRequest += sharesPending;
         request.claimableAssets += assetsToReturn;
-        request.sharesAdjusted -= sharesAdjusted;
 
-        sharesExiting -= sharesAdjusted;
+        sharesExiting -= sharesPending;
         cacheTotalAssets -= assetsToReturn;
 
         if (assetsToReturn > IERC20(asset).balanceOf(address(this))) {
@@ -854,19 +816,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     function _isComponent(address component) internal view returns (bool) {
         return componentAllocations[component].isComponent;
-    }
-
-    function _calculateSharesAfterSwingPricing(uint256 assets) internal view returns (uint256 shares) {
-        if (
-            (totalAssets() == 0 && totalSupply() == 0) || (!swingPricingEnabled)
-                || (Math.mulDiv(getCashAfterRedemptions(), WAD, totalAssets()) >= targetReserveRatio)
-        ) {
-            shares = convertToShares(assets);
-        } else {
-            shares = quoter.calculateDepositBonus(
-                assets, getCashAfterRedemptions(), totalAssets(), maxSwingFactor, targetReserveRatio
-            );
-        }
     }
 
     /*//////////////////////////////////////////////////////////////

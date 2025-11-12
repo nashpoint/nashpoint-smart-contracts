@@ -25,14 +25,8 @@ library EventsLib {
     /// @notice Emitted when protocol execution fee is set on the registry
     event ProtocolExecutionFeeSet(uint256 protocolExecutionFee);
 
-    /// @notice Emitted when protocol max swing factor is set on the registry
-    event ProtocolMaxSwingFactorSet(uint256 protocolMaxSwingFactor);
-
     /// @notice Emitted when `escrow` is updated on the node.
     event EscrowSet(address indexed newEscrow);
-
-    /// @notice Emitted when a quoter is set for the node.
-    event QuoterSet(address indexed quoter);
 
     /// @notice Emitted when `newRouter` is added to the node.
     event RouterAdded(address indexed newRouter);
@@ -63,9 +57,6 @@ library EventsLib {
 
     /// @notice Emitted when the reserve allocation is updated on the node
     event TargetReserveRatioUpdated(uint64 targetReserveRatio);
-
-    /// @notice Emitted when swing pricing is enabled or disabled on the node
-    event SwingPricingStatusUpdated(bool status, uint256 newSwingPricing);
 
     /// @notice Emitted when rebalance is started on the node
     event RebalanceStarted(uint256 blockStarted, uint256 duration);

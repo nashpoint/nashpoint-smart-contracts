@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC7575, IERC165} from "./IERC7575.sol";
 import {IERC7540Redeem} from "./IERC7540.sol";
-import {IQuoterV1} from "./IQuoterV1.sol";
 
 /// @notice Component allocation parameters
 /// @dev targetWeight is the target weight of the component in the node
@@ -20,12 +19,10 @@ struct ComponentAllocation {
 /// @dev pendingRedeemRequest is the amount of shares pending redemption
 /// @dev claimableRedeemRequest is the amount of shares claimable from the reserve
 /// @dev claimableAssets is the amount of assets claimable from the reserve
-/// @dev sharesAdjusted is the amount of shares adjusted for swing pricing
 struct Request {
     uint256 pendingRedeemRequest;
     uint256 claimableRedeemRequest;
     uint256 claimableAssets;
-    uint256 sharesAdjusted;
 }
 
 /// @notice Initialization arguments for deploying a node clone
@@ -90,9 +87,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Removes a rebalancer
     function removeRebalancer(address oldRebalancer) external;
 
-    /// @notice Sets the quoter
-    function setQuoter(address newQuoter) external;
-
     /// @notice Sets the liquidation queue
     function setLiquidationQueue(address[] calldata newQueue) external;
 
@@ -101,9 +95,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Sets the rebalance window
     function setRebalanceWindow(uint64 newRebalanceWindow) external;
-
-    /// @notice Enables swing pricing
-    function enableSwingPricing(bool enabled, uint64 maxSwingFactor) external;
 
     /// @notice Sets the node owner fee address
     /// @param newNodeOwnerFeeAddress The address of the new node owner fee address
@@ -152,13 +143,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @param controller The address of the controller to finalize
     /// @param assetsToReturn The amount of assets to return
     /// @param sharesPending The amount of shares pending
-    /// @param sharesAdjusted The amount of shares adjusted
-    function finalizeRedemption(
-        address controller,
-        uint256 assetsToReturn,
-        uint256 sharesPending,
-        uint256 sharesAdjusted
-    ) external;
+    function finalizeRedemption(address controller, uint256 assetsToReturn, uint256 sharesPending) external;
 
     /// @notice Requests a redemption
     /// @param shares The amount of shares to redeem
@@ -250,12 +235,7 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     function requests(address controller)
         external
         view
-        returns (
-            uint256 pendingRedeemRequest,
-            uint256 claimableRedeemRequest,
-            uint256 claimableAssets,
-            uint256 sharesAdjusted
-        );
+        returns (uint256 pendingRedeemRequest, uint256 claimableRedeemRequest, uint256 claimableAssets);
 
     /// @notice Returns the components of the node
     function getComponents() external view returns (address[] memory);
@@ -296,9 +276,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice The address of the escrow
     function escrow() external view returns (address);
-
-    /// @notice The address of the quoter
-    function quoter() external view returns (IQuoterV1);
 
     /// @notice Returns if an address is a router
     function isRouter(address) external view returns (bool);

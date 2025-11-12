@@ -145,7 +145,7 @@ contract ERC4626RouterTest is BaseTest {
         ERC4626Mock dummyComponent = new ERC4626Mock(address(asset));
 
         vm.startPrank(owner);
-        // testComponent is not added to the node but is whitelisted and added to the quoter
+        // testComponent is not added to the node but is whitelisted and added to the router
         testRouter.setWhitelistStatus(address(testComponent), true);
 
         // dummyComponent is added to the node so component allocations = 100
