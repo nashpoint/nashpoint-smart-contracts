@@ -28,6 +28,7 @@ contract DigiftAdapterHarness is DigiftAdapter {
 }
 
 contract DigiftForkTest is BaseTest {
+    DigiftAdapterFactory digiftFactory;
     DigiftAdapterHarness digiftAdapter;
     address digiftEventVerifier = makeAddr("digiftEventVerifier");
 
@@ -58,7 +59,7 @@ contract DigiftForkTest is BaseTest {
         address digiftAdapterImpl =
             address(new DigiftAdapterHarness(subRedManagement, address(registry), digiftEventVerifier));
 
-        DigiftAdapterFactory factory = new DigiftAdapterFactory(digiftAdapterImpl, address(this));
+        digiftFactory = new DigiftAdapterFactory(digiftAdapterImpl, address(this));
 
         vm.mockCall(usdcPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.decimals.selector), abi.encode(8));
         vm.mockCall(dFeedPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.decimals.selector), abi.encode(8));
@@ -68,7 +69,7 @@ contract DigiftForkTest is BaseTest {
 
         digiftAdapter = DigiftAdapterHarness(
             address(
-                factory.deploy(
+                digiftFactory.deploy(
                     DigiftAdapter.InitArgs(
                         "stToken Adapter",
                         "wst",
@@ -97,6 +98,44 @@ contract DigiftForkTest is BaseTest {
 
         vm.prank(rebalancer);
         node.startRebalance();
+    }
+
+    function test_initialize_reverts() external {
+        vm.expectRevert(DigiftAdapter.InvalidPercentage.selector);
+        digiftFactory.deploy(
+            DigiftAdapter.InitArgs(
+                "stToken Adapter",
+                "wst",
+                address(asset),
+                usdcPriceOracle,
+                address(stToken),
+                address(dFeedPriceOracle),
+                1e18 + 1,
+                0,
+                4 days,
+                4 days,
+                1000e6,
+                10e18
+            )
+        );
+
+        vm.expectRevert(DigiftAdapter.InvalidPercentage.selector);
+        digiftFactory.deploy(
+            DigiftAdapter.InitArgs(
+                "stToken Adapter",
+                "wst",
+                address(asset),
+                usdcPriceOracle,
+                address(stToken),
+                address(dFeedPriceOracle),
+                0,
+                1e18 + 1,
+                4 days,
+                4 days,
+                1000e6,
+                10e18
+            )
+        );
     }
 
     function test_setPriceDeviation() external {

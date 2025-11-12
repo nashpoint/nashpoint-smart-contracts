@@ -392,6 +392,8 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      * @param args Initialization arguments containing all necessary parameters
      */
     function initialize(InitArgs calldata args) external initializer {
+        require(args.priceDeviation <= WAD, InvalidPercentage());
+        require(args.settlementDeviation <= WAD, InvalidPercentage());
         __ERC20_init(args.name, args.symbol);
         __ReentrancyGuard_init();
 
