@@ -9,16 +9,8 @@ import {ComponentAllocation} from "src/interfaces/INode.sol";
 import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
 
-contract ERC4626RouterHarness is ERC4626Router {
-    constructor(address _registry) ERC4626Router(_registry) {}
-
-    function getInvestmentSize(address node, address component) public view returns (uint256 depositAssets) {
-        return super._getInvestmentSize(node, component);
-    }
-}
-
 contract ERC4626RouterTest is BaseTest {
-    ERC4626RouterHarness public testRouter;
+    ERC4626Router public testRouter;
     ERC4626Mock public testComponent;
     ERC4626Mock public testComponent70;
 
@@ -26,7 +18,7 @@ contract ERC4626RouterTest is BaseTest {
 
     function setUp() public override {
         super.setUp();
-        testRouter = new ERC4626RouterHarness(address(registry));
+        testRouter = new ERC4626Router(address(registry));
         testComponent = new ERC4626Mock(address(asset));
         testComponent70 = new ERC4626Mock(address(asset));
 

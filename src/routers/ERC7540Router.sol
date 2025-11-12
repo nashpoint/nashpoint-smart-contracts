@@ -253,24 +253,14 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         return abi.decode(result, (uint256));
     }
 
-    /// @notice Returns the investment size for a component.
-    /// @dev calculates the amount of assets to deposit to set the component to the target ratio
-    /// @param node The address of the node.
-    /// @param component The address of the component.
-    /// @return depositAssets The amount of assets to deposit.
-    function _getInvestmentSize(address node, address component)
-        internal
-        view
-        override
-        returns (uint256 depositAssets)
-    {
+    /// @inheritdoc BaseComponentRouter
+    function getInvestmentSize(address node, address component) public view override returns (uint256 depositAssets) {
         uint256 targetHoldings =
             Math.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
         uint256 currentBalance = _getErc7540Assets(node, component);
 
-        uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
-        return delta;
+        depositAssets = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
     }
 
     /// @notice Returns the amount of assets in a component.

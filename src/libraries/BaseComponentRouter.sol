@@ -100,12 +100,7 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return depositAssets The amount of assets to deposit.
-    function _getInvestmentSize(address node, address component)
-        internal
-        view
-        virtual
-        returns (uint256 depositAssets)
-    {}
+    function getInvestmentSize(address node, address component) public view virtual returns (uint256 depositAssets) {}
 
     /*//////////////////////////////////////////////////////////////
                          INTERNAL FUNCTIONS
@@ -117,7 +112,7 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
         _validateReserveAboveTargetRatio(currentCash, idealCashReserve);
 
         // gets units of asset required to set component to target ratio
-        depositAmount = _getInvestmentSize(node, component);
+        depositAmount = getInvestmentSize(node, component);
 
         // limit deposit by reserve ratio requirements
         // _validateReserveAboveTargetRatio() ensures currentCash >= idealCashReserve

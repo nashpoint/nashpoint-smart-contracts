@@ -19,10 +19,6 @@ import {ERC4626Mock} from "@openzeppelin/contracts/mocks/token/ERC4626Mock.sol";
 contract ERC7540RouterHarness is ERC7540Router {
     constructor(address _registry) ERC7540Router(_registry) {}
 
-    function getInvestmentSize(address node, address component) public view returns (uint256 depositAssets) {
-        return super._getInvestmentSize(node, component);
-    }
-
     function getErc7540Assets(address node, address component) public view returns (uint256) {
         return super._getErc7540Assets(node, component);
     }
