@@ -81,6 +81,8 @@ contract DigiftEventVerifierForkTest is Test {
                 BLOCK_NUMBER, // Block number containing the transaction
                 HEADER_RLP, // RLP-encoded block header
                 INDEX_RLP, // Transaction index within the block
+                2, // Log index
+                0, // Investor index
                 PROOF // Merkle proof
             ),
             DigiftEventVerifier.OnchainArgs(
@@ -139,7 +141,14 @@ contract DigiftEventVerifierForkTest is Test {
 
         // Verify the redemption settlement event using Merkle proof
         (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OffchainArgs(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                1, // Log index
+                0, // Investor index
+                vars.proof
+            ),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
             )
@@ -155,7 +164,14 @@ contract DigiftEventVerifierForkTest is Test {
         // cannot reuse the event
         vm.expectRevert(DigiftEventVerifier.LogAlreadyUsed.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OffchainArgs(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                1, // Log index
+                0, // Investor index
+                vars.proof
+            ),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
             )
@@ -309,7 +325,7 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.expectRevert(DigiftEventVerifier.NotWhitelisted.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(0, hex"01", hex"01", new bytes[](0)),
+            DigiftEventVerifier.OffchainArgs(0, hex"01", hex"01", 0, 0, new bytes[](0)),
             DigiftEventVerifier.OnchainArgs(DigiftEventVerifier.EventType.REDEEM, address(0), address(0), address(0))
         );
     }
@@ -347,7 +363,14 @@ contract DigiftEventVerifierForkTest is Test {
 
         // Verify the redemption settlement event using Merkle proof
         (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OffchainArgs(
+                vars.blockNumber,
+                vars.header,
+                vars.txIndex,
+                1, // Log index
+                0, // Investor index
+                vars.proof
+            ),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
             )
@@ -380,7 +403,7 @@ contract DigiftEventVerifierForkTest is Test {
         // This should revert with MissedWindow since no block hash is available
         vm.expectRevert(DigiftEventVerifier.MissedWindow.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(oldBlockNumber, hex"01", hex"01", new bytes[](0)),
+            DigiftEventVerifier.OffchainArgs(oldBlockNumber, hex"01", hex"01", 0, 0, new bytes[](0)),
             DigiftEventVerifier.OnchainArgs(DigiftEventVerifier.EventType.REDEEM, address(0), address(0), address(0))
         );
     }
@@ -402,7 +425,7 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.expectRevert(DigiftEventVerifier.BadHeader.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, hex"01", vars.txIndex, vars.proof),
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, hex"01", vars.txIndex, 0, 0, vars.proof),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
             )
@@ -427,7 +450,7 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 0, 0, vars.proof),
             DigiftEventVerifier.OnchainArgs(
                 // wrong signature
                 DigiftEventVerifier.EventType.SUBSCRIBE,
@@ -439,7 +462,7 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 1, 0, vars.proof),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM,
                 vars.subRedManager,
@@ -451,7 +474,7 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 1, 0, vars.proof),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM,
                 vars.subRedManager,
@@ -463,10 +486,9 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.stopPrank();
 
-        // investor is this testing contract - we will not find any transfer of stToken fot it
         vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, vars.proof),
+            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 2, 0, vars.proof),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
             )

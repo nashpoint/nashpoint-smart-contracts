@@ -99,12 +99,16 @@ contract DigiftEventVerifier is RegistryAccessControl {
      * @param blockNumber The block number containing the settlement event
      * @param headerRlp RLP-encoded block header for verification
      * @param txIndex Transaction index path in the Merkle trie
+     * @param logIndex The index of the log
+     * @param investorIndex The index of investor
      * @param proof Merkle proof for the transaction receipt
      */
     struct OffchainArgs {
         uint256 blockNumber;
         bytes headerRlp;
         bytes txIndex;
+        uint256 logIndex;
+        uint256 investorIndex;
         bytes[] proof;
     }
 
@@ -131,6 +135,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
      * @param investorIndex Index of the investor in the event data arrays
      * @param logs Array of all logs in the transaction receipt
      * @param log Current log being processed
+     * @param topics Array of log topics
      */
     struct Vars {
         bytes32 blockHash;
@@ -140,6 +145,7 @@ contract DigiftEventVerifier is RegistryAccessControl {
         uint256 investorIndex;
         RLPReader.RLPItem[] logs;
         RLPReader.RLPItem[] log;
+        RLPReader.RLPItem[] topics;
     }
 
     enum EventType {
@@ -219,67 +225,51 @@ contract DigiftEventVerifier is RegistryAccessControl {
             RLPReader.readList(_stripTypedPrefix(MerkleTrie.get(fargs.txIndex, fargs.proof, vars.receiptsRoot)))[3]
         );
 
-        // Iterate through all logs in the transaction receipt
-        for (uint256 i = 0; i < vars.logs.length; i++) {
-            vars.log = RLPReader.readList(vars.logs[i]);
+        vars.log = RLPReader.readList(vars.logs[fargs.logIndex]);
 
-            // Check if this log was emitted by the expected contract address
-            if (address(bytes20(RLPReader.readBytes(vars.log[0]))) != nargs.emittingAddress) continue;
+        // Check if this log was emitted by the expected contract address
+        require(address(bytes20(RLPReader.readBytes(vars.log[0]))) == nargs.emittingAddress, NoEvent());
 
-            // Extract and validate the log topics (indexed parameters)
-            RLPReader.RLPItem[] memory topics = RLPReader.readList(vars.log[1]);
-            if (bytes32(RLPReader.readBytes(topics[0])) != vars.eventSignature) continue;
+        // Extract and validate the log topics (indexed parameters)
+        vars.topics = RLPReader.readList(vars.log[1]);
+        require(bytes32(RLPReader.readBytes(vars.topics[0])) == vars.eventSignature, NoEvent());
 
-            // Decode the log data (non-indexed parameters)
-            // Structure: (stToken, investorList, quantityList, currencyTokenList, amountList, timestamp)
-            (
-                address stToken,
-                address[] memory investorList,
-                uint256[] memory quantityList,
-                address[] memory currencyTokenList,
-                uint256[] memory amountList,
-            ) = abi.decode(
-                RLPReader.readBytes(vars.log[2]), (address, address[], uint256[], address[], uint256[], uint256[])
-            );
+        // Decode the log data (non-indexed parameters)
+        // Structure: (stToken, investorList, quantityList, currencyTokenList, amountList, timestamp)
+        (
+            address stToken,
+            address[] memory investorList,
+            uint256[] memory quantityList,
+            address[] memory currencyTokenList,
+            uint256[] memory amountList,
+        ) = abi.decode(
+            RLPReader.readBytes(vars.log[2]), (address, address[], uint256[], address[], uint256[], uint256[])
+        );
 
-            // Verify the security token matches
-            if (stToken != nargs.securityToken) continue;
+        // Verify the security token matches
+        require(stToken == nargs.securityToken, NoEvent());
 
-            // Find the caller's index in the investor list
-            vars.investorIndex = type(uint256).max;
-            for (uint256 j; j < investorList.length; j++) {
-                if (investorList[j] == msg.sender) {
-                    vars.investorIndex = j;
-                    break;
-                }
-            }
-            if (vars.investorIndex == type(uint256).max) continue; // Caller not in investor list
+        // Verify the currency token matches for this investor
+        require(currencyTokenList[fargs.investorIndex] == nargs.currencyToken, NoEvent());
 
-            // Verify the currency token matches for this investor
-            if (currencyTokenList[vars.investorIndex] != nargs.currencyToken) continue;
+        // Generate unique log hash to prevent double-spending
+        vars.logHash = _hashLog(vars.blockHash, stToken, nargs.currencyToken, fargs.txIndex, fargs.logIndex);
+        require(usedLogs[vars.logHash] == false, LogAlreadyUsed());
+        usedLogs[vars.logHash] = true;
 
-            // Generate unique log hash to prevent double-spending
-            vars.logHash = _hashLog(vars.blockHash, stToken, nargs.currencyToken, fargs.txIndex, i);
-            if (usedLogs[vars.logHash]) revert LogAlreadyUsed();
-            usedLogs[vars.logHash] = true;
+        // Emit verification event with settlement details
+        emit Verified(
+            msg.sender,
+            nargs.securityToken,
+            nargs.currencyToken,
+            quantityList[fargs.investorIndex],
+            amountList[fargs.investorIndex],
+            vars.blockHash,
+            vars.logHash
+        );
 
-            // Emit verification event with settlement details
-            emit Verified(
-                msg.sender,
-                nargs.securityToken,
-                nargs.currencyToken,
-                quantityList[vars.investorIndex],
-                amountList[vars.investorIndex],
-                vars.blockHash,
-                vars.logHash
-            );
-
-            // Return the settlement amounts for this investor
-            return (quantityList[vars.investorIndex], amountList[vars.investorIndex]);
-        }
-
-        // No matching event found
-        revert NoEvent();
+        // Return the settlement amounts for this investor
+        return (quantityList[fargs.investorIndex], amountList[fargs.investorIndex]);
     }
 
     // ============ Internal Functions ============
