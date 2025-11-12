@@ -284,8 +284,17 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         uint256 shares = IERC20(shareToken).balanceOf(node);
 
         shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
-        shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
+        // maxWithdraw should be used over claimableRedeemRequest since the last might lead
+        // to inflation of assets due to share price being changed
+        uint256 maxWithdraw = IERC7575(component).maxWithdraw(node);
+        // according to https://eips.ethereum.org/EIPS/eip-4626#maxwithdraw
+        // it should return 0 if withdrawals are paused
+        if (maxWithdraw == 0) {
+            // in that case we need to include claimableRedeemRequest for convertToAssets
+            shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
+        }
         assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
+        assets += maxWithdraw;
         assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
         assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
 

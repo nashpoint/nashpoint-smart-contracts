@@ -8,6 +8,7 @@ import {RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {ComponentAllocation} from "src/interfaces/INode.sol";
@@ -35,6 +36,7 @@ contract ERC7540RouterTest is BaseTest {
     ERC7540RouterHarness public testRouter;
     ERC4626Mock public testComponent70;
     ComponentAllocation public allocation;
+    uint256 internal constant REQUEST_ID = 0;
 
     function setUp() public override {
         super.setUp();
@@ -105,6 +107,117 @@ contract ERC7540RouterTest is BaseTest {
 
         uint256 investmentSize = testRouter.getInvestmentSize(address(node), address(liquidityPool));
         assertEq(investmentSize, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        getComponentAssets Tests
+    //////////////////////////////////////////////////////////////*/
+
+    function test_getComponentAssets_claimableOnly() public {
+        address component = makeAddr("component");
+        uint256 claimableAssets = 25 ether;
+
+        vm.mockCall(
+            component, abi.encodeWithSelector(IERC4626.maxWithdraw.selector, address(node)), abi.encode(claimableAssets)
+        );
+
+        vm.prank(address(node));
+        uint256 assets = router7540.getComponentAssets(component, true);
+
+        assertEq(assets, claimableAssets);
+    }
+
+    function test_getComponentAssets_allAssets_withAvailableWithdrawals() public {
+        address component = makeAddr("component");
+        address shareToken = makeAddr("shareToken");
+        uint256 shareBalance = 10 ether;
+        uint256 pendingRedeem = 4 ether;
+        uint256 maxWithdraw = 7 ether;
+        uint256 pendingDeposit = 8 ether;
+        uint256 claimableDeposit = 2 ether;
+        uint256 convertedAssets = 42 ether;
+        uint256 sharesForConversion = shareBalance + pendingRedeem;
+
+        vm.mockCall(component, abi.encodeWithSelector(IERC7575.share.selector), abi.encode(shareToken));
+        vm.mockCall(
+            shareToken, abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)), abi.encode(shareBalance)
+        );
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC7540Redeem.pendingRedeemRequest.selector, REQUEST_ID, address(node)),
+            abi.encode(pendingRedeem)
+        );
+        vm.mockCall(
+            component, abi.encodeWithSelector(IERC7575.maxWithdraw.selector, address(node)), abi.encode(maxWithdraw)
+        );
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC4626.convertToAssets.selector, sharesForConversion),
+            abi.encode(convertedAssets)
+        );
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC7540Deposit.pendingDepositRequest.selector, REQUEST_ID, address(node)),
+            abi.encode(pendingDeposit)
+        );
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC7540Deposit.claimableDepositRequest.selector, REQUEST_ID, address(node)),
+            abi.encode(claimableDeposit)
+        );
+
+        vm.prank(address(node));
+        uint256 assets = router7540.getComponentAssets(component, false);
+
+        assertEq(assets, convertedAssets + maxWithdraw + pendingDeposit + claimableDeposit);
+    }
+
+    function test_getComponentAssets_allAssets_whenWithdrawalsPaused() public {
+        address component = makeAddr("component");
+        address shareToken = makeAddr("shareToken");
+        uint256 shareBalance = 5 ether;
+        uint256 pendingRedeem = 3 ether;
+        uint256 claimableRedeem = 6 ether;
+        uint256 pendingDeposit = 9 ether;
+        uint256 claimableDeposit = 1 ether;
+        uint256 convertedAssets = 88 ether;
+        uint256 sharesForConversion = shareBalance + pendingRedeem + claimableRedeem;
+
+        vm.mockCall(component, abi.encodeWithSelector(IERC7575.share.selector), abi.encode(shareToken));
+        vm.mockCall(
+            shareToken, abi.encodeWithSelector(IERC20.balanceOf.selector, address(node)), abi.encode(shareBalance)
+        );
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC7540Redeem.pendingRedeemRequest.selector, REQUEST_ID, address(node)),
+            abi.encode(pendingRedeem)
+        );
+        vm.mockCall(component, abi.encodeWithSelector(IERC7575.maxWithdraw.selector, address(node)), abi.encode(0));
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC7540Redeem.claimableRedeemRequest.selector, REQUEST_ID, address(node)),
+            abi.encode(claimableRedeem)
+        );
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC4626.convertToAssets.selector, sharesForConversion),
+            abi.encode(convertedAssets)
+        );
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC7540Deposit.pendingDepositRequest.selector, REQUEST_ID, address(node)),
+            abi.encode(pendingDeposit)
+        );
+        vm.mockCall(
+            component,
+            abi.encodeWithSelector(IERC7540Deposit.claimableDepositRequest.selector, REQUEST_ID, address(node)),
+            abi.encode(claimableDeposit)
+        );
+
+        vm.prank(address(node));
+        uint256 assets = router7540.getComponentAssets(component, false);
+
+        assertEq(assets, convertedAssets + pendingDeposit + claimableDeposit);
     }
 
     /*//////////////////////////////////////////////////////////////
