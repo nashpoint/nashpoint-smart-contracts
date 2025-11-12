@@ -93,14 +93,18 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     /// @dev This function is virtual and should be overridden by the router implementation
     ///      Use msg.sender as the node address in inherited contracts
     /// @return assets The amount of assets of the component.
-    function getComponentAssets(address component, bool claimableOnly) public view virtual returns (uint256 assets) {}
+    function getComponentAssets(address component, bool claimableOnly) public view virtual returns (uint256 assets) {
+        revert ErrorsLib.Forbidden();
+    }
 
     /// @notice Returns the investment size for a component.
     /// @dev This function is virtual and should be overridden by the router implementation
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return depositAssets The amount of assets to deposit.
-    function getInvestmentSize(address node, address component) public view virtual returns (uint256 depositAssets) {}
+    function getInvestmentSize(address node, address component) public view virtual returns (uint256 depositAssets) {
+        revert ErrorsLib.Forbidden();
+    }
 
     /*//////////////////////////////////////////////////////////////
                          INTERNAL FUNCTIONS
