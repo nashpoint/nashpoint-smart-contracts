@@ -238,6 +238,6 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
     /// @return assets The amount of assets of the component.
     function _getComponentAssets(address component, address node) internal view returns (uint256) {
         uint256 balance = IERC20(component).balanceOf(node);
-        return IERC4626(component).convertToAssets(balance);
+        return IERC4626(component).previewRedeem(balance);
     }
 }
