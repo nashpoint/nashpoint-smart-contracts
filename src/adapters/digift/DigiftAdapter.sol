@@ -736,8 +736,8 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         require(node.claimableDepositRequest > 0, DepositRequestNotFulfilled());
         require(node.maxMint == shares, MintAllSharesOnly());
 
-        assets = node.claimableDepositRequest;
         uint256 assetsToReimburse = node.pendingDepositReimbursement;
+        assets = node.claimableDepositRequest - assetsToReimburse;
 
         // Clear node state
         node.claimableDepositRequest = 0;
@@ -752,7 +752,7 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
             IERC20(asset).safeTransfer(msg.sender, assetsToReimburse);
         }
 
-        emit Deposit(controller, receiver, assets - assetsToReimburse, shares);
+        emit Deposit(controller, receiver, assets, shares);
     }
 
     // =============================
@@ -867,21 +867,21 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         nonReentrant
         returns (uint256 shares)
     {
+        NodeState storage node = _nodeState[msg.sender];
         // Ensure redemption request has been fulfilled and exact assets are withdrawn
-        require(_nodeState[msg.sender].claimableRedeemRequest > 0, RedeemRequestNotFulfilled());
-        require(_nodeState[msg.sender].maxWithdraw == assets, WithdrawAllAssetsOnly());
+        require(node.claimableRedeemRequest > 0, RedeemRequestNotFulfilled());
+        require(node.maxWithdraw == assets, WithdrawAllAssetsOnly());
 
-        shares = _nodeState[msg.sender].claimableRedeemRequest;
-        uint256 sharesToReimburse = _nodeState[msg.sender].pendingRedeemReimbursement;
-        uint256 sharesToBurn = shares - sharesToReimburse;
+        uint256 sharesToReimburse = node.pendingRedeemReimbursement;
+        shares = node.claimableRedeemRequest - sharesToReimburse;
 
         // Clear node state
-        _nodeState[msg.sender].claimableRedeemRequest = 0;
-        _nodeState[msg.sender].maxWithdraw = 0;
-        _nodeState[msg.sender].pendingRedeemReimbursement = 0;
+        node.claimableRedeemRequest = 0;
+        node.maxWithdraw = 0;
+        node.pendingRedeemReimbursement = 0;
 
         // Burn shares that were actually used
-        _burn(address(this), sharesToBurn);
+        _burn(address(this), shares);
 
         // Reimburse unused shares to the node
         if (sharesToReimburse > 0) {
@@ -890,7 +890,7 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
 
         // Transfer assets to the node
         IERC20(asset).safeTransfer(msg.sender, assets);
-        emit Withdraw(msg.sender, receiver, controller, assets, shares - sharesToReimburse);
+        emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
     // =============================
