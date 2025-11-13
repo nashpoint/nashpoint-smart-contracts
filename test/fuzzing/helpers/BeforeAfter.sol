@@ -57,5 +57,6 @@ contract BeforeAfter is FuzzStructs {
         states[callNum].nodeTotalAssets = node.totalAssets();
         states[callNum].nodeTotalSupply = node.totalSupply();
         states[callNum].sharesExiting = node.sharesExiting();
+        states[callNum].nodeEscrowShareBalance = node.balanceOf(address(escrow)); //@audit added this
     }
 }

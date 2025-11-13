@@ -24,6 +24,7 @@ contract FuzzStructs is FuzzSetup {
         uint256 nodeTotalAssets;
         uint256 nodeTotalSupply;
         uint256 sharesExiting;
+        uint256 nodeEscrowShareBalance; //@audit added this for escrow share check
     }
 
     struct ActorState {

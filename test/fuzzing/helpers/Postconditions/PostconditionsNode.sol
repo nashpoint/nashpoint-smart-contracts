@@ -27,6 +27,9 @@ contract PostconditionsNode is PostconditionsBase {
             // fl.eq(states[1].nodeTotalAssets, states[0].nodeTotalAssets + params.assets, "NODE_DEPOSIT_TOTAL_ASSETS");
             // fl.eq(states[1].nodeTotalSupply, states[0].nodeTotalSupply + mintedShares, "NODE_DEPOSIT_SUPPLY_DELTA");
 
+    //        invariant_NODE_01(beforeActor, afterActor);
+            invariant_NODE_05();
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -49,6 +52,9 @@ contract PostconditionsNode is PostconditionsBase {
             // fl.eq(states[1].nodeTotalAssets, states[0].nodeTotalAssets + assetsSpent, "NODE_MINT_TOTAL_ASSETS");
             // fl.eq(states[1].nodeTotalSupply, states[0].nodeTotalSupply + params.shares, "NODE_MINT_SUPPLY_DELTA");
 
+    //        invariant_NODE_01(beforeActor, afterActor);
+            invariant_NODE_05();
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -64,6 +70,7 @@ contract PostconditionsNode is PostconditionsBase {
             ActorState storage beforeOwner = states[0].actorStates[params.owner];
             ActorState storage afterOwner = states[1].actorStates[params.owner];
             ActorState storage afterEscrow = states[1].actorStates[address(escrow)];
+            ActorState storage beforeEscrow = states[0].actorStates[address(escrow)];
 
             // fl.eq(afterOwner.shareBalance, beforeOwner.shareBalance - params.shares, "NODE_REQUEST_REDEEM_SHARE_DELTA");
             // fl.eq(
@@ -86,6 +93,9 @@ contract PostconditionsNode is PostconditionsBase {
             // states[0].actorStates[params.controller].claimableAssets,
             // "NODE_REQUEST_REDEEM_CLAIMABLE_ASSETS"
             // );
+
+            invariant_NODE_02(params);
+            invariant_NODE_05();
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -113,6 +123,9 @@ contract PostconditionsNode is PostconditionsBase {
             // );
             // fl.t(states[1].nodeAssetBalance < states[0].nodeAssetBalance, "NODE_FULFILL_NODE_ASSETS_NOT_SENT");
             // fl.t(states[1].nodeEscrowAssetBalance > states[0].nodeEscrowAssetBalance, "NODE_FULFILL_ESCROW_NOT_FUNDED");
+
+            invariant_NODE_03(params);
+            invariant_NODE_05();
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -147,6 +160,9 @@ contract PostconditionsNode is PostconditionsBase {
             // states[0].nodeEscrowAssetBalance - params.assets,
             // "NODE_WITHDRAW_ESCROW_BALANCE"
             // );
+
+            invariant_NODE_04(params);
+            invariant_NODE_05();
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -788,6 +804,9 @@ contract PostconditionsNode is PostconditionsBase {
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
             fl.t(nodeBalanceAfter <= params.nodeAssetBalanceBefore, "ROUTER4626_INVEST_NODE_BALANCE");
 
+            invariant_NODE_06(params);
+            invariant_NODE_07();
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -905,6 +924,8 @@ contract PostconditionsNode is PostconditionsBase {
             if (params.component == address(digiftAdapter)) {
                 _recordDigiftPendingDeposit(address(node), params.component, assetsRequested);
             }
+
+            invariant_NODE_07();
 
             onSuccessInvariantsGeneral(returnData);
         } else {

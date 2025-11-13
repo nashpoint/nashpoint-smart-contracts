@@ -39,6 +39,9 @@ contract PostconditionsOneInch is PostconditionsBase {
             uint256 executorIncentiveBalance = IERC20(params.incentive).balanceOf(executorAddr);
             fl.gte(executorIncentiveBalance, params.incentiveAmount, "Executor should receive incentive tokens");
 
+            invariant_ONEINCH_01();
+            invariant_ONEINCH_02(params);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
