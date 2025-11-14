@@ -474,6 +474,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
             revert ErrorsLib.ExceedsMaxDeposit();
         }
         shares = convertToShares(assets);
+        if (shares == 0) revert ErrorsLib.ZeroAmount();
         _deposit(msg.sender, receiver, assets, shares);
         _runPolicies();
         return shares;
@@ -481,6 +482,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc IERC7575
     function mint(uint256 shares, address receiver) external nonReentrant returns (uint256 assets) {
+        if (shares == 0) revert ErrorsLib.ZeroAmount();
         if (shares > maxMint(receiver)) {
             revert ErrorsLib.ExceedsMaxMint();
         }

@@ -1658,6 +1658,12 @@ contract NodeTest is BaseTest {
         _verifySuccessfulEntry(user, assets, shares);
     }
 
+    function test_deposit_revert_ZeroAmount() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.ZeroAmount.selector);
+        node.deposit(0, user);
+    }
+
     function test_deposit_revert_ExceedsMaxDeposit() public {
         deal(address(asset), address(user), maxDeposit + 1);
         vm.startPrank(user);
@@ -1681,6 +1687,12 @@ contract NodeTest is BaseTest {
         vm.stopPrank();
 
         _verifySuccessfulEntry(user, assets, shares);
+    }
+
+    function test_mint_revert_ZeroAmount() public {
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.ZeroAmount.selector);
+        node.mint(0, user);
     }
 
     function test_mint_revert_ExceedsMaxMint() public {
