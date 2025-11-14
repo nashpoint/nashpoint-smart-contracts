@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {INode} from "src/interfaces/INode.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 
-import {PolicyBase} from "src/policies/PolicyBase.sol";
+import {PolicyBase} from "src/policies/abstract/PolicyBase.sol";
 
 /**
  * @title CapPolicy
@@ -30,10 +30,14 @@ contract CapPolicy is PolicyBase {
         emit CapChange(node, amount);
     }
 
-    function _executeCheck(address caller, bytes4 selector, bytes calldata payload) internal view override {
-        uint256 cap = nodeCap[msg.sender];
+    function _executeCheck(address node, address caller, bytes4 selector, bytes calldata payload)
+        internal
+        view
+        override
+    {
+        uint256 cap = nodeCap[node];
         if (cap > 0) {
-            uint256 totalAssets = INode(msg.sender).totalAssets();
+            uint256 totalAssets = INode(node).totalAssets();
             if (totalAssets > cap) revert CapExceeded(totalAssets - cap);
         }
     }

@@ -241,8 +241,13 @@ contract BaseTest is Test {
 
     function _userRequestsRedeem(address user_, uint256 sharesToRedeem_) internal {
         vm.startPrank(user);
-        node.approve(address(node), sharesToRedeem_);
         node.requestRedeem(sharesToRedeem_, user_, user_);
+        vm.stopPrank();
+    }
+
+    function _fullfilFromReserve(address user_) internal {
+        vm.startPrank(rebalancer);
+        node.fulfillRedeemFromReserve(user_);
         vm.stopPrank();
     }
 
