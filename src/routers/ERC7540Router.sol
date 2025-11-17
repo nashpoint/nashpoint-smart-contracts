@@ -45,7 +45,6 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
     /// @notice Fulfills a redeem request on behalf of the Node.
     /// @dev Called by a rebalancer to liquidate a component in order to make assets available for user withdrawal
     /// Transfers the assets to Escrow and updates the Requst for the user
-    /// Enforces liquidation queue to ensure asset liquidated is according to order set by the Node Owner
     /// @param node The address of the node.
     /// @param controller The address of the controller.
     /// @param component The address of the component.
@@ -59,9 +58,6 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
     {
         (uint256 sharesPending,,) = INode(node).requests(controller);
         uint256 assetsRequested = INode(node).convertToAssets(sharesPending);
-
-        // Validate that the component is top of the liquidation queue
-        INode(node).enforceLiquidationOrder(component, assetsRequested);
 
         // Get the max amount of assets that can be withdrawn from the async component atomically
         uint256 maxClaimableAssets = IERC7575(component).maxWithdraw(node);

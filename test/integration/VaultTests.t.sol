@@ -168,7 +168,6 @@ contract VaultTests is BaseTest {
         vm.warp(block.timestamp + 1 days);
 
         vm.startPrank(owner);
-        node.setLiquidationQueue(components);
         node.updateTargetReserveRatio(0);
         node.updateComponentAllocation(address(vault), 1 ether, 0, address(router4626));
         vm.stopPrank();

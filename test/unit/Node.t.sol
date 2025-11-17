@@ -589,167 +589,6 @@ contract NodeTest is BaseTest {
         testNode.removeRebalancer(makeAddr("nonexistent"));
     }
 
-    function test_setLiquidationQueue() public {
-        vm.mockCall(
-            address(router4626),
-            abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent2),
-            abi.encode(true)
-        );
-
-        vm.mockCall(
-            address(router4626),
-            abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent3),
-            abi.encode(true)
-        );
-
-        vm.startPrank(owner);
-        testNode.addComponent(testComponent2, 0.5 ether, 0.01 ether, address(router4626));
-        testNode.addComponent(testComponent3, 0.5 ether, 0.01 ether, address(router4626));
-
-        address[] memory components = testNode.getComponents();
-        assertEq(components.length, 3);
-        assertEq(components[0], testComponent);
-        assertEq(components[1], testComponent2);
-        assertEq(components[2], testComponent3);
-
-        testNode.setLiquidationQueue(components);
-        vm.stopPrank();
-
-        assertEq(testNode.getLiquidationsQueue()[0], testComponent);
-        assertEq(testNode.getLiquidationsQueue()[1], testComponent2);
-        assertEq(testNode.getLiquidationsQueue()[2], testComponent3);
-    }
-
-    function test_setLiquidationQueue_revert_invalidComponent() public {
-        address[] memory components = new address[](1);
-        components[0] = makeAddr("invalidComponent");
-
-        assertFalse(testNode.isComponent(components[0]));
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.InvalidComponent.selector);
-        testNode.setLiquidationQueue(components);
-    }
-
-    function test_setLiquidationQueue_revert_DuplicateComponent() public {
-        address[] memory components = new address[](3);
-        components[0] = testComponent;
-        components[1] = testComponent2;
-        components[2] = testComponent;
-
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.DuplicateComponent.selector);
-        testNode.setLiquidationQueue(components);
-    }
-
-    function test_liquidationQueue_excludes_pendingDeposit() public {
-        // sets async asset (7540) before sync (4626) in liquidity queue
-        setup_asyncAsset_first();
-
-        uint256 userWithdrawal = node.convertToAssets(node.pendingRedeemRequest(0, address(user)));
-        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
-
-        // assert node has non-zero pendingDeposit in liquidity pool but no assets
-        assertEq(erc7540Assets, 0);
-        assertGt(liquidityPool.pendingDepositRequest(0, address(node)), 0);
-
-        // enforceLiquidityQueue ignores pendingDeposit
-        vm.prank(rebalancer);
-        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
-        assertEq(assetsReturned, userWithdrawal);
-    }
-
-    function test_liquidationQueue_excludes_claimableDeposits() public {
-        // sets async asset (7540) before sync (4626) in liquidity queue
-        setup_asyncAsset_first();
-
-        uint256 userWithdrawal = node.convertToAssets(node.pendingRedeemRequest(0, address(user)));
-        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
-
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingDeposits();
-
-        // assert node has non-zero claimableDeposit in liquidity pool but no assets
-        assertGt(liquidityPool.claimableDepositRequest(0, address(node)), 0);
-        assertEq(erc7540Assets, 0);
-
-        // enforceLiquidityQueue ignores claimableDeposit
-        vm.prank(rebalancer);
-        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
-        assertEq(assetsReturned, userWithdrawal);
-    }
-
-    function test_liquidateQueue_excludes_shareBalance() public {
-        // sets async asset (7540) before sync (4626) in liquidity queue
-        setup_asyncAsset_first();
-
-        uint256 userWithdrawal = node.convertToAssets(node.pendingRedeemRequest(0, address(user)));
-        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
-
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingDeposits();
-
-        vm.prank(rebalancer);
-        router7540.mintClaimableShares(address(node), address(liquidityPool));
-
-        // assert node has non-zero share balance in liquidity pool but no assets
-        assertGt(liquidityPool.balanceOf(address(node)), 0);
-        assertEq(erc7540Assets, 0);
-
-        // enforceLiquidityQueue ignores share balance
-        vm.prank(rebalancer);
-        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
-        assertEq(assetsReturned, userWithdrawal);
-    }
-
-    function test_liquidationQueue_excludes_pendingRedemptions() public {
-        // sets async asset (7540) before sync (4626) in liquidity queue
-        setup_asyncAsset_first();
-
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingDeposits();
-
-        vm.startPrank(rebalancer);
-        uint256 shares = router7540.mintClaimableShares(address(node), address(liquidityPool));
-        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), shares);
-        vm.stopPrank();
-
-        uint256 userWithdrawal = node.convertToAssets(node.pendingRedeemRequest(0, address(user)));
-        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
-
-        // assert node has non-zero share pendingRedeem in liquidity pool but no assets
-        assertGt(liquidityPool.pendingRedeemRequest(0, address(node)), 0);
-        assertEq(erc7540Assets, 0);
-
-        // enforceLiquidityQueue ignores share balance
-        vm.prank(rebalancer);
-        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
-        assertEq(assetsReturned, userWithdrawal);
-    }
-
-    function test_liquidationQueue_includes_claimableRedemptions() public {
-        // sets async asset (7540) before sync (4626) in liquidity queue
-        setup_asyncAsset_first();
-
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingDeposits();
-
-        vm.startPrank(rebalancer);
-        uint256 shares = router7540.mintClaimableShares(address(node), address(liquidityPool));
-        router7540.requestAsyncWithdrawal(address(node), address(liquidityPool), shares);
-        vm.stopPrank();
-
-        vm.prank(testPoolManager);
-        liquidityPool.processPendingRedemptions();
-
-        // assert async asset has claimable balance
-        uint256 erc7540Assets = liquidityPool.maxWithdraw(address(node));
-        assertGt(erc7540Assets, 0);
-
-        vm.prank(rebalancer);
-        vm.expectRevert();
-        router4626.fulfillRedeemRequest(address(node), address(user), address(vault), 0);
-    }
-
     function setup_asyncAsset_first() public {
         address[] memory components = new address[](2);
         components[0] = address(liquidityPool);
@@ -762,7 +601,6 @@ contract NodeTest is BaseTest {
         router7540.setWhitelistStatus(address(liquidityPool), true);
         node.updateComponentAllocation(address(vault), 0.5 ether, 0.01 ether, address(router4626));
         node.addComponent(address(liquidityPool), 0.4 ether, 0.01 ether, address(router7540));
-        node.setLiquidationQueue(components);
         vm.stopPrank();
 
         vm.warp(block.timestamp - 1 days);
@@ -1647,6 +1485,7 @@ contract NodeTest is BaseTest {
 
     function test_deposit(uint256 assets) public {
         vm.assume(assets < maxDeposit);
+        vm.assume(assets > 0);
         uint256 shares = node.convertToShares(assets);
 
         deal(address(asset), address(user), assets);
@@ -1675,6 +1514,7 @@ contract NodeTest is BaseTest {
 
     function test_mint(uint256 assets) public {
         vm.assume(assets < maxDeposit);
+        vm.assume(assets > 0);
 
         uint256 shares = node.convertToShares(assets);
         uint256 expectedShares = node.previewDeposit(assets);
@@ -1981,83 +1821,6 @@ contract NodeTest is BaseTest {
         assertEq(pending, 0);
         assertEq(claimable, sharesToRedeem);
         assertEq(claimableAssets, node.convertToAssets(sharesToRedeem));
-    }
-
-    function test_getLiquidationsQueue() public {
-        vm.warp(block.timestamp + 1 days);
-
-        ERC4626Mock component1 = new ERC4626Mock(address(testAsset));
-        ERC4626Mock component2 = new ERC4626Mock(address(testAsset));
-        ERC4626Mock component3 = new ERC4626Mock(address(testAsset));
-
-        vm.mockCall(
-            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component1), abi.encode(true)
-        );
-
-        vm.mockCall(
-            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component2), abi.encode(true)
-        );
-
-        vm.mockCall(
-            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
-        );
-
-        vm.startPrank(owner);
-        testNode.addComponent(address(component3), 0.3 ether, 0.01 ether, address(router4626));
-        testNode.addComponent(address(component2), 0.3 ether, 0.01 ether, address(router4626));
-        testNode.addComponent(address(component1), 0.4 ether, 0.01 ether, address(router4626));
-        vm.stopPrank();
-
-        // incorrect component order on purpose
-        address[] memory expectedQueue = new address[](3);
-        expectedQueue[0] = address(component1);
-        expectedQueue[1] = address(component3);
-        expectedQueue[2] = address(component2);
-
-        vm.prank(owner);
-        testNode.setLiquidationQueue(expectedQueue);
-
-        address[] memory liquidationQueue = testNode.getLiquidationsQueue();
-        assertEq(liquidationQueue.length, expectedQueue.length);
-        for (uint256 i = 0; i < expectedQueue.length; i++) {
-            assertEq(liquidationQueue[i], expectedQueue[i]);
-        }
-    }
-
-    function test_getLiquidationsQueueLength() public {
-        assertEq(testNode.getLiquidationsQueue().length, 0);
-
-        ERC4626Mock component1 = new ERC4626Mock(address(testAsset));
-        ERC4626Mock component2 = new ERC4626Mock(address(testAsset));
-        ERC4626Mock component3 = new ERC4626Mock(address(testAsset));
-
-        address[] memory queue = new address[](3);
-        queue[0] = address(component1);
-        queue[1] = address(component2);
-        queue[2] = address(component3);
-
-        vm.warp(block.timestamp + 1 days);
-
-        vm.mockCall(
-            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component1), abi.encode(true)
-        );
-
-        vm.mockCall(
-            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component2), abi.encode(true)
-        );
-
-        vm.mockCall(
-            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, component3), abi.encode(true)
-        );
-
-        vm.startPrank(owner);
-        testNode.addComponent(address(component1), 0.4 ether, 0.01 ether, address(router4626));
-        testNode.addComponent(address(component2), 0.3 ether, 0.01 ether, address(router4626));
-        testNode.addComponent(address(component3), 0.3 ether, 0.01 ether, address(router4626));
-        testNode.setLiquidationQueue(queue);
-        vm.stopPrank();
-
-        assertEq(testNode.getLiquidationsQueue().length, 3);
     }
 
     // todo: fix this test

@@ -52,9 +52,6 @@ library EventsLib {
     /// @notice Emitted when a component's allocation is updated on the node
     event ComponentAllocationUpdated(address indexed component, uint64 targetWeight, uint64 maxDelta, address router);
 
-    /// @notice Emitted when the liquidation queue is updated on the node
-    event LiquidationQueueUpdated(address[] newQueue);
-
     /// @notice Emitted when the reserve allocation is updated on the node
     event TargetReserveRatioUpdated(uint64 targetReserveRatio);
 

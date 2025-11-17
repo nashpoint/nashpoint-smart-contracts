@@ -136,9 +136,6 @@ library ErrorsLib {
     /// @notice Thrown when the component is already in the queue.
     error DuplicateComponent();
 
-    /// @notice Thrown when the liquidation order is incorrect.
-    error IncorrectLiquidationOrder(address component, uint256 assetsToReturn);
-
     /// @notice Thrown when the cooldown is active.
     error CooldownActive();
 

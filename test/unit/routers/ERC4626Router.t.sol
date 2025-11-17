@@ -516,7 +516,6 @@ contract ERC4626RouterTest is BaseTest {
             ComponentAllocation({targetWeight: 0.5 ether, maxDelta: 0, router: address(testRouter), isComponent: true});
 
         vm.startPrank(owner);
-        node.setLiquidationQueue(components);
         node.updateTargetReserveRatio(0.5 ether);
         node.updateComponentAllocation(
             address(vault), allocation50.targetWeight, allocation50.maxDelta, allocation50.router
@@ -567,7 +566,6 @@ contract ERC4626RouterTest is BaseTest {
             ComponentAllocation({targetWeight: 0.3 ether, maxDelta: 0, router: address(testRouter), isComponent: true});
 
         vm.startPrank(owner);
-        node.setLiquidationQueue(components);
         node.updateTargetReserveRatio(0.7 ether);
         node.updateComponentAllocation(
             address(vault), allocation30.targetWeight, allocation30.maxDelta, allocation30.router

@@ -87,9 +87,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// @notice Removes a rebalancer
     function removeRebalancer(address oldRebalancer) external;
 
-    /// @notice Sets the liquidation queue
-    function setLiquidationQueue(address[] calldata newQueue) external;
-
     /// @notice Sets the rebalance cooldown
     function setRebalanceCooldown(uint64 newRebalanceCooldown) external;
 
@@ -263,11 +260,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
     /// subtracts the asset value of shares exiting from the reserve balance
     function getCashAfterRedemptions() external view returns (uint256);
 
-    /// @notice Enforces the liquidation order
-    /// @param component The address of the component
-    /// @param assetsToReturn The amount of assets to return
-    function enforceLiquidationOrder(address component, uint256 assetsToReturn) external view;
-
     /// @notice The address of the share
     function share() external view returns (address);
 
@@ -297,9 +289,6 @@ interface INode is IERC20Metadata, IERC7540Redeem, IERC7575 {
 
     /// @notice Returns the address for receiving management fees
     function nodeOwnerFeeAddress() external view returns (address);
-
-    /// @notice Returns the liquidation queue
-    function getLiquidationsQueue() external view returns (address[] memory);
 
     /// @notice Reads the total assets directly from all components without using the cached value
     /// @return assets Sum of assets held by the node and its components

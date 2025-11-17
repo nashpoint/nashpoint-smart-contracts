@@ -36,7 +36,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     uint64 public targetReserveRatio;
     address public asset;
     address[] internal components;
-    address[] internal liquidationsQueue;
     mapping(address => ComponentAllocation) internal componentAllocations;
 
     /* PROTOCOL ADDRESSES */
@@ -251,17 +250,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         if (!isRebalancer[oldRebalancer]) revert ErrorsLib.NotSet();
         isRebalancer[oldRebalancer] = false;
         emit EventsLib.RebalancerRemoved(oldRebalancer);
-    }
-
-    /// @inheritdoc INode
-    function setLiquidationQueue(address[] calldata newQueue) external onlyOwner {
-        _validateNoDuplicateComponents(newQueue);
-
-        for (uint256 i = 0; i < newQueue.length; i++) {
-            if (!_isComponent(newQueue[i])) revert ErrorsLib.InvalidComponent();
-        }
-        liquidationsQueue = newQueue;
-        emit EventsLib.LiquidationQueueUpdated(newQueue);
     }
 
     /// @inheritdoc INode
@@ -666,18 +654,8 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     /// @inheritdoc INode
-    function enforceLiquidationOrder(address component, uint256 assetsToReturn) external view {
-        _enforceLiquidationOrder(component, assetsToReturn);
-    }
-
-    /// @inheritdoc INode
     function share() external view returns (address) {
         return address(this);
-    }
-
-    /// @inheritdoc INode
-    function getLiquidationsQueue() external view returns (address[] memory) {
-        return liquidationsQueue;
     }
 
     /// @inheritdoc INode
@@ -792,28 +770,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         if (newRouter == address(0)) revert ErrorsLib.ZeroAddress();
         if (!INodeRegistry(registry).isRegistryType(newRouter, RegistryType.ROUTER)) revert ErrorsLib.NotWhitelisted();
         if (isRouter[newRouter]) revert ErrorsLib.AlreadySet();
-    }
-
-    function _enforceLiquidationOrder(address component, uint256 assetsToReturn) internal view {
-        uint256 len = liquidationsQueue.length;
-        for (uint256 i = 0; i < len; i++) {
-            address candidate = liquidationsQueue[i];
-            address router = componentAllocations[candidate].router;
-
-            uint256 candidateAssets;
-            try IRouter(router).getComponentAssets(candidate, true) returns (uint256 assets) {
-                candidateAssets = assets;
-            } catch {
-                continue;
-            }
-
-            if (candidateAssets >= assetsToReturn) {
-                if (candidate != component) {
-                    revert ErrorsLib.IncorrectLiquidationOrder(component, assetsToReturn);
-                }
-                break;
-            }
-        }
     }
 
     function _isComponent(address component) internal view returns (bool) {
