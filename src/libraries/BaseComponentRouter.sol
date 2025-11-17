@@ -117,6 +117,7 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     //////////////////////////////////////////////////////////////*/
 
     function _computeDepositAmount(address node, address component) internal returns (uint256 depositAmount) {
+        if (!isWhitelisted[component]) revert ErrorsLib.NotWhitelisted();
         // checks if excess reserve is available to invest
         (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
         _validateReserveAboveTargetRatio(currentCash, idealCashReserve);

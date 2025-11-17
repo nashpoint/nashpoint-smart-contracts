@@ -83,7 +83,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
 
         assertEq(testComponent.balanceOf(address(node)), investmentSize);
@@ -107,7 +107,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(user);
         vm.expectRevert(ErrorsLib.NotRebalancer.selector);
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
     }
 
@@ -127,7 +127,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.startPrank(rebalancer);
         node.startRebalance();
         vm.expectRevert(ErrorsLib.InvalidNode.selector);
-        router4626.invest(address(0), address(testComponent), 0);
+        testRouter.invest(address(0), address(testComponent), 0);
         vm.stopPrank();
     }
 
@@ -153,7 +153,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.startPrank(rebalancer);
         node.startRebalance();
         vm.expectRevert(ErrorsLib.InvalidComponent.selector);
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
     }
 
@@ -175,7 +175,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
 
         vm.startPrank(user);
@@ -187,7 +187,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.expectRevert(
             abi.encodeWithSelector(ErrorsLib.ComponentWithinTargetRange.selector, address(node), address(testComponent))
         );
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
     }
 
     function test_invest_revert_ReserveBelowTargetRatio() public {
@@ -211,7 +211,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
 
         vm.startPrank(user);
@@ -225,7 +225,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.expectRevert(ErrorsLib.ReserveBelowTargetRatio.selector);
 
         vm.prank(rebalancer);
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
     }
 
     function test_invest_depositAmount_reducedToAvailableReserve() public {
@@ -262,7 +262,7 @@ contract ERC4626RouterTest is BaseTest {
         // Invest in the component with 70% target weight
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent70), 0);
+        testRouter.invest(address(node), address(testComponent70), 0);
         vm.stopPrank();
 
         // Assert that the balance of the node is 700 ether for the component and 300 ether in reserve
@@ -283,7 +283,7 @@ contract ERC4626RouterTest is BaseTest {
         // Attempt to invest in the component with 50% target weight
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
 
         // Assert that the balance of the node for the component is less than the calculated investment size
@@ -325,7 +325,7 @@ contract ERC4626RouterTest is BaseTest {
                 investmentSize - 1
             )
         );
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
     }
 
     function test_invest_depositAmount_revert_InsufficientSharesReturned() public {
@@ -356,7 +356,7 @@ contract ERC4626RouterTest is BaseTest {
         // reverts because returns shares less than previewDeposit shares
         vm.prank(rebalancer);
         vm.expectRevert();
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
     }
 
     function test_liquidate() public {
@@ -377,7 +377,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
 
         uint256 currentReserve = asset.balanceOf(address(node));
@@ -386,7 +386,7 @@ contract ERC4626RouterTest is BaseTest {
         uint256 expectedAssets = testComponent.convertToAssets(100 ether);
 
         vm.prank(rebalancer);
-        router4626.liquidate(address(node), address(testComponent), 100 ether, 0);
+        testRouter.liquidate(address(node), address(testComponent), 100 ether, 0);
 
         assertEq(currentReserve + expectedAssets, 200 ether);
     }
@@ -394,7 +394,7 @@ contract ERC4626RouterTest is BaseTest {
     function test_liquidate_revert_notRebalancer() public {
         vm.startPrank(user);
         vm.expectRevert(ErrorsLib.NotRebalancer.selector);
-        router4626.liquidate(address(node), address(testComponent), 100 ether, 0);
+        testRouter.liquidate(address(node), address(testComponent), 100 ether, 0);
         vm.stopPrank();
     }
 
@@ -405,13 +405,13 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.prank(rebalancer);
         vm.expectRevert(ErrorsLib.InvalidComponent.selector);
-        router4626.liquidate(address(node), address(testComponent), 100 ether, 0);
+        testRouter.liquidate(address(node), address(testComponent), 100 ether, 0);
     }
 
     function test_liquidate_revert_notNode() public {
         vm.prank(rebalancer);
         vm.expectRevert(ErrorsLib.InvalidNode.selector);
-        router4626.liquidate(address(0), address(testComponent), 100 ether, 0);
+        testRouter.liquidate(address(0), address(testComponent), 100 ether, 0);
     }
 
     function test_liquidate_revert_zeroShareValue() public {
@@ -432,7 +432,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.prank(rebalancer);
         vm.expectRevert(abi.encodeWithSelector(ERC4626Router.InvalidShareValue.selector, address(testComponent), 0));
-        router4626.liquidate(address(node), address(testComponent), 0, 0);
+        testRouter.liquidate(address(node), address(testComponent), 0, 0);
     }
 
     function test_liquidate_revert_InvalidShareValue() public {
@@ -453,7 +453,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
 
         uint256 shares = testComponent.balanceOf(address(node));
@@ -461,7 +461,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.expectRevert(
             abi.encodeWithSelector(ERC4626Router.InvalidShareValue.selector, address(testComponent), shares + 1)
         );
-        router4626.liquidate(address(node), address(testComponent), shares + 1, 0);
+        testRouter.liquidate(address(node), address(testComponent), shares + 1, 0);
     }
 
     function test_liquidate_revert_InsufficientAssetsReturned() public {
@@ -482,7 +482,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(testComponent), 0);
+        testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
 
         uint256 shares = testComponent.balanceOf(address(node));
@@ -503,7 +503,7 @@ contract ERC4626RouterTest is BaseTest {
                 expectedAssets + 100
             )
         );
-        router4626.liquidate(address(node), address(testComponent), shares, 0);
+        testRouter.liquidate(address(node), address(testComponent), shares, 0);
     }
 
     function test_fulfillRedeemRequest_fullAmount() public {
@@ -524,7 +524,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(vault), 0);
+        testRouter.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         vm.startPrank(user);
@@ -533,7 +533,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(rebalancer);
-        router4626.fulfillRedeemRequest(address(node), user, address(vault), 0);
+        testRouter.fulfillRedeemRequest(address(node), user, address(vault), 0);
 
         assertEq(node.balanceOf(address(escrow)), 0);
         assertEq(node.balanceOf(user), 50 ether);
@@ -574,7 +574,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        router4626.invest(address(node), address(vault), 0);
+        testRouter.invest(address(node), address(vault), 0);
         vm.stopPrank();
 
         vm.startPrank(user);
@@ -583,7 +583,7 @@ contract ERC4626RouterTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(rebalancer);
-        uint256 assetsReturned = router4626.fulfillRedeemRequest(address(node), user, address(vault), 0);
+        uint256 assetsReturned = testRouter.fulfillRedeemRequest(address(node), user, address(vault), 0);
         assertEq(assetsReturned, 30 ether);
 
         assertEq(node.balanceOf(address(escrow)), 20 ether);
@@ -630,7 +630,7 @@ contract ERC4626RouterTest is BaseTest {
 
         vm.startPrank(rebalancer);
         node.startRebalance();
-        uint256 depositAmount = router4626.invest(address(node), address(testComponent), 0);
+        uint256 depositAmount = testRouter.invest(address(node), address(testComponent), 0);
         vm.stopPrank();
 
         assertEq(asset.balanceOf(address(feeRecipient)) + depositAmount, expectedDeposit);
@@ -639,19 +639,19 @@ contract ERC4626RouterTest is BaseTest {
     }
 
     function test_isWhitelisted() public {
-        assertFalse(router4626.isWhitelisted(address(testComponent)));
+        assertFalse(testRouter.isWhitelisted(address(testComponent)));
 
         vm.startPrank(owner);
-        router4626.setWhitelistStatus(address(testComponent), true);
+        testRouter.setWhitelistStatus(address(testComponent), true);
         vm.stopPrank();
 
-        assertTrue(router4626.isWhitelisted(address(testComponent)));
+        assertTrue(testRouter.isWhitelisted(address(testComponent)));
 
         vm.startPrank(owner);
-        router4626.setWhitelistStatus(address(testComponent), false);
+        testRouter.setWhitelistStatus(address(testComponent), false);
         vm.stopPrank();
 
-        assertFalse(router4626.isWhitelisted(address(testComponent)));
+        assertFalse(testRouter.isWhitelisted(address(testComponent)));
     }
 
     function test_isBlacklisted() public {
