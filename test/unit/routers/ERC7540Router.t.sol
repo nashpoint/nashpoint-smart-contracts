@@ -117,8 +117,7 @@ contract ERC7540RouterTest is BaseTest {
             component, abi.encodeWithSelector(IERC4626.maxWithdraw.selector, address(node)), abi.encode(claimableAssets)
         );
 
-        vm.prank(address(node));
-        uint256 assets = router7540.getComponentAssets(component, true);
+        uint256 assets = router7540.getComponentAssets(address(node), component, true);
 
         assertEq(assets, claimableAssets);
     }
@@ -162,8 +161,7 @@ contract ERC7540RouterTest is BaseTest {
             abi.encode(claimableDeposit)
         );
 
-        vm.prank(address(node));
-        uint256 assets = router7540.getComponentAssets(component, false);
+        uint256 assets = router7540.getComponentAssets(address(node), component, false);
 
         assertEq(assets, convertedAssets + maxWithdraw + pendingDeposit + claimableDeposit);
     }
@@ -210,8 +208,7 @@ contract ERC7540RouterTest is BaseTest {
             abi.encode(claimableDeposit)
         );
 
-        vm.prank(address(node));
-        uint256 assets = router7540.getComponentAssets(component, false);
+        uint256 assets = router7540.getComponentAssets(address(node), component, false);
 
         assertEq(assets, convertedAssets + pendingDeposit + claimableDeposit);
     }

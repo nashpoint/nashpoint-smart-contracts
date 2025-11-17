@@ -363,7 +363,9 @@ contract NodeTest is BaseTest {
         );
 
         vm.mockCall(
-            address(router4626), abi.encodeWithSelector(IRouter.getComponentAssets.selector, component2), abi.encode(0)
+            address(router4626),
+            abi.encodeWithSelector(IRouter.getComponentAssets.selector, address(testNode), component2),
+            abi.encode(0)
         );
 
         vm.startPrank(owner);
@@ -403,7 +405,9 @@ contract NodeTest is BaseTest {
         );
 
         vm.mockCall(
-            address(router4626), abi.encodeWithSelector(IRouter.getComponentAssets.selector, component3), abi.encode(0)
+            address(router4626),
+            abi.encodeWithSelector(IRouter.getComponentAssets.selector, address(testNode), component3),
+            abi.encode(0)
         );
 
         vm.startPrank(owner);

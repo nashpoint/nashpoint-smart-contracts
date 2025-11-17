@@ -188,7 +188,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function removeComponent(address component, bool force) external onlyOwner onlyWhenNotRebalancing {
         if (!_isComponent(component)) revert ErrorsLib.NotSet();
         address router = componentAllocations[component].router;
-        if (!force && IRouter(router).getComponentAssets(component, false) > 0) {
+        if (!force && IRouter(router).getComponentAssets(address(this), component, false) > 0) {
             revert ErrorsLib.NonZeroBalance();
         }
         if (force && !IRouter(router).isBlacklisted(component)) {
@@ -731,7 +731,7 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         for (uint256 i = 0; i < len; i++) {
             address component = components[i];
             address router = componentAllocations[component].router;
-            assets += IRouter(router).getComponentAssets(component, false);
+            assets += IRouter(router).getComponentAssets(address(this), component, false);
         }
     }
 

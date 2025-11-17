@@ -180,14 +180,14 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the assets of a component held by the node.
-    /// @param component The address of the component.
-    /// @param claimableOnly Whether the assets are claimable.
-    /// @return assets The amount of assets of the component.
-
-    function getComponentAssets(address component, bool claimableOnly) public view override returns (uint256 assets) {
-        return
-            claimableOnly ? _getClaimableErc7540Assets(msg.sender, component) : _getErc7540Assets(msg.sender, component);
+    /// @inheritdoc BaseComponentRouter
+    function getComponentAssets(address node, address component, bool claimableOnly)
+        public
+        view
+        override
+        returns (uint256 assets)
+    {
+        return claimableOnly ? _getClaimableErc7540Assets(node, component) : _getErc7540Assets(node, component);
     }
 
     /*//////////////////////////////////////////////////////////////

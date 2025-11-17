@@ -268,9 +268,7 @@ contract DigiftForkTest is BaseTest {
         assertEq(digiftAdapter.pendingDepositRequest(0, address(node)), INVEST_AMOUNT);
         assertEq(digiftAdapter.accumulatedDeposit(), depositAmount, "Accumulated whole deposit amount");
 
-        vm.startPrank(address(node));
-        assertEq(router7540.getComponentAssets(address(digiftAdapter), false), INVEST_AMOUNT);
-        vm.stopPrank();
+        assertEq(router7540.getComponentAssets(address(node), address(digiftAdapter), false), INVEST_AMOUNT);
 
         assertEq(node.totalAssets(), balance);
 

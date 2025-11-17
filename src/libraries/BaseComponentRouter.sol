@@ -88,12 +88,18 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the assets of a component held by the node.
+    /// @param node The address of the node.
     /// @param component The address of the component.
     /// @param claimableOnly Whether the assets are claimable.
     /// @dev This function is virtual and should be overridden by the router implementation
     ///      Use msg.sender as the node address in inherited contracts
     /// @return assets The amount of assets of the component.
-    function getComponentAssets(address component, bool claimableOnly) public view virtual returns (uint256 assets) {
+    function getComponentAssets(address node, address component, bool claimableOnly)
+        public
+        view
+        virtual
+        returns (uint256 assets)
+    {
         revert ErrorsLib.Forbidden();
     }
 

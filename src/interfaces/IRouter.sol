@@ -6,5 +6,8 @@ pragma solidity 0.8.28;
 interface IRouter {
     function isWhitelisted(address component) external view returns (bool status);
     function isBlacklisted(address component) external view returns (bool status);
-    function getComponentAssets(address component, bool claimableOnly) external view returns (uint256 assets);
+    function getComponentAssets(address node, address component, bool claimableOnly)
+        external
+        view
+        returns (uint256 assets);
 }
