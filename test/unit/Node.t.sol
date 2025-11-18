@@ -848,7 +848,7 @@ contract NodeTest is BaseTest {
         vm.warp(block.timestamp + 24 hours);
 
         vm.startPrank(owner);
-        node.setAnnualManagementFee(1e17);
+        node.setAnnualManagementFee(0.05e18);
         node.updateTargetReserveRatio(0);
         node.updateComponentAllocation(address(vault), 1e18, 0, address(router4626));
         vm.stopPrank();
@@ -1035,10 +1035,10 @@ contract NodeTest is BaseTest {
 
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         vm.startPrank(owner);
-        node.setAnnualManagementFee(0.2e18);
+        node.setAnnualManagementFee(0.05e18);
         node.setNodeOwnerFeeAddress(ownerFeesRecipient);
 
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + 4 * 365 days);
 
         vm.expectRevert(
             abi.encodeWithSelector(

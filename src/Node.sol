@@ -274,7 +274,8 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @inheritdoc INode
     function setAnnualManagementFee(uint64 newAnnualManagementFee) external onlyOwner {
-        if (newAnnualManagementFee > WAD) revert ErrorsLib.InvalidFee();
+        // 5% max
+        if (newAnnualManagementFee > 0.05e18) revert ErrorsLib.InvalidFee();
         annualManagementFee = newAnnualManagementFee;
         emit EventsLib.AnnualManagementFeeSet(newAnnualManagementFee);
     }

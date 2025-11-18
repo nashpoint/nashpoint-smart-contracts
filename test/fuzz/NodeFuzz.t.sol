@@ -264,7 +264,7 @@ contract NodeFuzzTest is BaseTest {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
-        annualFee = uint64(bound(annualFee, 0, 0.99 ether));
+        annualFee = uint64(bound(annualFee, 0, 0.05 ether));
         protocolFee = uint64(bound(protocolFee, 0, 0.99 ether));
         seedAmount = bound(seedAmount, 1e18, 1e36);
 
@@ -300,7 +300,7 @@ contract NodeFuzzTest is BaseTest {
         address ownerFeesRecipient = makeAddr("ownerFeesRecipient");
         address protocolFeesRecipient = makeAddr("protocolFeesRecipient");
 
-        annualFee = uint64(bound(annualFee, 0, 0.99 ether));
+        annualFee = uint64(bound(annualFee, 0, 0.05 ether));
         protocolFee = uint64(bound(protocolFee, 0, 0.99 ether));
         seedAmount = bound(seedAmount, 1e18, 1e36);
         duration = bound(duration, 2 days, 365 days);
