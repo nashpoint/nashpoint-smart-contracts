@@ -7,7 +7,7 @@ import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol";
-import {INodeFactory} from "src/interfaces/INodeFactory.sol";
+import {INodeFactory, SetupCall} from "src/interfaces/INodeFactory.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
@@ -57,7 +57,10 @@ contract DecimalsTests is BaseTest {
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
 
         (decNode,) = factory.deployFullNode(
-            NodeInitArgs("Decimal Node", "DNODE", address(testToken6), owner), payload, keccak256("new salt")
+            NodeInitArgs("Decimal Node", "DNODE", address(testToken6), owner),
+            payload,
+            new SetupCall[](0),
+            keccak256("new salt")
         );
         decNode.setMaxDepositSize(1e36);
         vm.stopPrank();

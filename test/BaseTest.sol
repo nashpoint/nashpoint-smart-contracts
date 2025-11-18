@@ -25,7 +25,7 @@ import {Escrow} from "src/Escrow.sol";
 
 import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
-import {INodeFactory} from "src/interfaces/INodeFactory.sol";
+import {INodeFactory, SetupCall} from "src/interfaces/INodeFactory.sol";
 
 contract BaseTest is Test {
     using Math for uint256;
@@ -115,8 +115,9 @@ contract BaseTest is Test {
         );
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
 
-        (node, escrow) =
-            factory.deployFullNode(NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, SALT);
+        (node, escrow) = factory.deployFullNode(
+            NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, new SetupCall[](0), SALT
+        );
 
         node.setMaxDepositSize(1e36);
         vm.stopPrank();

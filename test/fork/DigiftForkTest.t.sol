@@ -15,6 +15,7 @@ import {ComponentAllocation, INode, NodeInitArgs} from "src/interfaces/INode.sol
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {SetupCall} from "src/interfaces/INodeFactory.sol";
 
 contract DigiftForkTest is BaseTest {
     DigiftAdapter digiftAdapter;
@@ -97,7 +98,10 @@ contract DigiftForkTest is BaseTest {
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
 
         (node2,) = factory.deployFullNode(
-            NodeInitArgs("Test Node 2", "TNODE2", address(asset), owner), payload, keccak256("new salt")
+            NodeInitArgs("Test Node 2", "TNODE2", address(asset), owner),
+            payload,
+            new SetupCall[](0),
+            keccak256("new salt")
         );
 
         node2.setMaxDepositSize(1e36);
