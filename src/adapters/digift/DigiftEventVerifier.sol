@@ -248,7 +248,8 @@ contract DigiftEventVerifier is RegistryAccessControl {
 
         // Verify the security token matches
         require(stToken == nargs.securityToken, NoEvent());
-
+        // Verify that investor index is correct
+        require(investorList[fargs.investorIndex] == msg.sender, NoEvent());
         // Verify the currency token matches for this investor
         require(currencyTokenList[fargs.investorIndex] == nargs.currencyToken, NoEvent());
 

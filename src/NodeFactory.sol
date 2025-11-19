@@ -15,6 +15,12 @@ import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
 /// @title NodeFactory
 /// @author ODND Studios
+/// @notice This factory forwards arbitrary `setupCalls` verbatim, so any ERC20 approval granted
+/// to it can be drained by the next caller. Do not grant allowances that live on-chain for more
+/// than one tx: use permit or bundle approval + deployment in a single atomic transaction.
+/// Post-deployment seeding is safe because funds move directly through the newly created node,
+/// and `setupCalls` should be reserved for policy configuration that does not require custody
+/// over third-party assets.
 contract NodeFactory is INodeFactory {
     /* IMMUTABLES */
     INodeRegistry public immutable registry;
