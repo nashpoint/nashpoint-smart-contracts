@@ -40,9 +40,6 @@ library ErrorsLib {
     /// @notice Thrown when the controller is invalid.
     error InvalidController();
 
-    /// @notice Thrown when the quoter is not valid for the node
-    error InvalidQuoter();
-
     /// @notice Thrown when the balance is insufficient.
     error InsufficientBalance();
 
@@ -121,6 +118,9 @@ library ErrorsLib {
     /// @notice Thrown when the target is not blacklisted.
     error NotBlacklisted();
 
+    /// @notice Thrown when the target is blacklisted.
+    error Blacklisted();
+
     /// @notice Thrown when the target node is invalid
     error InvalidNode();
 
@@ -135,9 +135,6 @@ library ErrorsLib {
 
     /// @notice Thrown when the component is already in the queue.
     error DuplicateComponent();
-
-    /// @notice Thrown when the liquidation order is incorrect.
-    error IncorrectLiquidationOrder(address component, uint256 assetsToReturn);
 
     /// @notice Thrown when the cooldown is active.
     error CooldownActive();
@@ -159,9 +156,6 @@ library ErrorsLib {
 
     /// @notice Thrown when the fee is invalid.
     error InvalidFee();
-
-    /// @notice Thrown when the swing factor is invalid.
-    error InvalidSwingFactor();
 
     error PolicyAlreadyAdded(bytes4 sig, address policy);
 

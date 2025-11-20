@@ -4,17 +4,23 @@ pragma solidity 0.8.28;
 import {BaseTest} from "test/BaseTest.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {WhitelistBase} from "src/policies/WhitelistBase.sol";
+import {ListBase} from "src/policies/abstract/ListBase.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
-contract WhitelistBaseHarness is WhitelistBase {
-    constructor(address registry_) WhitelistBase(registry_) {}
+contract ListBaseHarness is ListBase {
+    constructor(address registry_) ListBase(registry_) {}
 
     function checkIsWhitelistedOne(address node) external view onlyWhitelisted(node, msg.sender) {}
 
     function checkIsWhitelistedTwo(address user) external view onlyWhitelisted(msg.sender, user) {}
 
-    function _executeCheck(address caller, bytes4 selector, bytes calldata payload) internal view override {}
+    function checkNotBlacklistedOne(address node) external view notBlacklisted(node, msg.sender) {}
+
+    function _executeCheck(address node, address caller, bytes4 selector, bytes calldata payload)
+        internal
+        view
+        override
+    {}
 
     function exposedGetLeaf(address actor) external pure returns (bytes32) {
         return _getLeaf(actor);
@@ -27,15 +33,19 @@ contract WhitelistBaseHarness is WhitelistBase {
     function getProof(address node, address actor) external view returns (bytes32[] memory) {
         return proofs[node][actor];
     }
+
+    function exposedNotBlacklisted(address node, address actor) external view {
+        _notBlacklisted(node, actor);
+    }
 }
 
 contract WhitelistBaseTest is BaseTest {
-    WhitelistBaseHarness policy;
+    ListBaseHarness policy;
 
     function setUp() public override {
         super.setUp();
 
-        policy = new WhitelistBaseHarness(address(registry));
+        policy = new ListBaseHarness(address(registry));
 
         bytes4[] memory sigs = new bytes4[](3);
         sigs[0] = IERC20.transfer.selector;
@@ -70,9 +80,9 @@ contract WhitelistBaseTest is BaseTest {
 
         vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
-        emit WhitelistBase.WhitelistAdded(address(node), users);
+        emit ListBase.ListAdded(address(node), users);
         policy.add(address(node), users);
-        assertTrue(policy.whitelist(address(node), user));
+        assertTrue(policy.list(address(node), user));
         vm.stopPrank();
 
         vm.startPrank(user);
@@ -85,9 +95,9 @@ contract WhitelistBaseTest is BaseTest {
 
         vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
-        emit WhitelistBase.WhitelistRemoved(address(node), users);
+        emit ListBase.ListRemoved(address(node), users);
         policy.remove(address(node), users);
-        assertFalse(policy.whitelist(address(node), user));
+        assertFalse(policy.list(address(node), user));
         vm.stopPrank();
 
         vm.expectRevert(ErrorsLib.NotNodeOwner.selector);
@@ -104,7 +114,7 @@ contract WhitelistBaseTest is BaseTest {
         policy.setRoot(address(node), root);
 
         vm.expectEmit(true, true, false, true);
-        emit WhitelistBase.NodeRootUpdated(address(node), root);
+        emit ListBase.NodeRootUpdated(address(node), root);
         vm.prank(owner);
         policy.setRoot(address(node), root);
         assertEq(policy.roots(address(node)), root);
@@ -122,7 +132,7 @@ contract WhitelistBaseTest is BaseTest {
         proof[1] = keccak256("right");
 
         vm.expectEmit(true, true, true, true);
-        emit WhitelistBase.ProofUpdated(address(node), user, proof);
+        emit ListBase.ProofUpdated(address(node), user, proof);
         vm.prank(address(node));
         policy.receiveUserData(user, abi.encode(proof));
 
@@ -163,5 +173,37 @@ contract WhitelistBaseTest is BaseTest {
         policy.receiveUserData(randomUser, abi.encode(proof));
         vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
         policy.exposedIsWhitelisted(address(node), randomUser);
+    }
+
+    function test_notBlacklistedModifierBlocksListedActor() external {
+        address[] memory users = _toArray(user);
+
+        vm.prank(owner);
+        policy.add(address(node), users);
+
+        vm.prank(user);
+        vm.expectRevert(ErrorsLib.Blacklisted.selector);
+        policy.checkNotBlacklistedOne(address(node));
+
+        vm.prank(owner);
+        policy.remove(address(node), users);
+
+        vm.prank(user);
+        policy.checkNotBlacklistedOne(address(node));
+    }
+
+    function test_notBlacklistedInternalFunctionRevertsForListedActor() external {
+        address[] memory users = _toArray(user);
+
+        vm.prank(owner);
+        policy.add(address(node), users);
+
+        vm.expectRevert(ErrorsLib.Blacklisted.selector);
+        policy.exposedNotBlacklisted(address(node), user);
+
+        vm.prank(owner);
+        policy.remove(address(node), users);
+
+        policy.exposedNotBlacklisted(address(node), user);
     }
 }

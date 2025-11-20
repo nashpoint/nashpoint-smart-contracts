@@ -105,7 +105,6 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
     /// @notice Fulfills a redeem request on behalf of the Node.
     /// @dev Called by a rebalancer to liquidate a component in order to make assets available for user withdrawal
     /// Transfers the assets to Escrow and updates the Requst for the user
-    /// Enforces liquidation queue to ensure asset liquidated is according to order set by the Node Owner
     /// @param node The address of the node.
     /// @param controller The address of the controller.
     /// @param component The address of the component.
@@ -117,11 +116,8 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
         onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
-        (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).requests(controller);
-        uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
-
-        // Validate that the component is top of the liquidation queue
-        INode(node).enforceLiquidationOrder(component, assetsRequested);
+        (uint256 sharesPending,,) = INode(node).requests(controller);
+        uint256 assetsRequested = INode(node).convertToAssets(sharesPending);
 
         // liquidate either the requested amount or the balance of the component
         // if the requested amount is greater than the balance of the component
@@ -135,14 +131,13 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
             revert InsufficientAssetsReturned(component, assetsReturned, minAssetsOut);
         }
 
-        // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
+        // downscale sharesPending if assetsReturned is less than assetsRequested
         if (assetsReturned < assetsRequested) {
-            (sharesPending, sharesAdjusted) =
-                _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested, sharesAdjusted);
+            sharesPending = _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested);
         }
 
         // update the redemption request state on the node and transfer the assets to the escrow
-        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
+        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending);
         emit FulfilledRedeemRequest(node, component, assetsReturned);
         return assetsReturned;
     }
@@ -151,11 +146,9 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the assets of a component held by the node.
-    /// @param component The address of the component.
-    /// @return assets The amount of assets of the component.
-    function getComponentAssets(address component, bool) public view override returns (uint256) {
-        return _getComponentAssets(component, msg.sender);
+    /// @inheritdoc BaseComponentRouter
+    function getComponentAssets(address node, address component, bool) public view override returns (uint256) {
+        return _getComponentAssets(component, node);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -183,23 +176,14 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
         return abi.decode(result, (uint256));
     }
 
-    /// @notice Calculates the investment size for a component.
-    /// @param node The address of the node.
-    /// @param component The address of the component.
-    /// @return depositAssets The investment size.
-    function _getInvestmentSize(address node, address component)
-        internal
-        view
-        override
-        returns (uint256 depositAssets)
-    {
+    /// @inheritdoc BaseComponentRouter
+    function getInvestmentSize(address node, address component) public view override returns (uint256 depositAssets) {
         uint256 targetHoldings =
             Math.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
         uint256 currentBalance = _getComponentAssets(component, node);
 
-        uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
-        return delta;
+        depositAssets = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
     }
 
     /// @notice Liquidates a component on behalf of the Node.
@@ -239,6 +223,6 @@ contract ERC4626Router is BaseComponentRouter, ReentrancyGuard {
     /// @return assets The amount of assets of the component.
     function _getComponentAssets(address component, address node) internal view returns (uint256) {
         uint256 balance = IERC20(component).balanceOf(node);
-        return IERC4626(component).convertToAssets(balance);
+        return IERC4626(component).previewRedeem(balance);
     }
 }

@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {INode} from "src/interfaces/INode.sol";
 
-import {PolicyBase} from "src/policies/PolicyBase.sol";
+import {PolicyBase} from "src/policies/abstract/PolicyBase.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
 /**
@@ -98,7 +98,11 @@ contract ProtocolPausingPolicy is PolicyBase {
         emit GlobalUnpaused();
     }
 
-    function _executeCheck(address caller, bytes4 selector, bytes calldata payload) internal view override {
+    function _executeCheck(address node, address caller, bytes4 selector, bytes calldata payload)
+        internal
+        view
+        override
+    {
         if (globalPause) revert GlobalPause();
         if (sigPause[selector]) revert SigPause(selector);
     }

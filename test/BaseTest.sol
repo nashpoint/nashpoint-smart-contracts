@@ -9,7 +9,6 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {Node} from "src/Node.sol";
 import {NodeFactory} from "src/NodeFactory.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
-import {QuoterV1} from "src/quoters/QuoterV1.sol";
 import {ERC4626Router} from "src/routers/ERC4626Router.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
 
@@ -26,15 +25,13 @@ import {Escrow} from "src/Escrow.sol";
 
 import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol";
 import {INodeRegistry, RegistryType} from "src/interfaces/INodeRegistry.sol";
-import {INodeFactory} from "src/interfaces/INodeFactory.sol";
-import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
+import {INodeFactory, SetupCall} from "src/interfaces/INodeFactory.sol";
 
 contract BaseTest is Test {
     using Math for uint256;
 
     NodeRegistry public registry;
     NodeFactory public factory;
-    QuoterV1 public quoter;
     ERC4626Router public router4626;
     ERC7540Router public router7540;
 
@@ -86,7 +83,6 @@ contract BaseTest is Test {
         );
         address nodeImplementation = address(new Node(address(registry)));
         factory = new NodeFactory(address(registry), nodeImplementation);
-        quoter = new QuoterV1(address(registry));
         router4626 = new ERC4626Router(address(registry));
         router7540 = new ERC7540Router(address(registry));
 
@@ -107,11 +103,10 @@ contract BaseTest is Test {
         registry.setRegistryType(address(router7540), RegistryType.ROUTER, true);
         registry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
         registry.setRegistryType(address(rebalancer), RegistryType.REBALANCER, true);
-        registry.setRegistryType(address(quoter), RegistryType.QUOTER, true);
 
         router4626.setWhitelistStatus(address(vault), true);
 
-        bytes[] memory payload = new bytes[](5);
+        bytes[] memory payload = new bytes[](4);
         payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router4626));
         payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
         ComponentAllocation memory allocation = _defaultComponentAllocations(1)[0];
@@ -119,10 +114,10 @@ contract BaseTest is Test {
             INode.addComponent.selector, address(vault), allocation.targetWeight, allocation.maxDelta, allocation.router
         );
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
-        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
 
-        (node, escrow) =
-            factory.deployFullNode(NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, SALT);
+        (node, escrow) = factory.deployFullNode(
+            NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, new SetupCall[](0), SALT
+        );
 
         node.setMaxDepositSize(1e36);
         vm.stopPrank();
@@ -182,7 +177,6 @@ contract BaseTest is Test {
     function _labelAddresses() internal {
         vm.label(address(registry), "Registry");
         vm.label(address(factory), "Factory");
-        vm.label(address(quoter), "Quoter");
         vm.label(address(router4626), "ERC4626Router");
         vm.label(address(router7540), "ERC7540Router");
         vm.label(address(node), "Node");
@@ -248,8 +242,13 @@ contract BaseTest is Test {
 
     function _userRequestsRedeem(address user_, uint256 sharesToRedeem_) internal {
         vm.startPrank(user);
-        node.approve(address(node), sharesToRedeem_);
         node.requestRedeem(sharesToRedeem_, user_, user_);
+        vm.stopPrank();
+    }
+
+    function _fullfilFromReserve(address user_) internal {
+        vm.startPrank(rebalancer);
+        node.fulfillRedeemFromReserve(user_);
         vm.stopPrank();
     }
 
