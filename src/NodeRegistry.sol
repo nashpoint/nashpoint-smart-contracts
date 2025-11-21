@@ -20,7 +20,7 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
     address public protocolFeeAddress;
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
-    mapping(address => mapping(RegistryType => bool)) internal roles;
+    mapping(address => mapping(RegistryType => bool)) public roles;
     bytes32 public policiesRoot;
 
     /* CONSTRUCTOR */
