@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
 
-import {IERC20} from "@openzeppelin/contracts/token/erc20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {Node} from "src/Node.sol";
 import {ERC7540Router} from "src/routers/ERC7540Router.sol";
