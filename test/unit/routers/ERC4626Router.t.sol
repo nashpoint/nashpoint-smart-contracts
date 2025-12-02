@@ -157,6 +157,29 @@ contract ERC4626RouterTest is BaseTest {
         vm.stopPrank();
     }
 
+    function test_invest_revert_Blacklisted() public {
+        _seedNode(100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(owner);
+        testRouter.setWhitelistStatus(address(testComponent), true);
+        node.addComponent(
+            address(testComponent),
+            defaultTestAllocation.targetWeight,
+            defaultTestAllocation.maxDelta,
+            defaultTestAllocation.router
+        );
+        testRouter.setBlacklistStatus(address(testComponent), true);
+        vm.stopPrank();
+
+        vm.startPrank(rebalancer);
+        node.startRebalance();
+        vm.expectRevert(ErrorsLib.Blacklisted.selector);
+        testRouter.invest(address(node), address(testComponent), 0);
+        vm.stopPrank();
+    }
+
     function test_invest_revert_ComponentWithinTargetRange() public {
         _seedNode(1000 ether);
 
