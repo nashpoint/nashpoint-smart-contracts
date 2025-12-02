@@ -16,6 +16,20 @@ enum RegistryType {
 
 interface INodeRegistry {
     /**
+     * @notice Returns whether a target address is allowed for setup calls
+     * @param target Address to query
+     * @return bool True when the target is whitelisted
+     */
+    function setupCallWhitelisted(address target) external view returns (bool);
+
+    /**
+     * @notice Updates whitelist status for a setup call target
+     * @param target Address to toggle in the whitelist
+     * @param allowed True to allow the target, false to disallow
+     */
+    function updateSetupCallWhitelist(address target, bool allowed) external;
+
+    /**
      * @notice Sets the type of an address
      * @param addr Address to set the type for
      * @param type_ Type to set
