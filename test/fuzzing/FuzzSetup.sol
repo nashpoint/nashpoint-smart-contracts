@@ -15,6 +15,7 @@ import {ERC7540NegativeYieldVault} from "../mocks/vaults/ERC7540NegativeYieldVau
 import {ERC7540Mock} from "../mocks/ERC7540Mock.sol";
 import {AggregationRouterV6Mock} from "../mocks/AggregationRouterV6Mock.sol";
 import {SimpleProxy} from "./mocks/SimpleProxy.sol";
+import {SetupCall} from "../../src/interfaces/INodeFactory.sol";
 
 /**
  * @title FuzzSetup
@@ -86,8 +87,7 @@ contract FuzzSetup is HelperFunctions {
                         owner,
                         protocolFeesAddress,
                         0,
-                        0,
-                        DEFAULT_PROTOCOL_MAX_SWING_FACTOR
+                        0
                     )
                 )
             )
@@ -95,7 +95,6 @@ contract FuzzSetup is HelperFunctions {
 
         Node nodeImplementation = new Node(address(registry));
         factory = new NodeFactory(address(registry), address(nodeImplementation));
-        quoter = new QuoterV1(address(registry));
         router4626 = new ERC4626Router(address(registry));
         router7540 = new ERC7540Router(address(registry));
         fluidDistributor = new FluidDistributorMock();
@@ -135,10 +134,10 @@ contract FuzzSetup is HelperFunctions {
         digiftEventVerifier = new DigiftEventVerifierMock(owner);
 
         capPolicy = new CapPolicy(address(registry));
-        gatePolicy = new GatePolicy(address(registry));
+        gatePolicyWhitelist = new GatePolicyWhitelist(address(registry));
+        gatePolicyBlacklist = new GatePolicyBlacklist(address(registry));
         nodePausingPolicy = new NodePausingPolicy(address(registry));
         protocolPausingPolicy = new ProtocolPausingPolicy(address(registry));
-        transferPolicy = new TransferPolicy(address(registry));
 
         defaultComponentAllocation = ComponentAllocation({
             targetWeight: DEFAULT_COMPONENT_TARGET_WEIGHT,
@@ -158,7 +157,6 @@ contract FuzzSetup is HelperFunctions {
         registry.setRegistryType(address(routerMerkl), RegistryType.ROUTER, true);
         registry.setRegistryType(address(routerOneInch), RegistryType.ROUTER, true);
         registry.setRegistryType(rebalancer, RegistryType.REBALANCER, true);
-        registry.setRegistryType(address(quoter), RegistryType.QUOTER, true);
         // Ensure execution fee path is exercised during fuzzing (non-zero fee)
         registry.setProtocolExecutionFee(0.01 ether);
 
@@ -172,7 +170,7 @@ contract FuzzSetup is HelperFunctions {
     }
 
     function _deployNode() internal {
-        bytes[] memory payload = new bytes[](5);
+        bytes[] memory payload = new bytes[](4);
         payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router4626));
         payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
         payload[2] = abi.encodeWithSelector(
@@ -183,11 +181,11 @@ contract FuzzSetup is HelperFunctions {
             defaultComponentAllocation.router
         );
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.2 ether);
-        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
 
+        SetupCall[] memory setupCalls = new SetupCall[](0);
         address escrowAddress;
         (node, escrowAddress) =
-            factory.deployFullNode(NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, DEFAULT_SALT);
+            factory.deployFullNode(NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, setupCalls, DEFAULT_SALT);
         escrow = Escrow(escrowAddress);
         _registerManagedNode(address(node), escrowAddress);
 
@@ -207,15 +205,6 @@ contract FuzzSetup is HelperFunctions {
         node.addComponent(address(liquidityPoolTertiary), 0.05 ether, 0.01 ether, address(router7540));
         node.updateTargetReserveRatio(0.15 ether);
 
-        address[] memory liquidationQueue = new address[](6);
-        liquidationQueue[0] = address(vault);
-        liquidationQueue[1] = address(vaultSecondary);
-        liquidationQueue[2] = address(vaultTertiary);
-        liquidationQueue[3] = address(liquidityPool);
-        liquidationQueue[4] = address(liquidityPoolSecondary);
-        liquidationQueue[5] = address(liquidityPoolTertiary);
-        node.setLiquidationQueue(liquidationQueue);
-
         capPolicy.setCap(address(node), DEFAULT_NODE_CAP_AMOUNT);
 
         address[] memory whitelistActors = new address[](USERS.length + 5);
@@ -228,9 +217,8 @@ contract FuzzSetup is HelperFunctions {
         whitelistActors[USERS.length + 3] = address(router7540);
         whitelistActors[USERS.length + 4] = vaultSeeder;
 
-        gatePolicy.add(address(node), whitelistActors);
+        gatePolicyWhitelist.add(address(node), whitelistActors);
         nodePausingPolicy.add(address(node), whitelistActors);
-        transferPolicy.add(address(node), whitelistActors);
 
         protocolPausingPolicy.add(_singleton(owner));
         vm.stopPrank();
@@ -269,7 +257,8 @@ contract FuzzSetup is HelperFunctions {
             dFeedPriceOracle: address(digiftPriceOracleMock),
             priceDeviation: 1e15,
             settlementDeviation: 1e16,
-            priceUpdateDeviation: 4 days,
+            priceUpdateDeviationDigift: 4 days,
+            priceUpdateDeviationAsset: 4 days,
             minDepositAmount: 1_000e6,
             minRedeemAmount: 10e18
         });
@@ -366,10 +355,10 @@ contract FuzzSetup is HelperFunctions {
 
         if (POLICIES.length == 0) {
             POLICIES.push(address(capPolicy));
-            POLICIES.push(address(gatePolicy));
+            POLICIES.push(address(gatePolicyWhitelist));
+            POLICIES.push(address(gatePolicyBlacklist));
             POLICIES.push(address(nodePausingPolicy));
             POLICIES.push(address(protocolPausingPolicy));
-            POLICIES.push(address(transferPolicy));
         }
 
         if (ROUTERS.length == 0) {
@@ -404,7 +393,6 @@ contract FuzzSetup is HelperFunctions {
     function _labelAddresses() internal {
         vm.label(address(registry), "NodeRegistry");
         vm.label(address(factory), "NodeFactory");
-        vm.label(address(quoter), "QuoterV1");
         vm.label(address(router4626), "ERC4626Router");
         vm.label(address(router7540), "ERC7540Router");
         vm.label(address(routerFluid), "FluidRewardsRouter");
@@ -422,10 +410,10 @@ contract FuzzSetup is HelperFunctions {
         vm.label(address(liquidityPoolSecondary), "LiquidityPoolSecondary");
         vm.label(address(liquidityPoolTertiary), "LiquidityPoolTertiary");
         vm.label(address(capPolicy), "CapPolicy");
-        vm.label(address(gatePolicy), "GatePolicy");
+        vm.label(address(gatePolicyWhitelist), "GatePolicyWhitelist");
+        vm.label(address(gatePolicyBlacklist), "GatePolicyBlacklist");
         vm.label(address(nodePausingPolicy), "NodePausingPolicy");
         vm.label(address(protocolPausingPolicy), "ProtocolPausingPolicy");
-        vm.label(address(transferPolicy), "TransferPolicy");
 
         vm.label(owner, "Owner");
         vm.label(rebalancer, "Rebalancer");
@@ -464,15 +452,9 @@ contract FuzzSetup is HelperFunctions {
         uint256 randomizedMaxDeposit = maxDepositFloor + (seed2 % maxDepositRange);
         node.setMaxDepositSize(randomizedMaxDeposit);
 
-        uint64 managementFeeBps = uint64((seed2 % 1_000) * 1e15); // up to 10%
+        // max 5% management fee in new version
+        uint64 managementFeeBps = uint64((seed2 % 50) * 1e15); // up to 5%
         node.setAnnualManagementFee(managementFeeBps);
-
-        if (seed1) {
-            uint64 swingFactor = uint64(bound(uint256(seed3), 1, 50)) * 1e16; // 0.01% - 0.5%
-            node.enableSwingPricing(true, swingFactor);
-        } else {
-            node.enableSwingPricing(false, 0);
-        }
 
         vm.stopPrank();
     }

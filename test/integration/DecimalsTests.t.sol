@@ -7,7 +7,7 @@ import {BaseTest} from "../BaseTest.sol";
 import {console2} from "forge-std/Test.sol";
 import {Node} from "src/Node.sol";
 import {INode, ComponentAllocation, NodeInitArgs} from "src/interfaces/INode.sol";
-import {INodeFactory} from "src/interfaces/INodeFactory.sol";
+import {INodeFactory, SetupCall} from "src/interfaces/INodeFactory.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {EventsLib} from "src/libraries/EventsLib.sol";
 import {NodeRegistry} from "src/NodeRegistry.sol";
@@ -43,7 +43,7 @@ contract DecimalsTests is BaseTest {
         vm.startPrank(owner);
         router4626.setWhitelistStatus(address(testVault6), true);
 
-        bytes[] memory payload = new bytes[](5);
+        bytes[] memory payload = new bytes[](4);
         payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router4626));
         payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
         ComponentAllocation memory allocation = _defaultComponentAllocations(1)[0];
@@ -55,10 +55,12 @@ contract DecimalsTests is BaseTest {
             allocation.router
         );
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
-        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
 
         (decNode,) = factory.deployFullNode(
-            NodeInitArgs("Decimal Node", "DNODE", address(testToken6), owner), payload, keccak256("new salt")
+            NodeInitArgs("Decimal Node", "DNODE", address(testToken6), owner),
+            payload,
+            new SetupCall[](0),
+            keccak256("new salt")
         );
         decNode.setMaxDepositSize(1e36);
         vm.stopPrank();
@@ -118,108 +120,5 @@ contract DecimalsTests is BaseTest {
         assertEq(testToken6.balanceOf(address(testVault6)), testVault6.balanceOf(address(decNode)));
 
         assertEq(decNode.balanceOf(address(user)), deposit);
-    }
-
-    function test_fuzz_node_swing_price_deposit_never_exceeds_max_6decimals(
-        uint64 maxSwingFactor,
-        uint64 targetReserveRatio,
-        uint256 seedAmount,
-        uint256 depositAmount
-    ) public {
-        maxSwingFactor = uint64(bound(maxSwingFactor, 0.01 ether, 0.99 ether));
-        targetReserveRatio = uint64(bound(targetReserveRatio, 0.01 ether, 0.99 ether));
-        seedAmount = bound(seedAmount, 1 ether, maxDeposit);
-        depositAmount = bound(depositAmount, 1 ether, maxDeposit);
-
-        deal(address(testToken6), address(user), type(uint256).max);
-
-        vm.startPrank(user);
-        testToken6.approve(address(decNode), seedAmount);
-        decNode.deposit(seedAmount, user);
-        vm.stopPrank();
-
-        vm.warp(block.timestamp + 1 days);
-
-        vm.startPrank(owner);
-        decNode.enableSwingPricing(true, maxSwingFactor);
-        decNode.updateTargetReserveRatio(targetReserveRatio);
-        decNode.updateComponentAllocation(address(testVault6), 1 ether - targetReserveRatio, 0, address(router4626));
-        vm.stopPrank();
-
-        vm.startPrank(rebalancer);
-        decNode.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(decNode), address(testVault6), 0);
-        vm.stopPrank();
-
-        uint256 currentReserve = seedAmount - investmentAmount;
-        uint256 sharesToRedeem = decNode.convertToShares(currentReserve) / 10 + 1;
-
-        vm.startPrank(user);
-        decNode.approve(address(decNode), sharesToRedeem);
-        decNode.requestRedeem(sharesToRedeem, user, user);
-        vm.stopPrank();
-
-        vm.startPrank(rebalancer);
-        decNode.fulfillRedeemFromReserve(user);
-        vm.stopPrank();
-
-        uint256 claimableAssets = decNode.maxWithdraw(user);
-
-        vm.prank(user);
-        decNode.withdraw(claimableAssets, user, user);
-
-        // invariant 2: shares created always greater than convertToShares when reserve below target
-        uint256 nonAdjustedShares = decNode.convertToShares(depositAmount);
-        uint256 expectedShares = decNode.previewDeposit(depositAmount);
-        assertGt(expectedShares, nonAdjustedShares);
-
-        // invariant 3: deposit bonus never exceeds the value of the max swing factor
-        uint256 depositBonus = expectedShares - nonAdjustedShares;
-        uint256 maxBonus = depositAmount * maxSwingFactor / 1e18;
-        assertLt(depositBonus, maxBonus);
-    }
-
-    function test_fuzz_node_swing_price_redeem_never_exceeds_max_6decimals(
-        uint64 maxSwingFactor,
-        uint64 targetReserveRatio,
-        uint256 seedAmount,
-        uint256 withdrawalAmount
-    ) public {
-        maxSwingFactor = uint64(bound(maxSwingFactor, 0.01 ether, 0.99 ether));
-        targetReserveRatio = uint64(bound(targetReserveRatio, 0.01 ether, 0.99 ether));
-        seedAmount = bound(seedAmount, 100 ether, 1e36);
-
-        deal(address(testToken6), address(user), seedAmount);
-        vm.startPrank(user);
-        testToken6.approve(address(decNode), seedAmount);
-        decNode.deposit(seedAmount, user);
-        vm.stopPrank();
-
-        vm.warp(block.timestamp + 1 days);
-
-        vm.startPrank(owner);
-        decNode.enableSwingPricing(true, maxSwingFactor);
-        decNode.updateTargetReserveRatio(targetReserveRatio);
-        decNode.updateComponentAllocation(address(testVault6), 1 ether - targetReserveRatio, 0, address(router4626));
-        vm.stopPrank();
-
-        vm.startPrank(rebalancer);
-        decNode.startRebalance();
-        uint256 investmentAmount = router4626.invest(address(decNode), address(testVault6), 0);
-        vm.stopPrank();
-
-        uint256 currentReserve = seedAmount - investmentAmount;
-        withdrawalAmount = bound(withdrawalAmount, 1 ether, currentReserve);
-
-        // invariant 4: returned assets are always less than withdrawal amount
-        uint256 sharesToRedeem = decNode.convertToShares(withdrawalAmount);
-        uint256 returnedAssets = _userRedeemsAndClaims(user, sharesToRedeem, address(decNode));
-        assertLt(returnedAssets, withdrawalAmount);
-
-        // invariant 5: withdrawal penalty never exceeds the value of the max swing factor
-        uint256 tolerance = 10;
-        uint256 withdrawalPenalty = withdrawalAmount - returnedAssets - tolerance;
-        uint256 maxPenalty = withdrawalAmount * maxSwingFactor / 1e18;
-        assertLt(withdrawalPenalty, maxPenalty);
     }
 }

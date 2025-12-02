@@ -51,10 +51,9 @@ library PolicyLib {
     function decodeFinalizeRedemption(bytes calldata payload)
         internal
         view
-        returns (address controller, uint256 assetsToReturn, uint256 sharesPending, uint256 sharesAdjusted)
+        returns (address controller, uint256 assetsToReturn, uint256 sharesPending)
     {
-        (controller, assetsToReturn, sharesPending, sharesAdjusted) =
-            abi.decode(payload, (address, uint256, uint256, uint256));
+        (controller, assetsToReturn, sharesPending) = abi.decode(payload, (address, uint256, uint256));
     }
 
     function decodeSetOperator(bytes calldata payload) internal view returns (address operator, bool approved) {

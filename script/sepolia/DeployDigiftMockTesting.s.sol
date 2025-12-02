@@ -50,6 +50,7 @@ contract DeployDigiftMockTesting is Script {
                 // 1%
                 1e16,
                 4 days,
+                4 days,
                 1000e6,
                 1e18
             )

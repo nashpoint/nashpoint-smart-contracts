@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ERC20Mock} from "./ERC20Mock.sol";
 
 contract SubRedManagementMock is Ownable {
     using SafeERC20 for IERC20;
@@ -61,7 +60,6 @@ contract SubRedManagementMock is Ownable {
     {
         require(amount > 0, "The subscription amount cannot be zero");
         IERC20(currencyToken).safeTransferFrom(msg.sender, address(this), amount);
-        ERC20Mock(stToken).mint(msg.sender, amount);
         emit Subscribe(address(this), stToken, currencyToken, msg.sender, amount);
     }
 

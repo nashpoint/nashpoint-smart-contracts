@@ -6,13 +6,13 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {INode} from "src/interfaces/INode.sol";
 
-import {WhitelistBase} from "src/policies/WhitelistBase.sol";
+import {ListBase} from "src/policies/abstract/ListBase.sol";
 
 /**
  * @title NodePausingPolicy
  * @notice Allows node owners to pause specific actions on their node
  */
-contract NodePausingPolicy is WhitelistBase {
+contract NodePausingPolicy is ListBase {
     mapping(address node => mapping(bytes4 sig => bool paused)) public sigPause;
     mapping(address node => bool paused) public globalPause;
 
@@ -24,7 +24,7 @@ contract NodePausingPolicy is WhitelistBase {
     error GlobalPause();
     error SigPause(bytes4 sig);
 
-    constructor(address registry_) WhitelistBase(registry_) {
+    constructor(address registry_) ListBase(registry_) {
         actions[IERC7575.deposit.selector] = true;
         actions[IERC7575.mint.selector] = true;
         actions[IERC7575.withdraw.selector] = true;
@@ -79,8 +79,12 @@ contract NodePausingPolicy is WhitelistBase {
         emit GlobalUnpaused(node);
     }
 
-    function _executeCheck(address caller, bytes4 selector, bytes calldata payload) internal view override {
-        if (globalPause[msg.sender]) revert GlobalPause();
-        if (sigPause[msg.sender][selector]) revert SigPause(selector);
+    function _executeCheck(address node, address caller, bytes4 selector, bytes calldata payload)
+        internal
+        view
+        override
+    {
+        if (globalPause[node]) revert GlobalPause();
+        if (sigPause[node][selector]) revert SigPause(selector);
     }
 }

@@ -9,7 +9,7 @@ import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 import {INode} from "src/interfaces/INode.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 
-import {PolicyBase} from "src/policies/PolicyBase.sol";
+import {PolicyBase} from "src/policies/abstract/PolicyBase.sol";
 
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
@@ -24,7 +24,11 @@ contract PolicyBaseHarness is PolicyBase {
         actions[ACTION2] = true;
     }
 
-    function _executeCheck(address caller, bytes4 selector, bytes calldata payload) internal view override {}
+    function _executeCheck(address node, address caller, bytes4 selector, bytes calldata payload)
+        internal
+        view
+        override
+    {}
 
     function extract(bytes calldata data) external pure returns (bytes4 selector, bytes calldata payload) {
         return _extract(data);

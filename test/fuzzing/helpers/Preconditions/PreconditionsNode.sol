@@ -96,7 +96,7 @@ contract PreconditionsNode is PreconditionsBase {
         // Allow 0 for edge case testing
         params.shares = fl.clamp(sharesSeed, 0, shareBalance);
         params.shouldSucceed = params.shares > 0;
-        (params.pendingBefore,,,) = node.requests(currentActor);
+        (params.pendingBefore,,) = node.requests(currentActor);
     }
 
     function fulfillRedeemPreconditions(uint256 controllerSeed) internal returns (FulfillRedeemParams memory params) {
@@ -111,7 +111,7 @@ contract PreconditionsNode is PreconditionsBase {
         _ensurePendingRedeem(controller, desiredShares);
         _startRebalance();
 
-        (uint256 pendingRedeem,,,) = node.requests(controller);
+        (uint256 pendingRedeem,,) = node.requests(controller);
         params.controller = controller;
         params.pendingBefore = pendingRedeem;
 
@@ -457,10 +457,11 @@ contract PreconditionsNode is PreconditionsBase {
         params.shouldSucceed = params.target != address(0) && params.target != current;
     }
 
-    function nodeSetQuoterPreconditions() internal view returns (NodeAddressParams memory params) {
-        params.target = address(quoter);
-        params.shouldSucceed = true;
-    }
+    // NOTE: setQuoter has been removed in the remediation commit
+    // function nodeSetQuoterPreconditions() internal view returns (NodeAddressParams memory params) {
+    //     params.target = address(quoter);
+    //     params.shouldSucceed = true;
+    // }
 
     function nodeSetRebalanceCooldownPreconditions(uint256 seed) internal returns (NodeFeeParams memory params) {
         params.fee = uint64(fl.clamp(seed, 0, 7 days));
@@ -472,58 +473,10 @@ contract PreconditionsNode is PreconditionsBase {
         params.shouldSucceed = true;
     }
 
-    function nodeSetLiquidationQueuePreconditions(uint256 seed) internal view returns (NodeQueueParams memory params) {
-        address[] memory existingComponents = node.getComponents();
-        uint256 len = existingComponents.length;
-        if (len == 0) {
-            params.shouldSucceed = false;
-            params.queue = new address[](0);
-            return params;
-        }
-
-        uint256 validCount;
-        for (uint256 i = 0; i < len; i++) {
-            ComponentAllocation memory allocation = node.getComponentAllocation(existingComponents[i]);
-            if (allocation.isComponent) {
-                validCount++;
-            }
-        }
-
-        if (validCount == 0) {
-            params.shouldSucceed = false;
-            params.queue = new address[](0);
-            return params;
-        }
-
-        address[] memory validComponents = new address[](validCount);
-        uint256 cursor;
-        for (uint256 i = 0; i < len; i++) {
-            ComponentAllocation memory allocation = node.getComponentAllocation(existingComponents[i]);
-            if (allocation.isComponent) {
-                validComponents[cursor] = existingComponents[i];
-                cursor++;
-            }
-        }
-
-        // Use percentage-based approach (20% failure)
-        bool attemptSuccess = (seed % 100) >= 20;
-        if (!attemptSuccess) {
-            params.queue = new address[](1);
-            params.queue[0] = address(0);
-            params.shouldSucceed = false;
-            return params;
-        }
-
-        uint256 queueLen = 1 + (seed % validCount);
-        params.queue = new address[](queueLen);
-
-        uint256 start = seed % validCount;
-        for (uint256 i = 0; i < queueLen; i++) {
-            params.queue[i] = validComponents[(start + i) % validCount];
-        }
-
-        params.shouldSucceed = true;
-    }
+    // NOTE: setLiquidationQueue has been removed in the remediation commit
+    // function nodeSetLiquidationQueuePreconditions(uint256 seed) internal view returns (NodeQueueParams memory params) {
+    //     ... removed ...
+    // }
 
     function nodeRescueTokensPreconditions(uint256 amountSeed) internal returns (NodeRescueParams memory params) {
         ERC20Mock token = new ERC20Mock("RescueToken", "RSQ");
@@ -745,29 +698,14 @@ contract PreconditionsNode is PreconditionsBase {
         }
     }
 
-    function nodeEnableSwingPricingPreconditions(uint256 seed, bool statusSeed)
-        internal
-        view
-        returns (NodeSwingPricingParams memory params)
-    {
-        uint64 maxAllowed = registry.protocolMaxSwingFactor();
-        uint64 minAllowed = maxAllowed / 10;
-        if (minAllowed == 0) {
-            minAllowed = 1;
-        }
-
-        params.status = statusSeed;
-
-        // Use percentage-based approach (20% failure)
-        bool attemptSuccess = (seed % 100) >= 20;
-        if (attemptSuccess) {
-            params.maxSwingFactor = uint64(_clampUint64(seed, minAllowed, maxAllowed));
-            params.shouldSucceed = true;
-        } else {
-            params.maxSwingFactor = maxAllowed + 1;
-            params.shouldSucceed = false;
-        }
-    }
+    // NOTE: enableSwingPricing has been removed in the remediation commit
+    // function nodeEnableSwingPricingPreconditions(uint256 seed, bool statusSeed)
+    //     internal
+    //     view
+    //     returns (NodeSwingPricingParams memory params)
+    // {
+    //     ... removed ...
+    // }
 
     function nodeAddPoliciesPreconditions(uint256 seed) internal returns (NodePoliciesParams memory params) {
         params.selectors = new bytes4[](1);
@@ -1126,16 +1064,18 @@ contract PreconditionsNode is PreconditionsBase {
         node.requestRedeem(shares, params.controller, params.controller);
         vm.stopPrank();
 
-        (uint256 pendingRedeem,, uint256 claimableAssets, uint256 sharesAdjusted) = node.requests(params.controller);
-        uint256 assetsToReturn = node.convertToAssets(sharesAdjusted);
+        // NOTE: requests() now returns 3 values (pendingRedeemRequest, claimableRedeemRequest, claimableAssets)
+        // sharesAdjusted was removed in remediation commit - using pendingRedeem instead
+        (uint256 pendingRedeem,, uint256 claimableAssets) = node.requests(params.controller);
+        uint256 assetsToReturn = node.convertToAssets(pendingRedeem);
 
         params.assetsToReturn = assetsToReturn;
         params.sharesPending = pendingRedeem;
-        params.sharesAdjusted = sharesAdjusted;
+        params.sharesAdjusted = pendingRedeem;
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
         params.escrowBalanceBefore = asset.balanceOf(address(escrow));
         params.sharesExitingBefore = node.sharesExiting();
-        params.shouldSucceed = sharesAdjusted > 0 && assetsToReturn <= params.nodeAssetBalanceBefore;
+        params.shouldSucceed = pendingRedeem > 0 && assetsToReturn <= params.nodeAssetBalanceBefore;
         return params;
     }
 
@@ -1286,17 +1226,18 @@ contract PreconditionsNode is PreconditionsBase {
     {
         _prepareNodeContext(uint256(keccak256(abi.encodePacked(controllerSeed, componentSeed))));
 
-        address[] memory queue = node.getLiquidationsQueue();
-        if (queue.length == 0) {
+        // NOTE: getLiquidationsQueue has been removed in remediation; use getComponents instead
+        address[] memory components = node.getComponents();
+        if (components.length == 0) {
             params.shouldSucceed = false;
             return params;
         }
 
         params.controller = USERS[controllerSeed % USERS.length];
-        params.component = queue[componentSeed % queue.length];
+        params.component = components[componentSeed % components.length];
         params.minAssetsOut = 0;
 
-        (params.pendingBefore,,,) = node.requests(params.controller);
+        (params.pendingBefore,,) = node.requests(params.controller);
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
         params.escrowBalanceBefore = asset.balanceOf(address(escrow));
 
@@ -1352,6 +1293,14 @@ contract PreconditionsNode is PreconditionsBase {
         params.minAssetsOut = 0;
 
         if (params.shares == 0 || router4626.isBlacklisted(params.component)) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
+        // Check if redeeming these shares would produce 0 assets (rounding to zero)
+        uint256 expectedAssets = IERC4626(params.component).previewRedeem(params.shares);
+        if (expectedAssets == 0) {
             params.caller = rebalancer;
             params.shouldSucceed = false;
             return params;
@@ -1601,7 +1550,7 @@ contract PreconditionsNode is PreconditionsBase {
 
         params.component = pools[componentSeed % pools.length];
 
-        (uint256 pendingRedeem,,,) = node.requests(params.controller);
+        (uint256 pendingRedeem,,) = node.requests(params.controller);
         uint256 componentClaimable = IERC7540Redeem(params.component).claimableRedeemRequest(0, address(node));
 
         params.nodeAssetBalanceBefore = asset.balanceOf(address(node));
@@ -1834,7 +1783,7 @@ contract PreconditionsNode is PreconditionsBase {
     function _getControllersWithPendingRedeems() internal view returns (address[] memory controllers) {
         uint256 count;
         for (uint256 i = 0; i < USERS.length; i++) {
-            (uint256 pendingRedeem,, uint256 claimableAssets,) = node.requests(USERS[i]);
+            (uint256 pendingRedeem,, uint256 claimableAssets) = node.requests(USERS[i]);
             if (pendingRedeem > 0 || claimableAssets > 0) {
                 count++;
             }
@@ -1843,7 +1792,7 @@ contract PreconditionsNode is PreconditionsBase {
         controllers = new address[](count);
         uint256 cursor;
         for (uint256 i = 0; i < USERS.length; i++) {
-            (uint256 pendingRedeem,, uint256 claimableAssets,) = node.requests(USERS[i]);
+            (uint256 pendingRedeem,, uint256 claimableAssets) = node.requests(USERS[i]);
             if (pendingRedeem > 0 || claimableAssets > 0) {
                 controllers[cursor] = USERS[i];
                 cursor++;
@@ -1897,7 +1846,7 @@ contract PreconditionsNode is PreconditionsBase {
         uint256 assetsBefore;
         bool routerBlacklisted;
 
-        try IRouter(allocation.router).getComponentAssets(candidate, false) returns (uint256 assets) {
+        try IRouter(allocation.router).getComponentAssets(address(node), candidate, false) returns (uint256 assets) {
             assetsBefore = assets;
         } catch {
             assetsBefore = 0;
@@ -2039,7 +1988,7 @@ contract PreconditionsNode is PreconditionsBase {
 
         for (uint256 i = 0; i < userCount; i++) {
             address candidate = USERS[(seed + i) % userCount];
-            (, uint256 foundClaimableShares, uint256 foundClaimableAssets,) = node.requests(candidate);
+            (, uint256 foundClaimableShares, uint256 foundClaimableAssets) = node.requests(candidate);
 
             if (foundClaimableShares == 0) {
                 continue;
@@ -2059,7 +2008,7 @@ contract PreconditionsNode is PreconditionsBase {
         internal
         returns (uint256 claimableShares, uint256 claimableAssets)
     {
-        (, uint256 existingClaimableShares, uint256 existingClaimableAssets,) = node.requests(controller);
+        (, uint256 existingClaimableShares, uint256 existingClaimableAssets) = node.requests(controller);
         if (existingClaimableShares > 0 && existingClaimableAssets > 0) {
             return (existingClaimableShares, existingClaimableAssets);
         }
@@ -2084,11 +2033,11 @@ contract PreconditionsNode is PreconditionsBase {
         try node.fulfillRedeemFromReserve(controller) {} catch {}
         vm.stopPrank();
 
-        (, claimableShares, claimableAssets,) = node.requests(controller);
+        (, claimableShares, claimableAssets) = node.requests(controller);
     }
 
     function _ensurePendingRedeem(address controller, uint256 shares) internal {
-        (uint256 pending,,,) = node.requests(controller);
+        (uint256 pending,,) = node.requests(controller);
         if (pending > 0) {
             return;
         }

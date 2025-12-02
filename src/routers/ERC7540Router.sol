@@ -8,7 +8,6 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 import {BaseComponentRouter} from "src/libraries/BaseComponentRouter.sol";
 import {INode} from "src/interfaces/INode.sol";
-import {IQuoterV1} from "src/interfaces/IQuoterV1.sol";
 
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
@@ -46,7 +45,6 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
     /// @notice Fulfills a redeem request on behalf of the Node.
     /// @dev Called by a rebalancer to liquidate a component in order to make assets available for user withdrawal
     /// Transfers the assets to Escrow and updates the Requst for the user
-    /// Enforces liquidation queue to ensure asset liquidated is according to order set by the Node Owner
     /// @param node The address of the node.
     /// @param controller The address of the controller.
     /// @param component The address of the component.
@@ -58,27 +56,22 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         onlyNodeComponent(node, component)
         returns (uint256 assetsReturned)
     {
-        (uint256 sharesPending,,, uint256 sharesAdjusted) = INode(node).requests(controller);
-        uint256 assetsRequested = INode(node).convertToAssets(sharesAdjusted);
-
-        // Validate that the component is top of the liquidation queue
-        INode(node).enforceLiquidationOrder(component, assetsRequested);
+        (uint256 sharesPending,,) = INode(node).requests(controller);
+        uint256 assetsRequested = INode(node).convertToAssets(sharesPending);
 
         // Get the max amount of assets that can be withdrawn from the async component atomically
-        uint256 maxClaimableRedeemRequest = IERC7540Redeem(component).claimableRedeemRequest(0, node);
-        uint256 maxClaimableAssets = IERC7575(component).convertToAssets(maxClaimableRedeemRequest);
+        uint256 maxClaimableAssets = IERC7575(component).maxWithdraw(node);
 
         // execute the withdrawal
         assetsReturned = _executeAsyncWithdrawal(node, component, Math.min(assetsRequested, maxClaimableAssets));
 
-        // downscale sharesPending and sharesAdjusted if assetsReturned is less than assetsRequested
+        // downscale sharesPending if assetsReturned is less than assetsRequested
         if (assetsReturned < assetsRequested) {
-            (sharesPending, sharesAdjusted) =
-                _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested, sharesAdjusted);
+            sharesPending = _calculatePartialFulfill(sharesPending, assetsReturned, assetsRequested);
         }
 
         // update the redemption request state on the node and transfer the assets to the escrow
-        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending, sharesAdjusted);
+        INode(node).finalizeRedemption(controller, assetsReturned, sharesPending);
         emit FulfilledRedeemRequest(node, component, assetsReturned);
         return assetsReturned;
     }
@@ -187,14 +180,14 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the assets of a component held by the node.
-    /// @param component The address of the component.
-    /// @param claimableOnly Whether the assets are claimable.
-    /// @return assets The amount of assets of the component.
-
-    function getComponentAssets(address component, bool claimableOnly) public view override returns (uint256 assets) {
-        return
-            claimableOnly ? _getClaimableErc7540Assets(msg.sender, component) : _getErc7540Assets(msg.sender, component);
+    /// @inheritdoc BaseComponentRouter
+    function getComponentAssets(address node, address component, bool claimableOnly)
+        public
+        view
+        override
+        returns (uint256 assets)
+    {
+        return claimableOnly ? _getClaimableErc7540Assets(node, component) : _getErc7540Assets(node, component);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -256,24 +249,14 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         return abi.decode(result, (uint256));
     }
 
-    /// @notice Returns the investment size for a component.
-    /// @dev calculates the amount of assets to deposit to set the component to the target ratio
-    /// @param node The address of the node.
-    /// @param component The address of the component.
-    /// @return depositAssets The amount of assets to deposit.
-    function _getInvestmentSize(address node, address component)
-        internal
-        view
-        override
-        returns (uint256 depositAssets)
-    {
+    /// @inheritdoc BaseComponentRouter
+    function getInvestmentSize(address node, address component) public view override returns (uint256 depositAssets) {
         uint256 targetHoldings =
             Math.mulDiv(INode(node).totalAssets(), INode(node).getComponentAllocation(component).targetWeight, WAD);
 
         uint256 currentBalance = _getErc7540Assets(node, component);
 
-        uint256 delta = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
-        return delta;
+        depositAssets = targetHoldings > currentBalance ? targetHoldings - currentBalance : 0;
     }
 
     /// @notice Returns the amount of assets in a component.
@@ -285,8 +268,17 @@ contract ERC7540Router is BaseComponentRouter, ReentrancyGuard {
         uint256 shares = IERC20(shareToken).balanceOf(node);
 
         shares += IERC7540(component).pendingRedeemRequest(REQUEST_ID, node);
-        shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
+        // maxWithdraw should be used over claimableRedeemRequest since the last might lead
+        // to inflation of assets due to share price being changed
+        uint256 maxWithdraw = IERC7575(component).maxWithdraw(node);
+        // according to https://eips.ethereum.org/EIPS/eip-4626#maxwithdraw
+        // it should return 0 if withdrawals are paused
+        if (maxWithdraw == 0) {
+            // in that case we need to include claimableRedeemRequest for convertToAssets
+            shares += IERC7540(component).claimableRedeemRequest(REQUEST_ID, node);
+        }
         assets = shares > 0 ? IERC4626(component).convertToAssets(shares) : 0;
+        assets += maxWithdraw;
         assets += IERC7540(component).pendingDepositRequest(REQUEST_ID, node);
         assets += IERC7540(component).claimableDepositRequest(REQUEST_ID, node);
 

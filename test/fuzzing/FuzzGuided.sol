@@ -70,7 +70,7 @@ contract FuzzGuided is
     }
 
     function _ensureNodeReserveForGuidedWithdraw(address controller) internal {
-        (uint256 pending,,,) = node.requests(controller);
+        (uint256 pending,,) = node.requests(controller);
         if (pending == 0) {
             uint256 shareBalance = node.balanceOf(controller);
             if (shareBalance == 0) {
@@ -226,7 +226,7 @@ contract FuzzGuided is
         setActor(controller);
         fuzz_requestRedeem(redeemSeedValue);
 
-        (uint256 pending,,,) = node.requests(controller);
+        (uint256 pending,,) = node.requests(controller);
         if (pending <= 1) {
             return;
         }

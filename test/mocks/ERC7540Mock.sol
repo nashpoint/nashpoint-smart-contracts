@@ -166,16 +166,12 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
         // Clear all processed data
         delete pendingDepositRequests;
-        // pendingAssets = 0;
+        pendingAssets = 0;
     }
 
     function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {}
 
-    function mint(uint256 shares, address receiver, address /* controller_ */ )
-        public
-        virtual
-        returns (uint256 assets)
-    {
+    function mint(uint256 shares, address receiver, address /* controller_ */ ) public virtual returns (uint256 assets) {
         address controller = msg.sender;
 
         // Check if there's any claimable deposit for the controller

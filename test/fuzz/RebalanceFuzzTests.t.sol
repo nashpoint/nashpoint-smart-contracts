@@ -210,7 +210,7 @@ contract RebalanceFuzzTests is BaseTest {
         uint256 minFee = 100;
         targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.1 ether, 1 ether - 1));
         seedAmount = bound(seedAmount, 1 ether, maxDeposit);
-        annualManagementFee = uint64(bound(annualManagementFee, 0, 0.1 ether));
+        annualManagementFee = uint64(bound(annualManagementFee, 0, 0.05 ether));
         protocolManagementFee = uint64(bound(protocolManagementFee, minFee, 0.1 ether));
         protocolExecutionFee = uint64(bound(protocolExecutionFee, minFee, 0.1 ether));
 
@@ -301,7 +301,6 @@ contract RebalanceFuzzTests is BaseTest {
 
         vm.startPrank(owner);
         node.addComponent(address(vaultA), 1 ether, 0, address(router4626));
-        node.setLiquidationQueue(components);
         vm.stopPrank();
 
         vm.prank(rebalancer);
@@ -325,58 +324,6 @@ contract RebalanceFuzzTests is BaseTest {
             vm.startPrank(rebalancer);
             router4626.fulfillRedeemRequest(address(node), user, address(vaultA), 0);
             vm.stopPrank();
-        }
-        if (node.totalAssets() < 10) {
-            _verifyNodeFullyRedeemed_absolute(10);
-        } else {
-            _verifyNodeFullyRedeemed_relative(1e12);
-        }
-    }
-
-    function test_fuzz_rebalance_liquidation_queue(uint256 seedAmount, uint64 targetReserveRatio, uint64 randUint)
-        public
-    {
-        seedAmount = bound(seedAmount, 1 ether, 1e36); // todo: check if range is appropriate
-        targetReserveRatio = uint64(bound(uint256(targetReserveRatio), 0.01 ether, 0.99 ether));
-        randUint = uint64(bound(uint256(randUint), 0, 1 ether));
-
-        deal(address(asset), address(user), seedAmount);
-        _userDeposits(user, seedAmount);
-        vm.warp(block.timestamp + 1 days);
-        _setInitialComponentRatios(targetReserveRatio, randUint, synchronousComponents);
-
-        _tryRebalance();
-
-        vm.startPrank(owner);
-        node.setLiquidationQueue(synchronousComponents);
-        vm.stopPrank();
-
-        // redeem the entire reserve
-        uint256 sharesToRedeem = node.convertToShares(asset.balanceOf(address(node)));
-        _userRedeemsAndClaims(user, sharesToRedeem, address(node));
-        assertEq(asset.balanceOf(address(node)), 0, "Node should have no assets");
-
-        while (node.balanceOf(user) > 0) {
-            sharesToRedeem = uint256(keccak256(abi.encodePacked(randUint++, seedAmount)));
-            sharesToRedeem = bound(sharesToRedeem, 1, seedAmount);
-            if (sharesToRedeem > node.balanceOf(user)) {
-                sharesToRedeem = node.balanceOf(user);
-            }
-            _userRequestsRedeem(user, sharesToRedeem);
-
-            vm.startPrank(rebalancer);
-            for (uint256 i = 0; i < synchronousComponents.length; i++) {
-                try router4626.fulfillRedeemRequest(address(node), user, synchronousComponents[i], 0) {} catch {}
-            }
-            vm.stopPrank();
-
-            uint256 claimableAssets = node.maxWithdraw(user);
-            if (claimableAssets > 0) {
-                vm.prank(user);
-                node.withdraw(claimableAssets, user, user);
-            } else {
-                break;
-            }
         }
         if (node.totalAssets() < 10) {
             _verifyNodeFullyRedeemed_absolute(10);

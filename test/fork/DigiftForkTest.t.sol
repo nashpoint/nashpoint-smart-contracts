@@ -15,6 +15,7 @@ import {ComponentAllocation, INode, NodeInitArgs} from "src/interfaces/INode.sol
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {SetupCall} from "src/interfaces/INodeFactory.sol";
 
 contract DigiftForkTest is BaseTest {
     DigiftAdapter digiftAdapter;
@@ -56,6 +57,7 @@ contract DigiftForkTest is BaseTest {
                 // 1%
                 1e16,
                 10 days,
+                10 days,
                 // set 100 USDC instead of 1000
                 100e6,
                 // set 1 stToken instead of 10
@@ -87,17 +89,19 @@ contract DigiftForkTest is BaseTest {
 
         // create Node2 and invest into DigiftAdapter
         vm.startPrank(owner);
-        bytes[] memory payload = new bytes[](5);
+        bytes[] memory payload = new bytes[](4);
         payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router7540));
         payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
         payload[2] = abi.encodeWithSelector(
             INode.addComponent.selector, address(digiftAdapter), 0.9 ether, 0.01 ether, address(router7540)
         );
         payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.1 ether);
-        payload[4] = abi.encodeWithSelector(INode.setQuoter.selector, address(quoter));
 
         (node2,) = factory.deployFullNode(
-            NodeInitArgs("Test Node 2", "TNODE2", address(asset), owner), payload, keccak256("new salt")
+            NodeInitArgs("Test Node 2", "TNODE2", address(asset), owner),
+            payload,
+            new SetupCall[](0),
+            keccak256("new salt")
         );
 
         node2.setMaxDepositSize(1e36);
@@ -268,9 +272,7 @@ contract DigiftForkTest is BaseTest {
         assertEq(digiftAdapter.pendingDepositRequest(0, address(node)), INVEST_AMOUNT);
         assertEq(digiftAdapter.accumulatedDeposit(), depositAmount, "Accumulated whole deposit amount");
 
-        vm.startPrank(address(node));
-        assertEq(router7540.getComponentAssets(address(digiftAdapter), false), INVEST_AMOUNT);
-        vm.stopPrank();
+        assertEq(router7540.getComponentAssets(address(node), address(digiftAdapter), false), INVEST_AMOUNT);
 
         assertEq(node.totalAssets(), balance);
 

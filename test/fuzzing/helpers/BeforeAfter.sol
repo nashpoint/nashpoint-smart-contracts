@@ -39,10 +39,11 @@ contract BeforeAfter is FuzzStructs {
             snapshot.assetBalance = asset.balanceOf(actor);
             snapshot.shareBalance = node.balanceOf(actor);
 
+            // NOTE: requests() now returns 3 values (sharesAdjusted was removed)
             (
                 uint256 pendingRedeemRequest,
                 uint256 claimableRedeemRequest,
-                uint256 claimableAssets, /* sharesAdjusted */
+                uint256 claimableAssets
             ) = node.requests(actor);
 
             snapshot.pendingRedeem = pendingRedeemRequest;

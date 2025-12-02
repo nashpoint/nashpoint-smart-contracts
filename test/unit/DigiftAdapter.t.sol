@@ -28,6 +28,7 @@ contract DigiftAdapterHarness is DigiftAdapter {
 }
 
 contract DigiftForkTest is BaseTest {
+    DigiftAdapterFactory digiftFactory;
     DigiftAdapterHarness digiftAdapter;
     address digiftEventVerifier = makeAddr("digiftEventVerifier");
 
@@ -58,7 +59,7 @@ contract DigiftForkTest is BaseTest {
         address digiftAdapterImpl =
             address(new DigiftAdapterHarness(subRedManagement, address(registry), digiftEventVerifier));
 
-        DigiftAdapterFactory factory = new DigiftAdapterFactory(digiftAdapterImpl, address(this));
+        digiftFactory = new DigiftAdapterFactory(digiftAdapterImpl, address(this));
 
         vm.mockCall(usdcPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.decimals.selector), abi.encode(8));
         vm.mockCall(dFeedPriceOracle, abi.encodeWithSelector(IDFeedPriceOracle.decimals.selector), abi.encode(8));
@@ -68,7 +69,7 @@ contract DigiftForkTest is BaseTest {
 
         digiftAdapter = DigiftAdapterHarness(
             address(
-                factory.deploy(
+                digiftFactory.deploy(
                     DigiftAdapter.InitArgs(
                         "stToken Adapter",
                         "wst",
@@ -80,6 +81,7 @@ contract DigiftForkTest is BaseTest {
                         1e15,
                         // 1%
                         1e16,
+                        4 days,
                         4 days,
                         1000e6,
                         10e18
@@ -96,6 +98,44 @@ contract DigiftForkTest is BaseTest {
 
         vm.prank(rebalancer);
         node.startRebalance();
+    }
+
+    function test_initialize_reverts() external {
+        vm.expectRevert(DigiftAdapter.InvalidPercentage.selector);
+        digiftFactory.deploy(
+            DigiftAdapter.InitArgs(
+                "stToken Adapter",
+                "wst",
+                address(asset),
+                usdcPriceOracle,
+                address(stToken),
+                address(dFeedPriceOracle),
+                1e18 + 1,
+                0,
+                4 days,
+                4 days,
+                1000e6,
+                10e18
+            )
+        );
+
+        vm.expectRevert(DigiftAdapter.InvalidPercentage.selector);
+        digiftFactory.deploy(
+            DigiftAdapter.InitArgs(
+                "stToken Adapter",
+                "wst",
+                address(asset),
+                usdcPriceOracle,
+                address(stToken),
+                address(dFeedPriceOracle),
+                0,
+                1e18 + 1,
+                4 days,
+                4 days,
+                1000e6,
+                10e18
+            )
+        );
     }
 
     function test_setPriceDeviation() external {
@@ -134,19 +174,34 @@ contract DigiftForkTest is BaseTest {
         assertEq(digiftAdapter.settlementDeviation(), 1e17);
     }
 
-    function test_setPriceUpdateDeviation() external {
-        assertEq(digiftAdapter.priceUpdateDeviation(), 4 days);
+    function test_setPriceUpdateDeviationDigift() external {
+        assertEq(digiftAdapter.priceUpdateDeviationDigift(), 4 days);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
-        digiftAdapter.setPriceUpdateDeviation(1 days);
+        digiftAdapter.setPriceUpdateDeviationDigift(1 days);
 
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftAdapter.PriceUpdateDeviationChange(4 days, 1 days);
-        digiftAdapter.setPriceUpdateDeviation(1 days);
+        emit DigiftAdapter.PriceUpdateDeviationChangeDigift(4 days, 1 days);
+        digiftAdapter.setPriceUpdateDeviationDigift(1 days);
 
-        assertEq(digiftAdapter.priceUpdateDeviation(), 1 days);
+        assertEq(digiftAdapter.priceUpdateDeviationDigift(), 1 days);
+    }
+
+    function test_setPriceUpdateDeviationAsset() external {
+        assertEq(digiftAdapter.priceUpdateDeviationAsset(), 4 days);
+
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
+        digiftAdapter.setPriceUpdateDeviationAsset(1 days);
+
+        vm.startPrank(owner);
+
+        vm.expectEmit(true, true, true, true);
+        emit DigiftAdapter.PriceUpdateDeviationChangeAsset(4 days, 1 days);
+        digiftAdapter.setPriceUpdateDeviationAsset(1 days);
+
+        assertEq(digiftAdapter.priceUpdateDeviationAsset(), 1 days);
     }
 
     function test_setManager() external {
@@ -229,7 +284,7 @@ contract DigiftForkTest is BaseTest {
     }
 
     function test_forceUpdateLastPrice() external {
-        assertEq(digiftAdapter.lastPrice(), 2e10);
+        assertEq(digiftAdapter.lastDigiftPrice(), 2e10);
 
         vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
         digiftAdapter.forceUpdateLastPrice();
@@ -242,7 +297,7 @@ contract DigiftForkTest is BaseTest {
         emit DigiftAdapter.LastPriceUpdate(3e10);
         digiftAdapter.forceUpdateLastPrice();
 
-        assertEq(digiftAdapter.lastPrice(), 3e10);
+        assertEq(digiftAdapter.lastDigiftPrice(), 3e10);
     }
 
     function test_updateLastPrice() external {
@@ -251,7 +306,7 @@ contract DigiftForkTest is BaseTest {
 
         uint256 newValidPrice = 2e10 + 1;
 
-        assertEq(digiftAdapter.lastPrice(), 2e10);
+        assertEq(digiftAdapter.lastDigiftPrice(), 2e10);
 
         vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotManager.selector, address(this)));
         digiftAdapter.updateLastPrice();
@@ -268,7 +323,7 @@ contract DigiftForkTest is BaseTest {
         emit DigiftAdapter.LastPriceUpdate(newValidPrice);
         digiftAdapter.updateLastPrice();
 
-        assertEq(digiftAdapter.lastPrice(), newValidPrice);
+        assertEq(digiftAdapter.lastDigiftPrice(), newValidPrice);
 
         vm.mockCall(
             dFeedPriceOracle,
@@ -294,7 +349,7 @@ contract DigiftForkTest is BaseTest {
             abi.encode(0, 30e13, 0, block.timestamp, 0)
         );
         vm.expectRevert(
-            abi.encodeWithSelector(DigiftAdapter.PriceNotInRange.selector, digiftAdapter.lastPrice(), 30e13)
+            abi.encodeWithSelector(DigiftAdapter.PriceNotInRange.selector, digiftAdapter.lastDigiftPrice(), 30e13)
         );
         digiftAdapter.updateLastPrice();
     }

@@ -188,7 +188,12 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /// @notice Emitted when price update deviation threshold is changed
     /// @param oldValue The previous price update deviation value
     /// @param newValue The new price update deviation value
-    event PriceUpdateDeviationChange(uint64 oldValue, uint64 newValue);
+    event PriceUpdateDeviationChangeDigift(uint64 oldValue, uint64 newValue);
+
+    /// @notice Emitted when price update deviation threshold is changed
+    /// @param oldValue The previous price update deviation value
+    /// @param newValue The new price update deviation value
+    event PriceUpdateDeviationChangeAsset(uint64 oldValue, uint64 newValue);
 
     /// @notice Emitted when a manager's whitelist status changes
     /// @param manager The manager address
@@ -262,11 +267,14 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
     /// @notice Maximum settlement value deviation allowed (1e18 = 100%)
     uint64 public settlementDeviation;
 
-    /// @notice Maximum time deviation for price updates (in seconds)
-    uint64 public priceUpdateDeviation;
+    /// @notice Maximum time deviation for DigiFT price updates (in seconds)
+    uint64 public priceUpdateDeviationDigift;
+
+    /// @notice Maximum time deviation for asset price updates (in seconds)
+    uint64 public priceUpdateDeviationAsset;
 
     /// @notice Last cached price from Digift oracle
-    uint256 public lastPrice;
+    uint256 public lastDigiftPrice;
 
     /// @notice Minimum amount of assets required for a deposit request
     uint256 public minDepositAmount;
@@ -312,8 +320,10 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         uint64 priceDeviation;
         /// @notice Maximum settlement value deviation allowed
         uint64 settlementDeviation;
-        /// @notice Maximum time deviation for price updates (in seconds)
-        uint64 priceUpdateDeviation;
+        /// @notice Maximum time deviation for DigiFT price updates (in seconds)
+        uint64 priceUpdateDeviationDigift;
+        /// @notice Maximum time deviation for asset price updates (in seconds)
+        uint64 priceUpdateDeviationAsset;
         /// @notice Minimum deposit amount allowed for node actions
         uint256 minDepositAmount;
         /// @notice Minimum redeem amount allowed for node actions
@@ -382,6 +392,8 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      * @param args Initialization arguments containing all necessary parameters
      */
     function initialize(InitArgs calldata args) external initializer {
+        require(args.priceDeviation <= WAD, InvalidPercentage());
+        require(args.settlementDeviation <= WAD, InvalidPercentage());
         __ERC20_init(args.name, args.symbol);
         __ReentrancyGuard_init();
 
@@ -401,13 +413,14 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         // Set deviation parameters
         priceDeviation = args.priceDeviation;
         settlementDeviation = args.settlementDeviation;
-        priceUpdateDeviation = args.priceUpdateDeviation;
+        priceUpdateDeviationDigift = args.priceUpdateDeviationDigift;
+        priceUpdateDeviationAsset = args.priceUpdateDeviationAsset;
 
         minDepositAmount = args.minDepositAmount;
         minRedeemAmount = args.minRedeemAmount;
 
         // Initialize price cache with current Digift price
-        lastPrice = dFeedPriceOracle.getPrice();
+        lastDigiftPrice = dFeedPriceOracle.getPrice();
     }
 
     // =============================
@@ -441,9 +454,19 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      * @dev Only callable by registry owner
      * @param value The new price update deviation threshold (in seconds)
      */
-    function setPriceUpdateDeviation(uint64 value) external onlyRegistryOwner {
-        emit PriceUpdateDeviationChange(priceUpdateDeviation, value);
-        priceUpdateDeviation = value;
+    function setPriceUpdateDeviationDigift(uint64 value) external onlyRegistryOwner {
+        emit PriceUpdateDeviationChangeDigift(priceUpdateDeviationDigift, value);
+        priceUpdateDeviationDigift = value;
+    }
+
+    /**
+     * @notice Set the maximum time deviation for price updates
+     * @dev Only callable by registry owner
+     * @param value The new price update deviation threshold (in seconds)
+     */
+    function setPriceUpdateDeviationAsset(uint64 value) external onlyRegistryOwner {
+        emit PriceUpdateDeviationChangeAsset(priceUpdateDeviationAsset, value);
+        priceUpdateDeviationAsset = value;
     }
 
     /**
@@ -547,7 +570,7 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      */
     function forceUpdateLastPrice() external onlyRegistryOwner {
         uint256 price = dFeedPriceOracle.getPrice();
-        lastPrice = price;
+        lastDigiftPrice = price;
         emit LastPriceUpdate(price);
     }
 
@@ -556,8 +579,8 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      * @dev Only callable by whitelisted managers, enforces price deviation limits
      */
     function updateLastPrice() external onlyManager {
-        uint256 price = _getPrice();
-        lastPrice = price;
+        uint256 price = _getDigiftPrice();
+        lastDigiftPrice = price;
         emit LastPriceUpdate(price);
     }
 
@@ -566,16 +589,16 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      * @dev Validates price deviation and staleness
      * @return The validated current price
      */
-    function _getPrice() internal view returns (uint256) {
+    function _getDigiftPrice() internal view returns (uint256) {
         (, int256 answer,, uint256 updatedAt,) = dFeedPriceOracle.latestRoundData();
         require(answer > 0, BadPriceOracle(address(dFeedPriceOracle)));
         uint256 price = uint256(answer);
 
         // Check if price is within acceptable deviation from last known price
-        require(MathLib.withinRange(lastPrice, price, priceDeviation), PriceNotInRange(lastPrice, price));
+        require(MathLib.withinRange(lastDigiftPrice, price, priceDeviation), PriceNotInRange(lastDigiftPrice, price));
 
         // Check if price data is not stale
-        require(block.timestamp - updatedAt <= priceUpdateDeviation, StalePriceData(updatedAt, block.timestamp));
+        require(block.timestamp - updatedAt <= priceUpdateDeviationDigift, StalePriceData(updatedAt, block.timestamp));
 
         return price;
     }
@@ -591,7 +614,7 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         uint256 price = uint256(answer);
 
         // Check if price data is not stale
-        require(block.timestamp - updatedAt <= priceUpdateDeviation, StalePriceData(updatedAt, block.timestamp));
+        require(block.timestamp - updatedAt <= priceUpdateDeviationAsset, StalePriceData(updatedAt, block.timestamp));
 
         return price;
     }
@@ -713,8 +736,8 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         require(node.claimableDepositRequest > 0, DepositRequestNotFulfilled());
         require(node.maxMint == shares, MintAllSharesOnly());
 
-        assets = node.claimableDepositRequest;
         uint256 assetsToReimburse = node.pendingDepositReimbursement;
+        assets = node.claimableDepositRequest - assetsToReimburse;
 
         // Clear node state
         node.claimableDepositRequest = 0;
@@ -729,7 +752,7 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
             IERC20(asset).safeTransfer(msg.sender, assetsToReimburse);
         }
 
-        emit Deposit(controller, receiver, assets - assetsToReimburse, shares);
+        emit Deposit(controller, receiver, assets, shares);
     }
 
     // =============================
@@ -844,21 +867,21 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
         nonReentrant
         returns (uint256 shares)
     {
+        NodeState storage node = _nodeState[msg.sender];
         // Ensure redemption request has been fulfilled and exact assets are withdrawn
-        require(_nodeState[msg.sender].claimableRedeemRequest > 0, RedeemRequestNotFulfilled());
-        require(_nodeState[msg.sender].maxWithdraw == assets, WithdrawAllAssetsOnly());
+        require(node.claimableRedeemRequest > 0, RedeemRequestNotFulfilled());
+        require(node.maxWithdraw == assets, WithdrawAllAssetsOnly());
 
-        shares = _nodeState[msg.sender].claimableRedeemRequest;
-        uint256 sharesToReimburse = _nodeState[msg.sender].pendingRedeemReimbursement;
-        uint256 sharesToBurn = shares - sharesToReimburse;
+        uint256 sharesToReimburse = node.pendingRedeemReimbursement;
+        shares = node.claimableRedeemRequest - sharesToReimburse;
 
         // Clear node state
-        _nodeState[msg.sender].claimableRedeemRequest = 0;
-        _nodeState[msg.sender].maxWithdraw = 0;
-        _nodeState[msg.sender].pendingRedeemReimbursement = 0;
+        node.claimableRedeemRequest = 0;
+        node.maxWithdraw = 0;
+        node.pendingRedeemReimbursement = 0;
 
         // Burn shares that were actually used
-        _burn(address(this), sharesToBurn);
+        _burn(address(this), shares);
 
         // Reimburse unused shares to the node
         if (sharesToReimburse > 0) {
@@ -867,7 +890,7 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
 
         // Transfer assets to the node
         IERC20(asset).safeTransfer(msg.sender, assets);
-        emit Withdraw(msg.sender, receiver, controller, assets, shares - sharesToReimburse);
+        emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
     // =============================
@@ -1020,7 +1043,7 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      * @return shares The equivalent number of shares
      */
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        return _convertToShares(assets, _getAssetPrice(), _getPrice());
+        return _convertToShares(assets, _getAssetPrice(), _getDigiftPrice());
     }
 
     /**
@@ -1030,7 +1053,7 @@ contract DigiftAdapter is ERC20Upgradeable, ReentrancyGuardUpgradeable, Registry
      * @return assets The equivalent amount of assets
      */
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        return _convertToAssets(shares, _getAssetPrice(), _getPrice());
+        return _convertToAssets(shares, _getAssetPrice(), _getDigiftPrice());
     }
 
     /**

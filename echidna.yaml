@@ -1,8 +1,9 @@
 contractAddr: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496" ## From cryticToFoundry.toml
 
-deployContracts: [["0x10", "NodeLib"],["0x11", "PolicyLib"],["0x12", "BaseQuoter"],["0x13", "ErrorsLib"],["0x14", "MathLib"],["0x15", "RegistryAccessControl"],["0x16", "BaseComponentRouter"],["0x17", "EventsLib"]]
+# NOTE: BaseQuoter was removed in remediation commit
+deployContracts: [["0x10", "NodeLib"],["0x11", "PolicyLib"],["0x13", "ErrorsLib"],["0x14", "MathLib"],["0x15", "RegistryAccessControl"],["0x16", "BaseComponentRouter"],["0x17", "EventsLib"]]
 
-cryticArgs: ["--foundry-compile-all", "--compile-libraries=(NodeLib,0x10),(PolicyLib,0x11),(BaseQuoter,0x12),(ErrorsLib,0x13),(MathLib,0x14),(RegistryAccessControl,0x15),(BaseComponentRouter,0x16),(EventsLib,0x17)"]
+cryticArgs: ["--foundry-compile-all", "--compile-libraries=(NodeLib,0x10),(PolicyLib,0x11),(ErrorsLib,0x13),(MathLib,0x14),(RegistryAccessControl,0x15),(BaseComponentRouter,0x16),(EventsLib,0x17)"]
 
 # cryticArgs: ["--solc-remaps", "@synthetixio/=node_modules/@synthetixio/ @openzeppelin/=node_modules/@openzeppelin/ lib/=lib/ @perimetersec/=node_modules/@perimetersec/"]
 workers: 6

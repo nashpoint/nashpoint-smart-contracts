@@ -88,45 +88,51 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the assets of a component held by the node.
+    /// @param node The address of the node.
     /// @param component The address of the component.
     /// @param claimableOnly Whether the assets are claimable.
     /// @dev This function is virtual and should be overridden by the router implementation
     ///      Use msg.sender as the node address in inherited contracts
     /// @return assets The amount of assets of the component.
-    function getComponentAssets(address component, bool claimableOnly) public view virtual returns (uint256 assets) {}
+    function getComponentAssets(address node, address component, bool claimableOnly)
+        public
+        view
+        virtual
+        returns (uint256 assets)
+    {
+        revert ErrorsLib.Forbidden();
+    }
 
     /// @notice Returns the investment size for a component.
     /// @dev This function is virtual and should be overridden by the router implementation
     /// @param node The address of the node.
     /// @param component The address of the component.
     /// @return depositAssets The amount of assets to deposit.
-    function _getInvestmentSize(address node, address component)
-        internal
-        view
-        virtual
-        returns (uint256 depositAssets)
-    {}
+    function getInvestmentSize(address node, address component) public view virtual returns (uint256 depositAssets) {
+        revert ErrorsLib.Forbidden();
+    }
 
     /*//////////////////////////////////////////////////////////////
                          INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     function _computeDepositAmount(address node, address component) internal returns (uint256 depositAmount) {
+        if (!isWhitelisted[component]) revert ErrorsLib.NotWhitelisted();
         // checks if excess reserve is available to invest
         (uint256 totalAssets, uint256 currentCash, uint256 idealCashReserve) = _getNodeCashStatus(node);
         _validateReserveAboveTargetRatio(currentCash, idealCashReserve);
 
         // gets units of asset required to set component to target ratio
-        depositAmount = _getInvestmentSize(node, component);
+        depositAmount = getInvestmentSize(node, component);
+
+        // limit deposit by reserve ratio requirements
+        // _validateReserveAboveTargetRatio() ensures currentCash >= idealCashReserve
+        depositAmount = Math.min(depositAmount, currentCash - idealCashReserve);
 
         // Validate deposit amount exceeds minimum threshold
         if (depositAmount < Math.mulDiv(totalAssets, INode(node).getComponentAllocation(component).maxDelta, WAD)) {
             revert ErrorsLib.ComponentWithinTargetRange(node, component);
         }
-
-        // limit deposit by reserve ratio requirements
-        // _validateReserveAboveTargetRatio() ensures currentCash >= idealCashReserve
-        depositAmount = Math.min(depositAmount, currentCash - idealCashReserve);
 
         // subtract execution fee for protocol
         depositAmount = _subtractExecutionFee(depositAmount, node);
@@ -147,19 +153,14 @@ abstract contract BaseComponentRouter is IRouter, RegistryAccessControl {
     /// @param sharesPending The pending shares of the redemption request.
     /// @param assetsReturned The amount of assets returned from the redemption.
     /// @param assetsRequested The amount of assets requested from the redemption.
-    /// @param sharesAdjusted The adjusted shares of the redemption request.
     /// @return _sharesPending The downscaled shares pending.
-    /// @return _sharesAdjusted The downscaled shares adjusted.
-    function _calculatePartialFulfill(
-        uint256 sharesPending,
-        uint256 assetsReturned,
-        uint256 assetsRequested,
-        uint256 sharesAdjusted
-    ) internal pure returns (uint256 _sharesPending, uint256 _sharesAdjusted) {
+    function _calculatePartialFulfill(uint256 sharesPending, uint256 assetsReturned, uint256 assetsRequested)
+        internal
+        pure
+        returns (uint256 _sharesPending)
+    {
         _sharesPending =
             Math.min(sharesPending, Math.mulDiv(sharesPending, assetsReturned, assetsRequested, Math.Rounding.Ceil));
-        _sharesAdjusted =
-            Math.min(sharesAdjusted, Math.mulDiv(sharesAdjusted, assetsReturned, assetsRequested, Math.Rounding.Ceil));
     }
 
     /// @notice Returns the node's cash status.

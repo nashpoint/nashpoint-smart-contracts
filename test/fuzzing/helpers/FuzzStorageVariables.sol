@@ -8,7 +8,6 @@ import {INodeRegistry, RegistryType} from "../../../src/interfaces/INodeRegistry
 import {Node} from "../../../src/Node.sol";
 import {NodeFactory} from "../../../src/NodeFactory.sol";
 import {NodeRegistry} from "../../../src/NodeRegistry.sol";
-import {QuoterV1} from "../../../src/quoters/QuoterV1.sol";
 import {ERC4626Router} from "../../../src/routers/ERC4626Router.sol";
 import {ERC7540Router} from "../../../src/routers/ERC7540Router.sol";
 import {FluidRewardsRouter} from "../../../src/routers/FluidRewardsRouter.sol";
@@ -25,10 +24,10 @@ import {SubRedManagementMock} from "../../mocks/SubRedManagementMock.sol";
 import {PriceOracleMock} from "../../mocks/PriceOracleMock.sol";
 
 import {CapPolicy} from "../../../src/policies/CapPolicy.sol";
-import {GatePolicy} from "../../../src/policies/GatePolicy.sol";
+import {GatePolicyWhitelist} from "../../../src/policies/GatePolicyWhitelist.sol";
+import {GatePolicyBlacklist} from "../../../src/policies/GatePolicyBlacklist.sol";
 import {NodePausingPolicy} from "../../../src/policies/NodePausingPolicy.sol";
 import {ProtocolPausingPolicy} from "../../../src/policies/ProtocolPausingPolicy.sol";
-import {TransferPolicy} from "../../../src/policies/TransferPolicy.sol";
 
 import {ERC20Mock} from "../../mocks/ERC20Mock.sol";
 import {ERC7540Mock} from "../../mocks/ERC7540Mock.sol";
@@ -75,7 +74,6 @@ contract FuzzStorageVariables is FuzzActors {
     uint256 internal constant INITIAL_USER_BALANCE = 1_000_000 ether;
     bytes32 internal constant DEFAULT_SALT = bytes32(uint256(1));
 
-    uint64 internal constant DEFAULT_PROTOCOL_MAX_SWING_FACTOR = 0.99 ether;
     uint64 internal constant DEFAULT_COMPONENT_TARGET_WEIGHT = 0.3 ether;
     uint64 internal constant DEFAULT_COMPONENT_MAX_DELTA = 0.01 ether;
     uint256 internal constant DEFAULT_NODE_CAP_AMOUNT = 5_000_000 ether;
@@ -98,7 +96,6 @@ contract FuzzStorageVariables is FuzzActors {
 
     NodeRegistry internal registry;
     NodeFactory internal factory;
-    QuoterV1 internal quoter;
     ERC4626Router internal router4626;
     ERC7540Router internal router7540;
     FluidRewardsRouter internal routerFluid;
@@ -130,10 +127,10 @@ contract FuzzStorageVariables is FuzzActors {
     PriceOracleMock internal digiftPriceOracleMock;
 
     CapPolicy internal capPolicy;
-    GatePolicy internal gatePolicy;
+    GatePolicyWhitelist internal gatePolicyWhitelist;
+    GatePolicyBlacklist internal gatePolicyBlacklist;
     NodePausingPolicy internal nodePausingPolicy;
     ProtocolPausingPolicy internal protocolPausingPolicy;
-    TransferPolicy internal transferPolicy;
 
     // ==============================================================
     // MANAGED NODES (MULTI-NODE SUPPORT)

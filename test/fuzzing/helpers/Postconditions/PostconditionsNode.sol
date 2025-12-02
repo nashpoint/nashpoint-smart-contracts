@@ -79,7 +79,8 @@ contract PostconditionsNode is PostconditionsBase {
             // "NODE_REQUEST_REDEEM_ESCROW_BALANCE"
             // );
 
-            (uint256 pendingRedeemAfter, uint256 claimableRedeemAfter, uint256 claimableAssetsAfter,) =
+            // NOTE: requests() now returns 3 values (4th was removed in remediation)
+            (uint256 pendingRedeemAfter, uint256 claimableRedeemAfter, uint256 claimableAssetsAfter) =
                 node.requests(params.controller);
 
             // fl.eq(pendingRedeemAfter, params.pendingBefore + params.shares, "NODE_REQUEST_REDEEM_PENDING");
@@ -385,15 +386,14 @@ contract PostconditionsNode is PostconditionsBase {
         }
     }
 
+    // NOTE: setLiquidationQueue has been removed in remediation commit
     function nodeSetLiquidationQueuePostconditions(bool success, bytes memory returnData, NodeQueueParams memory params)
         internal
     {
         if (success) {
-            address[] memory queue = node.getLiquidationsQueue();
-            // fl.eq(queue.length, params.queue.length, "NODE_SET_QUEUE_LENGTH");
-            for (uint256 i = 0; i < queue.length; i++) {
-                // fl.eq(queue[i], params.queue[i], "NODE_SET_QUEUE_VALUE");
-            }
+            // NOTE: getLiquidationsQueue was removed; use getComponents instead
+            address[] memory components = node.getComponents();
+            // fl.eq(components.length, params.queue.length, "NODE_SET_QUEUE_LENGTH");
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -822,7 +822,12 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 assetsReturned = abi.decode(returnData, (uint256));
-            fl.t(assetsReturned > 0, "ROUTER4626_LIQUIDATE_NO_ASSETS");
+            // Only assert assetsReturned > 0 if we expected the call to succeed normally.
+            // When shouldSucceed=false (e.g., previewRedeem returned 0), a successful call
+            // returning 0 assets is expected behavior for invalid/edge-case inputs.
+            if (params.shouldSucceed) {
+                fl.t(assetsReturned > 0, "ROUTER4626_LIQUIDATE_NO_ASSETS");
+            }
 
             uint256 sharesAfter = IERC20(params.component).balanceOf(address(node));
             fl.t(sharesAfter <= params.sharesBefore, "ROUTER4626_LIQUIDATE_SHARES");

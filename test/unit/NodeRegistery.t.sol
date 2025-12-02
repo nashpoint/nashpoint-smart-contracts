@@ -22,7 +22,6 @@ contract NodeRegistryTest is BaseTest {
     // NodeRegistryTest specific deployment
     address public testFactory;
     address public testRouter;
-    address public testQuoter;
     address public testNode;
     address public testRebalancer;
 
@@ -31,13 +30,12 @@ contract NodeRegistryTest is BaseTest {
 
         testFactory = makeAddr("testFactory");
         testRouter = makeAddr("testRouter");
-        testQuoter = makeAddr("testQuoter");
         testNode = makeAddr("testNode");
         testRebalancer = makeAddr("testRebalancer");
 
         address registryImpl = address(new NodeRegistry());
         testRegistry = NodeRegistry(address(new ERC1967Proxy(registryImpl, "")));
-        testRegistry.initialize(owner, protocolFeesAddress, 0, 0, 0.99 ether);
+        testRegistry.initialize(owner, protocolFeesAddress, 0, 0);
     }
 
     function test_addNode() public {
@@ -153,58 +151,6 @@ contract NodeRegistryTest is BaseTest {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         vm.prank(notOwner);
         testRegistry.setPoliciesRoot(newRoot);
-    }
-
-    function test_setProtocolMaxSwingFactor() public {
-        uint64 newMaxSwingFactor = 0.5 ether;
-
-        vm.expectEmit(false, false, false, true);
-        emit EventsLib.ProtocolMaxSwingFactorSet(newMaxSwingFactor);
-        vm.prank(owner);
-        testRegistry.setProtocolMaxSwingFactor(newMaxSwingFactor);
-
-        assertEq(testRegistry.protocolMaxSwingFactor(), newMaxSwingFactor);
-    }
-
-    function test_setProtocolMaxSwingFactor_revert_InvalidSwingFactor() public {
-        uint64 invalidSwingFactor = 1 ether;
-
-        vm.prank(owner);
-        vm.expectRevert(ErrorsLib.InvalidSwingFactor.selector);
-        testRegistry.setProtocolMaxSwingFactor(invalidSwingFactor);
-    }
-
-    // Quoter tests
-    function test_addQuoter() public {
-        vm.startPrank(owner);
-
-        vm.expectEmit(true, false, false, false);
-        emit EventsLib.RoleSet(testQuoter, RegistryType.QUOTER, true);
-        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
-        vm.stopPrank();
-
-        assertTrue(testRegistry.isRegistryType(testQuoter, RegistryType.QUOTER));
-    }
-
-    function test_addQuoter_revert_AlreadySet() public {
-        vm.startPrank(owner);
-        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
-
-        vm.expectRevert(ErrorsLib.AlreadySet.selector);
-        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
-        vm.stopPrank();
-    }
-
-    function test_removeQuoter() public {
-        vm.startPrank(owner);
-        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, true);
-
-        vm.expectEmit(true, false, false, false);
-        emit EventsLib.RoleSet(testQuoter, RegistryType.QUOTER, false);
-        testRegistry.setRegistryType(testQuoter, RegistryType.QUOTER, false);
-        vm.stopPrank();
-
-        assertFalse(testRegistry.isRegistryType(testQuoter, RegistryType.QUOTER));
     }
 
     // Rebalancer tests
