@@ -136,7 +136,8 @@ contract NodeFactoryTest is BaseTest {
             payload: abi.encodeWithSelector(MockPolicyConfigurator.configure.selector, predictedNode, customValue)
         });
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+        testRegistry.updateSetupCallWhitelist(address(configurator), true);
         (INode node,) = testFactory.deployFullNode(
             NodeInitArgs(TEST_NAME, TEST_SYMBOL, address(testAsset), owner), _defaultPayload(), setupCalls, TEST_SALT
         );
@@ -161,6 +162,20 @@ contract NodeFactoryTest is BaseTest {
         );
     }
 
+    function test_deployFullNode_setupCalls_cannotCallNotWhitelisted() public {
+        SetupCall[] memory setupCalls = new SetupCall[](1);
+        setupCalls[0] = SetupCall({
+            target: address(0x1234),
+            payload: abi.encodeWithSelector(NodeRegistry.addNode.selector, address(123))
+        });
+
+        vm.prank(owner);
+        vm.expectRevert(NodeFactory.Forbidden.selector);
+        testFactory.deployFullNode(
+            NodeInitArgs(TEST_NAME, TEST_SYMBOL, address(testAsset), owner), _defaultPayload(), setupCalls, TEST_SALT
+        );
+    }
+
     function test_deployFullNode_setupCallsPullFundsAndDeposit() public {
         uint256 depositAmount = 1_000 ether;
         testAsset.mint(owner, depositAmount);
@@ -171,7 +186,7 @@ contract NodeFactoryTest is BaseTest {
 
         address predictedNode = testFactory.predictDeterministicAddress(TEST_SALT, owner);
 
-        SetupCall[] memory setupCalls = new SetupCall[](3);
+        SetupCall[] memory setupCalls = new SetupCall[](2);
         setupCalls[0] = SetupCall({
             target: address(testAsset),
             payload: abi.encodeWithSelector(testAsset.transferFrom.selector, owner, address(testFactory), depositAmount)
@@ -180,14 +195,13 @@ contract NodeFactoryTest is BaseTest {
             target: address(testAsset),
             payload: abi.encodeWithSelector(testAsset.approve.selector, predictedNode, depositAmount)
         });
-        setupCalls[2] = SetupCall({
-            target: predictedNode,
-            payload: abi.encodeWithSelector(IERC7575.deposit.selector, depositAmount, owner)
-        });
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+        testRegistry.updateSetupCallWhitelist(address(testAsset), true);
+        bytes[] memory payload = new bytes[](1);
+        payload[0] = abi.encodeWithSelector(IERC7575.deposit.selector, depositAmount, owner);
         (INode node,) = testFactory.deployFullNode(
-            NodeInitArgs(TEST_NAME, TEST_SYMBOL, address(testAsset), owner), _defaultPayload(), setupCalls, TEST_SALT
+            NodeInitArgs(TEST_NAME, TEST_SYMBOL, address(testAsset), owner), payload, setupCalls, TEST_SALT
         );
 
         assertEq(testAsset.balanceOf(address(testFactory)), 0);

@@ -21,6 +21,7 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
     uint64 public protocolManagementFee;
     uint64 public protocolExecutionFee;
     mapping(address => mapping(RegistryType => bool)) public roles;
+    mapping(address => bool) setupCallWhitelist;
     bytes32 public policiesRoot;
 
     /* CONSTRUCTOR */
@@ -50,6 +51,12 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
         _setProtocolFeeAddress(feeAddress_);
         _setProtocolManagementFee(managementFee_);
         _setProtocolExecutionFee(executionFee_);
+    }
+
+    /// @inheritdoc INodeRegistry
+    function updateSetupCallWhitelist(address target, bool allowed) external onlyOwner {
+        setupCallWhitelist[target] = allowed;
+        emit EventsLib.SetupCallChange(target, allowed);
     }
 
     /// @inheritdoc INodeRegistry
@@ -90,6 +97,11 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     /* VIEW */
+
+    /// @inheritdoc INodeRegistry
+    function setupCallWhitelisted(address target) external view returns (bool) {
+        return setupCallWhitelist[target];
+    }
 
     /// @inheritdoc INodeRegistry
     function isNode(address node_) external view returns (bool) {

@@ -153,6 +153,34 @@ contract NodeRegistryTest is BaseTest {
         testRegistry.setPoliciesRoot(newRoot);
     }
 
+    function test_updateSetupCallWhitelist() public {
+        address target = makeAddr("setupTarget");
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, false, false, false);
+        emit EventsLib.SetupCallChange(target, true);
+        testRegistry.updateSetupCallWhitelist(target, true);
+        assertTrue(testRegistry.setupCallWhitelisted(target));
+
+        vm.expectEmit(true, false, false, false);
+        emit EventsLib.SetupCallChange(target, false);
+        testRegistry.updateSetupCallWhitelist(target, false);
+        vm.stopPrank();
+
+        assertFalse(testRegistry.setupCallWhitelisted(target));
+    }
+
+    function test_updateSetupCallWhitelist_revert_OnlyOwner() public {
+        address notOwner = makeAddr("notOwner");
+        address target = makeAddr("setupTarget");
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        vm.prank(notOwner);
+        testRegistry.updateSetupCallWhitelist(target, true);
+
+        assertFalse(testRegistry.setupCallWhitelisted(target));
+    }
+
     // Rebalancer tests
     function test_addRebalancer() public {
         vm.startPrank(owner);
