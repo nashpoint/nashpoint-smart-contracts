@@ -141,6 +141,7 @@ contract NodeFactoryTest is BaseTest {
         (INode node,) = testFactory.deployFullNode(
             NodeInitArgs(TEST_NAME, TEST_SYMBOL, address(testAsset), owner), _defaultPayload(), setupCalls, TEST_SALT
         );
+        vm.stopPrank();
 
         assertEq(address(node), predictedNode);
         assertEq(configurator.configuredNode(), address(node));
@@ -203,6 +204,7 @@ contract NodeFactoryTest is BaseTest {
         (INode node,) = testFactory.deployFullNode(
             NodeInitArgs(TEST_NAME, TEST_SYMBOL, address(testAsset), owner), payload, setupCalls, TEST_SALT
         );
+        vm.stopPrank();
 
         assertEq(testAsset.balanceOf(address(testFactory)), 0);
         assertEq(testAsset.balanceOf(address(node)), depositAmount);

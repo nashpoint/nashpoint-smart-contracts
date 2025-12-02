@@ -157,12 +157,12 @@ contract NodeRegistryTest is BaseTest {
         address target = makeAddr("setupTarget");
 
         vm.startPrank(owner);
-        vm.expectEmit(true, false, false, false);
+        vm.expectEmit(true, true, true, true);
         emit EventsLib.SetupCallChange(target, true);
         testRegistry.updateSetupCallWhitelist(target, true);
         assertTrue(testRegistry.setupCallWhitelisted(target));
 
-        vm.expectEmit(true, false, false, false);
+        vm.expectEmit(true, true, true, true);
         emit EventsLib.SetupCallChange(target, false);
         testRegistry.updateSetupCallWhitelist(target, false);
         vm.stopPrank();

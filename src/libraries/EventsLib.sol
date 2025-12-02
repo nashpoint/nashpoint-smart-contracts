@@ -116,5 +116,5 @@ library EventsLib {
     event PoliciesRootUpdate(bytes32 newRoot);
 
     /// @notice Emitted when target is added/removed from whitelist of setup calls
-    event SetupCallChange(address target, bool allowed);
+    event SetupCallChange(address indexed target, bool allowed);
 }
