@@ -327,6 +327,19 @@ contract FoundryPlayground is FuzzGuided {
         );
     }
 
+    function test_repro_04() public {
+        fuzz_admin_node_fulfillRedeem(74825890);
+
+        vm.warp(block.timestamp + 5044);
+        vm.roll(block.number + 89);
+        forceNodeContextForTest(
+            5492877868054641659825948955922999767474903059249057329985703102296
+        );
+        fuzz_admin_router4626_invest(
+            187080942296831526952352168915537801532036090819931054375284582527126784,
+            0
+        );
+    }
     /**
      * @notice Test node reserve fulfillment (happy path)
      * @dev The precondition ensures node has sufficient assets to fulfill redemption

@@ -4,14 +4,26 @@ pragma solidity ^0.8.0;
 import "./helpers/HelperFunctions.sol";
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import {
+    ERC1967Proxy
+} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    ERC4626
+} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC4626StaticVault} from "../mocks/vaults/ERC4626StaticVault.sol";
-import {ERC4626LinearYieldVault} from "../mocks/vaults/ERC4626LinearYieldVault.sol";
-import {ERC4626NegativeYieldVault} from "../mocks/vaults/ERC4626NegativeYieldVault.sol";
+import {
+    ERC4626LinearYieldVault
+} from "../mocks/vaults/ERC4626LinearYieldVault.sol";
+import {
+    ERC4626NegativeYieldVault
+} from "../mocks/vaults/ERC4626NegativeYieldVault.sol";
 import {ERC7540StaticVault} from "../mocks/vaults/ERC7540StaticVault.sol";
-import {ERC7540LinearYieldVault} from "../mocks/vaults/ERC7540LinearYieldVault.sol";
-import {ERC7540NegativeYieldVault} from "../mocks/vaults/ERC7540NegativeYieldVault.sol";
+import {
+    ERC7540LinearYieldVault
+} from "../mocks/vaults/ERC7540LinearYieldVault.sol";
+import {
+    ERC7540NegativeYieldVault
+} from "../mocks/vaults/ERC7540NegativeYieldVault.sol";
 import {ERC7540Mock} from "../mocks/ERC7540Mock.sol";
 import {AggregationRouterV6Mock} from "../mocks/AggregationRouterV6Mock.sol";
 import {SimpleProxy} from "./mocks/SimpleProxy.sol";
@@ -62,7 +74,7 @@ contract FuzzSetup is HelperFunctions {
     /**
      * @notice Randomized setup hook invoked by PreconditionsBase when protocol state is unset
      */
-    function randomSetup(bool seed1, uint256 seed2, uint8 seed3) public {
+    function randomSetup(bool seed1, uint256 seed2, uint8 seed3) internal {
         if (!protocolSet) {
             fuzzSetup();
         }
@@ -94,38 +106,85 @@ contract FuzzSetup is HelperFunctions {
         );
 
         Node nodeImplementation = new Node(address(registry));
-        factory = new NodeFactory(address(registry), address(nodeImplementation));
+        factory = new NodeFactory(
+            address(registry),
+            address(nodeImplementation)
+        );
         router4626 = new ERC4626Router(address(registry));
         router7540 = new ERC7540Router(address(registry));
         fluidDistributor = new FluidDistributorMock();
-        routerFluid = new FluidRewardsRouter(address(registry), address(fluidDistributor));
+        routerFluid = new FluidRewardsRouter(
+            address(registry),
+            address(fluidDistributor)
+        );
 
         incentraDistributor = new IncentraDistributorMock();
-        routerIncentra = new IncentraRouter(address(registry), address(incentraDistributor));
+        routerIncentra = new IncentraRouter(
+            address(registry),
+            address(incentraDistributor)
+        );
 
         address merklDistributorAddr = 0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae;
-        SimpleProxy merklDistributorProxy = _prepareProxy(merklDistributorAddr, isEchidna);
+        SimpleProxy merklDistributorProxy = _prepareProxy(
+            merklDistributorAddr,
+            isEchidna
+        );
         MerklDistributorMock merklDistributorImpl = new MerklDistributorMock();
         merklDistributorProxy.setImplementation(address(merklDistributorImpl));
         merklDistributor = MerklDistributorMock(merklDistributorAddr);
         routerMerkl = new MerklRouter(address(registry));
         routerOneInch = new OneInchV6RouterV1(address(registry));
 
-        address aggregationAddress = routerOneInch.ONE_INCH_AGGREGATION_ROUTER_V6();
-        SimpleProxy aggregationRouterProxy = _prepareProxy(aggregationAddress, isEchidna);
+        address aggregationAddress = routerOneInch
+            .ONE_INCH_AGGREGATION_ROUTER_V6();
+        SimpleProxy aggregationRouterProxy = _prepareProxy(
+            aggregationAddress,
+            isEchidna
+        );
         AggregationRouterV6Mock aggregationRouterImpl = new AggregationRouterV6Mock();
-        aggregationRouterProxy.setImplementation(address(aggregationRouterImpl));
+        aggregationRouterProxy.setImplementation(
+            address(aggregationRouterImpl)
+        );
 
         assetToken = new ERC20Mock("Test Token", "TEST");
         asset = IERC20(address(assetToken));
-        vault = new ERC4626StaticVault(address(asset), "Static Immediate Vault", "siVAULT");
-        vaultSecondary = new ERC4626LinearYieldVault(address(asset), "Linear Immediate Vault", "liVAULT", 5e13);
-        vaultTertiary = new ERC4626NegativeYieldVault(address(asset), "Declining Immediate Vault", "diVAULT", 3e13);
-        liquidityPool = new ERC7540StaticVault(IERC20(address(asset)), "Static Async Vault", "saVAULT", poolManager);
-        liquidityPoolSecondary =
-            new ERC7540LinearYieldVault(IERC20(address(asset)), "Linear Async Vault", "laVAULT", poolManager, 4e13);
-        liquidityPoolTertiary =
-            new ERC7540NegativeYieldVault(IERC20(address(asset)), "Declining Async Vault", "daVAULT", poolManager, 2e13);
+        vault = new ERC4626StaticVault(
+            address(asset),
+            "Static Immediate Vault",
+            "siVAULT"
+        );
+        vaultSecondary = new ERC4626LinearYieldVault(
+            address(asset),
+            "Linear Immediate Vault",
+            "liVAULT",
+            5e13
+        );
+        vaultTertiary = new ERC4626NegativeYieldVault(
+            address(asset),
+            "Declining Immediate Vault",
+            "diVAULT",
+            3e13
+        );
+        liquidityPool = new ERC7540StaticVault(
+            IERC20(address(asset)),
+            "Static Async Vault",
+            "saVAULT",
+            poolManager
+        );
+        liquidityPoolSecondary = new ERC7540LinearYieldVault(
+            IERC20(address(asset)),
+            "Linear Async Vault",
+            "laVAULT",
+            poolManager,
+            4e13
+        );
+        liquidityPoolTertiary = new ERC7540NegativeYieldVault(
+            IERC20(address(asset)),
+            "Declining Async Vault",
+            "daVAULT",
+            poolManager,
+            2e13
+        );
 
         stToken = new ERC20Mock("Digift Security Token", "DST");
         subRedManagement = new SubRedManagementMock();
@@ -150,12 +209,36 @@ contract FuzzSetup is HelperFunctions {
     function _configureRegistry() internal {
         vm.startPrank(owner);
         registry.setRegistryType(address(factory), RegistryType.FACTORY, true);
-        registry.setRegistryType(address(router4626), RegistryType.ROUTER, true);
-        registry.setRegistryType(address(router7540), RegistryType.ROUTER, true);
-        registry.setRegistryType(address(routerFluid), RegistryType.ROUTER, true);
-        registry.setRegistryType(address(routerIncentra), RegistryType.ROUTER, true);
-        registry.setRegistryType(address(routerMerkl), RegistryType.ROUTER, true);
-        registry.setRegistryType(address(routerOneInch), RegistryType.ROUTER, true);
+        registry.setRegistryType(
+            address(router4626),
+            RegistryType.ROUTER,
+            true
+        );
+        registry.setRegistryType(
+            address(router7540),
+            RegistryType.ROUTER,
+            true
+        );
+        registry.setRegistryType(
+            address(routerFluid),
+            RegistryType.ROUTER,
+            true
+        );
+        registry.setRegistryType(
+            address(routerIncentra),
+            RegistryType.ROUTER,
+            true
+        );
+        registry.setRegistryType(
+            address(routerMerkl),
+            RegistryType.ROUTER,
+            true
+        );
+        registry.setRegistryType(
+            address(routerOneInch),
+            RegistryType.ROUTER,
+            true
+        );
         registry.setRegistryType(rebalancer, RegistryType.REBALANCER, true);
         // Ensure execution fee path is exercised during fuzzing (non-zero fee)
         registry.setProtocolExecutionFee(0.01 ether);
@@ -171,8 +254,14 @@ contract FuzzSetup is HelperFunctions {
 
     function _deployNode() internal {
         bytes[] memory payload = new bytes[](4);
-        payload[0] = abi.encodeWithSelector(INode.addRouter.selector, address(router4626));
-        payload[1] = abi.encodeWithSelector(INode.addRebalancer.selector, rebalancer);
+        payload[0] = abi.encodeWithSelector(
+            INode.addRouter.selector,
+            address(router4626)
+        );
+        payload[1] = abi.encodeWithSelector(
+            INode.addRebalancer.selector,
+            rebalancer
+        );
         payload[2] = abi.encodeWithSelector(
             INode.addComponent.selector,
             address(vault),
@@ -180,12 +269,19 @@ contract FuzzSetup is HelperFunctions {
             defaultComponentAllocation.maxDelta,
             defaultComponentAllocation.router
         );
-        payload[3] = abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, 0.2 ether);
+        payload[3] = abi.encodeWithSelector(
+            INode.updateTargetReserveRatio.selector,
+            0.2 ether
+        );
 
         SetupCall[] memory setupCalls = new SetupCall[](0);
         address escrowAddress;
-        (node, escrowAddress) =
-            factory.deployFullNode(NodeInitArgs("Test Node", "TNODE", address(asset), owner), payload, setupCalls, DEFAULT_SALT);
+        (node, escrowAddress) = factory.deployFullNode(
+            NodeInitArgs("Test Node", "TNODE", address(asset), owner),
+            payload,
+            setupCalls,
+            DEFAULT_SALT
+        );
         escrow = Escrow(escrowAddress);
         _registerManagedNode(address(node), escrowAddress);
 
@@ -197,12 +293,42 @@ contract FuzzSetup is HelperFunctions {
         node.addRouter(address(routerMerkl));
         node.addRouter(address(routerOneInch));
         node.setRebalanceCooldown(0);
-        node.updateComponentAllocation(address(vault), 0.3 ether, 0.01 ether, address(router4626));
-        node.addComponent(address(vaultSecondary), 0.2 ether, 0.01 ether, address(router4626));
-        node.addComponent(address(vaultTertiary), 0.15 ether, 0.01 ether, address(router4626));
-        node.addComponent(address(liquidityPool), 0.1 ether, 0.01 ether, address(router7540));
-        node.addComponent(address(liquidityPoolSecondary), 0.05 ether, 0.01 ether, address(router7540));
-        node.addComponent(address(liquidityPoolTertiary), 0.05 ether, 0.01 ether, address(router7540));
+        node.updateComponentAllocation(
+            address(vault),
+            0.3 ether,
+            0.01 ether,
+            address(router4626)
+        );
+        node.addComponent(
+            address(vaultSecondary),
+            0.2 ether,
+            0.01 ether,
+            address(router4626)
+        );
+        node.addComponent(
+            address(vaultTertiary),
+            0.15 ether,
+            0.01 ether,
+            address(router4626)
+        );
+        node.addComponent(
+            address(liquidityPool),
+            0.1 ether,
+            0.01 ether,
+            address(router7540)
+        );
+        node.addComponent(
+            address(liquidityPoolSecondary),
+            0.05 ether,
+            0.01 ether,
+            address(router7540)
+        );
+        node.addComponent(
+            address(liquidityPoolTertiary),
+            0.05 ether,
+            0.01 ether,
+            address(router7540)
+        );
         node.updateTargetReserveRatio(0.15 ether);
 
         capPolicy.setCap(address(node), DEFAULT_NODE_CAP_AMOUNT);
@@ -241,12 +367,30 @@ contract FuzzSetup is HelperFunctions {
         _seedERC7540(address(liquidityPoolSecondary), 75_000 ether);
         _seedERC7540(address(liquidityPoolTertiary), 50_000 ether);
 
-        assetPriceOracleMock.setLatestRoundData(1, 1e8, block.timestamp, block.timestamp, 1);
-        digiftPriceOracleMock.setLatestRoundData(1, 2e10, block.timestamp, block.timestamp, 1);
+        assetPriceOracleMock.setLatestRoundData(
+            1,
+            1e8,
+            block.timestamp,
+            block.timestamp,
+            1
+        );
+        digiftPriceOracleMock.setLatestRoundData(
+            1,
+            2e10,
+            block.timestamp,
+            block.timestamp,
+            1
+        );
 
-        DigiftAdapter implementation =
-            new DigiftAdapter(address(subRedManagement), address(registry), address(digiftEventVerifier));
-        digiftFactory = new DigiftAdapterFactory(address(implementation), owner);
+        DigiftAdapter implementation = new DigiftAdapter(
+            address(subRedManagement),
+            address(registry),
+            address(digiftEventVerifier)
+        );
+        digiftFactory = new DigiftAdapterFactory(
+            address(implementation),
+            owner
+        );
 
         DigiftAdapter.InitArgs memory initArgs = DigiftAdapter.InitArgs({
             name: "Digift Adapter",
@@ -269,7 +413,12 @@ contract FuzzSetup is HelperFunctions {
         digiftEventVerifier.setWhitelist(address(digiftAdapter), true);
         digiftAdapter.setManager(rebalancer, true);
         digiftAdapter.setNode(address(node), true);
-        node.addComponent(address(digiftAdapter), 0.05 ether, 0.01 ether, address(router7540));
+        node.addComponent(
+            address(digiftAdapter),
+            0.05 ether,
+            0.01 ether,
+            address(router7540)
+        );
         node.updateTargetReserveRatio(0.1 ether);
         vm.stopPrank();
 
@@ -277,8 +426,16 @@ contract FuzzSetup is HelperFunctions {
         subRedManagement.setWhitelist(address(digiftAdapter), true);
 
         vm.startPrank(owner);
-        digiftEventVerifier.configureSettlement(DigiftEventVerifier.EventType.SUBSCRIBE, 1e18, 0);
-        digiftEventVerifier.configureSettlement(DigiftEventVerifier.EventType.REDEEM, 0, 1e18);
+        digiftEventVerifier.configureSettlement(
+            DigiftEventVerifier.EventType.SUBSCRIBE,
+            1e18,
+            0
+        );
+        digiftEventVerifier.configureSettlement(
+            DigiftEventVerifier.EventType.REDEEM,
+            0,
+            1e18
+        );
         vm.stopPrank();
     }
 
@@ -399,7 +556,10 @@ contract FuzzSetup is HelperFunctions {
         vm.label(address(routerIncentra), "IncentraRouter");
         vm.label(address(routerMerkl), "MerklRouter");
         vm.label(address(routerOneInch), "OneInchV6RouterV1");
-        vm.label(routerOneInch.ONE_INCH_AGGREGATION_ROUTER_V6(), "OneInchAggregationRouterV6");
+        vm.label(
+            routerOneInch.ONE_INCH_AGGREGATION_ROUTER_V6(),
+            "OneInchAggregationRouterV6"
+        );
         vm.label(address(node), "Node");
         vm.label(address(escrow), "Escrow");
         vm.label(address(asset), "Asset");
@@ -444,12 +604,17 @@ contract FuzzSetup is HelperFunctions {
     // RANDOMISATION HOOK
     // ==============================================================
 
-    function _applyRandomizedConfiguration(bool seed1, uint256 seed2, uint8 seed3) internal {
+    function _applyRandomizedConfiguration(
+        bool seed1,
+        uint256 seed2,
+        uint8 seed3
+    ) internal {
         vm.startPrank(owner);
 
         uint256 maxDepositFloor = 10_000 ether;
         uint256 maxDepositRange = 1_000_000 ether;
-        uint256 randomizedMaxDeposit = maxDepositFloor + (seed2 % maxDepositRange);
+        uint256 randomizedMaxDeposit = maxDepositFloor +
+            (seed2 % maxDepositRange);
         node.setMaxDepositSize(randomizedMaxDeposit);
 
         // max 5% management fee in new version
@@ -459,11 +624,9 @@ contract FuzzSetup is HelperFunctions {
         vm.stopPrank();
     }
 
-    function _defaultComponentAllocations(uint256 count)
-        internal
-        view
-        returns (ComponentAllocation[] memory allocations)
-    {
+    function _defaultComponentAllocations(
+        uint256 count
+    ) internal view returns (ComponentAllocation[] memory allocations) {
         allocations = new ComponentAllocation[](count);
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = ComponentAllocation({
@@ -475,20 +638,33 @@ contract FuzzSetup is HelperFunctions {
         }
     }
 
-    function _defaultReserveAllocation() internal view returns (ComponentAllocation memory) {
-        return ComponentAllocation({
-            targetWeight: 0.1 ether,
-            maxDelta: DEFAULT_COMPONENT_MAX_DELTA,
-            router: address(router4626),
-            isComponent: true
-        });
+    function _defaultReserveAllocation()
+        internal
+        view
+        returns (ComponentAllocation memory)
+    {
+        return
+            ComponentAllocation({
+                targetWeight: 0.1 ether,
+                maxDelta: DEFAULT_COMPONENT_MAX_DELTA,
+                router: address(router4626),
+                isComponent: true
+            });
     }
 
-    function _getCurrentReserveRatio() public view returns (uint256 reserveRatio) {
+    function _getCurrentReserveRatio()
+        internal
+        view
+        returns (uint256 reserveRatio)
+    {
         if (node.totalAssets() == 0) {
             return 0;
         }
-        reserveRatio = Math.mulDiv(asset.balanceOf(address(node)), 1e18, node.totalAssets());
+        reserveRatio = Math.mulDiv(
+            asset.balanceOf(address(node)),
+            1e18,
+            node.totalAssets()
+        );
     }
 
     function _seedNode(uint256 amount) internal {
@@ -518,25 +694,44 @@ contract FuzzSetup is HelperFunctions {
         vm.stopPrank();
     }
 
-    function _userDeposits(address user_, uint256 amount_) internal returns (uint256 shares) {
+    function _userDeposits(
+        address user_,
+        uint256 amount_
+    ) internal returns (uint256 shares) {
         vm.startPrank(user_);
         asset.approve(address(node), amount_);
         shares = node.deposit(amount_, user_);
         vm.stopPrank();
     }
 
-    function _setAllocationToAsyncVault(address liquidityPool_, uint64 allocation) internal {
+    function _setAllocationToAsyncVault(
+        address liquidityPool_,
+        uint64 allocation
+    ) internal {
         vm.startPrank(owner);
         uint64 reserveAllocation = uint64(1 ether) - allocation;
         node.updateTargetReserveRatio(reserveAllocation);
-        node.updateComponentAllocation(address(vault), 0, 0, address(router4626));
+        node.updateComponentAllocation(
+            address(vault),
+            0,
+            0,
+            address(router4626)
+        );
         node.removeComponent(address(vault), false);
-        node.addComponent(address(liquidityPool_), allocation, 0, address(router7540));
+        node.addComponent(
+            address(liquidityPool_),
+            allocation,
+            0,
+            address(router7540)
+        );
         router7540.setWhitelistStatus(address(liquidityPool_), true);
         vm.stopPrank();
     }
 
-    function _prepareProxy(address target, bool isEchidna) internal returns (SimpleProxy proxy) {
+    function _prepareProxy(
+        address target,
+        bool isEchidna
+    ) internal returns (SimpleProxy proxy) {
         if (!isEchidna) {
             vm.etch(target, type(SimpleProxy).runtimeCode);
         }
@@ -548,14 +743,14 @@ contract FuzzSetup is HelperFunctions {
     // TEST HELPERS
     // ==============================================================
 
-    function setActiveNodeForTest(uint256 index) public {
+    function setActiveNodeForTest(uint256 index) internal {
         if (!protocolSet) {
             fuzzSetup();
         }
         _setActiveNodeByIndex(index);
     }
 
-    function managedNodeCountForTest() public view returns (uint256) {
+    function managedNodeCountForTest() internal view returns (uint256) {
         return _managedNodeCount();
     }
 
@@ -568,19 +763,20 @@ contract FuzzSetup is HelperFunctions {
         _setActiveNodeByIndex(index);
         if (address(node) != address(0)) {
             vm.startPrank(rebalancer);
-            try node.startRebalance() {}
-            catch {
+            try node.startRebalance() {} catch {
                 // ignore reverts in tests; deposit preconditions will handle
             }
             vm.stopPrank();
         }
     }
 
-    function clearNodeContextOverrideForTest() public {
+    function clearNodeContextOverrideForTest() internal {
         testNodeOverrideEnabled = false;
     }
 
-    function componentsByRouterForTest(address targetRouter) public view returns (address[] memory matches) {
+    function componentsByRouterForTest(
+        address targetRouter
+    ) internal view returns (address[] memory matches) {
         if (address(node) == address(0)) {
             return new address[](0);
         }
@@ -588,7 +784,9 @@ contract FuzzSetup is HelperFunctions {
         address[] memory nodeComponents = node.getComponents();
         uint256 count;
         for (uint256 i = 0; i < nodeComponents.length; i++) {
-            ComponentAllocation memory allocation = node.getComponentAllocation(nodeComponents[i]);
+            ComponentAllocation memory allocation = node.getComponentAllocation(
+                nodeComponents[i]
+            );
             if (allocation.isComponent && allocation.router == targetRouter) {
                 count++;
             }
@@ -597,7 +795,9 @@ contract FuzzSetup is HelperFunctions {
         matches = new address[](count);
         uint256 cursor;
         for (uint256 i = 0; i < nodeComponents.length; i++) {
-            ComponentAllocation memory allocation = node.getComponentAllocation(nodeComponents[i]);
+            ComponentAllocation memory allocation = node.getComponentAllocation(
+                nodeComponents[i]
+            );
             if (allocation.isComponent && allocation.router == targetRouter) {
                 matches[cursor] = nodeComponents[i];
                 cursor++;
