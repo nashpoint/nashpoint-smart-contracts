@@ -134,7 +134,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
     ) internal {
         if (success) {
             uint256 allowance = asset.allowance(address(node), address(digiftAdapter));
-            // fl.eq(allowance, params.amount, "DIGIFT_ASSET_ALLOWANCE_MISMATCH");
+            // invariant_DIGIFT_05(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -151,7 +151,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             _after();
 
             uint256 allowance = digiftAdapter.allowance(owner, params.spender);
-            // fl.eq(allowance, params.amount, "DIGIFT_APPROVE_AMOUNT_MISMATCH");
+            // invariant_DIGIFT_06(owner, params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -167,7 +167,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         if (success) {
             _after();
 
-            // fl.eq(digiftAdapter.balanceOf(params.to), digiftAdapter.balanceOf(params.to), "DIGIFT_TRANSFER_PLACEHOLDER");
+            // Transfer placeholder - no specific invariant needed
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -181,7 +181,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
     ) internal {
         if (success) {
             uint256 pending = digiftAdapter.pendingDepositRequest(0, address(node));
-            // fl.eq(pending, params.amount, "DIGIFT_PENDING_DEPOSIT_ANOMALY");
+            // invariant_DIGIFT_07(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -202,12 +202,8 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         internal
     {
         if (success) {
-            if (!params.expectDeposit) {
-                // fl.eq(digiftAdapter.globalPendingDepositRequest(), 0, "DIGIFT_FORWARD_DEPOSIT_PENDING");
-            }
-            if (!params.expectRedeem) {
-                // fl.eq(digiftAdapter.globalPendingRedeemRequest(), 0, "DIGIFT_FORWARD_REDEEM_PENDING");
-            }
+            // invariant_DIGIFT_08(params);
+            // invariant_DIGIFT_09(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -221,11 +217,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bool isDeposit
     ) internal {
         if (success) {
-            if (isDeposit) {
-                // fl.eq(digiftAdapter.globalPendingDepositRequest(), 0, "DIGIFT_SETTLE_DEPOSIT_PENDING");
-            } else {
-                // fl.eq(digiftAdapter.globalPendingRedeemRequest(), 0, "DIGIFT_SETTLE_REDEEM_PENDING");
-            }
+            // invariant_DIGIFT_10(isDeposit);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -279,11 +271,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bool isManager
     ) internal {
         if (success) {
-            if (isManager) {
-                // fl.eq(digiftAdapter.managerWhitelisted(params.target), params.status, "DIGIFT_MANAGER_STATUS");
-            } else {
-                // fl.eq(digiftAdapter.nodeWhitelisted(params.target), params.status, "DIGIFT_NODE_STATUS");
-            }
+            // invariant_DIGIFT_16(params, isManager);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -297,17 +285,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         uint8 selector
     ) internal {
         if (success) {
-            if (selector == 0) {
-                // fl.eq(digiftAdapter.minDepositAmount(), params.value, "DIGIFT_MIN_DEPOSIT");
-            } else if (selector == 1) {
-                // fl.eq(digiftAdapter.minRedeemAmount(), params.value, "DIGIFT_MIN_REDEEM");
-            } else if (selector == 2) {
-                // fl.eq(digiftAdapter.priceDeviation(), params.value, "DIGIFT_PRICE_DEV");
-            } else if (selector == 3) {
-                // fl.eq(digiftAdapter.settlementDeviation(), params.value, "DIGIFT_SETTLE_DEV");
-            } else if (selector == 4) {
-                // fl.eq(digiftAdapter.priceUpdateDeviation(), params.value, "DIGIFT_PRICE_UPDATE_DEV");
-            }
+            // invariant_DIGIFT_17(params, selector);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -316,7 +294,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
 
     function digiftUpdatePricePostconditions(bool success, bytes memory returnData) internal {
         if (success) {
-            // fl.gt(digiftAdapter.lastPrice(), 0, "DIGIFT_PRICE_NOT_SET");
+            // invariant_DIGIFT_18();
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

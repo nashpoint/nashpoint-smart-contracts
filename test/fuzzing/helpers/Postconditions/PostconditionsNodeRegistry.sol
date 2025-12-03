@@ -15,7 +15,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // fl.t(registry.protocolFeeAddress() == params.target, "REGISTRY_FEE_ADDRESS_VALUE");
+            // invariant_REGISTRY_01(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -30,7 +30,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // fl.t(registry.protocolManagementFee() == params.value, "REGISTRY_MANAGEMENT_FEE_VALUE");
+            // invariant_REGISTRY_02(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -45,7 +45,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // fl.t(registry.protocolExecutionFee() == params.value, "REGISTRY_EXECUTION_FEE_VALUE");
+            // invariant_REGISTRY_03(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -60,7 +60,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // fl.t(registry.protocolMaxSwingFactor() == params.value, "REGISTRY_SWING_FACTOR_VALUE");
+            // invariant_REGISTRY_04(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -75,7 +75,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // fl.t(registry.policiesRoot() == params.root, "REGISTRY_POLICIES_ROOT_VALUE");
+            // invariant_REGISTRY_05(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -91,7 +91,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
             _after();
 
             bool status = registry.isRegistryType(params.target, params.typeEnum);
-            // fl.t(status == params.status, "REGISTRY_TYPE_STATUS");
+            // invariant_REGISTRY_06(params, status);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -104,7 +104,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // fl.t(registry.isNode(params.node), "REGISTRY_ADD_NODE_STATUS");
+            // invariant_REGISTRY_07(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -120,7 +120,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
             _after();
 
             address newOwner = registry.owner();
-            // fl.t(newOwner == params.newOwner, "REGISTRY_TRANSFER_OWNER_VALUE");
+            // invariant_REGISTRY_08(params, newOwner);
 
             // Restore original owner to keep environment consistent
             vm.startPrank(newOwner);
@@ -139,7 +139,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryOwnershipCallParams memory params
     ) internal {
         params; // silence warning
-        // fl.t(!success, "REGISTRY_RENOUNCE_EXPECTED_REVERT");
+        // invariant_REGISTRY_09();
         onFailInvariantsGeneral(returnData);
     }
 
@@ -149,7 +149,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryInitializeParams memory params
     ) internal {
         params; // silence warning
-        // fl.t(!success, "REGISTRY_INITIALIZE_EXPECTED_REVERT");
+        // invariant_REGISTRY_10();
         onFailInvariantsGeneral(returnData);
     }
 
@@ -159,7 +159,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryUpgradeParams memory params
     ) internal {
         params; // silence warning
-        // fl.t(!success, "REGISTRY_UPGRADE_EXPECTED_REVERT");
+        // invariant_REGISTRY_11();
         onFailInvariantsGeneral(returnData);
     }
 }

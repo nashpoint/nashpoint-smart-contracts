@@ -20,16 +20,16 @@ contract PostconditionsNodeFactory is PostconditionsBase {
             _after();
 
             (address deployedNode, address deployedEscrow) = abi.decode(returnData, (address, address));
-            // fl.t(deployedNode != address(0), "NODE_FACTORY_DEPLOYED_ZERO");
-            // fl.t(deployedEscrow != address(0), "NODE_FACTORY_ESCROW_ZERO");
 
             Node nodeInstance = Node(deployedNode);
 
-            // fl.eq(nodeInstance.escrow(), deployedEscrow, "NODE_FACTORY_ESCROW_LINK");
-            // fl.eq(IERC7575(deployedNode).asset(), params.initArgs.asset, "NODE_FACTORY_ASSET_MATCH");
-            // fl.eq(nodeInstance.owner(), params.initArgs.owner, "NODE_FACTORY_OWNER_MATCH");
-            // fl.t(nodeInstance.totalSupply() == 0, "NODE_FACTORY_SUPPLY_ZERO");
-            // fl.t(INodeRegistry(address(registry)).isNode(deployedNode), "NODE_FACTORY_REGISTERED");
+            // invariant_FACTORY_01(deployedNode);
+            // invariant_FACTORY_02(deployedEscrow);
+            // invariant_FACTORY_03(deployedNode, deployedEscrow);
+            // invariant_FACTORY_04(deployedNode, params);
+            // invariant_FACTORY_05(deployedNode, params);
+            // invariant_FACTORY_06(deployedNode);
+            // invariant_FACTORY_07(deployedNode);
 
             onSuccessInvariantsGeneral(returnData);
         } else {

@@ -14,8 +14,7 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
         if (success) {
             (uint256 shares, uint256 assets) =
                 DigiftEventVerifierMock(address(digiftEventVerifier)).getExpectedSettlement(params.eventType);
-            // fl.eq(shares, params.expectedShares, "DIGIFT_VERIFIER_CONFIGURE_SHARES");
-            // fl.eq(assets, params.expectedAssets, "DIGIFT_VERIFIER_CONFIGURE_ASSETS");
+            // invariant_DIGIFT_VERIFIER_01(params, shares, assets);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -29,7 +28,7 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
     ) internal {
         if (success) {
             bool stored = DigiftEventVerifierMock(address(digiftEventVerifier)).whitelist(params.adapter);
-            // fl.eq(stored, params.status, "DIGIFT_VERIFIER_WHITELIST_STATUS");
+            // invariant_DIGIFT_VERIFIER_02(params, stored);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -57,8 +56,7 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
             _after();
 
             (uint256 shares, uint256 assets) = abi.decode(returnData, (uint256, uint256));
-            // fl.eq(shares, params.expectedShares, "DIGIFT_VERIFIER_VERIFY_SHARES");
-            // fl.eq(assets, params.expectedAssets, "DIGIFT_VERIFIER_VERIFY_ASSETS");
+            // invariant_DIGIFT_VERIFIER_03(params, shares, assets);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
