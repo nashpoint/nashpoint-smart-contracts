@@ -340,7 +340,10 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     //////////////////////////////////////////////////////////////*/
 
     function totalAssets() public view virtual returns (uint256) {
-        return IERC20(asset).balanceOf(address(this)) - pendingAssets;
+        if (IERC20(asset).balanceOf(address(this)) > pendingAssets) {
+            return IERC20(asset).balanceOf(address(this)) - pendingAssets;
+        }
+        return 0;
     }
 
     function convertToAssets(uint256 shares) public view virtual returns (uint256) {
