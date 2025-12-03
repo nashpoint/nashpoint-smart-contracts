@@ -21,8 +21,8 @@ shrinkLimit: 1000
 
 seqLen: 20
 
-propMaxGas: 1000000000
-testMaxGas: 1000000000
+propMaxGas: 100000000000
+testMaxGas: 100000000000
 
 deployer: "0xfffff"
 sender: ["0x10000", "0x20000", "0x30000"]

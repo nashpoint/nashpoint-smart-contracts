@@ -400,4 +400,160 @@ contract FoundryPlayground is FuzzGuided {
         }
         revert("async component missing");
     }
+
+    // ==================== ECHIDNA REPRODUCERS ====================
+
+    function test_repro_05_fuzz_guided_router7540_partialFulfill() public {
+        this.fuzz_guided_router7540_partialFulfill(
+            38531465497176393623865182635864993623354644630808497174750202283881082,
+            220535010039191132170229572433848579607026637502240897592720282752279498,
+            2075613383426238542096838517264041622797535573204420253454299749289025
+        );
+    }
+
+    function test_repro_06_fuzz_admin_pool_processPendingRedemptions() public {
+        this.fuzz_admin_pool_processPendingRedemptions(0);
+    }
+
+    function test_repro_07_fuzz_guided_router7540_fulfillRedeem() public {
+        this.fuzz_guided_router7540_fulfillRedeem(
+            151882892043070225363345645199913393859669436706735518143125757,
+            0,
+            14413638092575
+        );
+    }
+
+    function test_repro_08_fuzz_admin_router7540_mintClaimable() public {
+        this.fuzz_admin_router7540_mintClaimable(19025222780559470468395816642);
+    }
+
+    function test_repro_09_fuzz_admin_pool_processPendingDeposits() public {
+        vm.warp(block.timestamp + 229904);
+        vm.roll(block.number + 3127);
+
+        try
+            this.fuzz_nodeFactory_deploy(
+                60820723783939169940061053321121476354867413293781497638975353726305097883
+            )
+        {} catch {}
+        try
+            this.fuzz_admin_router4626_liquidate(
+                2725604580656968673756542178559131576641882851914682948258416832527984571196,
+                5259265159530232441167422601636923023650356548998380400880343811646837907439
+            )
+        {} catch {}
+        try
+            this.fuzz_admin_router4626_fulfillRedeem(
+                381552042,
+                3096745682701865768030249088922293975681790001904513691402715125204462
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 499205);
+        vm.roll(block.number + 39548);
+        try
+            this.fuzz_admin_pool_processPendingDeposits(
+                54727360561742095506685279242173073379739097347084651743398245155478404573540
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 206542);
+        vm.roll(block.number + 2613);
+        try this.fuzz_requestRedeem(6120279027780322) {} catch {}
+        try this.fuzz_setOperator(382807652, false) {} catch {}
+        this.fuzz_admin_pool_processPendingDeposits(
+            34727995792050831482123337436346932784369960856449629376244432061401521666172
+        );
+    }
+
+    function test_repro_10_fuzz_admin_router4626_invest() public {
+        try this.fuzz_admin_node_fulfillRedeem(1294646450) {} catch {}
+        vm.warp(block.timestamp + 357632);
+        vm.roll(block.number + 127);
+        try
+            this.fuzz_digift_approve(
+                13,
+                24116673269646944313822860450674869474620959631815787224624535867963433321831
+            )
+        {} catch {}
+        try
+            this.forceNodeContextForTest(
+                16758577700044131139215333470636976227594410639545414176295555025159939330321
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 1843);
+        vm.roll(block.number + 51644);
+        this.fuzz_admin_router4626_invest(
+            34454305491944306616250448101787334092084592933696329430814046349864808333007,
+            45
+        );
+    }
+
+    function test_repro_11_fuzz_admin_oneinch_swap() public {
+        try this.fuzz_admin_node_fulfillRedeem(1222215370) {} catch {}
+        vm.warp(block.timestamp + 3833);
+        vm.roll(block.number + 1);
+
+        try this.forceNodeContextForTest(12415725316) {} catch {}
+        this.fuzz_admin_oneinch_swap(0);
+    }
+
+    function test_repro_12_fuzz_guided_router7540_executeAsyncWithdrawal()
+        public
+    {
+        try
+            this.fuzz_nodeFactory_deploy(
+                4336062823423054164578484425732283683497955113507915451207564094359975746903
+            )
+        {} catch {}
+        try this.fuzz_admin_node_startRebalance(426) {} catch {}
+        vm.warp(block.timestamp + 438412);
+        vm.roll(block.number + 7735);
+        try this.fuzz_merkl_claimRewards(13) {} catch {}
+        vm.warp(block.timestamp + 231838);
+        vm.roll(block.number + 550);
+
+        try
+            this.fuzz_component_loseBacking(
+                33024162073505416403934174785290201432828526912978053601875568360571900910109,
+                118042
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 40497);
+        vm.roll(block.number + 20905);
+        try
+            this.fuzz_admin_router4626_fulfillRedeem(
+                105,
+                1261949173909778052230447289569070574178473996731769589822408401870449436437
+            )
+        {} catch {}
+        this.fuzz_guided_router7540_executeAsyncWithdrawal(
+            746,
+            603557592,
+            7107086103350918887933168315655862334116738025567932143725657113105906863646
+        );
+    }
+
+    function test_repro_13_fuzz_guided_router7540_claimable() public {
+        vm.warp(block.timestamp + 428295);
+        vm.roll(block.number + 50751);
+        try this.fuzz_node_multicall(125670) {} catch {}
+        vm.warp(block.timestamp + 520495);
+        vm.roll(block.number + 46134);
+        try
+            this.fuzz_nodeFactory_deploy(
+                1760141638421111204192957525700345679625768954528617738685579911586266317121
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 414709);
+        vm.roll(block.number + 62994);
+
+        vm.warp(block.timestamp + 571258);
+        vm.roll(block.number + 7735);
+        try this.fuzz_merkl_claimRewards(155) {} catch {}
+        vm.warp(block.timestamp + 496868);
+        vm.roll(block.number + 70);
+        this.fuzz_guided_router7540_claimable(
+            1525977137,
+            19337371914190206685746076656331701558615183464962432767590778626726684609415
+        );
+    }
 }

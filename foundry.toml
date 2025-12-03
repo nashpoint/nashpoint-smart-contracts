@@ -19,7 +19,6 @@ optimizer = true
 optimizer-runs = 50
 via-ir = true
 
-
 [fuzz]
 runs = 10
 
