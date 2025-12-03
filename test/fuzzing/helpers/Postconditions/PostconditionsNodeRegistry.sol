@@ -139,7 +139,6 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryOwnershipCallParams memory params
     ) internal {
         params; // silence warning
-        // invariant_REGISTRY_09();
         onFailInvariantsGeneral(returnData);
     }
 

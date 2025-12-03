@@ -40,11 +40,6 @@ contract Properties_Registry is Properties_ERR {
         // fl.t(newOwner == params.newOwner, REGISTRY_08);
     }
 
-    function invariant_REGISTRY_09() internal {
-        // Registry renounce should always revert
-        // fl.t(!success, REGISTRY_09);
-    }
-
     function invariant_REGISTRY_10() internal {
         // Registry initialize should always revert (already initialized)
         // fl.t(!success, REGISTRY_10);

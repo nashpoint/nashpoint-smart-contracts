@@ -138,7 +138,7 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         _callAs(
             ownerActor,
             nodeAddr,
-            abi.encodeWithSelector(INode.setRebalanceCooldown.selector, uint64(0)), //@audit why?
+            abi.encodeWithSelector(INode.setRebalanceCooldown.selector, uint64(0)),
             "NODE_FACTORY:SET_REBALANCE_COOLDOWN"
         );
 
@@ -226,8 +226,8 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
     }
 
     function _seedNodeLiquidity(address nodeAddr, address escrowAddr, address ownerActor, uint256 entropy) internal {
-    //    assetToken.mint(escrowAddr, INITIAL_USER_BALANCE / 10); //@audit not necessary
-    //    assetToken.mint(nodeAddr, INITIAL_USER_BALANCE); //@audit same
+    //    assetToken.mint(escrowAddr, INITIAL_USER_BALANCE / 10); 
+    //    assetToken.mint(nodeAddr, INITIAL_USER_BALANCE); 
 
         vm.startPrank(nodeAddr);
         assetToken.approve(address(digiftAdapter), type(uint256).max);

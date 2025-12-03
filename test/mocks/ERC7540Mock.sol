@@ -7,6 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "forge-std/console.sol";
 
 /**
  * @title ERC7540 Mock Contract
@@ -150,6 +151,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // newly avaiable shares are appended to claimable Shares
         claimableShares += newShares;
 
+        console.log("PENDING assets: ", pendingAssets);
         // claimableShares are divided by pendingDeposits to get shares per asset for minting
         claimableSharePrice = Math.mulDiv(newShares, 1e18, pendingAssets, Math.Rounding.Floor);
 

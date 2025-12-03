@@ -246,7 +246,6 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeOwnershipParams memory params
     ) internal {
-        // invariant_NODE_46();
         onFailInvariantsGeneral(returnData);
     }
 
@@ -255,7 +254,6 @@ contract PostconditionsNode is PostconditionsBase {
         bytes memory returnData,
         NodeOwnershipParams memory params
     ) internal {
-        // invariant_NODE_47();
         onFailInvariantsGeneral(returnData);
     }
 
@@ -342,7 +340,6 @@ contract PostconditionsNode is PostconditionsBase {
         if (success) {
             // NOTE: getLiquidationsQueue was removed; use getComponents instead
             address[] memory components = node.getComponents();
-            // invariant_NODE_60(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -432,20 +429,6 @@ contract PostconditionsNode is PostconditionsBase {
     ) internal {
         if (success) {
             // invariant_NODE_89(params);
-            onSuccessInvariantsGeneral(returnData);
-        } else {
-            onFailInvariantsGeneral(returnData);
-        }
-    }
-
-    function nodeEnableSwingPricingPostconditions(
-        bool success,
-        bytes memory returnData,
-        NodeSwingPricingParams memory params
-    ) internal {
-        if (success) {
-            // invariant_NODE_90(params);
-            // invariant_NODE_91(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -551,7 +534,6 @@ contract PostconditionsNode is PostconditionsBase {
             // invariant_NODE_70();
             // invariant_NODE_71();
             // invariant_NODE_72(ownerDelta, protocolDelta, nodeDelta);
-            // invariant_NODE_73();
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -628,8 +610,6 @@ contract PostconditionsNode is PostconditionsBase {
     {
         if (success) {
             uint256 allowanceAfter = asset.allowance(address(node), params.allowanceSpender);
-            // invariant_NODE_81(params, allowanceAfter);
-            // invariant_NODE_82();
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -668,7 +648,6 @@ contract PostconditionsNode is PostconditionsBase {
             // invariant_NODE_85(controllerBefore, controllerAfter, params.assetsToReturn);
             // invariant_NODE_86(escrowBefore, escrowAfter, params.assetsToReturn);
             // invariant_NODE_87(params.nodeAssetBalanceBefore, params.assetsToReturn);
-            // invariant_NODE_88(params.sharesExitingBefore, params.sharesAdjusted);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

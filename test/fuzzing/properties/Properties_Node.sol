@@ -261,20 +261,6 @@ contract Properties_Node is Properties_ERR {
     }
 
     // ==============================================================
-    // OWNERSHIP INVARIANTS (NODE_46 - NODE_47)
-    // ==============================================================
-
-    function invariant_NODE_46() internal {
-        // Node renounce ownership should always revert
-        // fl.t(!success, NODE_46);
-    }
-
-    function invariant_NODE_47() internal {
-        // Node transfer ownership should always revert
-        // fl.t(!success, NODE_47);
-    }
-
-    // ==============================================================
     // INITIALIZE INVARIANTS (NODE_48)
     // ==============================================================
 
@@ -336,11 +322,6 @@ contract Properties_Node is Properties_ERR {
 
     function invariant_NODE_59(NodeRemoveComponentParams memory params) internal {
         // fl.t(!node.isComponent(params.component), NODE_59);
-    }
-
-    function invariant_NODE_60(NodeQueueParams memory params) internal {
-        address[] memory components = node.getComponents();
-        // fl.eq(components.length, params.queue.length, NODE_60);
     }
 
     // ==============================================================
@@ -407,10 +388,6 @@ contract Properties_Node is Properties_ERR {
         // fl.eq(ownerDelta + protocolDelta, nodeDelta, NODE_72);
     }
 
-    function invariant_NODE_73() internal {
-        // fl.t(states[1].nodeTotalAssets <= states[0].nodeTotalAssets, NODE_73);
-    }
-
     // ==============================================================
     // PAY MANAGEMENT FEES INVARIANTS (NODE_74 - NODE_77)
     // ==============================================================
@@ -452,18 +429,6 @@ contract Properties_Node is Properties_ERR {
     }
 
     // ==============================================================
-    // EXECUTE INVARIANTS (NODE_81 - NODE_82)
-    // ==============================================================
-
-    function invariant_NODE_81(NodeExecuteParams memory params, uint256 allowanceAfter) internal {
-        // fl.eq(allowanceAfter, params.allowance, NODE_81);
-    }
-
-    function invariant_NODE_82() internal {
-        // fl.eq(states[0].nodeAssetBalance, states[1].nodeAssetBalance, NODE_82);
-    }
-
-    // ==============================================================
     // FINALIZE REDEMPTION INVARIANTS (NODE_83 - NODE_88)
     // ==============================================================
 
@@ -487,24 +452,12 @@ contract Properties_Node is Properties_ERR {
         // fl.eq(states[1].nodeAssetBalance, nodeBalanceBefore - assetsToReturn, NODE_87);
     }
 
-    function invariant_NODE_88(uint256 sharesExitingBefore, uint256 sharesAdjusted) internal {
-        // fl.eq(states[1].sharesExiting, sharesExitingBefore - sharesAdjusted, NODE_88);
-    }
-
     // ==============================================================
     // TARGET RESERVE / SWING PRICING INVARIANTS (NODE_89 - NODE_91)
     // ==============================================================
 
     function invariant_NODE_89(NodeTargetReserveParams memory params) internal {
         // fl.eq(uint256(Node(address(node)).targetReserveRatio()), uint256(params.target), NODE_89);
-    }
-
-    function invariant_NODE_90(NodeSwingPricingParams memory params) internal {
-        // fl.eq(Node(address(node)).swingPricingEnabled(), params.status, NODE_90);
-    }
-
-    function invariant_NODE_91(NodeSwingPricingParams memory params) internal {
-        // fl.eq(uint256(Node(address(node)).maxSwingFactor()), uint256(params.maxSwingFactor), NODE_91);
     }
 
     // ==============================================================
