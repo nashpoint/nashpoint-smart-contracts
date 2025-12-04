@@ -190,12 +190,11 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // newly avaiable shares are appended to claimable Shares
         claimableShares += newShares;
 
-        console.log("PENDING assets: ", pendingAssets);
         // claimableShares are divided by pendingDeposits to get shares per asset for minting
-        claimableSharePrice = Math.mulDiv(
-            newShares,
-            1e18,
+        claimableSharePrice = Math.mulDiv( //@audit this is shares per asset. Incorrect. Should be assets per share
             pendingAssets,
+            1e18,
+            newShares,
             Math.Rounding.Floor
         );
 
