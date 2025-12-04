@@ -170,7 +170,7 @@ contract FuzzGuided is
         setActor(rebalancer);
         fuzz_admin_router7540_invest(poolSeed);
 
-        setActor(rebalancer);
+        // Don't setActor - let preconditions use default poolManager
         fuzz_admin_pool_processPendingDeposits(poolSeed);
 
         setActor(rebalancer);
@@ -189,7 +189,7 @@ contract FuzzGuided is
         setActor(rebalancer);
         fuzz_admin_router7540_requestAsyncWithdrawal(poolSeed, sharesSeed);
 
-        setActor(rebalancer);
+        // Don't setActor - let preconditions use default poolManager
         fuzz_admin_pool_processPendingRedemptions(poolSeed);
 
         setActor(rebalancer);

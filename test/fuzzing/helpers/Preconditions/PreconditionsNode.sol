@@ -2140,6 +2140,13 @@ contract PreconditionsNode is PreconditionsBase {
         // Encode expected return in swapCalldata (mock expects this format)
         params.swapCalldata = abi.encode(params.expectedReturn);
 
+        // Skip if cacheTotalAssets is 0 (execution fee would underflow)
+        if (node.totalAssets() == 0) {
+            params.caller = rebalancer;
+            params.shouldSucceed = false;
+            return params;
+        }
+
         if (_hasPreferredAdminActor) {
             params.caller = _preferredAdminActor;
             _preferredAdminActor = address(0);

@@ -6,7 +6,9 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "forge-std/console.sol";
 
 /**
@@ -56,10 +58,19 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     uint256 public claimableSharePrice; // defined when manager calls processPendingDeposits
 
     // Events
-    event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
+    event Deposit(
+        address indexed sender,
+        address indexed owner,
+        uint256 assets,
+        uint256 shares
+    );
 
     event Withdraw(
-        address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
+        address indexed sender,
+        address indexed receiver,
+        address indexed owner,
+        uint256 assets,
+        uint256 shares
     );
 
     // Errors
@@ -76,7 +87,12 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         _;
     }
 
-    constructor(IERC20 _asset, string memory _name, string memory _symbol, address _manager) ERC20(_name, _symbol) {
+    constructor(
+        IERC20 _asset,
+        string memory _name,
+        string memory _symbol,
+        address _manager
+    ) ERC20(_name, _symbol) {
         poolManager = _manager;
         asset = address(_asset);
     }
@@ -89,12 +105,22 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     // Transferred assets are added to the pendingDepositRequests struct and pendingDeposits variable.
     // PendingDeposits is subtracted from totalAssets until user has minted shares.
 
-    function requestDeposit(uint256 assets, address controller, address owner) public virtual returns (uint256) {
+    function requestDeposit(
+        uint256 assets,
+        address controller,
+        address owner
+    ) public virtual returns (uint256) {
         require(assets > 0, "Cannot request deposit of 0 assets");
-        require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
+        require(
+            owner == msg.sender || isOperator(owner, msg.sender),
+            "Not authorized"
+        );
 
         // Transfer assets from owner to vault
-        require(IERC20(asset).transferFrom(owner, address(this), assets), "Transfer failed");
+        require(
+            IERC20(asset).transferFrom(owner, address(this), assets),
+            "Transfer failed"
+        );
 
         // sets the index to the index of the controller if one exists
         uint256 index = controllerToDepositIndex[controller];
@@ -108,11 +134,15 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
             // or it creates a new pending request struct
         } else {
-            PendingRequest memory newRequest = PendingRequest({controller: controller, amount: assets});
+            PendingRequest memory newRequest = PendingRequest({
+                controller: controller,
+                amount: assets
+            });
 
             // and adds it to the pendingDepositRequests array and the controllerToDepositIndex
             pendingDepositRequests.push(newRequest);
-            controllerToDepositIndex[controller] = pendingDepositRequests.length;
+            controllerToDepositIndex[controller] = pendingDepositRequests
+                .length;
 
             // add request amount to pendingAssets
             pendingAssets += assets;
@@ -124,7 +154,10 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         return REQUEST_ID;
     }
 
-    function pendingDepositRequest(uint256, address controller) external view returns (uint256 assets) {
+    function pendingDepositRequest(
+        uint256,
+        address controller
+    ) external view returns (uint256 assets) {
         uint256 index = controllerToDepositIndex[controller];
         if (index == 0) {
             return 0;
@@ -133,7 +166,10 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         }
     }
 
-    function claimableDepositRequest(uint256, address controller) external view returns (uint256 assets) {
+    function claimableDepositRequest(
+        uint256,
+        address controller
+    ) external view returns (uint256 assets) {
         return claimableDepositRequests[controller];
     }
 
@@ -146,14 +182,22 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // uses totalPendingAssets to calculate pendingShares to be minted. convertPendingToshares() performs this calculation by adding already pendingShares to the totalSupply, and subtracting pendingDeposits from totalSupply().
 
         // this ensures that assets that have been transferred to the vault but not deposited are not included in totalAssets(), and that shares for claimableDeposits that are claimable but not yet minted are included in totalSupply()
-        uint256 newShares = convertPendingToShares(totalPendingAssets, Math.Rounding.Floor);
+        uint256 newShares = convertPendingToShares(
+            totalPendingAssets,
+            Math.Rounding.Floor
+        );
 
         // newly avaiable shares are appended to claimable Shares
         claimableShares += newShares;
 
         console.log("PENDING assets: ", pendingAssets);
         // claimableShares are divided by pendingDeposits to get shares per asset for minting
-        claimableSharePrice = Math.mulDiv(newShares, 1e18, pendingAssets, Math.Rounding.Floor);
+        claimableSharePrice = Math.mulDiv(
+            newShares,
+            1e18,
+            pendingAssets,
+            Math.Rounding.Floor
+        );
 
         // Move deposits from pending to claimable state
         // Claimable deposits are stored as assets
@@ -171,9 +215,17 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         pendingAssets = 0;
     }
 
-    function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {}
+    function deposit(
+        uint256 assets,
+        address receiver,
+        address controller
+    ) public returns (uint256 shares) {}
 
-    function mint(uint256 shares, address receiver, address /* controller_ */ ) public virtual returns (uint256 assets) {
+    function mint(
+        uint256 shares,
+        address receiver,
+        address /* controller_ */
+    ) public virtual returns (uint256 assets) {
         address controller = msg.sender;
 
         // Check if there's any claimable deposit for the controller
@@ -182,7 +234,12 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         }
 
         // Calculate assets based on shares and claimableSharePrice
-        assets = Math.mulDiv(shares, claimableSharePrice, 1e18, Math.Rounding.Floor);
+        assets = Math.mulDiv(
+            shares,
+            claimableSharePrice,
+            1e18,
+            Math.Rounding.Floor
+        );
 
         // Check if requested assets exceed the claimable amount
         if (assets > claimableDepositRequests[controller]) {
@@ -192,7 +249,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // Subtract from claimableShares
         claimableShares -= shares;
 
-        pendingAssets -= assets;
+        // pendingAssets -= assets; //TODO: @audit review, it is alrealy zeroed
 
         // Update claimable balance
         claimableDepositRequests[controller] -= assets;
@@ -207,20 +264,33 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     /*//////////////////////////////////////////////////////////////
                             REDEMPTION FLOW
     //////////////////////////////////////////////////////////////*/
-    function requestRedeem(uint256 shares, address controller, address owner) public virtual returns (uint256) {
+    function requestRedeem(
+        uint256 shares,
+        address controller,
+        address owner
+    ) public virtual returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(owner) >= shares, "Insufficient shares");
-        require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
+        require(
+            owner == msg.sender || isOperator(owner, msg.sender),
+            "Not authorized"
+        );
 
         // Transfer ERC4626 share tokens from owner back to vault
-        require(IERC20((address(this))).transferFrom(owner, address(this), shares), "Transfer failed");
+        require(
+            IERC20((address(this))).transferFrom(owner, address(this), shares),
+            "Transfer failed"
+        );
 
         uint256 index = controllerToRedeemIndex[controller];
 
         if (index > 0) {
             pendingRedeemRequests[index - 1].amount += shares;
         } else {
-            PendingRequest memory newRequest = PendingRequest({controller: controller, amount: shares});
+            PendingRequest memory newRequest = PendingRequest({
+                controller: controller,
+                amount: shares
+            });
 
             pendingRedeemRequests.push(newRequest);
             controllerToRedeemIndex[controller] = pendingRedeemRequests.length;
@@ -231,7 +301,10 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         return REQUEST_ID;
     }
 
-    function pendingRedeemRequest(uint256, address controller) external view returns (uint256 shares) {
+    function pendingRedeemRequest(
+        uint256,
+        address controller
+    ) external view returns (uint256 shares) {
         uint256 index = controllerToRedeemIndex[controller];
         if (index == 0) {
             return 0;
@@ -240,7 +313,10 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         }
     }
 
-    function claimableRedeemRequest(uint256, address controller) external view returns (uint256 shares) {
+    function claimableRedeemRequest(
+        uint256,
+        address controller
+    ) external view returns (uint256 shares) {
         return claimableRedeemRequests[controller];
     }
 
@@ -257,7 +333,11 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         uint256 _totalAssets = convertToAssets(totalPendingShares);
 
         // Calculate share/asset ratio
-        uint256 assetPerShare = Math.mulDiv(_totalAssets, 1e18, totalPendingShares);
+        uint256 assetPerShare = Math.mulDiv(
+            _totalAssets,
+            1e18,
+            totalPendingShares
+        );
 
         // Allocate shares to each depositor
         for (uint256 i = 0; i < pendingRedeemCount; i++) {
@@ -275,10 +355,17 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         delete pendingRedeemRequests;
     }
 
-    function withdraw(uint256 assets, address receiver, address owner) public virtual returns (uint256 shares) {
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) public virtual returns (uint256 shares) {
         address controller = msg.sender;
 
-        require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
+        require(
+            owner == msg.sender || isOperator(owner, msg.sender),
+            "Not authorized"
+        );
 
         // Check if there's any claimable redeem for the controller
         if (claimableRedeemRequests[controller] == 0) {
@@ -306,16 +393,26 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         return shares;
     }
 
-    function redeem(uint256 shares, address receiver, address owner) public returns (uint256 assets) {}
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public returns (uint256 assets) {}
 
     /*//////////////////////////////////////////////////////////////
                             OPERATOR FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    function isOperator(address controller, address operator) public view returns (bool) {
+    function isOperator(
+        address controller,
+        address operator
+    ) public view returns (bool) {
         return _operators[controller][operator];
     }
 
-    function setOperator(address operator, bool approved) external returns (bool) {
+    function setOperator(
+        address operator,
+        bool approved
+    ) external returns (bool) {
         _operators[msg.sender][operator] = approved;
         emit OperatorSet(msg.sender, operator, approved);
         return true;
@@ -348,11 +445,15 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         return 0;
     }
 
-    function convertToAssets(uint256 shares) public view virtual returns (uint256) {
+    function convertToAssets(
+        uint256 shares
+    ) public view virtual returns (uint256) {
         return _convertToAssets(shares, Math.Rounding.Floor);
     }
 
-    function convertToShares(uint256 assets) public view virtual returns (uint256) {
+    function convertToShares(
+        uint256 assets
+    ) public view virtual returns (uint256) {
         return _convertToShares(assets, Math.Rounding.Floor);
     }
 
@@ -372,21 +473,34 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         revert("ERC7540: previewRedeem not available for async vault");
     }
 
-    function maxMint(address controller) public view returns (uint256 maxShares) {
+    function maxMint(
+        address controller
+    ) public view returns (uint256 maxShares) {
         uint256 claimableAssets = claimableDepositRequests[controller];
-        maxShares = Math.mulDiv(claimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
+        maxShares = Math.mulDiv(
+            claimableAssets,
+            1e18,
+            claimableSharePrice,
+            Math.Rounding.Floor
+        );
     }
 
-    function maxDeposit(address controller) public view returns (uint256 maxAssets) {
+    function maxDeposit(
+        address controller
+    ) public view returns (uint256 maxAssets) {
         maxAssets = claimableDepositRequests[controller];
     }
 
-    function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
+    function maxWithdraw(
+        address controller
+    ) public view returns (uint256 maxAssets) {
         uint256 redeemableShares = claimableRedeemRequests[controller];
         maxAssets = convertToAssets(redeemableShares);
     }
 
-    function maxRedeem(address controller) public view returns (uint256 maxShares) {
+    function maxRedeem(
+        address controller
+    ) public view returns (uint256 maxShares) {
         maxShares = claimableRedeemRequests[controller];
     }
 
@@ -397,14 +511,24 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     // Function takes new pendingAssets and defines new claimableShares.
     // PendingAssets * (totalSupply - claimableShares) / (totalAssets - pendingAssets)
     // Ensure that new shares available to mint account for shares already avaialable to mint but not assets that have been transfered but not minted.
-    function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {
-        return _pendingAssets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), (totalAssets()) + 1, rounding);
+    function convertPendingToShares(
+        uint256 _pendingAssets,
+        Math.Rounding rounding
+    ) internal view returns (uint256) {
+        return
+            _pendingAssets.mulDiv(
+                totalSupply() + 10 ** _decimalsOffset(),
+                (totalAssets()) + 1,
+                rounding
+            );
     }
 
     /*//////////////////////////////////////////////////////////////
                         INTERFACE COMPLIANCE
     //////////////////////////////////////////////////////////////*/
-    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public pure override returns (bool) {
         return interfaceId == type(IERC165).interfaceId;
     }
 
@@ -419,24 +543,50 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     /**
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.
      */
-    function _convertToShares(uint256 assets, Math.Rounding rounding) internal view virtual returns (uint256) {
-        return assets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), totalAssets() + 1, rounding);
+    function _convertToShares(
+        uint256 assets,
+        Math.Rounding rounding
+    ) internal view virtual returns (uint256) {
+        return
+            assets.mulDiv(
+                totalSupply() + 10 ** _decimalsOffset(),
+                totalAssets() + 1,
+                rounding
+            );
     }
 
     /**
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
-    function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view virtual returns (uint256) {
-        return shares.mulDiv(totalAssets() + 1, totalSupply() + 10 ** _decimalsOffset(), rounding);
+    function _convertToAssets(
+        uint256 shares,
+        Math.Rounding rounding
+    ) internal view virtual returns (uint256) {
+        return
+            shares.mulDiv(
+                totalAssets() + 1,
+                totalSupply() + 10 ** _decimalsOffset(),
+                rounding
+            );
     }
 
     function _decimalsOffset() internal view virtual returns (uint8) {
         return 0;
     }
 
-    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual {
+    function _deposit(
+        address caller,
+        address receiver,
+        uint256 assets,
+        uint256 shares
+    ) internal virtual {
         // slither-disable-next-line reentrancy-no-eth
-        SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
+        SafeERC20.safeTransferFrom(
+            IERC20(asset),
+            caller,
+            address(this),
+            assets
+        );
         _mint(receiver, shares);
 
         emit Deposit(caller, receiver, assets, shares);

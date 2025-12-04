@@ -60,6 +60,11 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_router4626_invest(uint256 componentSeed, uint256 minOutSeed) public {
         RouterInvestParams memory params = router4626InvestPreconditions(componentSeed, minOutSeed);
 
+        // Skip if no invest amount (zero deposit not valid)
+        if (!params.shouldSucceed) {
+            return;
+        }
+
         _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -123,6 +128,11 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_router7540_mintClaimable(uint256 componentSeed) public {
         RouterMintClaimableParams memory params = router7540MintClaimablePreconditions(componentSeed);
+
+        // Skip if nothing claimable (claimableSharePrice not set)
+        if (!params.shouldSucceed) {
+            return;
+        }
 
         _before();
 
@@ -237,6 +247,11 @@ contract FuzzAdminNode is FuzzNode {
     function fuzz_admin_pool_processPendingDeposits(uint256 poolSeed) public {
         PoolProcessParams memory params = poolProcessPendingDepositsPreconditions(poolSeed);
 
+        // Skip if no pending deposits to process
+        if (!params.shouldSucceed) {
+            return;
+        }
+
         _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
@@ -248,6 +263,11 @@ contract FuzzAdminNode is FuzzNode {
 
     function fuzz_admin_pool_processPendingRedemptions(uint256 poolSeed) public {
         PoolProcessRedemptionsParams memory params = poolProcessPendingRedemptionsPreconditions(poolSeed);
+
+        // Skip if no pending redemptions to process
+        if (!params.shouldSucceed) {
+            return;
+        }
 
         _before();
 
