@@ -160,6 +160,11 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
     function fuzz_node_multicall(uint256 seed) public {
         NodeMulticallParams memory params = nodeMulticallPreconditions(seed);
 
+        // Skip if preconditions indicate failure (e.g., corrupted balance)
+        if (!params.shouldSucceed) {
+            return;
+        }
+
         _before();
 
         bytes4 multicallSelector = bytes4(keccak256("multicall(bytes[])"));

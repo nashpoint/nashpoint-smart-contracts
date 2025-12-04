@@ -556,4 +556,282 @@ contract FoundryPlayground is FuzzGuided {
             19337371914190206685746076656331701558615183464962432767590778626726684609415
         );
     }
+
+    // ==================== REPRO 14-19: 12-04 ====================
+
+    function test_repro_14_fuzz_guided_router7540_partialFulfill() public {
+        try
+            this.fuzz_component_gainBacking(256353898554775248216, 0)
+        {} catch {}
+        this.fuzz_guided_router7540_partialFulfill(
+            0,
+            43046065566779394005564640830420032309924885,
+            0
+        );
+    }
+
+    function test_repro_15_fuzz_admin_pool_processPendingRedemptions() public {
+        try
+            this.fuzz_guided_router7540_executeAsyncWithdrawal(
+                8148522722205147890329735824458695868957175,
+                0,
+                10351562625666933704206198215612816874432202258613
+            )
+        {} catch {}
+        try
+            this.fuzz_guided_router7540_partialFulfill(
+                44047542894223513624784988004827279352194730261,
+                0,
+                366423664282188974238236291694678884183891
+            )
+        {} catch {}
+        this.fuzz_admin_pool_processPendingRedemptions(1576650490163);
+    }
+
+    function test_repro_16_fuzz_guided_router7540_fulfillRedeem() public {
+        vm.warp(block.timestamp + 3704);
+        vm.roll(block.number + 1);
+        try
+            this.fuzz_guided_router7540_partialFulfill(
+                0,
+                7697664051744948929420746885882238833774065233,
+                1089331980893274053696102873530429694224650779
+            )
+        {} catch {}
+        try this.forceNodeContextForTest(0) {} catch {}
+        this.fuzz_guided_router7540_fulfillRedeem(
+            2201929734356531108421269306719573279219,
+            0,
+            0
+        );
+    }
+
+    function test_repro_17() public {
+        vm.prank(0x0000000000000000000000000000000000010000);
+        vm.warp(block.timestamp + 600);
+        vm.roll(block.number + 3443);
+        try this.fuzz_admin_node_fulfillRedeem(1526830170) {} catch {}
+        vm.prank(0x0000000000000000000000000000000000020000);
+        vm.warp(block.timestamp + 327);
+        vm.roll(block.number + 6344);
+        try
+            this.fuzz_guided_router7540_partialFulfill(
+                16291307587688378201203550058243142548441332259459641589145790223581105212446,
+                1524785992,
+                88547664097770406600145745129933251194640394409877110105192465151007363328472
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 471024);
+        vm.roll(block.number + 2648);
+
+        vm.prank(0x0000000000000000000000000000000000030000);
+        vm.warp(block.timestamp + 640);
+        vm.roll(block.number + 14589);
+        try
+            this.fuzz_guided_router7540_fulfillRedeem(
+                41370147849573675512070856522738441685347019102720815941645984476719001761023,
+                946,
+                706056179871158743800599
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 291198);
+        vm.roll(block.number + 48399);
+
+        vm.prank(0x0000000000000000000000000000000000010000);
+        vm.warp(block.timestamp + 82670);
+        vm.roll(block.number + 16923);
+        try this.fuzz_node_multicall(67785160700922852634094) {} catch {}
+        vm.prank(0x0000000000000000000000000000000000010000);
+        vm.warp(block.timestamp + 345927);
+        vm.roll(block.number + 55373);
+        try
+            this.fuzz_component_loseBacking(
+                114916587389629795224913414826804211219420736061723329320821680044317126230770,
+                141972508614623265525
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 255795);
+        vm.roll(block.number + 53229);
+
+        vm.prank(0x0000000000000000000000000000000000030000);
+        vm.warp(block.timestamp + 80123);
+        vm.roll(block.number + 56911);
+        try
+            this.fuzz_admin_router7540_fulfillRedeemRequest(
+                4949165054795372511601318721434963626949001616614414128497513514893970621283,
+                130878365475335428770072
+            )
+        {} catch {}
+        vm.prank(0x0000000000000000000000000000000000030000);
+        vm.warp(block.timestamp + 478923);
+        vm.roll(block.number + 11056);
+        try
+            this.fuzz_fluid_claimRewards(
+                2497972194246591634529951508234501,
+                108932718952309497644658,
+                18235185267968406577485360957595155360445584202970442671824733857237851547229
+            )
+        {} catch {}
+        vm.prank(0x0000000000000000000000000000000000030000);
+        vm.warp(block.timestamp + 244428);
+        vm.roll(block.number + 35529);
+        try
+            this.fuzz_admin_router4626_invest(100754063201821661874, 1527411862)
+        {} catch {}
+        vm.warp(block.timestamp + 195123);
+        vm.roll(block.number + 2820);
+
+        vm.prank(0x0000000000000000000000000000000000020000);
+        vm.warp(block.timestamp + 33605);
+        vm.roll(block.number + 32409);
+        try
+            this.fuzz_mint(
+                115792089237316195423570985008687907853269984665640564039457584007913129639932
+            )
+        {} catch {}
+        vm.prank(0x0000000000000000000000000000000000030000);
+        vm.warp(block.timestamp + 211230);
+        vm.roll(block.number + 43436);
+        try
+            this.fuzz_admin_router7540_requestAsyncWithdrawal(
+                11522943855907076227,
+                1726473206793072886159
+            )
+        {} catch {}
+        vm.prank(0x0000000000000000000000000000000000030000);
+        vm.warp(block.timestamp + 476642);
+        vm.roll(block.number + 35520);
+        try
+            this.fuzz_digift_transfer(
+                66146269806625728852338662478512012720621940921687826357067986896852949434068,
+                115792089237316195423570985008687907853269984665640564039457584007913129639933
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 399105);
+        vm.roll(block.number + 4919);
+
+        vm.prank(0x0000000000000000000000000000000000010000);
+        vm.warp(block.timestamp + 141378);
+        vm.roll(block.number + 1362);
+        try
+            this.fuzz_fluid_claimRewards(
+                97819168031214501634960653214678104806461584724980310976426994550154868368719,
+                1526346305,
+                28779111860170626404802165904129910542662261651411685705360478879764721209028
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 271957);
+        vm.roll(block.number + 14447);
+
+        vm.prank(0x0000000000000000000000000000000000020000);
+        vm.warp(block.timestamp + 22809);
+        vm.roll(block.number + 5032);
+        try
+            this.fuzz_admin_router4626_fulfillRedeem(
+                33099298396579037838359841905872859527822997875199706559685446095298510898972,
+                32
+            )
+        {} catch {}
+        vm.prank(0x0000000000000000000000000000000000020000);
+        vm.warp(block.timestamp + 174585);
+        vm.roll(block.number + 30623);
+        this.fuzz_node_multicall(9863618461268189806024);
+    }
+
+    // NOTE: test_repro_17 and test_repro_19 share identical prefix sequences but diverge at the end
+
+    function test_repro_18_fuzz_admin_router4626_invest() public {
+        try
+            this.fuzz_guided_node_withdraw(
+                12146410924251535,
+                7875519503554863880515346493208128583955157144826053,
+                22800324647551718,
+                7875117701750560898151129787495051243773730841232677624567024629894964677
+            )
+        {} catch {}
+        this.fuzz_admin_router4626_invest(
+            7825251982039587266658998208507492016388927150881287256137927787949,
+            26197
+        );
+    }
+
+    function test_repro_19_fuzz_admin_node_startRebalance() public {
+        vm.warp(block.timestamp + 600);
+        vm.roll(block.number + 3443);
+        try this.fuzz_admin_node_fulfillRedeem(1526830170) {} catch {}
+        vm.warp(block.timestamp + 327);
+        vm.roll(block.number + 6344);
+        try
+            this.fuzz_guided_router7540_partialFulfill(
+                16291307587688378201203550058243142548441332259459641589145790223581105212446,
+                1524785992,
+                88547664097770406600145745129933251194640394409877110105192465151007363328472
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 471024);
+        vm.roll(block.number + 2648);
+
+        vm.warp(block.timestamp + 640);
+        vm.roll(block.number + 14589);
+        try
+            this.fuzz_guided_router7540_fulfillRedeem(
+                41370147849573675512070856522738441685347019102720815941645984476719001761023,
+                946,
+                706056179871158743800599
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 291198);
+        vm.roll(block.number + 48399);
+
+        vm.warp(block.timestamp + 82670);
+        vm.roll(block.number + 16923);
+        try this.fuzz_node_multicall(67785160700922852634094) {} catch {}
+        vm.warp(block.timestamp + 345927);
+        vm.roll(block.number + 55373);
+        try
+            this.fuzz_component_loseBacking(
+                114916587389629795224913414826804211219420736061723329320821680044317126230770,
+                141972508614623265525
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 255795);
+        vm.roll(block.number + 53229);
+
+        vm.warp(block.timestamp + 80123);
+        vm.roll(block.number + 56911);
+        try
+            this.fuzz_admin_router7540_fulfillRedeemRequest(
+                4949165054795372511601318721434963626949001616614414128497513514893970621283,
+                130878365475335428770072
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 478923);
+        vm.roll(block.number + 11056);
+        try
+            this.fuzz_fluid_claimRewards(
+                2497972194246591634529951508234501,
+                108932718952309497644658,
+                18235185267968406577485360957595155360445584202970442671824733857237851547229
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 244428);
+        vm.roll(block.number + 35529);
+        try
+            this.fuzz_admin_router4626_invest(100754063201821661874, 1527411862)
+        {} catch {}
+        vm.warp(block.timestamp + 17126);
+        vm.roll(block.number + 51251);
+
+        vm.warp(block.timestamp + 400393);
+        vm.roll(block.number + 14700);
+        try
+            this.fuzz_admin_router4626_liquidate(
+                4370000,
+                52873876721827008213193212492356757525914596681957813853538054425677109971762
+            )
+        {} catch {}
+        vm.warp(block.timestamp + 87170);
+        vm.roll(block.number + 36061);
+        this.fuzz_admin_node_startRebalance(1527112149);
+    }
 }

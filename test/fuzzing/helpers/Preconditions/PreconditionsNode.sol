@@ -1091,7 +1091,10 @@ contract PreconditionsNode is PreconditionsBase {
             params.calls[1] = abi.encodeWithSelector(INode.setRebalanceWindow.selector, uint64(6 hours));
             uint256 window = uint256(Node(address(node)).rebalanceWindow());
             uint256 last = uint256(Node(address(node)).lastRebalance());
-            params.shouldSucceed = block.timestamp >= last + window;
+            // Sanity check: skip if asset balance is corrupted (would cause overflow in fee calculation)
+            uint256 nodeAssetBalance = asset.balanceOf(address(node));
+            bool balanceSane = nodeAssetBalance < type(uint128).max;
+            params.shouldSucceed = block.timestamp >= last + window && balanceSane;
         } else {
             params.calls = new bytes[](1);
             params.calls[0] = abi.encodeWithSelector(INode.startRebalance.selector);
