@@ -147,7 +147,24 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         }
 
         params.sharesExpected = digiftAdapter.convertToShares(totalAssets);
-        params.assetsExpected = 0;
+
+        // Branch: Sometimes include asset reimbursement to cover mint's assetsToReimburse > 0 case
+        // seed % 7 == 3 triggers reimbursement scenario
+        if (seed % 7 == 3) {
+            // Reimburse small amount (1% of deposited assets) to stay within settlement deviation
+            params.assetsExpected = totalAssets / 100;
+            // Ensure at least some reimbursement
+            if (params.assetsExpected == 0) {
+                params.assetsExpected = 1e6; // Minimum 1 USDC worth
+            }
+            // Ensure adapter has assets to reimburse
+            uint256 adapterBalance = asset.balanceOf(address(digiftAdapter));
+            if (adapterBalance < params.assetsExpected) {
+                assetToken.mint(address(digiftAdapter), params.assetsExpected - adapterBalance);
+            }
+        } else {
+            params.assetsExpected = 0;
+        }
 
         if (_hasPreferredAdminActor) {
             params.caller = _preferredAdminActor;
@@ -168,9 +185,75 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
     {
         uint256 queueLength = _forwardedDigiftRedemptionCount();
         uint256 pendingRedeemGlobal = digiftAdapter.globalPendingRedeemRequest();
+        uint256 accumulatedRedemption = digiftAdapter.accumulatedRedemption();
         uint256 assetsExpected;
 
-        if (queueLength == 0 || pendingRedeemGlobal == 0) {
+        // Check if contract has pending requests from router handlers
+        // Router sets accumulatedRedemption, forwardRequests converts it to pendingRedeemRequest
+        if (queueLength == 0 && (pendingRedeemGlobal > 0 || accumulatedRedemption > 0)) {
+            // Need to forward accumulated to pending first
+            if (accumulatedRedemption > 0 && pendingRedeemGlobal == 0) {
+                // Forward needs stTokens - mint them to adapter
+                uint256 stTokensNeeded = accumulatedRedemption;
+                stToken.mint(address(digiftAdapter), stTokensNeeded);
+
+                // Now forward can succeed
+                vm.prank(rebalancer);
+                try digiftAdapter.forwardRequestsToDigift() {} catch {}
+
+                // Re-check pending after forward
+                pendingRedeemGlobal = digiftAdapter.globalPendingRedeemRequest();
+            }
+
+            if (pendingRedeemGlobal == 0) {
+                params.shouldSucceed = false;
+                return params;
+            }
+            // Contract has pending requests (from router handlers) but queue is empty
+            // Sync from contract state instead of preparing new redemptions
+            assetsExpected = digiftAdapter.convertToAssets(pendingRedeemGlobal);
+            if (assetsExpected == 0) {
+                assetsExpected = pendingRedeemGlobal;
+            }
+
+            uint256 adapterBalance = asset.balanceOf(address(digiftAdapter));
+            if (assetsExpected > 0 && adapterBalance < assetsExpected) {
+                assetToken.mint(address(digiftAdapter), assetsExpected - adapterBalance);
+            }
+
+            // Build records from contract state (single node assumption)
+            params.records = new DigiftPendingRedemptionRecord[](1);
+            params.records[0] = DigiftPendingRedemptionRecord({
+                node: address(node),
+                component: address(digiftAdapter),
+                shares: pendingRedeemGlobal
+            });
+
+            // Add to tracking queue so postconditions can consume it
+            _recordDigiftForwardedRedemption(params.records[0]);
+
+            params.sharesExpected = 0;
+            params.assetsExpected = assetsExpected;
+
+            if (_hasPreferredAdminActor) {
+                params.caller = _preferredAdminActor;
+                _preferredAdminActor = address(0);
+                _hasPreferredAdminActor = false;
+                params.shouldSucceed = params.caller == rebalancer;
+                return params;
+            }
+
+            bool authorized = _rand("DIGIFT_SETTLE_REDEEM_CALLER", seed) % 23 != 0;
+            params.caller = authorized ? rebalancer : randomUser;
+            params.shouldSucceed = authorized;
+
+            if (seed % 5 == 0) {
+                params.shouldSucceed = false;
+                params.assetsExpected = assetsExpected / 2 + 1;
+            }
+            return params;
+        } else if (queueLength == 0 || pendingRedeemGlobal == 0) {
+            // Both empty or only queue has data - prepare new redemptions
             uint8 recordCount = uint8(2 + (seed % 2));
             uint256 totalShares = Math.max(digiftAdapter.minRedeemAmount() * recordCount, 5e18);
             assetsExpected = _prepareDigiftRedemption(totalShares, recordCount);

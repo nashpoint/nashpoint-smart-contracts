@@ -29,6 +29,8 @@ contract PreconditionsBase is FuzzStructs {
             } else {
                 lastTimestamp = block.timestamp;
             }
+            // Refresh oracle timestamps to prevent StalePriceData errors
+            _refreshOracles();
         }
         if (_hasPreferredAdminActor) {
             _preferredAdminActor = address(0);
@@ -88,5 +90,36 @@ contract PreconditionsBase is FuzzStructs {
 
     function _rand(bytes32 tag, uint256 seedA, uint256 seedB) internal pure returns (uint256) {
         return uint256(keccak256(abi.encodePacked(tag, seedA, seedB, SEED)));
+    }
+
+    /// @notice Refreshes oracle timestamps to current block.timestamp to prevent StalePriceData errors
+    function _refreshOracles() internal {
+        if (address(assetPriceOracleMock) != address(0)) {
+            assetPriceOracleMock.setLatestRoundData(
+                1,
+                1e8,
+                block.timestamp,
+                block.timestamp,
+                1
+            );
+        }
+        if (address(digiftPriceOracleMock) != address(0)) {
+            digiftPriceOracleMock.setLatestRoundData(
+                1,
+                2e10,
+                block.timestamp,
+                block.timestamp,
+                1
+            );
+        }
+    }
+
+    /// @notice Wrapper for vm.warp that also refreshes oracle timestamps
+    function _warp(uint256 target) internal {
+        if (block.timestamp < target) {
+            vm.warp(target);
+            lastTimestamp = block.timestamp;
+            _refreshOracles();
+        }
     }
 }

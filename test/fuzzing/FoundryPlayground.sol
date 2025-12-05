@@ -834,4 +834,253 @@ contract FoundryPlayground is FuzzGuided {
         vm.roll(block.number + 36061);
         this.fuzz_admin_node_startRebalance(1527112149);
     }
+
+    // ==================== COVERAGE: settleRedeem & withdraw ====================
+
+    /**
+     * @notice Test for DigiftAdapter.settleRedeem and withdraw coverage
+     * @dev Covers:
+     *      - DigiftAdapter.settleRedeem loop body (lines 818-848)
+     *      - DigiftAdapter.withdraw function body (lines 870-893)
+     *      Uses ONLY handlers - no direct contract calls
+     *      Handler preconditions auto-prepare state when needed
+     */
+    function test_digift_settleRedeem_withdraw_coverage() public {
+        // Step 1: User deposits to Node
+        setActor(USERS[1]);
+        fuzz_deposit(8e18);
+
+        // Step 2: Rebalancer invests in digift via router
+        uint256 digiftSeed = _digiftComponentSeed();
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(digiftSeed);
+
+        // Step 3: Forward deposit requests to digift protocol
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(1);
+
+        // Step 4: Settle deposits
+        setActor(rebalancer);
+        fuzz_admin_digift_settleDeposit(2);
+
+        // Step 5: Mint digift shares to node
+        fuzz_digift_mint(3);
+
+        // Step 6: Request async withdrawal (sets up accumulatedRedemption)
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(digiftSeed, 0);
+
+        // Step 7: Forward redeem requests
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(4);
+
+        // Step 8: Settle redeem - seed=6 (not divisible by 5 = happy path)
+        // This exercises settleRedeem loop body
+        setActor(rebalancer);
+        fuzz_admin_digift_settleRedeem(6);
+
+        // Step 9: Withdraw via handler - exercises withdraw function body
+        fuzz_digift_withdraw(1);
+    }
+
+    /**
+     * @notice Test for DigiftAdapter.mint with assetsToReimburse > 0
+     * @dev Covers:
+     *      - DigiftAdapter.mint lines 751-752 (assetsToReimburse > 0 branch)
+     *      Uses seed=3 for settleDeposit which triggers reimbursement (3 % 7 == 3)
+     */
+    function test_digift_mint_with_reimbursement() public {
+        // Step 1: User deposits to Node
+        setActor(USERS[0]);
+        fuzz_deposit(10e18);
+
+        // Step 2: Rebalancer invests in digift via router
+        uint256 digiftSeed = _digiftComponentSeed();
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(digiftSeed);
+
+        // Step 3: Forward deposit requests to digift protocol
+        setActor(rebalancer);
+        fuzz_admin_digift_forwardRequests(1);
+
+        // Step 4: Settle deposits WITH reimbursement (seed=3 triggers 3 % 7 == 3)
+        // This sets pendingDepositReimbursement > 0
+        setActor(rebalancer);
+        fuzz_admin_digift_settleDeposit(3);
+
+        // Step 5: Mint digift shares - exercises assetsToReimburse > 0 branch
+        fuzz_digift_mint(5);
+    }
+
+    // ==================== REPRO 20-29: 12-05 ====================
+
+    function test_repro_20_fuzz_guided_router7540_partialFulfill() public {
+        vm.warp(block.timestamp + 359369);
+        vm.roll(block.number + 43293);
+        try this.fuzz_admin_node_updateTotalAssets(107009954446760548464198220285016120315973380431320585428316111480067426305406) {} catch {}
+
+        try this.fuzz_admin_digift_settleDeposit(780123469793428776142465106137045839983972736107661796922259623222759526957) {} catch {}
+
+        vm.warp(block.timestamp + 461307);
+        vm.roll(block.number + 21214);
+        try this.fuzz_admin_router4626_fulfillRedeem(48338929783660781, 52670703927795634442829774399954743202977784654290543440242936378323864206838) {} catch {}
+
+        vm.warp(block.timestamp + 478343);
+        vm.roll(block.number + 37163);
+        try this.fuzz_admin_router4626_liquidate(40746065832387718853981491819422152972573170637566246518871277778860707122897, 66119810178780148885555979026674688922405620900765837298252535027520402216177) {} catch {}
+
+        vm.warp(block.timestamp + 342341);
+        vm.roll(block.number + 58717);
+
+        vm.warp(block.timestamp + 221992);
+        vm.roll(block.number + 12506);
+        try this.fuzz_donate(1525759810, 15612104106745460712615912535354803027382001373132619789052684515844108164692, 115792089237316195423570985008687907853269984665640564039457584007913129639932) {} catch {}
+
+        try this.fuzz_guided_router7540_fulfillRedeem(41370147849573675512070856522738441685347019102720815941645984476719001761023, 333, 410484945697158764616706) {} catch {}
+
+        vm.warp(block.timestamp + 374318);
+        vm.roll(block.number + 54);
+        try this.fuzz_digift_approve(995, 5934547810796319921999) {} catch {}
+
+        vm.warp(block.timestamp + 143336);
+        vm.roll(block.number + 57569);
+
+        try this.fuzz_merkl_claimRewards(61797209365707328549125443422028408119019920739501954328700437568638826446730) {} catch {}
+
+        vm.warp(block.timestamp + 112398);
+        vm.roll(block.number + 2618);
+        try this.forceNodeContextForTest(85957086851727992935606) {} catch {}
+
+        vm.warp(block.timestamp + 542);
+        vm.roll(block.number + 39457);
+        this.fuzz_guided_router7540_partialFulfill(8816526032587984106035, 2751784041057608181650948084281963600034452847535828024138512306558464048288, 0);
+    }
+
+    function test_repro_21_fuzz_admin_pool_processPendingRedemptions() public {
+        try this.fuzz_guided_router7540_executeAsyncWithdrawal(90263849706813124529518377348532057030559189495606847788830092183828279560096, 428478783085415750, 15410935500739120977786464504431848052996168336164466045906354106421144997076) {} catch {}
+
+        try this.fuzz_admin_oneinch_swap(64) {} catch {}
+
+        vm.warp(block.timestamp + 324363);
+        vm.roll(block.number + 56024);
+        try this.fuzz_admin_router4626_liquidate(946962682, 108440753633129251720570879000087525755721336049586913605522656296343372371021) {} catch {}
+
+        vm.warp(block.timestamp + 503086);
+        vm.roll(block.number + 14099);
+        try this.fuzz_admin_node_startRebalance(378005170951626412139633828188729104915973707931013099058770664881190839298) {} catch {}
+
+        try this.fuzz_guided_router7540_partialFulfill(34953813267182090945095142504540057050876459760031428625967970147156798000180, 59, 62567577140400897071883073585702953130058083457169373186573550070816819673032) {} catch {}
+
+        try this.fuzz_setOperator(164641887471024825, false) {} catch {}
+
+        this.fuzz_admin_pool_processPendingRedemptions(22217376903576031011275);
+    }
+
+    function test_repro_22_fuzz_guided_router7540_fulfillRedeem() public {
+        vm.warp(block.timestamp + 748144);
+        vm.roll(block.number + 103541);
+
+        vm.warp(block.timestamp + 35888);
+        vm.roll(block.number + 3887);
+        try this.fuzz_mint(74972595886271919897676948109473778757826803834988643610821602922307385331036) {} catch {}
+
+        vm.warp(block.timestamp + 246773);
+        vm.roll(block.number + 36499);
+
+        try this.fuzz_guided_router7540_partialFulfill(710665558988838117519, 15098431465907752441179780132465723185643231501464114608085155672874397910876, 57192353679284195753225350951216664338355483840480621681083552657768115090345) {} catch {}
+
+        try this.fuzz_admin_router4626_liquidate(3948763057069771832731125175262834590714745981442474909194108084588964496520, 388172519) {} catch {}
+
+        vm.warp(block.timestamp + 59557);
+        vm.roll(block.number + 4645);
+        try this.fuzz_admin_router4626_invest(272037121, 15594759375282051899134883350874778770391563389023855594690558986001629321183) {} catch {}
+
+        vm.warp(block.timestamp + 56);
+        vm.roll(block.number + 26338);
+        try this.forceNodeContextForTest(0) {} catch {}
+
+        this.fuzz_guided_router7540_fulfillRedeem(10554636948743835141513245061764140400635405681097233861411485154833313651639, 712, 149957474321084558579520);
+    }
+
+    function test_repro_23_fuzz_admin_router4626_invest() public {
+        try this.fuzz_guided_node_withdraw(2117355107464567, 10032532186220772674631821352031032423228570761225151, 8689707505037008, 78820271863850242497745445748137582616827113871028368619706850719667034948) {} catch {}
+
+        this.fuzz_admin_router4626_invest(210144308199392088329835531410517100691065813357626025480387613234992382, 3236103678201);
+    }
+
+    function test_repro_24_fuzz_admin_router4626_fulfillRedeem() public {
+        vm.warp(block.timestamp + 190);
+        vm.roll(block.number + 6344);
+        try this.fuzz_guided_router7540_partialFulfill(16291307587688378201203550058243142548441332259459641589145790223581105212446, 1524785992, 88547664097770406600145745129933251194640394409877110105192465151007363328472) {} catch {}
+
+        vm.warp(block.timestamp + 21894);
+        vm.roll(block.number + 20190);
+
+        vm.warp(block.timestamp + 291642);
+        vm.roll(block.number + 30173);
+        try this.fuzz_admin_router7540_requestAsyncWithdrawal(3693809503832468918578994684699473957406547677216879787826602939636338439892, 1527021096) {} catch {}
+
+        vm.warp(block.timestamp + 255612);
+        vm.roll(block.number + 54472);
+        try this.fuzz_admin_router4626_liquidate(38011408696111666806885, 28682921901818409095105767462935977389272635557194608783260227709573863234039) {} catch {}
+
+        vm.warp(block.timestamp + 121463);
+        vm.roll(block.number + 1381);
+        try this.fuzz_node_multicall(0) {} catch {}
+
+        vm.warp(block.timestamp + 168800);
+        vm.roll(block.number + 18472);
+
+        vm.warp(block.timestamp + 575727);
+        vm.roll(block.number + 1589);
+        try this.fuzz_setOperator(1529387037, false) {} catch {}
+
+        vm.warp(block.timestamp + 170390);
+        vm.roll(block.number + 46745);
+
+        vm.warp(block.timestamp + 362002);
+        vm.roll(block.number + 55019);
+        try this.fuzz_merkl_claimRewards(1871595335851216480705686316040362085895371260889126809614039734917317880533) {} catch {}
+
+        vm.warp(block.timestamp + 310992);
+        vm.roll(block.number + 898);
+        try this.fuzz_merkl_claimRewards(34417326770437387383023081110741511827649882840160217839534527347028922829287) {} catch {}
+
+        try this.fuzz_fluid_claimRewards(144415406625749034154510, 72457867465901671775238290617201352718214609060111544739912057280348962676071, 1526282831) {} catch {}
+
+        vm.warp(block.timestamp + 35868);
+        vm.roll(block.number + 7174);
+
+        this.fuzz_admin_router4626_fulfillRedeem(74698920154011644766883164678, 8978597624093045223803);
+    }
+
+    function test_repro_25_fuzz_guided_router7540_partialFulfill() public {
+        try this.fuzz_guided_router7540_fulfillRedeem(2956147788029956252690560003552784044387370562664179084508016477093388059094, 115, 223804887795172354500404) {} catch {}
+
+        this.fuzz_guided_router7540_partialFulfill(2542708026071853322418, 4467376005286988418700395113791252604115049420001910778126340938921683439084, 0);
+    }
+
+    function test_repro_26_fuzz_admin_digift_forwardRequests() public {
+        try this.fuzz_guided_router7540_executeAsyncWithdrawal(0, 5018145451792544580748153481210036, 0) {} catch {}
+
+        this.fuzz_admin_digift_forwardRequests(0);
+    }
+
+    function test_repro_27_fuzz_guided_router7540_fulfillRedeem() public {
+        try this.fuzz_admin_node_fulfillRedeem(2) {} catch {}
+
+        this.fuzz_guided_router7540_fulfillRedeem(157237119914741185209538207548720100983968553026210127949642208380912600646, 606791213301533, 173787157479419557721883202464406175515593363786804897771948957065120497001);
+    }
+
+    function test_repro_28_fuzz_guided_router7540_executeAsyncWithdrawal() public {
+        try this.fuzz_guided_router7540_executeAsyncWithdrawal(0, 0, 0) {} catch {}
+
+        this.fuzz_guided_router7540_executeAsyncWithdrawal(0, 55142402824458, 0);
+    }
+
+    function test_repro_29_fuzz_guided_router7540_claimable() public {
+        try this.fuzz_guided_router7540_executeAsyncWithdrawal(0, 14591, 0) {} catch {}
+
+        this.fuzz_guided_router7540_claimable(12332544016697713562781574770496414935, 319092278233355812663502932580123998747395);
+    }
 }
