@@ -19,4 +19,16 @@ contract Properties is
     Properties_Factory,
     Properties_Reward,
     LogicalCoverageBase
-{}
+{
+    function invariant_INV_01() internal returns (bool) {
+        uint256 totalSupply = node.totalSupply();
+        uint256 exitingShares = node.sharesExiting();
+
+        fl.gte(
+            totalSupply,
+            exitingShares,
+            "INV_01: sharesExiting cannot exceed total supply"
+        );
+        return true;
+    }
+}
