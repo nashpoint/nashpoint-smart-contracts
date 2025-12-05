@@ -20,14 +20,6 @@ contract Properties is
     Properties_Reward,
     LogicalCoverageBase
 {
-    // function invariant_GLOB_01() internal returns (bool) {
-    //     uint256 totalAssets = node.totalAssets();
-    //     uint256 nodeAssetBalance = asset.balanceOf(address(node));
-
-    //     fl.gte(totalAssets, nodeAssetBalance, "GLOB_01: totalAssets must cover node balance");
-    //     return true;
-    // }
-
     function invariant_INV_01() internal returns (bool) {
         uint256 totalSupply = node.totalSupply();
         uint256 exitingShares = node.sharesExiting();

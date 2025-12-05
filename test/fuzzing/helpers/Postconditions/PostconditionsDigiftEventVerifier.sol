@@ -3,8 +3,6 @@ pragma solidity ^0.8.0;
 
 import "./PostconditionsBase.sol";
 
-import {DigiftEventVerifierMock} from "../../../mocks/DigiftEventVerifierMock.sol";
-
 contract PostconditionsDigiftEventVerifier is PostconditionsBase {
     function digiftVerifierConfigurePostconditions(
         bool success,
@@ -12,9 +10,6 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
         DigiftVerifierConfigureParams memory params
     ) internal {
         if (success) {
-            (uint256 shares, uint256 assets) =
-                DigiftEventVerifierMock(address(digiftEventVerifier)).getExpectedSettlement(params.eventType);
-            // invariant_DIGIFT_VERIFIER_01(params, shares, assets);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -27,8 +22,6 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
         DigiftVerifierWhitelistParams memory params
     ) internal {
         if (success) {
-            bool stored = DigiftEventVerifierMock(address(digiftEventVerifier)).whitelist(params.adapter);
-            // invariant_DIGIFT_VERIFIER_02(params, stored);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -54,9 +47,6 @@ contract PostconditionsDigiftEventVerifier is PostconditionsBase {
     ) internal {
         if (success) {
             _after();
-
-            (uint256 shares, uint256 assets) = abi.decode(returnData, (uint256, uint256));
-            // invariant_DIGIFT_VERIFIER_03(params, shares, assets);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
