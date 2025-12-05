@@ -15,7 +15,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // invariant_REGISTRY_01(params);
+            invariant_REGISTRY_01(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -30,7 +30,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // invariant_REGISTRY_02(params);
+            invariant_REGISTRY_02(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -45,7 +45,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // invariant_REGISTRY_03(params);
+            invariant_REGISTRY_03(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -60,7 +60,6 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // invariant_REGISTRY_04(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -75,7 +74,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // invariant_REGISTRY_05(params);
+            invariant_REGISTRY_04(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -91,7 +90,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
             _after();
 
             bool status = registry.isRegistryType(params.target, params.typeEnum);
-            // invariant_REGISTRY_06(params, status);
+            invariant_REGISTRY_05(params, status);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -104,7 +103,6 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         if (success) {
             _after();
 
-            // invariant_REGISTRY_07(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -120,7 +118,7 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
             _after();
 
             address newOwner = registry.owner();
-            // invariant_REGISTRY_08(params, newOwner);
+            invariant_REGISTRY_06(params, newOwner);
 
             // Restore original owner to keep environment consistent
             vm.startPrank(newOwner);
@@ -148,7 +146,6 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryInitializeParams memory params
     ) internal {
         params; // silence warning
-        // invariant_REGISTRY_10();
         onFailInvariantsGeneral(returnData);
     }
 
@@ -158,7 +155,6 @@ contract PostconditionsNodeRegistry is PostconditionsBase {
         RegistryUpgradeParams memory params
     ) internal {
         params; // silence warning
-        // invariant_REGISTRY_11();
         onFailInvariantsGeneral(returnData);
     }
 }

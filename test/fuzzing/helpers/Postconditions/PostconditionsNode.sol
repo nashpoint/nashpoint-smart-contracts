@@ -20,14 +20,12 @@ contract PostconditionsNode is PostconditionsBase {
             ActorState storage beforeActor = states[0].actorStates[params.receiver];
             ActorState storage afterActor = states[1].actorStates[params.receiver];
 
-            // invariant_NODE_08(mintedShares);
-            // invariant_NODE_09(beforeActor, afterActor, mintedShares);
-            // invariant_NODE_10(beforeActor, afterActor, params.assets);
-            // invariant_NODE_11(params.assets);
-            // invariant_NODE_12(params.assets);
-            // invariant_NODE_13(mintedShares);
+            invariant_NODE_08(beforeActor, afterActor, mintedShares);
+            invariant_NODE_09(params.assets);
+            invariant_NODE_10(params.assets);
+            invariant_NODE_11(mintedShares);
 
-            // invariant_NODE_01(beforeActor, afterActor);
+            invariant_NODE_01(beforeActor, afterActor);
             invariant_NODE_05();
 
             onSuccessInvariantsGeneral(returnData);
@@ -45,14 +43,12 @@ contract PostconditionsNode is PostconditionsBase {
             ActorState storage beforeActor = states[0].actorStates[params.receiver];
             ActorState storage afterActor = states[1].actorStates[params.receiver];
 
-            // invariant_NODE_14(assetsSpent);
-            // invariant_NODE_15(beforeActor, afterActor, params.shares);
-            // invariant_NODE_16(beforeActor, afterActor, assetsSpent);
-            // invariant_NODE_17(assetsSpent);
-            // invariant_NODE_18(assetsSpent);
-            // invariant_NODE_19(params.shares);
+            invariant_NODE_12(beforeActor, afterActor, params.shares);
+            invariant_NODE_13(assetsSpent);
+            invariant_NODE_14(assetsSpent);
+            invariant_NODE_15(params.shares);
 
-            // invariant_NODE_01(beforeActor, afterActor);
+            invariant_NODE_01(beforeActor, afterActor);
             invariant_NODE_05();
 
             onSuccessInvariantsGeneral(returnData);
@@ -69,18 +65,15 @@ contract PostconditionsNode is PostconditionsBase {
 
             ActorState storage beforeOwner = states[0].actorStates[params.owner];
             ActorState storage afterOwner = states[1].actorStates[params.owner];
-            ActorState storage afterEscrow = states[1].actorStates[address(escrow)];
-            ActorState storage beforeEscrow = states[0].actorStates[address(escrow)];
 
             // NOTE: requests() now returns 3 values (4th was removed in remediation)
             (uint256 pendingRedeemAfter, uint256 claimableRedeemAfter, uint256 claimableAssetsAfter) =
                 node.requests(params.controller);
 
-            // invariant_NODE_20(beforeOwner, afterOwner, params.shares);
-            // invariant_NODE_21(params.shares);
-            // invariant_NODE_22(pendingRedeemAfter, params.pendingBefore, params.shares);
-            // invariant_NODE_23(claimableRedeemAfter, states[0].actorStates[params.controller].claimableRedeem);
-            // invariant_NODE_24(claimableAssetsAfter, states[0].actorStates[params.controller].claimableAssets);
+            invariant_NODE_16(beforeOwner, afterOwner, params.shares);
+            invariant_NODE_17(pendingRedeemAfter, params.pendingBefore, params.shares);
+            invariant_NODE_18(claimableRedeemAfter, states[0].actorStates[params.controller].claimableRedeem);
+            invariant_NODE_19(claimableAssetsAfter, states[0].actorStates[params.controller].claimableAssets);
 
             invariant_NODE_02(params);
             invariant_NODE_05();
@@ -100,11 +93,8 @@ contract PostconditionsNode is PostconditionsBase {
             ActorState storage beforeController = states[0].actorStates[params.controller];
             ActorState storage afterController = states[1].actorStates[params.controller];
 
-            // invariant_NODE_25(beforeController, afterController);
-            // invariant_NODE_26(beforeController, afterController);
-            // invariant_NODE_27(beforeController, afterController);
-            // invariant_NODE_28();
-            // invariant_NODE_29();
+            invariant_NODE_20(beforeController, afterController);
+            invariant_NODE_21(beforeController, afterController);
 
             invariant_NODE_03(params);
             invariant_NODE_05();
@@ -126,10 +116,8 @@ contract PostconditionsNode is PostconditionsBase {
             ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
             ActorState storage afterReceiver = states[1].actorStates[params.receiver];
 
-            // invariant_NODE_30(beforeController, afterController, params.assets);
-            // invariant_NODE_31(beforeController, afterController, sharesBurned);
-            // invariant_NODE_32(beforeReceiver, afterReceiver, params.assets);
-            // invariant_NODE_33(params.assets);
+            invariant_NODE_22(beforeController, afterController, params.assets);
+            invariant_NODE_23(params.assets);
 
             invariant_NODE_04(params);
             invariant_NODE_05();
@@ -147,7 +135,6 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             bool isApproved = node.isOperator(params.controller, params.operator);
-            // invariant_NODE_34(params, isApproved);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -164,7 +151,7 @@ contract PostconditionsNode is PostconditionsBase {
         if (success) {
             _after();
             uint256 allowance = node.allowance(caller, params.spender);
-            // invariant_NODE_35(allowance, params);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -185,9 +172,6 @@ contract PostconditionsNode is PostconditionsBase {
             ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
             ActorState storage afterReceiver = states[1].actorStates[params.receiver];
 
-            // invariant_NODE_36(beforeSender, afterSender, params.amount);
-            // invariant_NODE_37(beforeReceiver, afterReceiver, params.amount);
-            // invariant_NODE_38();
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -208,12 +192,6 @@ contract PostconditionsNode is PostconditionsBase {
             ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
             ActorState storage afterReceiver = states[1].actorStates[params.receiver];
 
-            uint256 allowanceAfter = node.allowance(params.owner, spender);
-
-            // invariant_NODE_39(beforeOwner, afterOwner, params.amount);
-            // invariant_NODE_40(beforeReceiver, afterReceiver, params.amount);
-            // invariant_NODE_41(allowanceAfter, params.allowanceBefore, params.amount);
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -230,10 +208,10 @@ contract PostconditionsNode is PostconditionsBase {
             ActorState storage beforeReceiver = states[0].actorStates[params.receiver];
             ActorState storage afterReceiver = states[1].actorStates[params.receiver];
 
-            // invariant_NODE_42(beforeController, afterController, params.shares);
-            // invariant_NODE_43(beforeController, afterController, assetsReturned);
-            // invariant_NODE_44(beforeReceiver, afterReceiver, assetsReturned);
-            // invariant_NODE_45(assetsReturned);
+            invariant_NODE_29(beforeController, afterController, params.shares);
+            invariant_NODE_30(beforeController, afterController, assetsReturned);
+            invariant_NODE_31(beforeReceiver, afterReceiver, assetsReturned);
+            invariant_NODE_32(assetsReturned);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -261,7 +239,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         params; // silence warning
-        // invariant_NODE_48();
         onFailInvariantsGeneral(returnData);
     }
 
@@ -269,7 +246,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_49(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -280,7 +256,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_50(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -293,7 +268,6 @@ contract PostconditionsNode is PostconditionsBase {
         NodeAddressParams memory params
     ) internal {
         if (success) {
-            // invariant_NODE_51(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -304,7 +278,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_52(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -315,7 +288,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_53(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -326,7 +298,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_54(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -353,8 +324,8 @@ contract PostconditionsNode is PostconditionsBase {
             uint256 nodeBalanceAfter = IERC20(params.token).balanceOf(address(node));
             uint256 recipientBalanceAfter = IERC20(params.token).balanceOf(params.recipient);
 
-            // invariant_NODE_61(params, nodeBalanceAfter);
-            // invariant_NODE_62(params, recipientBalanceAfter);
+            invariant_NODE_35(params, nodeBalanceAfter);
+            invariant_NODE_36(params, recipientBalanceAfter);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -370,10 +341,7 @@ contract PostconditionsNode is PostconditionsBase {
         if (success) {
             ComponentAllocation memory allocation = node.getComponentAllocation(params.component);
 
-            // invariant_NODE_55(params);
-            // invariant_NODE_56(params);
-            // invariant_NODE_57(params);
-            // invariant_NODE_58(params);
+            invariant_NODE_33(params);
 
             _pushUnique(COMPONENTS, params.component);
             _pushUnique(REMOVABLE_COMPONENTS, params.component);
@@ -395,7 +363,7 @@ contract PostconditionsNode is PostconditionsBase {
         NodeRemoveComponentParams memory params
     ) internal {
         if (success) {
-            // invariant_NODE_59(params);
+            invariant_NODE_34(params);
             _removeAddress(COMPONENTS, params.component);
             _removeAddress(REMOVABLE_COMPONENTS, params.component);
             _removeAddress(COMPONENTS_ERC4626, params.component);
@@ -413,9 +381,6 @@ contract PostconditionsNode is PostconditionsBase {
     ) internal {
         if (success) {
             ComponentAllocation memory allocation = node.getComponentAllocation(params.component);
-            // invariant_NODE_56(params);
-            // invariant_NODE_57(params);
-            // invariant_NODE_58(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -428,7 +393,6 @@ contract PostconditionsNode is PostconditionsBase {
         NodeTargetReserveParams memory params
     ) internal {
         if (success) {
-            // invariant_NODE_89(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -440,7 +404,7 @@ contract PostconditionsNode is PostconditionsBase {
     {
         if (success) {
             for (uint256 i = 0; i < params.selectors.length; i++) {
-                // invariant_NODE_63(params.selectors[i], params.policies[i]);
+                invariant_NODE_37(params.selectors[i], params.policies[i]);
                 _pushUniquePolicyBinding(params.selectors[i], params.policies[i]);
             }
             onSuccessInvariantsGeneral(returnData);
@@ -456,7 +420,7 @@ contract PostconditionsNode is PostconditionsBase {
     ) internal {
         if (success) {
             for (uint256 i = 0; i < params.selectors.length; i++) {
-                // invariant_NODE_64(params.selectors[i], params.policies[i]);
+                invariant_NODE_38(params.selectors[i], params.policies[i]);
                 _removePolicyBinding(params.selectors[i], params.policies[i]);
             }
             onSuccessInvariantsGeneral(returnData);
@@ -469,7 +433,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_65(params);
             _pushUnique(REBALANCERS, params.target);
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -481,7 +444,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_66(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -492,7 +454,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_67(params);
             _pushUnique(ROUTERS, params.target);
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -504,7 +465,6 @@ contract PostconditionsNode is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_NODE_68(params);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -530,10 +490,6 @@ contract PostconditionsNode is PostconditionsBase {
             uint256 protocolDelta = protocolAfter.assetBalance - protocolBefore.assetBalance;
             uint256 nodeDelta = states[0].nodeAssetBalance - states[1].nodeAssetBalance;
 
-            // invariant_NODE_69(lastRebalanceAfter, params.lastRebalanceBefore);
-            // invariant_NODE_70();
-            // invariant_NODE_71();
-            // invariant_NODE_72(ownerDelta, protocolDelta, nodeDelta);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -559,13 +515,6 @@ contract PostconditionsNode is PostconditionsBase {
 
             uint256 lastPaymentAfter = uint256(Node(address(node)).lastPayment());
 
-            // invariant_NODE_74(ownerDelta, protocolDelta, nodeDelta);
-            // invariant_NODE_75(feeForPeriod, ownerDelta, protocolDelta);
-            if (feeForPeriod > 0) {
-                // invariant_NODE_76(lastPaymentAfter, params.lastPaymentBefore);
-            } else {
-                // invariant_NODE_77(lastPaymentAfter, params.lastPaymentBefore);
-            }
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -578,7 +527,6 @@ contract PostconditionsNode is PostconditionsBase {
         NodeUpdateTotalAssetsParams memory params
     ) internal {
         if (success) {
-            // invariant_NODE_78();
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -597,8 +545,6 @@ contract PostconditionsNode is PostconditionsBase {
             uint256 nodeDelta = states[0].nodeAssetBalance - states[1].nodeAssetBalance;
             uint256 protocolDelta = protocolAfter.assetBalance - protocolBefore.assetBalance;
 
-            // invariant_NODE_79(nodeDelta, params.fee);
-            // invariant_NODE_80(protocolDelta, params.fee);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -640,14 +586,12 @@ contract PostconditionsNode is PostconditionsBase {
 
             ActorState storage controllerBefore = states[0].actorStates[params.controller];
             ActorState storage controllerAfter = states[1].actorStates[params.controller];
-            ActorState storage escrowAfter = states[1].actorStates[address(escrow)];
-            ActorState storage escrowBefore = states[0].actorStates[address(escrow)];
 
-            // invariant_NODE_83(controllerBefore, controllerAfter, params.sharesPending);
-            // invariant_NODE_84(controllerBefore, controllerAfter, params.sharesPending);
-            // invariant_NODE_85(controllerBefore, controllerAfter, params.assetsToReturn);
-            // invariant_NODE_86(escrowBefore, escrowAfter, params.assetsToReturn);
-            // invariant_NODE_87(params.nodeAssetBalanceBefore, params.assetsToReturn);
+            invariant_NODE_24(controllerBefore, controllerAfter, params.sharesPending);
+            invariant_NODE_25(controllerBefore, controllerAfter, params.sharesPending);
+            invariant_NODE_26(controllerBefore, controllerAfter, params.assetsToReturn);
+            invariant_NODE_27(params.assetsToReturn);
+            invariant_NODE_28(params.nodeAssetBalanceBefore, params.assetsToReturn);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

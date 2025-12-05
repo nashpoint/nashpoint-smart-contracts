@@ -18,147 +18,58 @@
 | NODE-06 | A Component's Asset Holding Ratio Against Total Should Not Exceed Component's Target After Invest |  |  |  |
 | NODE-07 | A Node's Reserve Should Not Decrease Below Target Reserve After Invest |  |  |  |
 | **NODE - Deposit Invariants** |  |  |  |  |
-| NODE-08 | Minted Shares Must Be Greater Than Zero After Deposit |  |  |  |
-| NODE-09 | Receiver Share Balance Must Increase By Minted Shares After Deposit |  |  |  |
-| NODE-10 | Receiver Asset Balance Must Decrease By Deposited Assets | ❌ Wrong: Caller Asset Balance Must Decrease |  |  | 
-| NODE-11 | Node Asset Balance Must Increase By Deposited Assets |  |  |  |
-| NODE-12 | Node Total Assets Must Increase By Deposited Assets |  |  |  |
-| NODE-13 | Node Total Supply Must Increase By Minted Shares |  |  |  |
+| NODE-08 | Receiver Share Balance Must Increase By Minted Shares After Deposit |  |  |  |
+| NODE-09 | Node Asset Balance Must Increase By Deposited Assets |  |  |  |
+| NODE-10 | Node Total Assets Must Increase By Deposited Assets |  |  |  |
+| NODE-11 | Node Total Supply Must Increase By Minted Shares |  |  |  |
 | **NODE - Mint Invariants** |  |  |  |  |
-| NODE-14 | Assets Spent Must Be Greater Than Zero After Mint |  |  |  |
-| NODE-15 | Receiver Share Balance Must Increase By Minted Shares |  |  |  |
-| NODE-16 | Receiver Asset Balance Must Decrease By Assets Spent | ❌ Wrong: Caller Asset Balance Must Decrease |  |  | 
-| NODE-17 | Node Asset Balance Must Increase By Assets Spent |  |  |  |
-| NODE-18 | Node Total Assets Must Increase By Assets Spent |  |  |  |
-| NODE-19 | Node Total Supply Must Increase By Requested Shares |  |  |  |
+| NODE-12 | Receiver Share Balance Must Increase By Minted Shares |  |  |  |
+| NODE-13 | Node Asset Balance Must Increase By Assets Spent |  |  |  |
+| NODE-14 | Node Total Assets Must Increase By Assets Spent |  |  |  |
+| NODE-15 | Node Total Supply Must Increase By Requested Shares |  |  |  |
 | **NODE - Request Redeem Invariants** |  |  |  |  |
-| NODE-20 | Owner Share Balance Must Decrease By Requested Shares |  |  |  |
-| NODE-21 | Escrow Share Balance Must Increase By Requested Shares |  |  |  |
-| NODE-22 | Pending Redeem Must Increase By Requested Shares |  |  |  |
-| NODE-23 | Claimable Redeem Must Remain Unchanged After Request |  |  |  |
-| NODE-24 | Claimable Assets Must Remain Unchanged After Request |  |  |  |
+| NODE-16 | Owner Share Balance Must Decrease By Requested Shares |  |  |  |
+| NODE-17 | Pending Redeem Must Increase By Requested Shares |  |  |  |
+| NODE-18 | Claimable Redeem Must Remain Unchanged After Request |  |  |  |
+| NODE-19 | Claimable Assets Must Remain Unchanged After Request |  |  |  |
 | **NODE - Fulfill Redeem Invariants** |  |  |  |  |
-| NODE-25 | Pending Redeem Must Decrease After Fulfill |  |  |  |
-| NODE-26 | Claimable Assets Must Increase After Fulfill |  |  |  |
-| NODE-27 | Claimable Redeem Must Increase After Fulfill |  |  |  |
-| NODE-28 | Node Asset Balance Must Decrease After Fulfill |  |  |  |
-| NODE-29 | Escrow Asset Balance Must Increase After Fulfill |  |  |  |
+| NODE-20 | Pending Redeem Must Decrease After Fulfill |  |  |  |
+| NODE-21 | Claimable Redeem Must Increase After Fulfill |  |  |  |
 | **NODE - Withdraw Invariants** |  |  |  |  |
-| NODE-30 | Claimable Assets Must Decrease By Withdrawn Amount |  |  |  |
-| NODE-31 | Claimable Redeem Must Decrease By Burned Shares | ❌ Wrong: There isn't a burn during withdraw because it's async. But claimable redeem must decrease by returned shares value |  |  | 
-| NODE-32 | Receiver Asset Balance Must Increase By Withdrawn Amount |  |  |  |
-| NODE-33 | Escrow Asset Balance Must Decrease By Withdrawn Amount |  |  |  |
-| **NODE - Operator/Approve Invariants** |  |  |  |  |
-| NODE-34 | Operator Approval Status Must Match Requested Status |  |  |  |
-| NODE-35 | Allowance Must Match Approved Amount |  |  |  |
-| **NODE - Transfer Invariants** |  |  |  |  |
-| NODE-36 | Sender Share Balance Must Decrease By Transfer Amount |  |  |  |
-| NODE-37 | Receiver Share Balance Must Increase By Transfer Amount |  |  |  |
-| NODE-38 | Total Supply Must Remain Unchanged After Transfer |  |  |  |
-| NODE-39 | Owner Share Balance Must Decrease By TransferFrom Amount |  |  |  |
-| NODE-40 | Receiver Share Balance Must Increase By TransferFrom Amount |  |  |  |
-| NODE-41 | Allowance Must Decrease By TransferFrom Amount |  |  |  |
-| **NODE - Redeem Invariants** |  |  |  |  |
-| NODE-42 | Claimable Redeem Must Decrease By Redeemed Shares |  |  |  |
-| NODE-43 | Claimable Assets Must Decrease By Returned Assets |  |  |  |
-| NODE-44 | Receiver Asset Balance Must Increase By Returned Assets |  |  |  |
-| NODE-45 | Escrow Asset Balance Must Decrease By Returned Assets |  |  |  |
-| **NODE - Ownership/Initialize Invariants** |  |  |  |  |
-| NODE-46 | Renounce Ownership Must Always Revert | ❌ Wrong |  |  |
-| NODE-47 | Transfer Ownership Must Always Revert | ❌ Wrong |  |  |
-| NODE-48 | Initialize Must Always Revert (Already Initialized) |  |  |  |
-| **NODE - Fee/Config Invariants** |  |  |  |  |
-| NODE-49 | Annual Management Fee Must Match Set Value |  |  |  |
-| NODE-50 | Max Deposit Size Must Match Set Value |  |  |  |
-| NODE-51 | Node Owner Fee Address Must Match Set Value |  |  |  |
-| NODE-52 | Quoter Address Must Match Set Value |  |  |  |
-| NODE-53 | Rebalance Cooldown Must Match Set Value |  |  |  |
-| NODE-54 | Rebalance Window Must Match Set Value |  |  |  |
-| **NODE - Component Invariants** |  |  |  |  |
-| NODE-55 | Component Must Be Registered After Add |  |  |  |
-| NODE-56 | Component Target Weight Must Match Set Value |  |  |  |
-| NODE-57 | Component Max Delta Must Match Set Value |  |  |  |
-| NODE-58 | Component Router Must Match Set Value |  |  |  |
-| NODE-59 | Component Must Be Unregistered After Remove |  |  |  | 
-| NODE-60 | Component Queue Length Must Match After Set | ❌ Wrong: Liquidation queue removed. |  |  | 
-| **NODE - Rescue Tokens Invariants** |  |  |  |  |
-| NODE-61 | Node Balance Must Decrease By Rescued Amount |  |  |  |
-| NODE-62 | Recipient Balance Must Increase By Rescued Amount |  |  |  |
-| **NODE - Policies Invariants** |  |  |  |  |
-| NODE-63 | Policy Must Be Registered After Add |  |  |  |
-| NODE-64 | Policy Must Be Unregistered After Remove |  |  |  |
-| **NODE - Rebalancer/Router Invariants** |  |  |  |  |
-| NODE-65 | Rebalancer Must Be Registered After Add |  |  |  |
-| NODE-66 | Rebalancer Must Be Unregistered After Remove |  |  |  |
-| NODE-67 | Router Must Be Registered After Add |  |  |  |
-| NODE-68 | Router Must Be Unregistered After Remove |  |  |  |
-| **NODE - Rebalance Invariants** |  |  |  |  |
-| NODE-69 | Last Rebalance Timestamp Must Not Decrease |  |  |  |
-| NODE-70 | Cache Must Be Valid After Rebalance |  |  |  |
-| NODE-71 | Component Ratios Must Be Valid After Rebalance |  |  |  |
-| NODE-72 | Fee Flow Must Balance (Owner + Protocol = Node Delta) |  |  |  |
-| NODE-73 | Total Assets Must Not Increase After Rebalance | ❌ Wrong |  |  | 
-| **NODE - Pay Management Fees Invariants** |  |  |  |  |
-| NODE-74 | Fee Payment Flow Must Balance |  |  |  |
-| NODE-75 | Fee Return Value Must Match Actual Transfer |  |  |  |
-| NODE-76 | Last Payment Timestamp Must Increase When Fees Paid |  |  |  |
-| NODE-77 | Last Payment Timestamp Must Stay Same When No Fees |  |  |  |
-| **NODE - Update/Execute Invariants** |  |  |  |  |
-| NODE-78 | Total Assets Cache Must Match After Update |  |  |  | 
-| NODE-79 | Node Balance Delta Must Equal Execution Fee |  |  |  |
-| NODE-80 | Protocol Balance Delta Must Equal Execution Fee |  |  |  |
-| NODE-81 | Allowance After Execute Must Match Requested | ❌ Wrong: Allowance is used immediately  |  |  |
-| NODE-82 | Node Asset Balance Must Stay Same After Execute | ❌ Wrong: execute can transfer tokens like depositing underlying etc. |  |  |  
+| NODE-22 | Claimable Assets Must Decrease By Withdrawn Amount |  |  |  |
+| NODE-23 | Escrow Asset Balance Must Decrease By Withdrawn Amount |  |  |  |
 | **NODE - Finalize Redemption Invariants** |  |  |  |  |
-| NODE-83 | Pending Redeem Must Decrease By Finalized Shares |  |  |  |
-| NODE-84 | Claimable Redeem Must Increase By Finalized Shares |  |  |  |
-| NODE-85 | Claimable Assets Must Increase By Returned Assets |  |  |  |
-| NODE-86 | Escrow Asset Balance Must Increase By Returned Assets |  |  |  |
-| NODE-87 | Node Asset Balance Must Decrease By Returned Assets |  |  |  |
-| NODE-88 | Shares Exiting Must Decrease By Adjusted Shares | ❌ Wrong: Adjusted shares is removed. |  |  |  
-| **NODE - Target Reserve/Swing Pricing Invariants** |  |  |  |  |
-| NODE-89 | Target Reserve Ratio Must Match Set Value |  |  |  |
-| NODE-90 | Swing Pricing Status Must Match Set Value | ❌ Wrong: Swing pricing removed |  |  | 
-| NODE-91 | Max Swing Factor Must Match Set Value | ❌ Wrong: Swing pricing removed  |  |  | 
-| **NODE - Router Config Invariants** |  |  |  |  |
-| NODE-92 | Router Blacklist Status Must Match Set Value |  |  |  |
-| NODE-93 | Router Whitelist Status Must Match Set Value |  |  |  |
-| NODE-94 | Router Tolerance Must Match Set Value |  |  |  |
+| NODE-24 | Pending Redeem Must Decrease By Finalized Shares |  |  |  |
+| NODE-25 | Claimable Redeem Must Increase By Finalized Shares |  |  |  |
+| NODE-26 | Claimable Assets Must Increase By Returned Assets |  |  |  |
+| NODE-27 | Escrow Asset Balance Must Increase By Returned Assets |  |  |  |
+| NODE-28 | Node Asset Balance Must Decrease By Returned Assets |  |  |  |
+| **NODE - Redeem Invariants** |  |  |  |  |
+| NODE-29 | Claimable Redeem Must Decrease By Redeemed Shares |  |  |  |
+| NODE-30 | Claimable Assets Must Decrease By Returned Assets |  |  |  |
+| NODE-31 | Receiver Asset Balance Must Increase By Returned Assets |  |  |  |
+| NODE-32 | Escrow Asset Balance Must Decrease By Returned Assets |  |  |  |
+| **NODE - Component Invariants** |  |  |  |  |
+| NODE-33 | Component Must Be Registered After Add |  |  |  |
+| NODE-34 | Component Must Be Unregistered After Remove |  |  |  | 
+| **NODE - Rescue Tokens Invariants** |  |  |  |  |
+| NODE-35 | Node Balance Must Decrease By Rescued Amount |  |  |  |
+| NODE-36 | Recipient Balance Must Increase By Rescued Amount |  |  |  |
+| **NODE - Policies Invariants** |  |  |  |  |
+| NODE-37 | Policy Must Be Registered After Add |  |  |  |
+| NODE-38 | Policy Must Be Unregistered After Remove |  |  |  |
 | **DIGIFT ADAPTER** |  |  |  |  |
 | DIGIFT-01 | Global Pending Deposit Must Match Forwarded Amount |  |  |  |
 | DIGIFT-02 | Global Pending Redeem Must Match Forwarded Amount |  |  |  |
 | DIGIFT-03 | No Pending Deposits Must Remain After Settle |  |  |  |
 | DIGIFT-04 | No Pending Redemptions Must Remain After Settle |  |  |  |
-| DIGIFT-05 | Asset Allowance Must Match Approved Amount |  |  |  |
-| DIGIFT-06 | Adapter Allowance Must Match Approved Amount |  |  |  |
-| DIGIFT-07 | Pending Deposit Request Must Match Requested Amount |  |  |  |
-| DIGIFT-08 | Global Pending Deposit Must Be Zero When No Expected |  |  |  |
-| DIGIFT-09 | Global Pending Redeem Must Be Zero When No Expected |  |  |  |
-| DIGIFT-10 | Global Pending Must Be Zero After Settle |  |  |  |
-| DIGIFT-11 | Withdraw Assets Must Match Max Withdraw |  |  |  |
-| DIGIFT-12 | Node Balance Must Not Decrease After Withdraw |  |  |  |
-| DIGIFT-13 | Max Withdraw Must Be Zero After Withdraw |  |  |  |
-| DIGIFT-14 | Pending Redeem Must Increase After Request |  |  |  |
-| DIGIFT-15 | Balance Must Not Increase After Redeem Request |  |  |  |
-| DIGIFT-16 | Manager/Node Whitelist Status Must Match |  |  |  |
-| DIGIFT-17 | Uint Config Value Must Match Set Value |  |  |  |
-| DIGIFT-18 | Last Price Must Be Greater Than Zero After Update |  |  |  |
-| **DIGIFT VERIFIER** |  |  |  |  |
-| DIGIFT-VERIFIER-01 | Configure Settlement Must Match Expected Values |  |  |  |
-| DIGIFT-VERIFIER-02 | Whitelist Status Must Match Set Value |  |  |  |
-| DIGIFT-VERIFIER-03 | Verify Must Return Expected Values |  |  |  |
 | **REGISTRY** |  |  |  |  |
 | REGISTRY-01 | Protocol Fee Address Must Match Set Value |  |  |  |
 | REGISTRY-02 | Protocol Management Fee Must Match Set Value |  |  |  |
 | REGISTRY-03 | Protocol Execution Fee Must Match Set Value |  |  |  |
-| REGISTRY-04 | Protocol Max Swing Factor Must Match Set Value |  |  |  |
-| REGISTRY-05 | Policies Root Must Match Set Value |  |  |  |
-| REGISTRY-06 | Registry Type Status Must Match Set Value |  |  |  |
-| REGISTRY-07 | Node Must Be Registered After Add |  |  |  |
-| REGISTRY-08 | Owner Must Match After Transfer |  |  |  |
-| REGISTRY-09 | Renounce Ownership Must Always Revert | ❌ Wrong |  |  |
-| REGISTRY-10 | Initialize Must Always Revert (Already Initialized) |  |  |  |
-| REGISTRY-11 | Upgrade Must Revert For Unauthorized Callers |  |  |  |
+| REGISTRY-04 | Policies Root Must Match Set Value |  |  |  |
+| REGISTRY-05 | Registry Type Status Must Match Set Value |  |  |  |
+| REGISTRY-06 | Owner Must Match After Transfer |  |  |  |
 | **FACTORY** |  |  |  |  |
 | FACTORY-01 | Deployed Node Address Must Not Be Zero |  |  |  |
 | FACTORY-02 | Deployed Escrow Address Must Not Be Zero |  |  |  |

@@ -24,6 +24,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
 
             if (forwardedDeposits > 0) {
                 uint256 globalPendingDeposit = digiftAdapter.globalPendingDepositRequest();
+                invariant_DIGIFT_01(globalPendingDeposit, forwardedDeposits);
                 fl.eq(globalPendingDeposit, forwardedDeposits, "DIGIFT_FORWARD_DEPOSIT_PENDING");
             }
 
@@ -37,6 +38,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
 
             if (forwardedRedemptions > 0) {
                 uint256 globalPendingRedeem = digiftAdapter.globalPendingRedeemRequest();
+                invariant_DIGIFT_02(globalPendingRedeem, forwardedRedemptions);
                 fl.eq(globalPendingRedeem, forwardedRedemptions, "DIGIFT_FORWARD_REDEEM_PENDING");
             }
             onSuccessInvariantsGeneral(returnData);
@@ -69,6 +71,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
 
             if (recordsProcessed > 0) {
                 uint256 remainingPending = digiftAdapter.globalPendingDepositRequest();
+                invariant_DIGIFT_03(remainingPending);
                 fl.eq(remainingPending, 0, "DIGIFT_SETTLE_PENDING_REMAINS");
             }
             onSuccessInvariantsGeneral(returnData);
@@ -103,6 +106,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
 
             if (recordsProcessed > 0) {
                 uint256 remainingPending = digiftAdapter.globalPendingRedeemRequest();
+                invariant_DIGIFT_04(remainingPending);
                 fl.eq(remainingPending, 0, "DIGIFT_SETTLE_REDEEM_PENDING");
             }
 
@@ -134,7 +138,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
     ) internal {
         if (success) {
             uint256 allowance = asset.allowance(address(node), address(digiftAdapter));
-            // invariant_DIGIFT_05(params);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -151,7 +155,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             _after();
 
             uint256 allowance = digiftAdapter.allowance(owner, params.spender);
-            // invariant_DIGIFT_06(owner, params);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -181,7 +185,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
     ) internal {
         if (success) {
             uint256 pending = digiftAdapter.pendingDepositRequest(0, address(node));
-            // invariant_DIGIFT_07(params);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -202,8 +206,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         internal
     {
         if (success) {
-            // invariant_DIGIFT_08(params);
-            // invariant_DIGIFT_09(params);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -217,7 +220,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bool isDeposit
     ) internal {
         if (success) {
-            // invariant_DIGIFT_10(isDeposit);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -271,7 +274,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bool isManager
     ) internal {
         if (success) {
-            // invariant_DIGIFT_16(params, isManager);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -285,7 +288,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         uint8 selector
     ) internal {
         if (success) {
-            // invariant_DIGIFT_17(params, selector);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -294,7 +297,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
 
     function digiftUpdatePricePostconditions(bool success, bytes memory returnData) internal {
         if (success) {
-            // invariant_DIGIFT_18();
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

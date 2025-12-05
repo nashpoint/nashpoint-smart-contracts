@@ -55,7 +55,7 @@ contract FuzzActors is FuzzBase, Test {
         USER5 = makeAddr("User5");
         USER6 = makeAddr("User6");
 
-        USERS = new address[](8);
+        USERS = new address[](9);
         USERS[0] = USER1;
         USERS[1] = USER2;
         USERS[2] = USER3;
@@ -64,5 +64,6 @@ contract FuzzActors is FuzzBase, Test {
         USERS[5] = USER6;
         USERS[6] = owner;
         USERS[7] = rebalancer;
+        USERS[8] = randomUser;
     }
 }
