@@ -245,6 +245,16 @@ contract Properties_Node is Properties_ERR {
     }
 
     // ==============================================================
+    // NODE GLOBAL INVARIANTS (NODE_41)
+    // ==============================================================
+
+    function invariant_NODE_41() internal {
+        uint256 totalSupply = node.totalSupply();
+        uint256 exitingShares = node.sharesExiting();
+        fl.gte(totalSupply, exitingShares, NODE_41);
+    }
+
+    // ==============================================================
     // ROUTER 4626 INVARIANTS (ROUTER4626_01 - ROUTER4626_09)
     // ==============================================================
 
