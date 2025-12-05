@@ -411,11 +411,229 @@ contract FoundryPlayground is FuzzGuided {
 
 ## Protocol Invariants
 
-The suite validates critical protocol invariants:
+The suite validates **100+ protocol invariants** across all components. Below is the complete catalog:
 
-- **GLOB_01**: Total assets must cover node balance
-- **INV_01**: Exiting shares cannot exceed total supply
-- Additional invariants are continuously validated during fuzzing campaigns
+### Global Invariants
+
+| ID | Description |
+|----|-------------|
+| **NODE_41** | Shares Exiting Must Not Exceed Total Supply *(checked after every operation)* |
+
+### Node Invariants (NODE_01 - NODE_40)
+
+#### Core Operations (NODE_01 - NODE_07)
+| ID | Description |
+|----|-------------|
+| NODE_01 | User Share Balance Must Increase After Successful Deposit/Mint |
+| NODE_02 | Escrow Share Balance Must Increase By The Redemption Request Amount |
+| NODE_03 | Escrow Share Balance Must Decrease After A Redeem Is Finalized |
+| NODE_04 | User Asset Balance Must Increase By Requested Asset Amount After Withdraw |
+| NODE_05 | Escrow Asset Balance Must Be ≥ Sum Of All claimableAssets |
+| NODE_06 | Component's Asset Ratio Should Not Exceed Target After Invest |
+| NODE_07 | Node's Reserve Should Not Decrease Below Target After Invest |
+
+#### Deposit (NODE_08 - NODE_11)
+| ID | Description |
+|----|-------------|
+| NODE_08 | Receiver Share Balance Must Increase By Minted Shares After Deposit |
+| NODE_09 | Node Asset Balance Must Increase By Deposited Assets |
+| NODE_10 | Node Total Assets Must Increase By Deposited Assets |
+| NODE_11 | Node Total Supply Must Increase By Minted Shares |
+
+#### Mint (NODE_12 - NODE_15)
+| ID | Description |
+|----|-------------|
+| NODE_12 | Receiver Share Balance Must Increase By Minted Shares |
+| NODE_13 | Receiver Asset Balance Must Decrease By Assets Spent |
+| NODE_14 | Node Total Assets Must Increase By Assets Spent |
+| NODE_15 | Node Total Supply Must Increase By Requested Shares |
+
+#### Request Redeem (NODE_16 - NODE_19)
+| ID | Description |
+|----|-------------|
+| NODE_16 | Owner Share Balance Must Decrease By Requested Shares |
+| NODE_17 | Pending Redeem Must Increase By Requested Shares |
+| NODE_18 | Claimable Redeem Must Remain Unchanged After Request |
+| NODE_19 | Claimable Assets Must Remain Unchanged After Request |
+
+#### Fulfill Redeem (NODE_20 - NODE_21)
+| ID | Description |
+|----|-------------|
+| NODE_20 | Pending Redeem Must Decrease After Fulfill |
+| NODE_21 | Claimable Redeem Must Increase After Fulfill |
+
+#### Withdraw (NODE_22 - NODE_23)
+| ID | Description |
+|----|-------------|
+| NODE_22 | Claimable Assets Must Decrease By Withdrawn Amount |
+| NODE_23 | Escrow Asset Balance Must Decrease By Withdrawn Amount |
+
+#### Finalize Redemption (NODE_24 - NODE_28)
+| ID | Description |
+|----|-------------|
+| NODE_24 | Pending Redeem Must Decrease By Finalized Shares |
+| NODE_25 | Claimable Redeem Must Increase By Finalized Shares |
+| NODE_26 | Claimable Assets Must Increase By Returned Assets |
+| NODE_27 | Escrow Asset Balance Must Increase By Returned Assets |
+| NODE_28 | Node Asset Balance Must Decrease By Returned Assets |
+
+#### Redeem (NODE_29 - NODE_32)
+| ID | Description |
+|----|-------------|
+| NODE_29 | Claimable Redeem Must Decrease By Redeemed Shares |
+| NODE_30 | Claimable Assets Must Decrease By Returned Assets |
+| NODE_31 | Receiver Asset Balance Must Increase By Returned Assets |
+| NODE_32 | Escrow Asset Balance Must Decrease By Returned Assets |
+
+#### Component Management (NODE_33 - NODE_34)
+| ID | Description |
+|----|-------------|
+| NODE_33 | Component Must Be Registered After Add |
+| NODE_34 | Component Must Be Unregistered After Remove |
+
+#### Rescue Tokens (NODE_35 - NODE_36)
+| ID | Description |
+|----|-------------|
+| NODE_35 | Node Balance Must Decrease By Rescued Amount |
+| NODE_36 | Recipient Balance Must Increase By Rescued Amount |
+
+#### Policies (NODE_37 - NODE_38)
+| ID | Description |
+|----|-------------|
+| NODE_37 | Policy Must Be Registered After Add |
+| NODE_38 | Policy Must Be Unregistered After Remove |
+
+#### Backing Yield (NODE_39 - NODE_40)
+| ID | Description |
+|----|-------------|
+| NODE_39 | Component Balance Must Increase By Delta After Gain Backing |
+| NODE_40 | Component Balance Must Decrease By Delta After Lose Backing |
+
+### Router 4626 Invariants (ROUTER4626_01 - ROUTER4626_09)
+
+| ID | Description |
+|----|-------------|
+| ROUTER4626_01 | Invest Must Return Non-Zero Deposit Amount |
+| ROUTER4626_02 | Node Component Shares Must Not Decrease After Invest |
+| ROUTER4626_03 | Node Asset Balance Must Not Increase After Invest |
+| ROUTER4626_04 | Liquidate Must Return Non-Zero Assets When Expected |
+| ROUTER4626_05 | Node Component Shares Must Not Increase After Liquidate |
+| ROUTER4626_06 | Node Asset Balance Must Not Decrease After Liquidate |
+| ROUTER4626_07 | Fulfill Must Return Non-Zero Assets |
+| ROUTER4626_08 | Escrow Balance Must Not Decrease After Fulfill |
+| ROUTER4626_09 | Node Asset Balance Must Not Increase After Fulfill |
+
+### Router 7540 Invariants (ROUTER7540_01 - ROUTER7540_16)
+
+| ID | Description |
+|----|-------------|
+| ROUTER7540_01 | Invest Must Request Non-Zero Assets |
+| ROUTER7540_02 | Pending Deposit Must Not Decrease After Invest |
+| ROUTER7540_03 | Node Asset Balance Must Not Increase After Invest |
+| ROUTER7540_04 | Node Component Shares Must Increase By Received Shares After Mint |
+| ROUTER7540_05 | Claimable Must Not Increase After Mint |
+| ROUTER7540_06 | Pending Redeem Must Not Decrease After Request Withdrawal |
+| ROUTER7540_07 | Component Share Balance Must Not Increase After Request Withdrawal |
+| ROUTER7540_08 | Execute Withdrawal Must Return Non-Zero Assets |
+| ROUTER7540_09 | Execute Withdrawal Assets Must Match Max Withdraw Before |
+| ROUTER7540_10 | Claimable Must Not Increase After Execute Withdrawal |
+| ROUTER7540_11 | Node Asset Balance Must Not Decrease After Execute Withdrawal |
+| ROUTER7540_12 | Max Withdraw Must Be Zero After Execute Withdrawal |
+| ROUTER7540_13 | Fulfill Redeem Must Return Non-Zero Assets When Expected |
+| ROUTER7540_14 | Escrow Balance Must Not Decrease After Fulfill Redeem |
+| ROUTER7540_15 | Node Asset Balance Must Not Increase After Fulfill Redeem |
+| ROUTER7540_16 | Component Shares Must Not Increase After Fulfill Redeem |
+
+### Router Settings Invariants (ROUTER_01 - ROUTER_03)
+
+| ID | Description |
+|----|-------------|
+| ROUTER_01 | Blacklist Status Must Match Set Value |
+| ROUTER_02 | Whitelist Status Must Match Set Value |
+| ROUTER_03 | Tolerance Value Must Match Set Value |
+
+### Pool Invariants (POOL_01 - POOL_02)
+
+| ID | Description |
+|----|-------------|
+| POOL_01 | Pending Deposits Must Not Increase After Process |
+| POOL_02 | Pending Redemptions Must Be Zero After Process |
+
+### Digift Adapter Invariants (DIGIFT_01 - DIGIFT_12)
+
+| ID | Description |
+|----|-------------|
+| DIGIFT_01 | Global Pending Deposit Must Match Forwarded Amount |
+| DIGIFT_02 | Global Pending Redeem Must Match Forwarded Amount |
+| DIGIFT_03 | No Pending Deposits Must Remain After Settle |
+| DIGIFT_04 | No Pending Redemptions Must Remain After Settle |
+| DIGIFT_05 | Max Mintable Shares Must Be Non-Zero After Settle Deposit |
+| DIGIFT_06 | Max Withdrawable Assets Must Be Non-Zero After Settle Redeem |
+| DIGIFT_07 | Total Max Withdrawable Must Match Expected Assets |
+| DIGIFT_08 | Withdraw Assets Must Match Max Withdraw Before |
+| DIGIFT_09 | Node Balance Must Not Decrease After Withdraw |
+| DIGIFT_10 | Max Withdraw Must Be Zero After Withdraw |
+| DIGIFT_11 | Pending Redeem Must Increase After Request |
+| DIGIFT_12 | Balance Must Not Increase After Request Redeem |
+
+### Factory Invariants (FACTORY_01 - FACTORY_07)
+
+| ID | Description |
+|----|-------------|
+| FACTORY_01 | Deployed Node Address Must Not Be Zero |
+| FACTORY_02 | Deployed Escrow Address Must Not Be Zero |
+| FACTORY_03 | Node Escrow Link Must Match Deployed Escrow |
+| FACTORY_04 | Node Asset Must Match Init Args Asset |
+| FACTORY_05 | Node Owner Must Match Init Args Owner |
+| FACTORY_06 | Node Total Supply Must Be Zero After Deploy |
+| FACTORY_07 | Node Must Be Registered In Registry After Deploy |
+
+### Registry Invariants (REGISTRY_01 - REGISTRY_06)
+
+| ID | Description |
+|----|-------------|
+| REGISTRY_01 | Protocol Fee Address Must Match Set Value |
+| REGISTRY_02 | Protocol Management Fee Must Match Set Value |
+| REGISTRY_03 | Protocol Execution Fee Must Match Set Value |
+| REGISTRY_04 | Policies Root Must Match Set Value |
+| REGISTRY_05 | Registry Type Status Must Match Set Value |
+| REGISTRY_06 | Owner Must Match After Transfer |
+
+### OneInch Invariants (ONEINCH_01 - ONEINCH_05)
+
+| ID | Description |
+|----|-------------|
+| ONEINCH_01 | Asset Token Balance Of Node Must Increase After Successful Swap |
+| ONEINCH_02 | All Incentive Token Input Must Be Used During Swap |
+| ONEINCH_03 | Node Must Receive At Least 99% Of Min Assets Out |
+| ONEINCH_04 | Node Must Spend Exact Incentive Amount |
+| ONEINCH_05 | Executor Must Receive At Least Incentive Amount |
+
+### Reward Router Invariants
+
+#### Fluid (REWARD_FLUID_01 - REWARD_FLUID_05)
+| ID | Description |
+|----|-------------|
+| REWARD_FLUID_01 | Claim Recipient Must Be Node Address |
+| REWARD_FLUID_02 | Claim Cumulative Amount Must Match Params |
+| REWARD_FLUID_03 | Claim Position ID Must Match Params |
+| REWARD_FLUID_04 | Claim Cycle Must Match Params |
+| REWARD_FLUID_05 | Claim Proof Hash Must Match Params |
+
+#### Incentra (REWARD_INCENTRA_01 - REWARD_INCENTRA_03)
+| ID | Description |
+|----|-------------|
+| REWARD_INCENTRA_01 | Last Earner Must Be Node Address |
+| REWARD_INCENTRA_02 | Campaign Addresses Hash Must Match |
+| REWARD_INCENTRA_03 | Rewards Hash Must Match |
+
+#### Merkl (REWARD_MERKL_01 - REWARD_MERKL_04)
+| ID | Description |
+|----|-------------|
+| REWARD_MERKL_01 | Users Hash Must Match Params |
+| REWARD_MERKL_02 | Tokens Hash Must Match Params |
+| REWARD_MERKL_03 | Amounts Hash Must Match Params |
+| REWARD_MERKL_04 | Proofs Hash Must Match Params |
 
 ---
 
