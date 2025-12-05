@@ -46,8 +46,6 @@ contract PreconditionsOneInch is PreconditionsBase {
         // Encode expected return in swapCalldata (mock expects this format)
         params.swapCalldata = abi.encode(params.expectedReturn);
 
-        console.log("override flag", _hasPreferredAdminActor, _preferredAdminActor);
-        console.log("pre-oneinch override flag", _hasPreferredAdminActor, _preferredAdminActor);
         if (_hasPreferredAdminActor) {
             params.caller = _preferredAdminActor;
             _preferredAdminActor = address(0);
