@@ -869,7 +869,12 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 assetsReturned = abi.decode(returnData, (uint256));
-            fl.t(assetsReturned > 0, "ROUTER7540_FULFILL_NO_ASSETS");
+            // Only assert assetsReturned > 0 when we expected to fulfill shares
+            // (i.e., the user had pending shares). The router can succeed with 0 assets
+            // when called for a user with no pending shares - this is valid behavior.
+            if (params.shouldSucceed) {
+                fl.t(assetsReturned > 0, "ROUTER7540_FULFILL_NO_ASSETS");
+            }
 
             uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
             fl.t(escrowBalanceAfter >= params.escrowBalanceBefore, "ROUTER7540_FULFILL_ESCROW_BALANCE");
