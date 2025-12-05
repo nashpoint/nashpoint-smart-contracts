@@ -22,8 +22,10 @@ abstract contract Properties_ERR is RevertHandler {
         override
         returns (uint256[] memory)
     {
-        uint256[] memory panicCodes = new uint256[](0);
-
+        uint256[] memory panicCodes = new uint256[](3);
+        panicCodes[0] = PANIC_ENUM_OUT_OF_BOUNDS;
+        panicCodes[1] = PANIC_POP_EMPTY_ARRAY;
+        panicCodes[2] = PANIC_ARRAY_OUT_OF_BOUNDS;
         return panicCodes;
     }
 
@@ -220,17 +222,47 @@ abstract contract Properties_ERR is RevertHandler {
         bytes4 errorSelector = bytes4(keccak256("Error(string)"));
 
         bytes[] memory allowedErrors = new bytes[](10);
-        allowedErrors[0] = abi.encodeWithSelector(errorSelector, "only poolManager can execute");
-        allowedErrors[1] = abi.encodeWithSelector(errorSelector, "Cannot request deposit of 0 assets");
-        allowedErrors[2] = abi.encodeWithSelector(errorSelector, "Not authorized");
-        allowedErrors[3] = abi.encodeWithSelector(errorSelector, "Cannot request redeem of 0 shares");
-        allowedErrors[4] = abi.encodeWithSelector(errorSelector, "Insufficient shares");
-        allowedErrors[5] = abi.encodeWithSelector(errorSelector, "ERC20: addition overflow");
+        allowedErrors[0] = abi.encodeWithSelector(
+            errorSelector,
+            "only poolManager can execute"
+        );
+        allowedErrors[1] = abi.encodeWithSelector(
+            errorSelector,
+            "Cannot request deposit of 0 assets"
+        );
+        allowedErrors[2] = abi.encodeWithSelector(
+            errorSelector,
+            "Not authorized"
+        );
+        allowedErrors[3] = abi.encodeWithSelector(
+            errorSelector,
+            "Cannot request redeem of 0 shares"
+        );
+        allowedErrors[4] = abi.encodeWithSelector(
+            errorSelector,
+            "Insufficient shares"
+        );
+        allowedErrors[5] = abi.encodeWithSelector(
+            errorSelector,
+            "ERC20: addition overflow"
+        );
         // ERC7540Mock preview errors
-        allowedErrors[6] = abi.encodeWithSelector(errorSelector, "ERC7540: previewDeposit not available for async vault");
-        allowedErrors[7] = abi.encodeWithSelector(errorSelector, "ERC7540: previewMint not available for async vault");
-        allowedErrors[8] = abi.encodeWithSelector(errorSelector, "ERC7540: previewWithdraw not available for async vault");
-        allowedErrors[9] = abi.encodeWithSelector(errorSelector, "ERC7540: previewRedeem not available for async vault");
+        allowedErrors[6] = abi.encodeWithSelector(
+            errorSelector,
+            "ERC7540: previewDeposit not available for async vault"
+        );
+        allowedErrors[7] = abi.encodeWithSelector(
+            errorSelector,
+            "ERC7540: previewMint not available for async vault"
+        );
+        allowedErrors[8] = abi.encodeWithSelector(
+            errorSelector,
+            "ERC7540: previewWithdraw not available for async vault"
+        );
+        allowedErrors[9] = abi.encodeWithSelector(
+            errorSelector,
+            "ERC7540: previewRedeem not available for async vault"
+        );
 
         for (uint256 i = 0; i < allowedErrors.length; i++) {
             if (keccak256(returnData) == keccak256(allowedErrors[i])) {
