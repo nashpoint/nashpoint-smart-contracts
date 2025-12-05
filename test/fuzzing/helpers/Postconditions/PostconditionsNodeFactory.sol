@@ -3,10 +3,6 @@ pragma solidity ^0.8.0;
 
 import "./PostconditionsBase.sol";
 
-import {Node} from "../../../../src/Node.sol";
-import {INodeRegistry} from "../../../../src/interfaces/INodeRegistry.sol";
-import {IERC7575} from "../../../../src/interfaces/IERC7575.sol";
-
 contract PostconditionsNodeFactory is PostconditionsBase {
     function nodeFactoryDeployPostconditions(
         bool success,
@@ -20,8 +16,6 @@ contract PostconditionsNodeFactory is PostconditionsBase {
             _after();
 
             (address deployedNode, address deployedEscrow) = abi.decode(returnData, (address, address));
-
-            Node nodeInstance = Node(deployedNode);
 
             invariant_FACTORY_01(deployedNode);
             invariant_FACTORY_02(deployedEscrow);

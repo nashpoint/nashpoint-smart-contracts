@@ -86,7 +86,6 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
     }
 
     function _setupNodeCore(address nodeAddr, address ownerActor, uint256 entropy) internal {
-        // NOTE: setQuoter has been removed in the remediation commit
         _callAs(
             ownerActor,
             nodeAddr,
@@ -150,8 +149,6 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
             abi.encodeWithSelector(INode.updateTargetReserveRatio.selector, reserveRatio),
             "NODE_FACTORY:SET_RESERVE_RATIO"
         );
-
-        // NOTE: enableSwingPricing has been removed in the remediation commit
     }
 
     function _configureNodePolicies(address nodeAddr, address ownerActor) internal {
@@ -181,10 +178,9 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         _callAs(
             ownerActor,
             address(nodePausingPolicy),
-            abi.encodeWithSelector(nodePausingPolicy.add.selector, nodeAddr, whitelistActors), //@audit these should not be whitelisted
+            abi.encodeWithSelector(nodePausingPolicy.add.selector, nodeAddr, whitelistActors),
             "NODE_FACTORY:PAUSE_POLICY"
         );
-        // NOTE: TransferPolicy has been removed in the remediation commit (merged into GatePolicyWhitelist/Blacklist)
         _callAs(
             ownerActor,
             address(protocolPausingPolicy),
@@ -226,9 +222,6 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
     }
 
     function _seedNodeLiquidity(address nodeAddr, address escrowAddr, address ownerActor, uint256 entropy) internal {
-    //    assetToken.mint(escrowAddr, INITIAL_USER_BALANCE / 10); 
-    //    assetToken.mint(nodeAddr, INITIAL_USER_BALANCE); 
-
         vm.startPrank(nodeAddr);
         assetToken.approve(address(digiftAdapter), type(uint256).max);
         digiftAdapter.approve(address(digiftAdapter), type(uint256).max);
@@ -301,11 +294,7 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
             );
             totalWeight += weight;
         }
-
-        // NOTE: setLiquidationQueue has been removed in the remediation commit
     }
-
-    // NOTE: _exerciseSwingPricingLifecycle has been removed as swing pricing was removed
 
     function _componentOrder(uint256 entropy) internal pure returns (uint8[6] memory order) {
         order = [uint8(0), 1, 2, 3, 4, 5];
@@ -353,6 +342,4 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         fl.t(success, err);
         return returnData;
     }
-
-    // NOTE: _deriveSwingFactor has been removed as swing pricing was removed in remediation commit
 }
