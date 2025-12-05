@@ -28,7 +28,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             uint256 globalPendingDeposit = digiftAdapter.globalPendingDepositRequest();
             if (forwardedDeposits > 0 && params.shouldSucceed && globalPendingDeposit > 0) {
                 invariant_DIGIFT_01(globalPendingDeposit, forwardedDeposits);
-                fl.eq(globalPendingDeposit, forwardedDeposits, "DIGIFT_FORWARD_DEPOSIT_PENDING");
             }
 
             uint256 forwardedRedemptions;
@@ -45,7 +44,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             uint256 globalPendingRedeem = digiftAdapter.globalPendingRedeemRequest();
             if (forwardedRedemptions > 0 && params.shouldSucceed && globalPendingRedeem > 0) {
                 invariant_DIGIFT_02(globalPendingRedeem, forwardedRedemptions);
-                fl.eq(globalPendingRedeem, forwardedRedemptions, "DIGIFT_FORWARD_REDEEM_PENDING");
             }
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -70,7 +68,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
                 DigiftPendingDepositRecord memory record = _consumeDigiftForwardedDeposit(remaining - 1);
                 if (record.node != address(0)) {
                     uint256 maxMintable = digiftAdapter.maxMint(record.node);
-                    fl.t(maxMintable > 0, "DIGIFT_SETTLE_NO_MINTABLE_SHARES");
+                    invariant_DIGIFT_05(maxMintable);
                 }
                 recordsProcessed += record.assets;
             }
@@ -78,7 +76,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             if (recordsProcessed > 0) {
                 uint256 remainingPending = digiftAdapter.globalPendingDepositRequest();
                 invariant_DIGIFT_03(remainingPending);
-                fl.eq(remainingPending, 0, "DIGIFT_SETTLE_PENDING_REMAINS");
             }
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -104,7 +101,7 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
                 DigiftPendingRedemptionRecord memory record = _consumeDigiftForwardedRedemption(remaining - 1);
                 if (record.node != address(0)) {
                     uint256 maxWithdrawable = digiftAdapter.maxWithdraw(record.node);
-                    fl.t(maxWithdrawable > 0, "DIGIFT_SETTLE_REDEEM_NO_ASSETS");
+                    invariant_DIGIFT_06(maxWithdrawable);
                     totalMaxWithdrawable += maxWithdrawable;
                 }
                 recordsProcessed += record.shares;
@@ -113,11 +110,10 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             if (recordsProcessed > 0) {
                 uint256 remainingPending = digiftAdapter.globalPendingRedeemRequest();
                 invariant_DIGIFT_04(remainingPending);
-                fl.eq(remainingPending, 0, "DIGIFT_SETTLE_REDEEM_PENDING");
             }
 
             if (params.assetsExpected > 0) {
-                fl.eq(totalMaxWithdrawable, params.assetsExpected, "DIGIFT_SETTLE_REDEEM_ASSETS_EXPECTED");
+                invariant_DIGIFT_07(totalMaxWithdrawable, params.assetsExpected);
             }
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -232,13 +228,13 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         if (success) {
             _after();
 
-            fl.eq(params.assets, params.maxWithdrawBefore, "DIGIFT_WITHDRAW_ASSET_MISMATCH");
+            invariant_DIGIFT_08(params.assets, params.maxWithdrawBefore);
 
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-            fl.t(nodeBalanceAfter >= params.nodeBalanceBefore, "DIGIFT_WITHDRAW_NODE_BALANCE");
+            invariant_DIGIFT_09(nodeBalanceAfter, params.nodeBalanceBefore);
 
             uint256 maxWithdrawAfter = digiftAdapter.maxWithdraw(address(node));
-            fl.eq(maxWithdrawAfter, 0, "DIGIFT_WITHDRAW_MAX_AFTER");
+            invariant_DIGIFT_10(maxWithdrawAfter);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -255,10 +251,10 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
             _after();
 
             uint256 pendingAfter = digiftAdapter.pendingRedeemRequest(0, address(node));
-            fl.gt(pendingAfter, params.pendingBefore, "DIGIFT_REQUEST_REDEEM_PENDING");
+            invariant_DIGIFT_11(pendingAfter, params.pendingBefore);
 
             uint256 balanceAfter = digiftAdapter.balanceOf(address(node));
-            fl.t(balanceAfter <= params.balanceBefore, "DIGIFT_REQUEST_REDEEM_BALANCE");
+            invariant_DIGIFT_12(balanceAfter, params.balanceBefore);
 
             onSuccessInvariantsGeneral(returnData);
         } else {

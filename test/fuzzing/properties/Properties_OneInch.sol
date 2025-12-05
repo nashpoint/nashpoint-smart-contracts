@@ -17,4 +17,16 @@ contract Properties_OneInch is Properties_ERR {
         uint256 spentAmount = incentiveBalanceBefore - incentiveBalanceAfter;
         fl.eq(spentAmount, params.incentiveAmount, ONEINCH_02);
     }
+
+    function invariant_ONEINCH_03(uint256 assetGain, uint256 minAssetsOut) internal {
+        fl.t(assetGain >= (minAssetsOut * 99) / 100, ONEINCH_03);
+    }
+
+    function invariant_ONEINCH_04(uint256 incentiveLoss, uint256 incentiveAmount) internal {
+        fl.eq(incentiveLoss, incentiveAmount, ONEINCH_04);
+    }
+
+    function invariant_ONEINCH_05(uint256 executorIncentiveBalance, uint256 incentiveAmount) internal {
+        fl.gte(executorIncentiveBalance, incentiveAmount, ONEINCH_05);
+    }
 }

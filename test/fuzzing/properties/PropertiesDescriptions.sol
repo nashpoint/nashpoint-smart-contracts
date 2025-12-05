@@ -170,4 +170,82 @@ contract PropertiesDescriptions {
     string constant REWARD_MERKL_02 = "REWARD_MERKL_02: Tokens Hash Must Match Params";
     string constant REWARD_MERKL_03 = "REWARD_MERKL_03: Amounts Hash Must Match Params";
     string constant REWARD_MERKL_04 = "REWARD_MERKL_04: Proofs Hash Must Match Params";
+
+    // ==============================================================
+    // NODE Properties - Backing Yield (NODE_39 - NODE_40)
+    // ==============================================================
+
+    string constant NODE_39 = "NODE_39: Component Balance Must Increase By Delta After Gain Backing";
+    string constant NODE_40 = "NODE_40: Component Balance Must Decrease By Delta After Lose Backing";
+
+    // ==============================================================
+    // ROUTER4626 Properties (ROUTER4626_01 - ROUTER4626_09)
+    // ==============================================================
+
+    string constant ROUTER4626_01 = "ROUTER4626_01: Invest Must Return Non-Zero Deposit Amount";
+    string constant ROUTER4626_02 = "ROUTER4626_02: Node Component Shares Must Not Decrease After Invest";
+    string constant ROUTER4626_03 = "ROUTER4626_03: Node Asset Balance Must Not Increase After Invest";
+    string constant ROUTER4626_04 = "ROUTER4626_04: Liquidate Must Return Non-Zero Assets When Expected";
+    string constant ROUTER4626_05 = "ROUTER4626_05: Node Component Shares Must Not Increase After Liquidate";
+    string constant ROUTER4626_06 = "ROUTER4626_06: Node Asset Balance Must Not Decrease After Liquidate";
+    string constant ROUTER4626_07 = "ROUTER4626_07: Fulfill Must Return Non-Zero Assets";
+    string constant ROUTER4626_08 = "ROUTER4626_08: Escrow Balance Must Not Decrease After Fulfill";
+    string constant ROUTER4626_09 = "ROUTER4626_09: Node Asset Balance Must Not Increase After Fulfill";
+
+    // ==============================================================
+    // ROUTER7540 Properties (ROUTER7540_01 - ROUTER7540_15)
+    // ==============================================================
+
+    string constant ROUTER7540_01 = "ROUTER7540_01: Invest Must Request Non-Zero Assets";
+    string constant ROUTER7540_02 = "ROUTER7540_02: Pending Deposit Must Not Decrease After Invest";
+    string constant ROUTER7540_03 = "ROUTER7540_03: Node Asset Balance Must Not Increase After Invest";
+    string constant ROUTER7540_04 = "ROUTER7540_04: Node Component Shares Must Increase By Received Shares After Mint";
+    string constant ROUTER7540_05 = "ROUTER7540_05: Claimable Must Not Increase After Mint";
+    string constant ROUTER7540_06 = "ROUTER7540_06: Pending Redeem Must Not Decrease After Request Withdrawal";
+    string constant ROUTER7540_07 = "ROUTER7540_07: Component Share Balance Must Not Increase After Request Withdrawal";
+    string constant ROUTER7540_08 = "ROUTER7540_08: Execute Withdrawal Must Return Non-Zero Assets";
+    string constant ROUTER7540_09 = "ROUTER7540_09: Execute Withdrawal Assets Must Match Max Withdraw Before";
+    string constant ROUTER7540_10 = "ROUTER7540_10: Claimable Must Not Increase After Execute Withdrawal";
+    string constant ROUTER7540_11 = "ROUTER7540_11: Node Asset Balance Must Not Decrease After Execute Withdrawal";
+    string constant ROUTER7540_12 = "ROUTER7540_12: Max Withdraw Must Be Zero After Execute Withdrawal";
+    string constant ROUTER7540_13 = "ROUTER7540_13: Fulfill Redeem Must Return Non-Zero Assets When Expected";
+    string constant ROUTER7540_14 = "ROUTER7540_14: Escrow Balance Must Not Decrease After Fulfill Redeem";
+    string constant ROUTER7540_15 = "ROUTER7540_15: Node Asset Balance Must Not Increase After Fulfill Redeem";
+    string constant ROUTER7540_16 = "ROUTER7540_16: Component Shares Must Not Increase After Fulfill Redeem";
+
+    // ==============================================================
+    // ROUTER Settings Properties (ROUTER_01 - ROUTER_03)
+    // ==============================================================
+
+    string constant ROUTER_01 = "ROUTER_01: Blacklist Status Must Match Set Value";
+    string constant ROUTER_02 = "ROUTER_02: Whitelist Status Must Match Set Value";
+    string constant ROUTER_03 = "ROUTER_03: Tolerance Value Must Match Set Value";
+
+    // ==============================================================
+    // POOL Properties (POOL_01 - POOL_02)
+    // ==============================================================
+
+    string constant POOL_01 = "POOL_01: Pending Deposits Must Not Increase After Process";
+    string constant POOL_02 = "POOL_02: Pending Redemptions Must Be Zero After Process";
+
+    // ==============================================================
+    // ONEINCH Extended Properties (ONEINCH_03 - ONEINCH_05)
+    // ==============================================================
+
+    string constant ONEINCH_03 = "ONEINCH_03: Node Must Receive At Least 99% Of Min Assets Out";
+    string constant ONEINCH_04 = "ONEINCH_04: Node Must Spend Exact Incentive Amount";
+    string constant ONEINCH_05 = "ONEINCH_05: Executor Must Receive At Least Incentive Amount";
+
+    // ==============================================================
+    // DIGIFT Extended Properties (DIGIFT_05 - DIGIFT_12)
+    // ==============================================================
+
+    string constant DIGIFT_05 = "DIGIFT_05: Max Mintable Shares Must Be Non-Zero After Settle Deposit";
+    string constant DIGIFT_06 = "DIGIFT_06: Max Withdrawable Assets Must Be Non-Zero After Settle Redeem";
+    string constant DIGIFT_07 = "DIGIFT_07: Total Max Withdrawable Must Match Expected Assets";
+    string constant DIGIFT_08 = "DIGIFT_08: Withdraw Assets Must Match Max Withdraw Before";
+    string constant DIGIFT_09 = "DIGIFT_09: Node Balance Must Not Decrease After Withdraw";
+    string constant DIGIFT_10 = "DIGIFT_10: Max Withdraw Must Be Zero After Withdraw";
+    string constant DIGIFT_11 = "DIGIFT_11: Pending Redeem Must Increase After Request";
+    string constant DIGIFT_12 = "DIGIFT_12: Balance Must Not Increase After Request Redeem";
 }

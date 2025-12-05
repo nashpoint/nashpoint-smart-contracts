@@ -744,11 +744,7 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 balanceAfter = asset.balanceOf(params.component);
-            fl.eq(
-                balanceAfter,
-                params.currentBacking + params.delta,
-                "NODE_GAIN_BACKING_BALANCE_MISMATCH"
-            );
+            invariant_NODE_39(balanceAfter, params.currentBacking, params.delta);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -764,11 +760,7 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 balanceAfter = asset.balanceOf(params.component);
-            fl.eq(
-                balanceAfter,
-                params.currentBacking - params.delta,
-                "NODE_LOSE_BACKING_BALANCE_MISMATCH"
-            );
+            invariant_NODE_40(balanceAfter, params.currentBacking, params.delta);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -784,21 +776,15 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 depositAmount = abi.decode(returnData, (uint256));
-            fl.t(depositAmount > 0, "ROUTER4626_INVEST_ZERO_DEPOSIT");
+            invariant_ROUTER4626_01(depositAmount);
 
             uint256 sharesAfter = IERC20(params.component).balanceOf(
                 address(node)
             );
-            fl.t(
-                sharesAfter >= params.sharesBefore,
-                "ROUTER4626_INVEST_SHARES"
-            );
+            invariant_ROUTER4626_02(sharesAfter, params.sharesBefore);
 
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-            fl.t(
-                nodeBalanceAfter <= params.nodeAssetBalanceBefore,
-                "ROUTER4626_INVEST_NODE_BALANCE"
-            );
+            invariant_ROUTER4626_03(nodeBalanceAfter, params.nodeAssetBalanceBefore);
 
             invariant_NODE_06(params);
             invariant_NODE_07();
@@ -822,22 +808,16 @@ contract PostconditionsNode is PostconditionsBase {
             // When shouldSucceed=false (e.g., previewRedeem returned 0), a successful call
             // returning 0 assets is expected behavior for invalid/edge-case inputs.
             if (params.shouldSucceed) {
-                fl.t(assetsReturned > 0, "ROUTER4626_LIQUIDATE_NO_ASSETS");
+                invariant_ROUTER4626_04(assetsReturned);
             }
 
             uint256 sharesAfter = IERC20(params.component).balanceOf(
                 address(node)
             );
-            fl.t(
-                sharesAfter <= params.sharesBefore,
-                "ROUTER4626_LIQUIDATE_SHARES"
-            );
+            invariant_ROUTER4626_05(sharesAfter, params.sharesBefore);
 
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-            fl.t(
-                nodeBalanceAfter >= params.nodeAssetBalanceBefore,
-                "ROUTER4626_LIQUIDATE_NODE_BALANCE"
-            );
+            invariant_ROUTER4626_06(nodeBalanceAfter, params.nodeAssetBalanceBefore);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -854,19 +834,13 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 assetsReturned = abi.decode(returnData, (uint256));
-            fl.t(assetsReturned > 0, "ROUTER4626_FULFILL_NO_ASSETS");
+            invariant_ROUTER4626_07(assetsReturned);
 
             uint256 escrowAfter = asset.balanceOf(address(escrow));
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
 
-            fl.t(
-                escrowAfter >= params.escrowBalanceBefore,
-                "ROUTER4626_FULFILL_ESCROW"
-            );
-            fl.t(
-                nodeBalanceAfter <= params.nodeAssetBalanceBefore,
-                "ROUTER4626_FULFILL_NODE_BALANCE"
-            );
+            invariant_ROUTER4626_08(escrowAfter, params.escrowBalanceBefore);
+            invariant_ROUTER4626_09(nodeBalanceAfter, params.nodeAssetBalanceBefore);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -884,7 +858,7 @@ contract PostconditionsNode is PostconditionsBase {
             bool stored = BaseComponentRouter(params.router).isBlacklisted(
                 params.component
             );
-            fl.eq(stored, params.status, "ROUTER_BLACKLIST_STATUS");
+            invariant_ROUTER_01(stored, params.status);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -902,7 +876,7 @@ contract PostconditionsNode is PostconditionsBase {
                 bool stored = BaseComponentRouter(params.router).isWhitelisted(
                     params.components[i]
                 );
-                fl.eq(stored, params.statuses[i], "ROUTER_WHITELIST_STATUS");
+                invariant_ROUTER_02(stored, params.statuses[i]);
             }
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -918,7 +892,7 @@ contract PostconditionsNode is PostconditionsBase {
         if (success) {
             _after();
             uint256 stored = BaseComponentRouter(params.router).tolerance();
-            fl.eq(stored, params.newTolerance, "ROUTER_TOLERANCE_VALUE");
+            invariant_ROUTER_03(stored, params.newTolerance);
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -934,22 +908,16 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 assetsRequested = abi.decode(returnData, (uint256));
-            fl.t(assetsRequested > 0, "ROUTER7540_INVEST_ZERO");
+            invariant_ROUTER7540_01(assetsRequested);
 
             if (params.component != address(digiftAdapter)) {
                 uint256 pendingAfter = ERC7540Mock(params.component)
                     .pendingAssets();
-                fl.t(
-                    pendingAfter >= params.pendingDepositBefore,
-                    "ROUTER7540_INVEST_PENDING"
-                );
+                invariant_ROUTER7540_02(pendingAfter, params.pendingDepositBefore);
             }
 
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-            fl.t(
-                nodeBalanceAfter <= params.nodeAssetBalanceBefore,
-                "ROUTER7540_INVEST_NODE_BALANCE"
-            );
+            invariant_ROUTER7540_03(nodeBalanceAfter, params.nodeAssetBalanceBefore);
 
             if (params.component == address(digiftAdapter)) {
                 _recordDigiftPendingDeposit(
@@ -981,17 +949,11 @@ contract PostconditionsNode is PostconditionsBase {
             uint256 shareBalanceAfter = IERC20(params.component).balanceOf(
                 address(node)
             );
-            fl.t(
-                shareBalanceAfter >= params.shareBalanceBefore + sharesReceived,
-                "ROUTER7540_MINT_SHARES"
-            );
+            invariant_ROUTER7540_04(shareBalanceAfter, params.shareBalanceBefore, sharesReceived);
 
             uint256 claimableAfter = IERC7540Deposit(params.component)
                 .claimableDepositRequest(0, address(node));
-            fl.t(
-                claimableAfter <= params.claimableAssetsBefore,
-                "ROUTER7540_MINT_CLAIMABLE"
-            );
+            invariant_ROUTER7540_05(claimableAfter, params.claimableAssetsBefore);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -1009,18 +971,12 @@ contract PostconditionsNode is PostconditionsBase {
 
             uint256 pendingAfter = IERC7540Redeem(params.component)
                 .pendingRedeemRequest(0, address(node));
-            fl.t(
-                pendingAfter >= params.pendingRedeemBefore,
-                "ROUTER7540_REQUEST_PENDING"
-            );
+            invariant_ROUTER7540_06(pendingAfter, params.pendingRedeemBefore);
 
             uint256 shareBalanceAfter = IERC20(params.component).balanceOf(
                 address(node)
             );
-            fl.t(
-                shareBalanceAfter <= params.shareBalanceBefore,
-                "ROUTER7540_REQUEST_SHARES"
-            );
+            invariant_ROUTER7540_07(shareBalanceAfter, params.shareBalanceBefore);
 
             if (params.component == address(digiftAdapter)) {
                 _recordDigiftPendingRedemption(
@@ -1045,30 +1001,20 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 assetsReturned = abi.decode(returnData, (uint256));
-            fl.t(assetsReturned > 0, "ROUTER7540_EXECUTE_NO_ASSETS");
-            fl.eq(
-                params.assets,
-                params.maxWithdrawBefore,
-                "ROUTER7540_EXECUTE_ASSET_PARAM"
-            );
+            invariant_ROUTER7540_08(assetsReturned);
+            invariant_ROUTER7540_09(params.assets, params.maxWithdrawBefore);
 
             uint256 claimableAfter = IERC7540Redeem(params.component)
                 .claimableRedeemRequest(0, address(node));
-            fl.t(
-                claimableAfter <= params.claimableAssetsBefore,
-                "ROUTER7540_EXECUTE_CLAIMABLE"
-            );
+            invariant_ROUTER7540_10(claimableAfter, params.claimableAssetsBefore);
 
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-            fl.t(
-                nodeBalanceAfter >= params.nodeAssetBalanceBefore,
-                "ROUTER7540_EXECUTE_NODE_BALANCE"
-            );
+            invariant_ROUTER7540_11(nodeBalanceAfter, params.nodeAssetBalanceBefore);
 
             uint256 maxWithdrawAfter = IERC7575(params.component).maxWithdraw(
                 address(node)
             );
-            fl.eq(maxWithdrawAfter, 0, "ROUTER7540_EXECUTE_MAX_WITHDRAW");
+            invariant_ROUTER7540_12(maxWithdrawAfter);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -1089,28 +1035,19 @@ contract PostconditionsNode is PostconditionsBase {
             // (i.e., the user had pending shares). The router can succeed with 0 assets
             // when called for a user with no pending shares - this is valid behavior.
             if (params.shouldSucceed) {
-                fl.t(assetsReturned > 0, "ROUTER7540_FULFILL_NO_ASSETS");
+                invariant_ROUTER7540_13(assetsReturned);
             }
 
             uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
-            fl.t(
-                escrowBalanceAfter >= params.escrowBalanceBefore,
-                "ROUTER7540_FULFILL_ESCROW_BALANCE"
-            );
+            invariant_ROUTER7540_14(escrowBalanceAfter, params.escrowBalanceBefore);
 
             uint256 nodeBalanceAfter = asset.balanceOf(address(node));
-            fl.t(
-                nodeBalanceAfter <= params.nodeAssetBalanceBefore,
-                "ROUTER7540_FULFILL_NODE_BALANCE"
-            );
+            invariant_ROUTER7540_15(nodeBalanceAfter, params.nodeAssetBalanceBefore);
 
             uint256 componentSharesAfter = IERC20(params.component).balanceOf(
                 address(node)
             );
-            fl.t(
-                componentSharesAfter <= params.componentSharesBefore,
-                "ROUTER7540_FULFILL_COMPONENT_SHARES"
-            );
+            invariant_ROUTER7540_16(componentSharesAfter, params.componentSharesBefore);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -1128,10 +1065,7 @@ contract PostconditionsNode is PostconditionsBase {
             _after();
 
             uint256 pendingAfter = ERC7540Mock(params.pool).pendingAssets();
-            fl.t(
-                pendingAfter <= params.pendingBefore,
-                "POOL_PROCESS_PENDING_DELTA"
-            );
+            invariant_POOL_01(pendingAfter, params.pendingBefore);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -1149,7 +1083,7 @@ contract PostconditionsNode is PostconditionsBase {
 
             uint256 pendingAfter = IERC7540Redeem(params.pool)
                 .pendingRedeemRequest(0, address(node));
-            fl.t(pendingAfter == 0, "POOL_PROCESS_REDEEM_PENDING_NOT_ZERO");
+            invariant_POOL_02(pendingAfter);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -1246,10 +1180,7 @@ contract PostconditionsNode is PostconditionsBase {
 
             // Assets should be at least minAssetsOut (after fee)
             // Fee is subtracted by _subtractExecutionFee, so actual amount might be slightly less
-            fl.t(
-                assetGain >= (params.minAssetsOut * 99) / 100,
-                "Node should receive close to expected assets"
-            );
+            invariant_ONEINCH_03(assetGain, params.minAssetsOut);
 
             // Incentive tokens should be transferred from node
             uint256 incentiveBalanceAfter = IERC20(params.incentive).balanceOf(
@@ -1257,20 +1188,12 @@ contract PostconditionsNode is PostconditionsBase {
             );
             uint256 incentiveLoss = params.incentiveBalanceBefore -
                 incentiveBalanceAfter;
-            fl.eq(
-                incentiveLoss,
-                params.incentiveAmount,
-                "Node should have spent incentive amount"
-            );
+            invariant_ONEINCH_04(incentiveLoss, params.incentiveAmount);
 
             // Executor should have received incentive tokens
             uint256 executorIncentiveBalance = IERC20(params.incentive)
                 .balanceOf(executorAddr);
-            fl.gte(
-                executorIncentiveBalance,
-                params.incentiveAmount,
-                "Executor should receive incentive tokens"
-            );
+            invariant_ONEINCH_05(executorIncentiveBalance, params.incentiveAmount);
 
             onSuccessInvariantsGeneral(returnData);
         } else {

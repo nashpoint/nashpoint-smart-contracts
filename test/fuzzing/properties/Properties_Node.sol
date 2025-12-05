@@ -231,4 +231,152 @@ contract Properties_Node is Properties_ERR {
     function invariant_NODE_38(bytes4 selector, address policy) internal {
         fl.t(!node.isSigPolicy(selector, policy), NODE_38);
     }
+
+    // ==============================================================
+    // NODE BACKING INVARIANTS (NODE_39 - NODE_40)
+    // ==============================================================
+
+    function invariant_NODE_39(uint256 balanceAfter, uint256 currentBacking, uint256 delta) internal {
+        fl.eq(balanceAfter, currentBacking + delta, NODE_39);
+    }
+
+    function invariant_NODE_40(uint256 balanceAfter, uint256 currentBacking, uint256 delta) internal {
+        fl.eq(balanceAfter, currentBacking - delta, NODE_40);
+    }
+
+    // ==============================================================
+    // ROUTER 4626 INVARIANTS (ROUTER4626_01 - ROUTER4626_09)
+    // ==============================================================
+
+    function invariant_ROUTER4626_01(uint256 depositAmount) internal {
+        fl.t(depositAmount > 0, ROUTER4626_01);
+    }
+
+    function invariant_ROUTER4626_02(uint256 sharesAfter, uint256 sharesBefore) internal {
+        fl.t(sharesAfter >= sharesBefore, ROUTER4626_02);
+    }
+
+    function invariant_ROUTER4626_03(uint256 nodeBalanceAfter, uint256 nodeBalanceBefore) internal {
+        fl.t(nodeBalanceAfter <= nodeBalanceBefore, ROUTER4626_03);
+    }
+
+    function invariant_ROUTER4626_04(uint256 assetsReturned) internal {
+        fl.t(assetsReturned > 0, ROUTER4626_04);
+    }
+
+    function invariant_ROUTER4626_05(uint256 sharesAfter, uint256 sharesBefore) internal {
+        fl.t(sharesAfter <= sharesBefore, ROUTER4626_05);
+    }
+
+    function invariant_ROUTER4626_06(uint256 nodeBalanceAfter, uint256 nodeBalanceBefore) internal {
+        fl.t(nodeBalanceAfter >= nodeBalanceBefore, ROUTER4626_06);
+    }
+
+    function invariant_ROUTER4626_07(uint256 assetsReturned) internal {
+        fl.t(assetsReturned > 0, ROUTER4626_07);
+    }
+
+    function invariant_ROUTER4626_08(uint256 escrowAfter, uint256 escrowBefore) internal {
+        fl.t(escrowAfter >= escrowBefore, ROUTER4626_08);
+    }
+
+    function invariant_ROUTER4626_09(uint256 nodeBalanceAfter, uint256 nodeBalanceBefore) internal {
+        fl.t(nodeBalanceAfter <= nodeBalanceBefore, ROUTER4626_09);
+    }
+
+    // ==============================================================
+    // ROUTER 7540 INVARIANTS (ROUTER7540_01 - ROUTER7540_16)
+    // ==============================================================
+
+    function invariant_ROUTER7540_01(uint256 assetsRequested) internal {
+        fl.t(assetsRequested > 0, ROUTER7540_01);
+    }
+
+    function invariant_ROUTER7540_02(uint256 pendingAfter, uint256 pendingBefore) internal {
+        fl.t(pendingAfter >= pendingBefore, ROUTER7540_02);
+    }
+
+    function invariant_ROUTER7540_03(uint256 nodeBalanceAfter, uint256 nodeBalanceBefore) internal {
+        fl.t(nodeBalanceAfter <= nodeBalanceBefore, ROUTER7540_03);
+    }
+
+    function invariant_ROUTER7540_04(uint256 shareBalanceAfter, uint256 shareBalanceBefore, uint256 sharesReceived) internal {
+        fl.t(shareBalanceAfter >= shareBalanceBefore + sharesReceived, ROUTER7540_04);
+    }
+
+    function invariant_ROUTER7540_05(uint256 claimableAfter, uint256 claimableBefore) internal {
+        fl.t(claimableAfter <= claimableBefore, ROUTER7540_05);
+    }
+
+    function invariant_ROUTER7540_06(uint256 pendingAfter, uint256 pendingBefore) internal {
+        fl.t(pendingAfter >= pendingBefore, ROUTER7540_06);
+    }
+
+    function invariant_ROUTER7540_07(uint256 shareBalanceAfter, uint256 shareBalanceBefore) internal {
+        fl.t(shareBalanceAfter <= shareBalanceBefore, ROUTER7540_07);
+    }
+
+    function invariant_ROUTER7540_08(uint256 assetsReturned) internal {
+        fl.t(assetsReturned > 0, ROUTER7540_08);
+    }
+
+    function invariant_ROUTER7540_09(uint256 assets, uint256 maxWithdrawBefore) internal {
+        fl.eq(assets, maxWithdrawBefore, ROUTER7540_09);
+    }
+
+    function invariant_ROUTER7540_10(uint256 claimableAfter, uint256 claimableBefore) internal {
+        fl.t(claimableAfter <= claimableBefore, ROUTER7540_10);
+    }
+
+    function invariant_ROUTER7540_11(uint256 nodeBalanceAfter, uint256 nodeBalanceBefore) internal {
+        fl.t(nodeBalanceAfter >= nodeBalanceBefore, ROUTER7540_11);
+    }
+
+    function invariant_ROUTER7540_12(uint256 maxWithdrawAfter) internal {
+        fl.eq(maxWithdrawAfter, 0, ROUTER7540_12);
+    }
+
+    function invariant_ROUTER7540_13(uint256 assetsReturned) internal {
+        fl.t(assetsReturned > 0, ROUTER7540_13);
+    }
+
+    function invariant_ROUTER7540_14(uint256 escrowBalanceAfter, uint256 escrowBalanceBefore) internal {
+        fl.t(escrowBalanceAfter >= escrowBalanceBefore, ROUTER7540_14);
+    }
+
+    function invariant_ROUTER7540_15(uint256 nodeBalanceAfter, uint256 nodeBalanceBefore) internal {
+        fl.t(nodeBalanceAfter <= nodeBalanceBefore, ROUTER7540_15);
+    }
+
+    function invariant_ROUTER7540_16(uint256 componentSharesAfter, uint256 componentSharesBefore) internal {
+        fl.t(componentSharesAfter <= componentSharesBefore, ROUTER7540_16);
+    }
+
+    // ==============================================================
+    // ROUTER SETTINGS INVARIANTS (ROUTER_01 - ROUTER_03)
+    // ==============================================================
+
+    function invariant_ROUTER_01(bool stored, bool expected) internal {
+        fl.eq(stored, expected, ROUTER_01);
+    }
+
+    function invariant_ROUTER_02(bool stored, bool expected) internal {
+        fl.eq(stored, expected, ROUTER_02);
+    }
+
+    function invariant_ROUTER_03(uint256 stored, uint256 expected) internal {
+        fl.eq(stored, expected, ROUTER_03);
+    }
+
+    // ==============================================================
+    // POOL INVARIANTS (POOL_01 - POOL_02)
+    // ==============================================================
+
+    function invariant_POOL_01(uint256 pendingAfter, uint256 pendingBefore) internal {
+        fl.t(pendingAfter <= pendingBefore, POOL_01);
+    }
+
+    function invariant_POOL_02(uint256 pendingAfter) internal {
+        fl.t(pendingAfter == 0, POOL_02);
+    }
 }

@@ -28,16 +28,16 @@ contract PostconditionsOneInch is PostconditionsBase {
 
             // Assets should be at least minAssetsOut (after fee)
             // Fee is subtracted by _subtractExecutionFee, so actual amount might be slightly less
-            fl.t(assetGain >= (params.minAssetsOut * 99) / 100, "Node should receive close to expected assets");
+            invariant_ONEINCH_03(assetGain, params.minAssetsOut);
 
             // Incentive tokens should be transferred from node
             uint256 incentiveBalanceAfter = IERC20(params.incentive).balanceOf(nodeAddr);
             uint256 incentiveLoss = params.incentiveBalanceBefore - incentiveBalanceAfter;
-            fl.eq(incentiveLoss, params.incentiveAmount, "Node should have spent incentive amount");
+            invariant_ONEINCH_04(incentiveLoss, params.incentiveAmount);
 
             // Executor should have received incentive tokens
             uint256 executorIncentiveBalance = IERC20(params.incentive).balanceOf(executorAddr);
-            fl.gte(executorIncentiveBalance, params.incentiveAmount, "Executor should receive incentive tokens");
+            invariant_ONEINCH_05(executorIncentiveBalance, params.incentiveAmount);
 
             invariant_ONEINCH_01();
             invariant_ONEINCH_02(params);

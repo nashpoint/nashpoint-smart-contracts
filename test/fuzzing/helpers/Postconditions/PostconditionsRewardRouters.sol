@@ -21,11 +21,11 @@ contract PostconditionsRewardRouters is PostconditionsBase {
                 bytes32 proofHash
             ) = fluidDistributor.lastClaimInfo();
 
-            fl.eq(recipient, address(node), "FLUID_CLAIM_RECIPIENT");
-            fl.eq(cumulativeAmount, params.cumulativeAmount, "FLUID_CLAIM_AMOUNT");
-            fl.t(positionId == params.positionId, "FLUID_CLAIM_POSITION");
-            fl.eq(cycle, params.cycle, "FLUID_CLAIM_CYCLE");
-            fl.t(proofHash == params.proofHash, "FLUID_CLAIM_PROOF");
+            invariant_REWARD_FLUID_01(params, recipient);
+            invariant_REWARD_FLUID_02(params, cumulativeAmount);
+            invariant_REWARD_FLUID_03(params, positionId);
+            invariant_REWARD_FLUID_04(params, cycle);
+            invariant_REWARD_FLUID_05(params, proofHash);
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -39,9 +39,9 @@ contract PostconditionsRewardRouters is PostconditionsBase {
         if (success) {
             _after();
 
-            fl.eq(incentraDistributor.lastEarner(), address(node), "INCENTRA_EARNER");
-            fl.t(incentraDistributor.lastCampaignAddrsHash() == params.campaignAddrsHash, "INCENTRA_CAMPAIGNS");
-            fl.t(incentraDistributor.lastRewardsHash() == params.rewardsHash, "INCENTRA_REWARDS");
+            invariant_REWARD_INCENTRA_01(incentraDistributor.lastEarner());
+            invariant_REWARD_INCENTRA_02(params, incentraDistributor.lastCampaignAddrsHash());
+            invariant_REWARD_INCENTRA_03(params, incentraDistributor.lastRewardsHash());
 
             onSuccessInvariantsGeneral(returnData);
         } else {
@@ -53,10 +53,10 @@ contract PostconditionsRewardRouters is PostconditionsBase {
         if (success) {
             _after();
 
-            fl.t(merklDistributor.lastUsersHash() == params.usersHash, "MERKL_USERS");
-            fl.t(merklDistributor.lastTokensHash() == params.tokensHash, "MERKL_TOKENS");
-            fl.t(merklDistributor.lastAmountsHash() == params.amountsHash, "MERKL_AMOUNTS");
-            fl.t(merklDistributor.lastProofsHash() == params.proofsHash, "MERKL_PROOFS");
+            invariant_REWARD_MERKL_01(params, merklDistributor.lastUsersHash());
+            invariant_REWARD_MERKL_02(params, merklDistributor.lastTokensHash());
+            invariant_REWARD_MERKL_03(params, merklDistributor.lastAmountsHash());
+            invariant_REWARD_MERKL_04(params, merklDistributor.lastProofsHash());
 
             onSuccessInvariantsGeneral(returnData);
         } else {
