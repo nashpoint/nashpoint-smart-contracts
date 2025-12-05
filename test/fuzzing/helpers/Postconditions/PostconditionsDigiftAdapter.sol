@@ -143,8 +143,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftAssetApprovalParams memory params
     ) internal {
         if (success) {
-            uint256 allowance = asset.allowance(address(node), address(digiftAdapter));
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -159,9 +157,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
     ) internal {
         if (success) {
             _after();
-
-            uint256 allowance = digiftAdapter.allowance(owner, params.spender);
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -190,8 +185,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         DigiftRequestParams memory params
     ) internal {
         if (success) {
-            uint256 pending = digiftAdapter.pendingDepositRequest(0, address(node));
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
