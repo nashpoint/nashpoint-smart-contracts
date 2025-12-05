@@ -214,21 +214,4 @@ contract FuzzNode is PreconditionsNode, PostconditionsNode {
 
         nodeLoseBackingPostconditions(success, returnData, params);
     }
-
-    // ============================================
-    // REMOVED: CATEGORY 3 (Internal Protocol Functions)
-    // ============================================
-    // The following handlers have been DELETED as they are internal protocol functions:
-    // - fuzz_fulfillRedeem (onlyRebalancer, onlyWhenRebalancing)
-    // - fuzz_node_startRebalance (onlyRebalancer)
-    // - fuzz_node_subtractProtocolExecutionFee (onlyRouter)
-    // - fuzz_node_execute (onlyRouter)
-    // - fuzz_node_finalizeRedemption (onlyRouter)
-
-    // ============================================
-    // MOVED: CATEGORY 2 (Admin Functions)
-    // ============================================
-    // The following handlers have been MOVED to FuzzAdminNode.sol:
-    // - fuzz_node_payManagementFees (onlyOwnerOrRebalancer) → fuzz_admin_node_payManagementFees
-    // - fuzz_node_updateTotalAssets (onlyOwnerOrRebalancer) → fuzz_admin_node_updateTotalAssets
 }

@@ -457,12 +457,6 @@ contract PreconditionsNode is PreconditionsBase {
         params.shouldSucceed = params.target != address(0) && params.target != current;
     }
 
-    // NOTE: setQuoter has been removed in the remediation commit
-    // function nodeSetQuoterPreconditions() internal view returns (NodeAddressParams memory params) {
-    //     params.target = address(quoter);
-    //     params.shouldSucceed = true;
-    // }
-
     function nodeSetRebalanceCooldownPreconditions(uint256 seed) internal returns (NodeFeeParams memory params) {
         params.fee = uint64(fl.clamp(seed, 0, 7 days));
         params.shouldSucceed = true;
@@ -472,11 +466,6 @@ contract PreconditionsNode is PreconditionsBase {
         params.fee = uint64(fl.clamp(seed, 1 hours, 30 days));
         params.shouldSucceed = true;
     }
-
-    // NOTE: setLiquidationQueue has been removed in the remediation commit
-    // function nodeSetLiquidationQueuePreconditions(uint256 seed) internal view returns (NodeQueueParams memory params) {
-    //     ... removed ...
-    // }
 
     function nodeRescueTokensPreconditions(uint256 amountSeed) internal returns (NodeRescueParams memory params) {
         ERC20Mock token = new ERC20Mock("RescueToken", "RSQ");
@@ -697,15 +686,6 @@ contract PreconditionsNode is PreconditionsBase {
             params.shouldSucceed = false;
         }
     }
-
-    // NOTE: enableSwingPricing has been removed in the remediation commit
-    // function nodeEnableSwingPricingPreconditions(uint256 seed, bool statusSeed)
-    //     internal
-    //     view
-    //     returns (NodeSwingPricingParams memory params)
-    // {
-    //     ... removed ...
-    // }
 
     function nodeAddPoliciesPreconditions(uint256 seed) internal returns (NodePoliciesParams memory params) {
         params.selectors = new bytes4[](1);
@@ -1064,8 +1044,6 @@ contract PreconditionsNode is PreconditionsBase {
         node.requestRedeem(shares, params.controller, params.controller);
         vm.stopPrank();
 
-        // NOTE: requests() now returns 3 values (pendingRedeemRequest, claimableRedeemRequest, claimableAssets)
-        // sharesAdjusted was removed in remediation commit - using pendingRedeem instead
         (uint256 pendingRedeem,, uint256 claimableAssets) = node.requests(params.controller);
         uint256 assetsToReturn = node.convertToAssets(pendingRedeem);
 
@@ -1229,7 +1207,6 @@ contract PreconditionsNode is PreconditionsBase {
     {
         _prepareNodeContext(uint256(keccak256(abi.encodePacked(controllerSeed, componentSeed))));
 
-        // NOTE: getLiquidationsQueue has been removed in remediation; use getComponents instead
         address[] memory components = node.getComponents();
         if (components.length == 0) {
             params.shouldSucceed = false;
