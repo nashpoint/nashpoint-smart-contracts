@@ -114,4 +114,7 @@ library EventsLib {
 
     /// @notice Emitted when policy root on NodeRegistry is updated
     event PoliciesRootUpdate(bytes32 newRoot);
+
+    /// @notice Emitted when target is added/removed from whitelist of setup calls
+    event SetupCallChange(address indexed target, bool allowed);
 }

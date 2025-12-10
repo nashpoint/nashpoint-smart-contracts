@@ -66,6 +66,7 @@ contract NodeFactory is INodeFactory {
         for (uint256 i; i < setupCalls.length; i++) {
             // we should forbid adding malicious Nodes to the registry
             if (setupCalls[i].target == address(registry)) revert Forbidden();
+            if (!registry.setupCallWhitelisted(setupCalls[i].target)) revert Forbidden();
             Address.functionCall(setupCalls[i].target, setupCalls[i].payload);
         }
 
