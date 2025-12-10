@@ -46,7 +46,9 @@ contract FuzzNodeFactory is PreconditionsNodeFactory, PostconditionsNodeFactory 
         SetupCall[] memory setupCalls = new SetupCall[](0);
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(factory),
-            abi.encodeWithSelector(NodeFactory.deployFullNode.selector, params.initArgs, params.payload, setupCalls, params.salt),
+            abi.encodeWithSelector(
+                NodeFactory.deployFullNode.selector, params.initArgs, params.payload, setupCalls, params.salt
+            ),
             currentActor
         );
 

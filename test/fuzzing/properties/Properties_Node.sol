@@ -41,7 +41,7 @@ contract Properties_Node is Properties_ERR {
         // Get all users' total claimable assets
         uint256 totalClaimableAssets;
 
-        for(uint256 i; i < USERS.length; i++) {
+        for (uint256 i; i < USERS.length; i++) {
             ActorState memory userState = states[1].actorStates[USERS[i]];
             totalClaimableAssets += userState.claimableAssets;
         }
@@ -51,12 +51,12 @@ contract Properties_Node is Properties_ERR {
 
     function invariant_NODE_06(RouterInvestParams memory params) internal {
         uint256 currentTotalAssets = node.totalAssets();
-        uint256 componentAssetValueAfterInvest = ERC4626(params.component).convertToAssets(IERC20(params.component).balanceOf(address(node)));
+        uint256 componentAssetValueAfterInvest =
+            ERC4626(params.component).convertToAssets(IERC20(params.component).balanceOf(address(node)));
         uint256 componentTargetWeight = node.getComponentAllocation(params.component).targetWeight;
         uint256 realRatioAfterInvest = componentAssetValueAfterInvest * 1e18 / currentTotalAssets;
 
         fl.gte(componentTargetWeight, realRatioAfterInvest, NODE_06);
-
     }
 
     function invariant_NODE_07() internal {
@@ -72,7 +72,9 @@ contract Properties_Node is Properties_ERR {
     // DEPOSIT INVARIANTS (NODE_08 - NODE_11)
     // ==============================================================
 
-    function invariant_NODE_08(ActorState storage beforeActor, ActorState storage afterActor, uint256 mintedShares) internal {
+    function invariant_NODE_08(ActorState storage beforeActor, ActorState storage afterActor, uint256 mintedShares)
+        internal
+    {
         fl.eq(afterActor.shareBalance, beforeActor.shareBalance + mintedShares, NODE_08);
     }
 
@@ -92,7 +94,9 @@ contract Properties_Node is Properties_ERR {
     // MINT INVARIANTS (NODE_12 - NODE_15)
     // ==============================================================
 
-    function invariant_NODE_12(ActorState storage beforeActor, ActorState storage afterActor, uint256 shares) internal {
+    function invariant_NODE_12(ActorState storage beforeActor, ActorState storage afterActor, uint256 shares)
+        internal
+    {
         fl.eq(afterActor.shareBalance, beforeActor.shareBalance + shares, NODE_12);
     }
 
@@ -112,7 +116,9 @@ contract Properties_Node is Properties_ERR {
     // REQUEST REDEEM INVARIANTS (NODE_16 - NODE_19)
     // ==============================================================
 
-    function invariant_NODE_16(ActorState storage beforeOwner, ActorState storage afterOwner, uint256 shares) internal {
+    function invariant_NODE_16(ActorState storage beforeOwner, ActorState storage afterOwner, uint256 shares)
+        internal
+    {
         fl.eq(afterOwner.shareBalance, beforeOwner.shareBalance - shares, NODE_16);
     }
 
@@ -144,7 +150,9 @@ contract Properties_Node is Properties_ERR {
     // WITHDRAW INVARIANTS (NODE_30 - NODE_33)
     // ==============================================================
 
-    function invariant_NODE_22(ActorState storage beforeController, ActorState storage afterController, uint256 assets) internal {
+    function invariant_NODE_22(ActorState storage beforeController, ActorState storage afterController, uint256 assets)
+        internal
+    {
         fl.eq(afterController.claimableAssets, beforeController.claimableAssets - assets, NODE_22);
     }
 
@@ -156,15 +164,21 @@ contract Properties_Node is Properties_ERR {
     // FINALIZE REDEMPTION INVARIANTS (NODE_39 - NODE_43)
     // ==============================================================
 
-    function invariant_NODE_24(ActorState storage beforeState, ActorState storage afterState, uint256 sharesPending) internal {
+    function invariant_NODE_24(ActorState storage beforeState, ActorState storage afterState, uint256 sharesPending)
+        internal
+    {
         fl.eq(afterState.pendingRedeem, beforeState.pendingRedeem - sharesPending, NODE_24);
     }
 
-    function invariant_NODE_25(ActorState storage beforeState, ActorState storage afterState, uint256 sharesPending) internal {
+    function invariant_NODE_25(ActorState storage beforeState, ActorState storage afterState, uint256 sharesPending)
+        internal
+    {
         fl.eq(afterState.claimableRedeem, beforeState.claimableRedeem + sharesPending, NODE_25);
     }
 
-    function invariant_NODE_26(ActorState storage beforeState, ActorState storage afterState, uint256 assetsToReturn) internal {
+    function invariant_NODE_26(ActorState storage beforeState, ActorState storage afterState, uint256 assetsToReturn)
+        internal
+    {
         fl.eq(afterState.claimableAssets, beforeState.claimableAssets + assetsToReturn, NODE_26);
     }
 
@@ -180,15 +194,25 @@ contract Properties_Node is Properties_ERR {
     // REDEEM INVARIANTS (NODE_29 - NODE_32)
     // ==============================================================
 
-    function invariant_NODE_29(ActorState storage beforeController, ActorState storage afterController, uint256 shares) internal {
+    function invariant_NODE_29(ActorState storage beforeController, ActorState storage afterController, uint256 shares)
+        internal
+    {
         fl.eq(afterController.claimableRedeem, beforeController.claimableRedeem - shares, NODE_29);
     }
 
-    function invariant_NODE_30(ActorState storage beforeController, ActorState storage afterController, uint256 assetsReturned) internal {
+    function invariant_NODE_30(
+        ActorState storage beforeController,
+        ActorState storage afterController,
+        uint256 assetsReturned
+    ) internal {
         fl.eq(afterController.claimableAssets, beforeController.claimableAssets - assetsReturned, NODE_30);
     }
 
-    function invariant_NODE_31(ActorState storage beforeReceiver, ActorState storage afterReceiver, uint256 assetsReturned) internal {
+    function invariant_NODE_31(
+        ActorState storage beforeReceiver,
+        ActorState storage afterReceiver,
+        uint256 assetsReturned
+    ) internal {
         fl.eq(afterReceiver.assetBalance, beforeReceiver.assetBalance + assetsReturned, NODE_31);
     }
 
@@ -310,7 +334,9 @@ contract Properties_Node is Properties_ERR {
         fl.t(nodeBalanceAfter <= nodeBalanceBefore, ROUTER7540_03);
     }
 
-    function invariant_ROUTER7540_04(uint256 shareBalanceAfter, uint256 shareBalanceBefore, uint256 sharesReceived) internal {
+    function invariant_ROUTER7540_04(uint256 shareBalanceAfter, uint256 shareBalanceBefore, uint256 sharesReceived)
+        internal
+    {
         fl.t(shareBalanceAfter >= shareBalanceBefore + sharesReceived, ROUTER7540_04);
     }
 

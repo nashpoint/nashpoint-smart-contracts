@@ -96,7 +96,7 @@ contract LogicalCoverageBase is BeforeAfter {
         // Check claimable vs escrow
         uint256 totalClaimableAssets;
         for (uint256 i = 0; i < USERS.length; i++) {
-            (, , uint256 claimableAssets) = node.requests(USERS[i]);
+            (,, uint256 claimableAssets) = node.requests(USERS[i]);
             totalClaimableAssets += claimableAssets;
         }
         if (totalClaimableAssets > 0 && totalClaimableAssets > asset.balanceOf(address(escrow))) {

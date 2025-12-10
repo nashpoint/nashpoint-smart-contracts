@@ -38,12 +38,7 @@ abstract contract RevertHandler is PropertiesBase {
         _handleCustomError(returnData);
     }
 
-    function _getAllowedPanicCodes()
-        internal
-        pure
-        virtual
-        returns (uint256[] memory)
-    {
+    function _getAllowedPanicCodes() internal pure virtual returns (uint256[] memory) {
         uint256[] memory panicCodes = new uint256[](3);
         panicCodes[0] = PANIC_ENUM_OUT_OF_BOUNDS;
         panicCodes[1] = PANIC_POP_EMPTY_ARRAY;
@@ -51,12 +46,7 @@ abstract contract RevertHandler is PropertiesBase {
         return panicCodes;
     }
 
-    function _getAllowedCustomErrors()
-        internal
-        pure
-        virtual
-        returns (bytes4[] memory)
-    {
+    function _getAllowedCustomErrors() internal pure virtual returns (bytes4[] memory) {
         bytes4[] memory allowedErrors = new bytes4[](1);
         // Uncomment to allow empty reverts:
         // allowedErrors[0] = bytes4(abi.encode(""));
@@ -72,12 +62,7 @@ abstract contract RevertHandler is PropertiesBase {
         fl.errAllow(returnedError, _getAllowedSoladyERC20Error(), ERR_01);
     }
 
-    function _getAllowedSoladyERC20Error()
-        internal
-        pure
-        virtual
-        returns (bytes4[] memory)
-    {
+    function _getAllowedSoladyERC20Error() internal pure virtual returns (bytes4[] memory) {
         bytes4[] memory allowedErrors = new bytes4[](5);
         allowedErrors[0] = SafeTransferLib.ETHTransferFailed.selector;
         allowedErrors[1] = SafeTransferLib.TransferFromFailed.selector;
@@ -88,9 +73,7 @@ abstract contract RevertHandler is PropertiesBase {
         return allowedErrors;
     }
 
-    function _isAllowedERC20Error(
-        bytes memory returnData
-    ) internal pure virtual returns (bool) {
+    function _isAllowedERC20Error(bytes memory returnData) internal pure virtual returns (bool) {
         bytes[] memory allowedErrors = new bytes[](9);
         allowedErrors[0] = INSUFFICIENT_ALLOWANCE;
         allowedErrors[1] = TRANSFER_FROM_ZERO;
@@ -110,13 +93,9 @@ abstract contract RevertHandler is PropertiesBase {
         return false;
     }
 
-    function _isAllowedFoundryERC20Error(
-        bytes memory returnData
-    ) internal virtual returns (bool) {
-        bytes memory ADDITION_OVERFLOW = abi.encodeWithSelector(
-            bytes4(keccak256("Error(string)")),
-            "ERC20: addition overflow"
-        );
+    function _isAllowedFoundryERC20Error(bytes memory returnData) internal virtual returns (bool) {
+        bytes memory ADDITION_OVERFLOW =
+            abi.encodeWithSelector(bytes4(keccak256("Error(string)")), "ERC20: addition overflow");
 
         bytes[] memory allowedErrors = new bytes[](1);
         allowedErrors[0] = ADDITION_OVERFLOW;
@@ -172,16 +151,11 @@ abstract contract RevertHandler is PropertiesBase {
             returnedError := mload(add(returnData, 0x20))
         }
 
-        fl.log(
-            "Custom protocol error returnData: ",
-            _extractRevertMessage(returnData)
-        );
+        fl.log("Custom protocol error returnData: ", _extractRevertMessage(returnData));
         fl.errAllow(returnedError, _getAllowedCustomErrors(), ERR_01);
     }
 
-    function _extractPanicCode(
-        bytes memory revertData
-    ) private returns (uint256) {
+    function _extractPanicCode(bytes memory revertData) private returns (uint256) {
         fl.log("REVERT DATA LENGTH", revertData.length);
         if (revertData.length < 36) {
             fl.t(false, "Unexpected revert data length for panic code");
@@ -195,34 +169,22 @@ abstract contract RevertHandler is PropertiesBase {
         return panicCode;
     }
 
-    function _extractRevertMessage(
-        bytes memory _returnData
-    ) private returns (string memory) {
+    function _extractRevertMessage(bytes memory _returnData) private returns (string memory) {
         // If data is too short or not properly formatted, return a default message
         if (_returnData.length < 4) {
             return "Invalid error data";
         }
 
         // Try-catch block to handle non-decodeable data
-        try this._decodeErrorMessage(_returnData) returns (
-            string memory message
-        ) {
+        try this._decodeErrorMessage(_returnData) returns (string memory message) {
             return message;
         } catch {
-            return
-                string(
-                    abi.encodePacked(
-                        "Non-decodeable error: 0x",
-                        FuzzLibString.toHexString(_returnData)
-                    )
-                );
+            return string(abi.encodePacked("Non-decodeable error: 0x", FuzzLibString.toHexString(_returnData)));
         }
     }
 
     // Helper function to safely decode error messages
-    function _decodeErrorMessage(
-        bytes memory _data
-    ) external pure returns (string memory) {
+    function _decodeErrorMessage(bytes memory _data) external pure returns (string memory) {
         // Skip the error selector (first 4 bytes)
         bytes memory strBytes = new bytes(_data.length - 4);
         for (uint256 i = 4; i < _data.length; i++) {

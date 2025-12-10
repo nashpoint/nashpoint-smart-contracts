@@ -4,9 +4,7 @@ pragma solidity ^0.8.0;
 import "./RevertHandler.sol";
 import {ErrorsLib} from "../../../src/libraries/ErrorsLib.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {
-    UpgradeableBeacon
-} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 abstract contract Properties_ERR is RevertHandler {
     /*
@@ -15,13 +13,7 @@ abstract contract Properties_ERR is RevertHandler {
      *
      */
 
-    function _getAllowedPanicCodes()
-        internal
-        pure
-        virtual
-        override
-        returns (uint256[] memory)
-    {
+    function _getAllowedPanicCodes() internal pure virtual override returns (uint256[] memory) {
         uint256[] memory panicCodes = new uint256[](3);
         panicCodes[0] = PANIC_ENUM_OUT_OF_BOUNDS;
         panicCodes[1] = PANIC_POP_EMPTY_ARRAY;
@@ -37,13 +29,7 @@ abstract contract Properties_ERR is RevertHandler {
     //     .UsdnProtocolDepositTooSmall
     //     .selector;
 
-    function _getAllowedCustomErrors()
-        internal
-        pure
-        virtual
-        override
-        returns (bytes4[] memory)
-    {
+    function _getAllowedCustomErrors() internal pure virtual override returns (bytes4[] memory) {
         bytes4[] memory allowedErrors = new bytes4[](125);
         allowedErrors[0] = 0xd92e233d; // NodeFactory.ZeroAddress()
         allowedErrors[1] = 0x430f13b3; // NodeFactory.InvalidName()
@@ -176,9 +162,7 @@ abstract contract Properties_ERR is RevertHandler {
         return allowedErrors;
     }
 
-    function _isAllowedERC20Error(
-        bytes memory returnData
-    ) internal pure virtual override returns (bool) {
+    function _isAllowedERC20Error(bytes memory returnData) internal pure virtual override returns (bool) {
         bytes[] memory allowedErrors = new bytes[](9);
         allowedErrors[0] = INSUFFICIENT_ALLOWANCE;
         allowedErrors[1] = TRANSFER_FROM_ZERO;
@@ -198,13 +182,7 @@ abstract contract Properties_ERR is RevertHandler {
         return false;
     }
 
-    function _getAllowedSoladyERC20Error()
-        internal
-        pure
-        virtual
-        override
-        returns (bytes4[] memory)
-    {
+    function _getAllowedSoladyERC20Error() internal pure virtual override returns (bytes4[] memory) {
         bytes4[] memory allowedErrors = new bytes4[](5);
         allowedErrors[0] = SafeTransferLib.ETHTransferFailed.selector;
         allowedErrors[1] = SafeTransferLib.TransferFromFailed.selector;
@@ -215,54 +193,24 @@ abstract contract Properties_ERR is RevertHandler {
         return allowedErrors;
     }
 
-    function _isAllowedFoundryERC20Error(
-        bytes memory returnData
-    ) internal virtual override returns (bool) {
+    function _isAllowedFoundryERC20Error(bytes memory returnData) internal virtual override returns (bool) {
         // ERC7540Mock string errors
         bytes4 errorSelector = bytes4(keccak256("Error(string)"));
 
         bytes[] memory allowedErrors = new bytes[](10);
-        allowedErrors[0] = abi.encodeWithSelector(
-            errorSelector,
-            "only poolManager can execute"
-        );
-        allowedErrors[1] = abi.encodeWithSelector(
-            errorSelector,
-            "Cannot request deposit of 0 assets"
-        );
-        allowedErrors[2] = abi.encodeWithSelector(
-            errorSelector,
-            "Not authorized"
-        );
-        allowedErrors[3] = abi.encodeWithSelector(
-            errorSelector,
-            "Cannot request redeem of 0 shares"
-        );
-        allowedErrors[4] = abi.encodeWithSelector(
-            errorSelector,
-            "Insufficient shares"
-        );
-        allowedErrors[5] = abi.encodeWithSelector(
-            errorSelector,
-            "ERC20: addition overflow"
-        );
+        allowedErrors[0] = abi.encodeWithSelector(errorSelector, "only poolManager can execute");
+        allowedErrors[1] = abi.encodeWithSelector(errorSelector, "Cannot request deposit of 0 assets");
+        allowedErrors[2] = abi.encodeWithSelector(errorSelector, "Not authorized");
+        allowedErrors[3] = abi.encodeWithSelector(errorSelector, "Cannot request redeem of 0 shares");
+        allowedErrors[4] = abi.encodeWithSelector(errorSelector, "Insufficient shares");
+        allowedErrors[5] = abi.encodeWithSelector(errorSelector, "ERC20: addition overflow");
         // ERC7540Mock preview errors
-        allowedErrors[6] = abi.encodeWithSelector(
-            errorSelector,
-            "ERC7540: previewDeposit not available for async vault"
-        );
-        allowedErrors[7] = abi.encodeWithSelector(
-            errorSelector,
-            "ERC7540: previewMint not available for async vault"
-        );
-        allowedErrors[8] = abi.encodeWithSelector(
-            errorSelector,
-            "ERC7540: previewWithdraw not available for async vault"
-        );
-        allowedErrors[9] = abi.encodeWithSelector(
-            errorSelector,
-            "ERC7540: previewRedeem not available for async vault"
-        );
+        allowedErrors[6] =
+            abi.encodeWithSelector(errorSelector, "ERC7540: previewDeposit not available for async vault");
+        allowedErrors[7] = abi.encodeWithSelector(errorSelector, "ERC7540: previewMint not available for async vault");
+        allowedErrors[8] =
+            abi.encodeWithSelector(errorSelector, "ERC7540: previewWithdraw not available for async vault");
+        allowedErrors[9] = abi.encodeWithSelector(errorSelector, "ERC7540: previewRedeem not available for async vault");
 
         for (uint256 i = 0; i < allowedErrors.length; i++) {
             if (keccak256(returnData) == keccak256(allowedErrors[i])) {

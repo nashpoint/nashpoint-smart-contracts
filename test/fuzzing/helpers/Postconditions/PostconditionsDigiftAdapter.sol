@@ -201,7 +201,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         internal
     {
         if (success) {
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -215,7 +214,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bool isDeposit
     ) internal {
         if (success) {
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -269,7 +267,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         bool isManager
     ) internal {
         if (success) {
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -283,7 +280,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
         uint8 selector
     ) internal {
         if (success) {
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);
@@ -292,7 +288,6 @@ contract PostconditionsDigiftAdapter is PostconditionsBase {
 
     function digiftUpdatePricePostconditions(bool success, bytes memory returnData) internal {
         if (success) {
-
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

@@ -47,9 +47,7 @@ contract FoundryPlayground is FuzzGuided {
         fuzz_deposit(5e18);
 
         setActor(rebalancer);
-        address[] memory asyncComponents = componentsByRouterForTest(
-            address(router7540)
-        );
+        address[] memory asyncComponents = componentsByRouterForTest(address(router7540));
         uint256 digiftIndex;
         for (uint256 i = 0; i < asyncComponents.length; i++) {
             if (asyncComponents[i] == address(digiftAdapter)) {
@@ -73,9 +71,7 @@ contract FoundryPlayground is FuzzGuided {
         fuzz_deposit(6e18);
 
         setActor(rebalancer);
-        address[] memory asyncComponents = componentsByRouterForTest(
-            address(router7540)
-        );
+        address[] memory asyncComponents = componentsByRouterForTest(address(router7540));
         uint256 digiftIndex;
         for (uint256 i = 0; i < asyncComponents.length; i++) {
             if (asyncComponents[i] == address(digiftAdapter)) {
@@ -127,11 +123,7 @@ contract FoundryPlayground is FuzzGuided {
         fuzz_admin_router7540_mintClaimable(digiftSeed);
 
         uint256 sharesAfter = digiftAdapter.balanceOf(address(node));
-        assertGt(
-            sharesAfter,
-            sharesBefore,
-            "node should hold digift shares after minting"
-        );
+        assertGt(sharesAfter, sharesBefore, "node should hold digift shares after minting");
     }
 
     function test_router7540_execute_async_withdrawal_lifecycle() public {
@@ -169,11 +161,7 @@ contract FoundryPlayground is FuzzGuided {
         uint256 assetsAfter = asset.balanceOf(address(node));
         // Note: Changed from assertGt to assertGe because the async withdrawal
         // may return 0 assets if claimableRedeemRequest returns 0
-        assertGe(
-            assetsAfter,
-            assetsBefore,
-            "node should not lose assets after withdraw"
-        );
+        assertGe(assetsAfter, assetsBefore, "node should not lose assets after withdraw");
     }
 
     function test_router7540_fulfill_redeem_lifecycle() public {
@@ -227,9 +215,7 @@ contract FoundryPlayground is FuzzGuided {
         setActor(USERS[1]);
         fuzz_deposit(8e18);
 
-        address[] memory syncComponents = componentsByRouterForTest(
-            address(router4626)
-        );
+        address[] memory syncComponents = componentsByRouterForTest(address(router4626));
         uint256 vaultIndex;
         for (uint256 i = 0; i < syncComponents.length; i++) {
             if (syncComponents[i] == address(vault)) {
@@ -309,22 +295,16 @@ contract FoundryPlayground is FuzzGuided {
             36753557407816211530351668104484639572433664773310863857426046061,
             12854873739706437469488454590303083742227575315910509849994676949
         );
-        fuzz_nodeFactory_deploy(
-            13190577696994994588666916457544640855281538952348264871
-        );
+        fuzz_nodeFactory_deploy(13190577696994994588666916457544640855281538952348264871);
     }
+
     function test_repro_02() public {
         fuzz_admin_router4626_liquidate(2, 15963014);
     }
 
     function test_repro_03() public {
-        fuzz_component_loseBacking(
-            214400605961708059923141676245609101951482082191241914701930525530494,
-            23
-        );
-        fuzz_nodeFactory_deploy(
-            3540170891897603033693902356435145637640170247441428540738
-        );
+        fuzz_component_loseBacking(214400605961708059923141676245609101951482082191241914701930525530494, 23);
+        fuzz_nodeFactory_deploy(3540170891897603033693902356435145637640170247441428540738);
     }
 
     function test_repro_04() public {
@@ -332,19 +312,15 @@ contract FoundryPlayground is FuzzGuided {
 
         vm.warp(block.timestamp + 5044);
         vm.roll(block.number + 89);
-        forceNodeContextForTest(
-            5492877868054641659825948955922999767474903059249057329985703102296
-        );
-        fuzz_admin_router4626_invest(
-            187080942296831526952352168915537801532036090819931054375284582527126784,
-            0
-        );
+        forceNodeContextForTest(5492877868054641659825948955922999767474903059249057329985703102296);
+        fuzz_admin_router4626_invest(187080942296831526952352168915537801532036090819931054375284582527126784, 0);
     }
     /**
      * @notice Test node reserve fulfillment (happy path)
      * @dev The precondition ensures node has sufficient assets to fulfill redemption
      *      Note: Reserve drain error path (seed % 5 == 0) is tested by fuzzing campaign
      */
+
     function test_node_fulfillRedeem_from_reserve() public {
         setActor(rebalancer);
         fuzz_admin_node_fulfillRedeem(3); // seed=3, not divisible by 5, has sufficient reserve
@@ -390,9 +366,7 @@ contract FoundryPlayground is FuzzGuided {
     }
 
     function _componentSeed(address target) internal view returns (uint256) {
-        address[] memory asyncComponents = componentsByRouterForTest(
-            address(router7540)
-        );
+        address[] memory asyncComponents = componentsByRouterForTest(address(router7540));
         for (uint256 i = 0; i < asyncComponents.length; i++) {
             if (asyncComponents[i] == target) {
                 return i;
@@ -417,9 +391,7 @@ contract FoundryPlayground is FuzzGuided {
 
     function test_repro_07_fuzz_guided_router7540_fulfillRedeem() public {
         this.fuzz_guided_router7540_fulfillRedeem(
-            151882892043070225363345645199913393859669436706735518143125757,
-            0,
-            14413638092575
+            151882892043070225363345645199913393859669436706735518143125757, 0, 14413638092575
         );
     }
 
@@ -431,30 +403,20 @@ contract FoundryPlayground is FuzzGuided {
         vm.warp(block.timestamp + 229904);
         vm.roll(block.number + 3127);
 
-        try
-            this.fuzz_nodeFactory_deploy(
-                60820723783939169940061053321121476354867413293781497638975353726305097883
-            )
-        {} catch {}
-        try
-            this.fuzz_admin_router4626_liquidate(
-                2725604580656968673756542178559131576641882851914682948258416832527984571196,
-                5259265159530232441167422601636923023650356548998380400880343811646837907439
-            )
-        {} catch {}
-        try
-            this.fuzz_admin_router4626_fulfillRedeem(
-                381552042,
-                3096745682701865768030249088922293975681790001904513691402715125204462
-            )
-        {} catch {}
+        try this.fuzz_nodeFactory_deploy(60820723783939169940061053321121476354867413293781497638975353726305097883) {}
+            catch {}
+        try this.fuzz_admin_router4626_liquidate(
+            2725604580656968673756542178559131576641882851914682948258416832527984571196,
+            5259265159530232441167422601636923023650356548998380400880343811646837907439
+        ) {} catch {}
+        try this.fuzz_admin_router4626_fulfillRedeem(
+            381552042, 3096745682701865768030249088922293975681790001904513691402715125204462
+        ) {} catch {}
         vm.warp(block.timestamp + 499205);
         vm.roll(block.number + 39548);
-        try
-            this.fuzz_admin_pool_processPendingDeposits(
-                54727360561742095506685279242173073379739097347084651743398245155478404573540
-            )
-        {} catch {}
+        try this.fuzz_admin_pool_processPendingDeposits(
+            54727360561742095506685279242173073379739097347084651743398245155478404573540
+        ) {} catch {}
         vm.warp(block.timestamp + 206542);
         vm.roll(block.number + 2613);
         try this.fuzz_requestRedeem(6120279027780322) {} catch {}
@@ -468,22 +430,14 @@ contract FoundryPlayground is FuzzGuided {
         try this.fuzz_admin_node_fulfillRedeem(1294646450) {} catch {}
         vm.warp(block.timestamp + 357632);
         vm.roll(block.number + 127);
-        try
-            this.fuzz_digift_approve(
-                13,
-                24116673269646944313822860450674869474620959631815787224624535867963433321831
-            )
+        try this.fuzz_digift_approve(13, 24116673269646944313822860450674869474620959631815787224624535867963433321831)
         {} catch {}
-        try
-            this.forceNodeContextForTest(
-                16758577700044131139215333470636976227594410639545414176295555025159939330321
-            )
+        try this.forceNodeContextForTest(16758577700044131139215333470636976227594410639545414176295555025159939330321)
         {} catch {}
         vm.warp(block.timestamp + 1843);
         vm.roll(block.number + 51644);
         this.fuzz_admin_router4626_invest(
-            34454305491944306616250448101787334092084592933696329430814046349864808333007,
-            45
+            34454305491944306616250448101787334092084592933696329430814046349864808333007, 45
         );
     }
 
@@ -496,14 +450,9 @@ contract FoundryPlayground is FuzzGuided {
         this.fuzz_admin_oneinch_swap(0);
     }
 
-    function test_repro_12_fuzz_guided_router7540_executeAsyncWithdrawal()
-        public
-    {
-        try
-            this.fuzz_nodeFactory_deploy(
-                4336062823423054164578484425732283683497955113507915451207564094359975746903
-            )
-        {} catch {}
+    function test_repro_12_fuzz_guided_router7540_executeAsyncWithdrawal() public {
+        try this.fuzz_nodeFactory_deploy(4336062823423054164578484425732283683497955113507915451207564094359975746903) {}
+            catch {}
         try this.fuzz_admin_node_startRebalance(426) {} catch {}
         vm.warp(block.timestamp + 438412);
         vm.roll(block.number + 7735);
@@ -511,24 +460,16 @@ contract FoundryPlayground is FuzzGuided {
         vm.warp(block.timestamp + 231838);
         vm.roll(block.number + 550);
 
-        try
-            this.fuzz_component_loseBacking(
-                33024162073505416403934174785290201432828526912978053601875568360571900910109,
-                118042
-            )
-        {} catch {}
+        try this.fuzz_component_loseBacking(
+            33024162073505416403934174785290201432828526912978053601875568360571900910109, 118042
+        ) {} catch {}
         vm.warp(block.timestamp + 40497);
         vm.roll(block.number + 20905);
-        try
-            this.fuzz_admin_router4626_fulfillRedeem(
-                105,
-                1261949173909778052230447289569070574178473996731769589822408401870449436437
-            )
-        {} catch {}
+        try this.fuzz_admin_router4626_fulfillRedeem(
+            105, 1261949173909778052230447289569070574178473996731769589822408401870449436437
+        ) {} catch {}
         this.fuzz_guided_router7540_executeAsyncWithdrawal(
-            746,
-            603557592,
-            7107086103350918887933168315655862334116738025567932143725657113105906863646
+            746, 603557592, 7107086103350918887933168315655862334116738025567932143725657113105906863646
         );
     }
 
@@ -538,11 +479,8 @@ contract FoundryPlayground is FuzzGuided {
         try this.fuzz_node_multicall(125670) {} catch {}
         vm.warp(block.timestamp + 520495);
         vm.roll(block.number + 46134);
-        try
-            this.fuzz_nodeFactory_deploy(
-                1760141638421111204192957525700345679625768954528617738685579911586266317121
-            )
-        {} catch {}
+        try this.fuzz_nodeFactory_deploy(1760141638421111204192957525700345679625768954528617738685579911586266317121) {}
+            catch {}
         vm.warp(block.timestamp + 414709);
         vm.roll(block.number + 62994);
 
@@ -552,58 +490,35 @@ contract FoundryPlayground is FuzzGuided {
         vm.warp(block.timestamp + 496868);
         vm.roll(block.number + 70);
         this.fuzz_guided_router7540_claimable(
-            1525977137,
-            19337371914190206685746076656331701558615183464962432767590778626726684609415
+            1525977137, 19337371914190206685746076656331701558615183464962432767590778626726684609415
         );
     }
 
     // ==================== REPRO 14-19: 12-04 ====================
 
     function test_repro_14_fuzz_guided_router7540_partialFulfill() public {
-        try
-            this.fuzz_component_gainBacking(256353898554775248216, 0)
-        {} catch {}
-        this.fuzz_guided_router7540_partialFulfill(
-            0,
-            43046065566779394005564640830420032309924885,
-            0
-        );
+        try this.fuzz_component_gainBacking(256353898554775248216, 0) {} catch {}
+        this.fuzz_guided_router7540_partialFulfill(0, 43046065566779394005564640830420032309924885, 0);
     }
 
     function test_repro_15_fuzz_admin_pool_processPendingRedemptions() public {
-        try
-            this.fuzz_guided_router7540_executeAsyncWithdrawal(
-                8148522722205147890329735824458695868957175,
-                0,
-                10351562625666933704206198215612816874432202258613
-            )
-        {} catch {}
-        try
-            this.fuzz_guided_router7540_partialFulfill(
-                44047542894223513624784988004827279352194730261,
-                0,
-                366423664282188974238236291694678884183891
-            )
-        {} catch {}
+        try this.fuzz_guided_router7540_executeAsyncWithdrawal(
+            8148522722205147890329735824458695868957175, 0, 10351562625666933704206198215612816874432202258613
+        ) {} catch {}
+        try this.fuzz_guided_router7540_partialFulfill(
+            44047542894223513624784988004827279352194730261, 0, 366423664282188974238236291694678884183891
+        ) {} catch {}
         this.fuzz_admin_pool_processPendingRedemptions(1576650490163);
     }
 
     function test_repro_16_fuzz_guided_router7540_fulfillRedeem() public {
         vm.warp(block.timestamp + 3704);
         vm.roll(block.number + 1);
-        try
-            this.fuzz_guided_router7540_partialFulfill(
-                0,
-                7697664051744948929420746885882238833774065233,
-                1089331980893274053696102873530429694224650779
-            )
-        {} catch {}
+        try this.fuzz_guided_router7540_partialFulfill(
+            0, 7697664051744948929420746885882238833774065233, 1089331980893274053696102873530429694224650779
+        ) {} catch {}
         try this.forceNodeContextForTest(0) {} catch {}
-        this.fuzz_guided_router7540_fulfillRedeem(
-            2201929734356531108421269306719573279219,
-            0,
-            0
-        );
+        this.fuzz_guided_router7540_fulfillRedeem(2201929734356531108421269306719573279219, 0, 0);
     }
 
     function test_repro_17() public {
@@ -614,26 +529,20 @@ contract FoundryPlayground is FuzzGuided {
         vm.prank(0x0000000000000000000000000000000000020000);
         vm.warp(block.timestamp + 327);
         vm.roll(block.number + 6344);
-        try
-            this.fuzz_guided_router7540_partialFulfill(
-                16291307587688378201203550058243142548441332259459641589145790223581105212446,
-                1524785992,
-                88547664097770406600145745129933251194640394409877110105192465151007363328472
-            )
-        {} catch {}
+        try this.fuzz_guided_router7540_partialFulfill(
+            16291307587688378201203550058243142548441332259459641589145790223581105212446,
+            1524785992,
+            88547664097770406600145745129933251194640394409877110105192465151007363328472
+        ) {} catch {}
         vm.warp(block.timestamp + 471024);
         vm.roll(block.number + 2648);
 
         vm.prank(0x0000000000000000000000000000000000030000);
         vm.warp(block.timestamp + 640);
         vm.roll(block.number + 14589);
-        try
-            this.fuzz_guided_router7540_fulfillRedeem(
-                41370147849573675512070856522738441685347019102720815941645984476719001761023,
-                946,
-                706056179871158743800599
-            )
-        {} catch {}
+        try this.fuzz_guided_router7540_fulfillRedeem(
+            41370147849573675512070856522738441685347019102720815941645984476719001761023, 946, 706056179871158743800599
+        ) {} catch {}
         vm.warp(block.timestamp + 291198);
         vm.roll(block.number + 48399);
 
@@ -644,94 +553,68 @@ contract FoundryPlayground is FuzzGuided {
         vm.prank(0x0000000000000000000000000000000000010000);
         vm.warp(block.timestamp + 345927);
         vm.roll(block.number + 55373);
-        try
-            this.fuzz_component_loseBacking(
-                114916587389629795224913414826804211219420736061723329320821680044317126230770,
-                141972508614623265525
-            )
-        {} catch {}
+        try this.fuzz_component_loseBacking(
+            114916587389629795224913414826804211219420736061723329320821680044317126230770, 141972508614623265525
+        ) {} catch {}
         vm.warp(block.timestamp + 255795);
         vm.roll(block.number + 53229);
 
         vm.prank(0x0000000000000000000000000000000000030000);
         vm.warp(block.timestamp + 80123);
         vm.roll(block.number + 56911);
-        try
-            this.fuzz_admin_router7540_fulfillRedeemRequest(
-                4949165054795372511601318721434963626949001616614414128497513514893970621283,
-                130878365475335428770072
-            )
-        {} catch {}
+        try this.fuzz_admin_router7540_fulfillRedeemRequest(
+            4949165054795372511601318721434963626949001616614414128497513514893970621283, 130878365475335428770072
+        ) {} catch {}
         vm.prank(0x0000000000000000000000000000000000030000);
         vm.warp(block.timestamp + 478923);
         vm.roll(block.number + 11056);
-        try
-            this.fuzz_fluid_claimRewards(
-                2497972194246591634529951508234501,
-                108932718952309497644658,
-                18235185267968406577485360957595155360445584202970442671824733857237851547229
-            )
-        {} catch {}
+        try this.fuzz_fluid_claimRewards(
+            2497972194246591634529951508234501,
+            108932718952309497644658,
+            18235185267968406577485360957595155360445584202970442671824733857237851547229
+        ) {} catch {}
         vm.prank(0x0000000000000000000000000000000000030000);
         vm.warp(block.timestamp + 244428);
         vm.roll(block.number + 35529);
-        try
-            this.fuzz_admin_router4626_invest(100754063201821661874, 1527411862)
-        {} catch {}
+        try this.fuzz_admin_router4626_invest(100754063201821661874, 1527411862) {} catch {}
         vm.warp(block.timestamp + 195123);
         vm.roll(block.number + 2820);
 
         vm.prank(0x0000000000000000000000000000000000020000);
         vm.warp(block.timestamp + 33605);
         vm.roll(block.number + 32409);
-        try
-            this.fuzz_mint(
-                115792089237316195423570985008687907853269984665640564039457584007913129639932
-            )
-        {} catch {}
+        try this.fuzz_mint(115792089237316195423570985008687907853269984665640564039457584007913129639932) {} catch {}
         vm.prank(0x0000000000000000000000000000000000030000);
         vm.warp(block.timestamp + 211230);
         vm.roll(block.number + 43436);
-        try
-            this.fuzz_admin_router7540_requestAsyncWithdrawal(
-                11522943855907076227,
-                1726473206793072886159
-            )
-        {} catch {}
+        try this.fuzz_admin_router7540_requestAsyncWithdrawal(11522943855907076227, 1726473206793072886159) {} catch {}
         vm.prank(0x0000000000000000000000000000000000030000);
         vm.warp(block.timestamp + 476642);
         vm.roll(block.number + 35520);
-        try
-            this.fuzz_digift_transfer(
-                66146269806625728852338662478512012720621940921687826357067986896852949434068,
-                115792089237316195423570985008687907853269984665640564039457584007913129639933
-            )
-        {} catch {}
+        try this.fuzz_digift_transfer(
+            66146269806625728852338662478512012720621940921687826357067986896852949434068,
+            115792089237316195423570985008687907853269984665640564039457584007913129639933
+        ) {} catch {}
         vm.warp(block.timestamp + 399105);
         vm.roll(block.number + 4919);
 
         vm.prank(0x0000000000000000000000000000000000010000);
         vm.warp(block.timestamp + 141378);
         vm.roll(block.number + 1362);
-        try
-            this.fuzz_fluid_claimRewards(
-                97819168031214501634960653214678104806461584724980310976426994550154868368719,
-                1526346305,
-                28779111860170626404802165904129910542662261651411685705360478879764721209028
-            )
-        {} catch {}
+        try this.fuzz_fluid_claimRewards(
+            97819168031214501634960653214678104806461584724980310976426994550154868368719,
+            1526346305,
+            28779111860170626404802165904129910542662261651411685705360478879764721209028
+        ) {} catch {}
         vm.warp(block.timestamp + 271957);
         vm.roll(block.number + 14447);
 
         vm.prank(0x0000000000000000000000000000000000020000);
         vm.warp(block.timestamp + 22809);
         vm.roll(block.number + 5032);
-        try
-            this.fuzz_admin_router4626_fulfillRedeem(
-                33099298396579037838359841905872859527822997875199706559685446095298510898972,
-                32
-            )
-        {} catch {}
+        try this.fuzz_admin_router4626_fulfillRedeem(
+            33099298396579037838359841905872859527822997875199706559685446095298510898972, 32
+        ) {} catch {}
         vm.prank(0x0000000000000000000000000000000000020000);
         vm.warp(block.timestamp + 174585);
         vm.roll(block.number + 30623);
@@ -741,18 +624,13 @@ contract FoundryPlayground is FuzzGuided {
     // NOTE: test_repro_17 and test_repro_19 share identical prefix sequences but diverge at the end
 
     function test_repro_18_fuzz_admin_router4626_invest() public {
-        try
-            this.fuzz_guided_node_withdraw(
-                12146410924251535,
-                7875519503554863880515346493208128583955157144826053,
-                22800324647551718,
-                7875117701750560898151129787495051243773730841232677624567024629894964677
-            )
-        {} catch {}
-        this.fuzz_admin_router4626_invest(
-            7825251982039587266658998208507492016388927150881287256137927787949,
-            26197
-        );
+        try this.fuzz_guided_node_withdraw(
+            12146410924251535,
+            7875519503554863880515346493208128583955157144826053,
+            22800324647551718,
+            7875117701750560898151129787495051243773730841232677624567024629894964677
+        ) {} catch {}
+        this.fuzz_admin_router4626_invest(7825251982039587266658998208507492016388927150881287256137927787949, 26197);
     }
 
     function test_repro_19_fuzz_admin_node_startRebalance() public {
@@ -761,25 +639,19 @@ contract FoundryPlayground is FuzzGuided {
         try this.fuzz_admin_node_fulfillRedeem(1526830170) {} catch {}
         vm.warp(block.timestamp + 327);
         vm.roll(block.number + 6344);
-        try
-            this.fuzz_guided_router7540_partialFulfill(
-                16291307587688378201203550058243142548441332259459641589145790223581105212446,
-                1524785992,
-                88547664097770406600145745129933251194640394409877110105192465151007363328472
-            )
-        {} catch {}
+        try this.fuzz_guided_router7540_partialFulfill(
+            16291307587688378201203550058243142548441332259459641589145790223581105212446,
+            1524785992,
+            88547664097770406600145745129933251194640394409877110105192465151007363328472
+        ) {} catch {}
         vm.warp(block.timestamp + 471024);
         vm.roll(block.number + 2648);
 
         vm.warp(block.timestamp + 640);
         vm.roll(block.number + 14589);
-        try
-            this.fuzz_guided_router7540_fulfillRedeem(
-                41370147849573675512070856522738441685347019102720815941645984476719001761023,
-                946,
-                706056179871158743800599
-            )
-        {} catch {}
+        try this.fuzz_guided_router7540_fulfillRedeem(
+            41370147849573675512070856522738441685347019102720815941645984476719001761023, 946, 706056179871158743800599
+        ) {} catch {}
         vm.warp(block.timestamp + 291198);
         vm.roll(block.number + 48399);
 
@@ -788,48 +660,35 @@ contract FoundryPlayground is FuzzGuided {
         try this.fuzz_node_multicall(67785160700922852634094) {} catch {}
         vm.warp(block.timestamp + 345927);
         vm.roll(block.number + 55373);
-        try
-            this.fuzz_component_loseBacking(
-                114916587389629795224913414826804211219420736061723329320821680044317126230770,
-                141972508614623265525
-            )
-        {} catch {}
+        try this.fuzz_component_loseBacking(
+            114916587389629795224913414826804211219420736061723329320821680044317126230770, 141972508614623265525
+        ) {} catch {}
         vm.warp(block.timestamp + 255795);
         vm.roll(block.number + 53229);
 
         vm.warp(block.timestamp + 80123);
         vm.roll(block.number + 56911);
-        try
-            this.fuzz_admin_router7540_fulfillRedeemRequest(
-                4949165054795372511601318721434963626949001616614414128497513514893970621283,
-                130878365475335428770072
-            )
-        {} catch {}
+        try this.fuzz_admin_router7540_fulfillRedeemRequest(
+            4949165054795372511601318721434963626949001616614414128497513514893970621283, 130878365475335428770072
+        ) {} catch {}
         vm.warp(block.timestamp + 478923);
         vm.roll(block.number + 11056);
-        try
-            this.fuzz_fluid_claimRewards(
-                2497972194246591634529951508234501,
-                108932718952309497644658,
-                18235185267968406577485360957595155360445584202970442671824733857237851547229
-            )
-        {} catch {}
+        try this.fuzz_fluid_claimRewards(
+            2497972194246591634529951508234501,
+            108932718952309497644658,
+            18235185267968406577485360957595155360445584202970442671824733857237851547229
+        ) {} catch {}
         vm.warp(block.timestamp + 244428);
         vm.roll(block.number + 35529);
-        try
-            this.fuzz_admin_router4626_invest(100754063201821661874, 1527411862)
-        {} catch {}
+        try this.fuzz_admin_router4626_invest(100754063201821661874, 1527411862) {} catch {}
         vm.warp(block.timestamp + 17126);
         vm.roll(block.number + 51251);
 
         vm.warp(block.timestamp + 400393);
         vm.roll(block.number + 14700);
-        try
-            this.fuzz_admin_router4626_liquidate(
-                4370000,
-                52873876721827008213193212492356757525914596681957813853538054425677109971762
-            )
-        {} catch {}
+        try this.fuzz_admin_router4626_liquidate(
+            4370000, 52873876721827008213193212492356757525914596681957813853538054425677109971762
+        ) {} catch {}
         vm.warp(block.timestamp + 87170);
         vm.roll(block.number + 36061);
         this.fuzz_admin_node_startRebalance(1527112149);
@@ -917,26 +776,41 @@ contract FoundryPlayground is FuzzGuided {
     function test_repro_20_fuzz_guided_router7540_partialFulfill() public {
         vm.warp(block.timestamp + 359369);
         vm.roll(block.number + 43293);
-        try this.fuzz_admin_node_updateTotalAssets(107009954446760548464198220285016120315973380431320585428316111480067426305406) {} catch {}
+        try this.fuzz_admin_node_updateTotalAssets(
+            107009954446760548464198220285016120315973380431320585428316111480067426305406
+        ) {} catch {}
 
-        try this.fuzz_admin_digift_settleDeposit(780123469793428776142465106137045839983972736107661796922259623222759526957) {} catch {}
+        try this.fuzz_admin_digift_settleDeposit(
+            780123469793428776142465106137045839983972736107661796922259623222759526957
+        ) {} catch {}
 
         vm.warp(block.timestamp + 461307);
         vm.roll(block.number + 21214);
-        try this.fuzz_admin_router4626_fulfillRedeem(48338929783660781, 52670703927795634442829774399954743202977784654290543440242936378323864206838) {} catch {}
+        try this.fuzz_admin_router4626_fulfillRedeem(
+            48338929783660781, 52670703927795634442829774399954743202977784654290543440242936378323864206838
+        ) {} catch {}
 
         vm.warp(block.timestamp + 478343);
         vm.roll(block.number + 37163);
-        try this.fuzz_admin_router4626_liquidate(40746065832387718853981491819422152972573170637566246518871277778860707122897, 66119810178780148885555979026674688922405620900765837298252535027520402216177) {} catch {}
+        try this.fuzz_admin_router4626_liquidate(
+            40746065832387718853981491819422152972573170637566246518871277778860707122897,
+            66119810178780148885555979026674688922405620900765837298252535027520402216177
+        ) {} catch {}
 
         vm.warp(block.timestamp + 342341);
         vm.roll(block.number + 58717);
 
         vm.warp(block.timestamp + 221992);
         vm.roll(block.number + 12506);
-        try this.fuzz_donate(1525759810, 15612104106745460712615912535354803027382001373132619789052684515844108164692, 115792089237316195423570985008687907853269984665640564039457584007913129639932) {} catch {}
+        try this.fuzz_donate(
+            1525759810,
+            15612104106745460712615912535354803027382001373132619789052684515844108164692,
+            115792089237316195423570985008687907853269984665640564039457584007913129639932
+        ) {} catch {}
 
-        try this.fuzz_guided_router7540_fulfillRedeem(41370147849573675512070856522738441685347019102720815941645984476719001761023, 333, 410484945697158764616706) {} catch {}
+        try this.fuzz_guided_router7540_fulfillRedeem(
+            41370147849573675512070856522738441685347019102720815941645984476719001761023, 333, 410484945697158764616706
+        ) {} catch {}
 
         vm.warp(block.timestamp + 374318);
         vm.roll(block.number + 54);
@@ -945,7 +819,8 @@ contract FoundryPlayground is FuzzGuided {
         vm.warp(block.timestamp + 143336);
         vm.roll(block.number + 57569);
 
-        try this.fuzz_merkl_claimRewards(61797209365707328549125443422028408119019920739501954328700437568638826446730) {} catch {}
+        try this.fuzz_merkl_claimRewards(61797209365707328549125443422028408119019920739501954328700437568638826446730)
+        {} catch {}
 
         vm.warp(block.timestamp + 112398);
         vm.roll(block.number + 2618);
@@ -953,23 +828,37 @@ contract FoundryPlayground is FuzzGuided {
 
         vm.warp(block.timestamp + 542);
         vm.roll(block.number + 39457);
-        this.fuzz_guided_router7540_partialFulfill(8816526032587984106035, 2751784041057608181650948084281963600034452847535828024138512306558464048288, 0);
+        this.fuzz_guided_router7540_partialFulfill(
+            8816526032587984106035, 2751784041057608181650948084281963600034452847535828024138512306558464048288, 0
+        );
     }
 
     function test_repro_21_fuzz_admin_pool_processPendingRedemptions() public {
-        try this.fuzz_guided_router7540_executeAsyncWithdrawal(90263849706813124529518377348532057030559189495606847788830092183828279560096, 428478783085415750, 15410935500739120977786464504431848052996168336164466045906354106421144997076) {} catch {}
+        try this.fuzz_guided_router7540_executeAsyncWithdrawal(
+            90263849706813124529518377348532057030559189495606847788830092183828279560096,
+            428478783085415750,
+            15410935500739120977786464504431848052996168336164466045906354106421144997076
+        ) {} catch {}
 
         try this.fuzz_admin_oneinch_swap(64) {} catch {}
 
         vm.warp(block.timestamp + 324363);
         vm.roll(block.number + 56024);
-        try this.fuzz_admin_router4626_liquidate(946962682, 108440753633129251720570879000087525755721336049586913605522656296343372371021) {} catch {}
+        try this.fuzz_admin_router4626_liquidate(
+            946962682, 108440753633129251720570879000087525755721336049586913605522656296343372371021
+        ) {} catch {}
 
         vm.warp(block.timestamp + 503086);
         vm.roll(block.number + 14099);
-        try this.fuzz_admin_node_startRebalance(378005170951626412139633828188729104915973707931013099058770664881190839298) {} catch {}
+        try this.fuzz_admin_node_startRebalance(
+            378005170951626412139633828188729104915973707931013099058770664881190839298
+        ) {} catch {}
 
-        try this.fuzz_guided_router7540_partialFulfill(34953813267182090945095142504540057050876459760031428625967970147156798000180, 59, 62567577140400897071883073585702953130058083457169373186573550070816819673032) {} catch {}
+        try this.fuzz_guided_router7540_partialFulfill(
+            34953813267182090945095142504540057050876459760031428625967970147156798000180,
+            59,
+            62567577140400897071883073585702953130058083457169373186573550070816819673032
+        ) {} catch {}
 
         try this.fuzz_setOperator(164641887471024825, false) {} catch {}
 
@@ -987,42 +876,67 @@ contract FoundryPlayground is FuzzGuided {
         vm.warp(block.timestamp + 246773);
         vm.roll(block.number + 36499);
 
-        try this.fuzz_guided_router7540_partialFulfill(710665558988838117519, 15098431465907752441179780132465723185643231501464114608085155672874397910876, 57192353679284195753225350951216664338355483840480621681083552657768115090345) {} catch {}
+        try this.fuzz_guided_router7540_partialFulfill(
+            710665558988838117519,
+            15098431465907752441179780132465723185643231501464114608085155672874397910876,
+            57192353679284195753225350951216664338355483840480621681083552657768115090345
+        ) {} catch {}
 
-        try this.fuzz_admin_router4626_liquidate(3948763057069771832731125175262834590714745981442474909194108084588964496520, 388172519) {} catch {}
+        try this.fuzz_admin_router4626_liquidate(
+            3948763057069771832731125175262834590714745981442474909194108084588964496520, 388172519
+        ) {} catch {}
 
         vm.warp(block.timestamp + 59557);
         vm.roll(block.number + 4645);
-        try this.fuzz_admin_router4626_invest(272037121, 15594759375282051899134883350874778770391563389023855594690558986001629321183) {} catch {}
+        try this.fuzz_admin_router4626_invest(
+            272037121, 15594759375282051899134883350874778770391563389023855594690558986001629321183
+        ) {} catch {}
 
         vm.warp(block.timestamp + 56);
         vm.roll(block.number + 26338);
         try this.forceNodeContextForTest(0) {} catch {}
 
-        this.fuzz_guided_router7540_fulfillRedeem(10554636948743835141513245061764140400635405681097233861411485154833313651639, 712, 149957474321084558579520);
+        this.fuzz_guided_router7540_fulfillRedeem(
+            10554636948743835141513245061764140400635405681097233861411485154833313651639, 712, 149957474321084558579520
+        );
     }
 
     function test_repro_23_fuzz_admin_router4626_invest() public {
-        try this.fuzz_guided_node_withdraw(2117355107464567, 10032532186220772674631821352031032423228570761225151, 8689707505037008, 78820271863850242497745445748137582616827113871028368619706850719667034948) {} catch {}
+        try this.fuzz_guided_node_withdraw(
+            2117355107464567,
+            10032532186220772674631821352031032423228570761225151,
+            8689707505037008,
+            78820271863850242497745445748137582616827113871028368619706850719667034948
+        ) {} catch {}
 
-        this.fuzz_admin_router4626_invest(210144308199392088329835531410517100691065813357626025480387613234992382, 3236103678201);
+        this.fuzz_admin_router4626_invest(
+            210144308199392088329835531410517100691065813357626025480387613234992382, 3236103678201
+        );
     }
 
     function test_repro_24_fuzz_admin_router4626_fulfillRedeem() public {
         vm.warp(block.timestamp + 190);
         vm.roll(block.number + 6344);
-        try this.fuzz_guided_router7540_partialFulfill(16291307587688378201203550058243142548441332259459641589145790223581105212446, 1524785992, 88547664097770406600145745129933251194640394409877110105192465151007363328472) {} catch {}
+        try this.fuzz_guided_router7540_partialFulfill(
+            16291307587688378201203550058243142548441332259459641589145790223581105212446,
+            1524785992,
+            88547664097770406600145745129933251194640394409877110105192465151007363328472
+        ) {} catch {}
 
         vm.warp(block.timestamp + 21894);
         vm.roll(block.number + 20190);
 
         vm.warp(block.timestamp + 291642);
         vm.roll(block.number + 30173);
-        try this.fuzz_admin_router7540_requestAsyncWithdrawal(3693809503832468918578994684699473957406547677216879787826602939636338439892, 1527021096) {} catch {}
+        try this.fuzz_admin_router7540_requestAsyncWithdrawal(
+            3693809503832468918578994684699473957406547677216879787826602939636338439892, 1527021096
+        ) {} catch {}
 
         vm.warp(block.timestamp + 255612);
         vm.roll(block.number + 54472);
-        try this.fuzz_admin_router4626_liquidate(38011408696111666806885, 28682921901818409095105767462935977389272635557194608783260227709573863234039) {} catch {}
+        try this.fuzz_admin_router4626_liquidate(
+            38011408696111666806885, 28682921901818409095105767462935977389272635557194608783260227709573863234039
+        ) {} catch {}
 
         vm.warp(block.timestamp + 121463);
         vm.roll(block.number + 1381);
@@ -1040,13 +954,19 @@ contract FoundryPlayground is FuzzGuided {
 
         vm.warp(block.timestamp + 362002);
         vm.roll(block.number + 55019);
-        try this.fuzz_merkl_claimRewards(1871595335851216480705686316040362085895371260889126809614039734917317880533) {} catch {}
+        try this.fuzz_merkl_claimRewards(1871595335851216480705686316040362085895371260889126809614039734917317880533) {}
+            catch {}
 
         vm.warp(block.timestamp + 310992);
         vm.roll(block.number + 898);
-        try this.fuzz_merkl_claimRewards(34417326770437387383023081110741511827649882840160217839534527347028922829287) {} catch {}
+        try this.fuzz_merkl_claimRewards(34417326770437387383023081110741511827649882840160217839534527347028922829287)
+        {} catch {}
 
-        try this.fuzz_fluid_claimRewards(144415406625749034154510, 72457867465901671775238290617201352718214609060111544739912057280348962676071, 1526282831) {} catch {}
+        try this.fuzz_fluid_claimRewards(
+            144415406625749034154510,
+            72457867465901671775238290617201352718214609060111544739912057280348962676071,
+            1526282831
+        ) {} catch {}
 
         vm.warp(block.timestamp + 35868);
         vm.roll(block.number + 7174);
@@ -1055,9 +975,13 @@ contract FoundryPlayground is FuzzGuided {
     }
 
     function test_repro_25_fuzz_guided_router7540_partialFulfill() public {
-        try this.fuzz_guided_router7540_fulfillRedeem(2956147788029956252690560003552784044387370562664179084508016477093388059094, 115, 223804887795172354500404) {} catch {}
+        try this.fuzz_guided_router7540_fulfillRedeem(
+            2956147788029956252690560003552784044387370562664179084508016477093388059094, 115, 223804887795172354500404
+        ) {} catch {}
 
-        this.fuzz_guided_router7540_partialFulfill(2542708026071853322418, 4467376005286988418700395113791252604115049420001910778126340938921683439084, 0);
+        this.fuzz_guided_router7540_partialFulfill(
+            2542708026071853322418, 4467376005286988418700395113791252604115049420001910778126340938921683439084, 0
+        );
     }
 
     function test_repro_26_fuzz_admin_digift_forwardRequests() public {
@@ -1069,7 +993,11 @@ contract FoundryPlayground is FuzzGuided {
     function test_repro_27_fuzz_guided_router7540_fulfillRedeem() public {
         try this.fuzz_admin_node_fulfillRedeem(2) {} catch {}
 
-        this.fuzz_guided_router7540_fulfillRedeem(157237119914741185209538207548720100983968553026210127949642208380912600646, 606791213301533, 173787157479419557721883202464406175515593363786804897771948957065120497001);
+        this.fuzz_guided_router7540_fulfillRedeem(
+            157237119914741185209538207548720100983968553026210127949642208380912600646,
+            606791213301533,
+            173787157479419557721883202464406175515593363786804897771948957065120497001
+        );
     }
 
     function test_repro_28_fuzz_guided_router7540_executeAsyncWithdrawal() public {
@@ -1081,7 +1009,9 @@ contract FoundryPlayground is FuzzGuided {
     function test_repro_29_fuzz_guided_router7540_claimable() public {
         try this.fuzz_guided_router7540_executeAsyncWithdrawal(0, 14591, 0) {} catch {}
 
-        this.fuzz_guided_router7540_claimable(12332544016697713562781574770496414935, 319092278233355812663502932580123998747395);
+        this.fuzz_guided_router7540_claimable(
+            12332544016697713562781574770496414935, 319092278233355812663502932580123998747395
+        );
     }
 
     function test_repro_30_fuzz_nodeFactory_deploy() public {

@@ -27,7 +27,7 @@ contract Properties_Registry is Properties_ERR {
     function invariant_REGISTRY_05(RegistrySetTypeParams memory params, bool status) internal {
         fl.t(status == params.status, REGISTRY_05);
     }
-    
+
     function invariant_REGISTRY_06(RegistryTransferOwnershipParams memory params, address newOwner) internal {
         fl.t(newOwner == params.newOwner, REGISTRY_06);
     }

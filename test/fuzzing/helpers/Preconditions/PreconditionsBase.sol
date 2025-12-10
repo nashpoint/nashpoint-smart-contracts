@@ -95,22 +95,10 @@ contract PreconditionsBase is FuzzStructs {
     /// @notice Refreshes oracle timestamps to current block.timestamp to prevent StalePriceData errors
     function _refreshOracles() internal {
         if (address(assetPriceOracleMock) != address(0)) {
-            assetPriceOracleMock.setLatestRoundData(
-                1,
-                1e8,
-                block.timestamp,
-                block.timestamp,
-                1
-            );
+            assetPriceOracleMock.setLatestRoundData(1, 1e8, block.timestamp, block.timestamp, 1);
         }
         if (address(digiftPriceOracleMock) != address(0)) {
-            digiftPriceOracleMock.setLatestRoundData(
-                1,
-                2e10,
-                block.timestamp,
-                block.timestamp,
-                1
-            );
+            digiftPriceOracleMock.setLatestRoundData(1, 2e10, block.timestamp, block.timestamp, 1);
         }
     }
 
