@@ -1083,4 +1083,9 @@ contract FoundryPlayground is FuzzGuided {
 
         this.fuzz_guided_router7540_claimable(12332544016697713562781574770496414935, 319092278233355812663502932580123998747395);
     }
+
+    function test_repro_30_fuzz_nodeFactory_deploy() public {
+        this.fuzz_component_loseBacking(3, 0);
+        this.fuzz_nodeFactory_deploy(583155775);
+    }
 }
