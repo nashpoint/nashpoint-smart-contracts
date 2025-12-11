@@ -7,7 +7,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "forge-std/console.sol";
 
 /**
  * @title ERC7540 Mock Contract
@@ -151,9 +150,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // newly avaiable shares are appended to claimable Shares
         claimableShares += newShares;
 
-        // claimableShares are divided by pendingDeposits to get shares per asset for minting
-        claimableSharePrice = Math.mulDiv( //@audit this is shares per asset. Incorrect. Should be assets per share
-        pendingAssets, 1e18, newShares, Math.Rounding.Floor);
+        claimableSharePrice = Math.mulDiv(pendingAssets, 1e18, newShares, Math.Rounding.Floor);
 
         // Move deposits from pending to claimable state
         // Claimable deposits are stored as assets
@@ -195,8 +192,6 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
         // Subtract from claimableShares
         claimableShares -= shares;
-
-        // pendingAssets -= assets; //TODO: @audit review, it is alrealy zeroed
 
         // Update claimable balance
         claimableDepositRequests[controller] -= assets;
@@ -377,8 +372,8 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     }
 
     function maxMint(address controller) public view returns (uint256 maxShares) {
-        uint256 claimableAssets = claimableDepositRequests[controller];
-        maxShares = Math.mulDiv(claimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
+        uint256 controllerClaimableAssets = claimableDepositRequests[controller];
+        maxShares = Math.mulDiv(controllerClaimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
     }
 
     function maxDeposit(address controller) public view returns (uint256 maxAssets) {
@@ -402,6 +397,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     // PendingAssets * (totalSupply - claimableShares) / (totalAssets - pendingAssets)
     // Ensure that new shares available to mint account for shares already avaialable to mint but not assets that have been transfered but not minted.
     function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {
+        if (totalSupply() == 0) return _pendingAssets; // 1-1 price initially
         return _pendingAssets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), (totalAssets()) + 1, rounding);
     }
 
@@ -431,7 +427,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
     function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view virtual returns (uint256) {
-        return shares.mulDiv(totalAssets() + 1, totalSupply() + 10 ** _decimalsOffset(), rounding);
+        return shares.mulDiv(totalAssets() + 1, totalSupply() + claimableShares + 10 ** _decimalsOffset(), rounding);
     }
 
     function _decimalsOffset() internal view virtual returns (uint8) {

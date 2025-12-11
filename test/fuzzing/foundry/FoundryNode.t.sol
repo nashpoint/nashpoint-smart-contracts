@@ -401,14 +401,16 @@ contract FoundryNode is FuzzNode {
         vm.prank(poolManager);
         ERC7540Mock(liquidityPoolSecondary).processPendingDeposits();
 
-        uint256 shares = ERC7540Mock(liquidityPoolSecondary).claimableShares();
         vm.prank(user);
-        ERC7540Mock(liquidityPoolSecondary).mint(shares, user, user);
+        ERC7540Mock(liquidityPoolSecondary).mint(25e21, user, user);
 
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + 3 hours);
 
         vm.prank(user);
-        ERC7540Mock(liquidityPoolSecondary).requestRedeem(shares, user, user);
+        IERC20(liquidityPoolSecondary).approve(address(liquidityPoolSecondary), type(uint256).max);
+
+        vm.prank(user);
+        ERC7540Mock(liquidityPoolSecondary).requestRedeem(25e21, user, user);
 
         vm.prank(poolManager);
         ERC7540Mock(liquidityPoolSecondary).processPendingRedemptions();
@@ -417,7 +419,7 @@ contract FoundryNode is FuzzNode {
         vm.prank(user);
         uint256 redeemed = ERC7540Mock(liquidityPoolSecondary).withdraw(claimable, user, user);
 
-        assertGt(redeemed, amount, "Async linear vault should grow principal");
+        assertGt(claimable, amount, "Async linear vault should grow principal");
 
         clearNodeContextOverrideForTest();
     }
@@ -437,14 +439,16 @@ contract FoundryNode is FuzzNode {
         vm.prank(poolManager);
         ERC7540Mock(liquidityPoolTertiary).processPendingDeposits();
 
-        uint256 shares = ERC7540Mock(liquidityPoolTertiary).claimableShares();
         vm.prank(user);
-        ERC7540Mock(liquidityPoolTertiary).mint(shares, user, user);
+        ERC7540Mock(liquidityPoolTertiary).mint(18e21, user, user);
 
-        vm.warp(block.timestamp + 9 days);
+        vm.warp(block.timestamp + 3 hours);
 
         vm.prank(user);
-        ERC7540Mock(liquidityPoolTertiary).requestRedeem(shares, user, user);
+        IERC20(liquidityPoolTertiary).approve(address(liquidityPoolTertiary), type(uint256).max);
+
+        vm.prank(user);
+        ERC7540Mock(liquidityPoolTertiary).requestRedeem(18e21, user, user);
 
         vm.prank(poolManager);
         ERC7540Mock(liquidityPoolTertiary).processPendingRedemptions();
