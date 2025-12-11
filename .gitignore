@@ -26,4 +26,4 @@ lcov.info
 # Echidna
 /echidna-corpus
 coverage-*.md
-crytic-export/combined_solc.json
+/crytic-export
