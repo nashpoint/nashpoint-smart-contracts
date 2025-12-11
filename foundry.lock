@@ -2,10 +2,13 @@
   "lib/forge-std": {
     "rev": "841c3a3e8b7612f76599797b93da5a61899c2aa8"
   },
-  "lib/optimism": {
-    "tag": {
-      "name": "v1.13.7",
-      "rev": "b7b94b9ab904ab463e7a93d36ff4e99e6143d96b"
+  "lib/fuzzlib": {
+    "rev": "00369e5d8f51b71ebbac5f440647a7b5568e7fba"
+  },
+  "lib/openzeppelin-contracts": {
+    "branch": {
+      "name": "release-v5.2",
+      "rev": "acd4ff74de833399287ed6b31b4debf6b2b35527"
     }
   },
   "lib/openzeppelin-contracts-upgradeable": {
@@ -14,19 +17,16 @@
       "rev": "3d5fa5c24c411112bab47bec25cfa9ad0af0e6e8"
     }
   },
+  "lib/optimism": {
+    "tag": {
+      "name": "v1.13.7",
+      "rev": "b7b94b9ab904ab463e7a93d36ff4e99e6143d96b"
+    }
+  },
   "lib/prb-math": {
     "branch": {
       "name": "release-v4",
       "rev": "280fc5f77e1b21b9c54013aac51966be33f4a410"
-    }
-  },
-  "lib/fuzzlib": {
-    "rev": "00369e5d8f51b71ebbac5f440647a7b5568e7fba"
-  },
-  "lib/openzeppelin-contracts": {
-    "branch": {
-      "name": "release-v5.2",
-      "rev": "acd4ff74de833399287ed6b31b4debf6b2b35527"
     }
   }
 }

@@ -19,13 +19,11 @@ docs/
 # Cursor
 .cursorrules
 
+# Forge coverage
 coverage
 lcov.info
+
+# Echidna
 /echidna-corpus
-
-# Fuzzlib (installed via forge install)
-lib/fuzzlib
-
-# Coverage markdown reports
 coverage-*.md
 crytic-export/combined_solc.json
