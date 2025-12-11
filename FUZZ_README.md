@@ -400,8 +400,8 @@ contract FoundryPlayground is FuzzGuided {
 | Entry point | `test/fuzzing/Fuzz.sol` |
 | Setup | `test/fuzzing/FuzzSetup.sol` |
 | Handlers | `test/fuzzing/Fuzz*.sol` |
-| Preconditions | `helpers/Preconditions/*.sol` |
-| Postconditions | `helpers/Postconditions/*.sol` |
+| Preconditions | `helpers/preconditions/*.sol` |
+| Postconditions | `helpers/postconditions/*.sol` |
 | Properties | `properties/Properties.sol` |
 | Error config | `properties/Properties_ERR.sol` |
 | Reproductions | `FoundryPlayground.sol` |
@@ -642,8 +642,8 @@ The suite validates **100+ protocol invariants** across all components. Below is
 ### Adding New Handlers
 
 1. Create handler in `test/fuzzing/FuzzContractName.sol`
-2. Add preconditions in `helpers/Preconditions/PreconditionsContractName.sol`
-3. Add postconditions in `helpers/Postconditions/PostconditionsContractName.sol`
+2. Add preconditions in `helpers/preconditions/PreconditionsContractName.sol`
+3. Add postconditions in `helpers/postconditions/PostconditionsContractName.sol`
 4. Update `FuzzGuided.sol` to inherit new handler
 5. Test with Foundry first in `FoundryPlayground.sol`
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../helpers/Preconditions/PreconditionsOneInch.sol";
-import "../helpers/Postconditions/PostconditionsOneInch.sol";
+import "../helpers/preconditions/PreconditionsOneInch.sol";
+import "../helpers/postconditions/PostconditionsOneInch.sol";
 
 contract FuzzAdminOneInchRouter is PreconditionsOneInch, PostconditionsOneInch {
     /**
