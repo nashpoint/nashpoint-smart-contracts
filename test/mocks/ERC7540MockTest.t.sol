@@ -108,7 +108,7 @@ contract MockERC7540Tests is BaseTest {
         vm.stopPrank();
 
         assertEq(liquidityPool.totalSupply(), 0);
-        assertEq(liquidityPool.totalAssets(), 30 ether);
+        assertEq(liquidityPool.totalAssets(), amount * users.length);
 
         // Mint and verify loop
         uint256 shares;
@@ -120,7 +120,7 @@ contract MockERC7540Tests is BaseTest {
             assertEq(liquidityPool.balanceOf(users[i]), shares);
             assertEq(liquidityPool.convertToAssets(shares), amount);
             assertEq(liquidityPool.totalSupply(), shares * (i + 1));
-            assertEq(liquidityPool.totalAssets(), amount * 3);
+            assertEq(liquidityPool.totalAssets(), amount * users.length);
         }
     }
 
