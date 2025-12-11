@@ -166,6 +166,8 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // Clear all processed data
         delete pendingDepositRequests;
         pendingAssets = 0;
+
+        _mint(address(this), newShares);
     }
 
     function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {}
@@ -196,8 +198,8 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // Update claimable balance
         claimableDepositRequests[controller] -= assets;
 
-        // Mint shares to the receiver
-        _mint(receiver, shares);
+        // transfer shares to the receiver
+        _transfer(address(this), receiver, shares);
 
         emit Deposit(msg.sender, receiver, assets, shares);
         return assets;
@@ -372,8 +374,8 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     }
 
     function maxMint(address controller) public view returns (uint256 maxShares) {
-        uint256 controllerClaimableAssets = claimableDepositRequests[controller];
-        maxShares = Math.mulDiv(controllerClaimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
+        uint256 claimableAssets = claimableDepositRequests[controller];
+        maxShares = Math.mulDiv(claimableAssets, 1e18, claimableSharePrice, Math.Rounding.Floor);
     }
 
     function maxDeposit(address controller) public view returns (uint256 maxAssets) {
@@ -427,18 +429,10 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
     function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view virtual returns (uint256) {
-        return shares.mulDiv(totalAssets() + 1, totalSupply() + claimableShares + 10 ** _decimalsOffset(), rounding);
+        return shares.mulDiv(totalAssets() + 1, totalSupply() + 10 ** _decimalsOffset(), rounding);
     }
 
     function _decimalsOffset() internal view virtual returns (uint8) {
         return 0;
-    }
-
-    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual {
-        // slither-disable-next-line reentrancy-no-eth
-        SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
-        _mint(receiver, shares);
-
-        emit Deposit(caller, receiver, assets, shares);
     }
 }
