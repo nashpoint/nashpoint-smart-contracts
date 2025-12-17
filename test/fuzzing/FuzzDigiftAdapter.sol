@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "./helpers/preconditions/PreconditionsDigiftAdapter.sol";
+import "./helpers/postconditions/PostconditionsDigiftAdapter.sol";
+
+import {DigiftAdapter} from "../../src/adapters/digift/DigiftAdapter.sol";
+import {DigiftEventVerifier} from "../../src/adapters/digift/DigiftEventVerifier.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+
+contract FuzzDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDigiftAdapter {
+    // ========================================
+    // CATEGORY 1: USER FUNCTIONS (PUBLIC)
+    // ========================================
+    // Standard ERC20 functions accessible to end users
+
+    function fuzz_digift_approve(uint256 spenderSeed, uint256 amountSeed) public {
+        DigiftApproveParams memory params = digiftApprovePreconditions(spenderSeed, amountSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSelector(IERC20.approve.selector, params.spender, params.amount),
+            address(node)
+        );
+        digiftApprovePostconditions(success, returnData, address(node), params);
+    }
+
+    function fuzz_digift_transfer(uint256 recipientSeed, uint256 amountSeed) public {
+        DigiftTransferParams memory params = digiftTransferPreconditions(recipientSeed, amountSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSelector(IERC20.transfer.selector, params.to, params.amount),
+            address(node)
+        );
+        digiftTransferPostconditions(success, returnData, address(node), params);
+    }
+
+    function fuzz_digift_transferFrom(uint256 recipientSeed, uint256 amountSeed) public {
+        address spender = _selectAddressFromSeed(amountSeed);
+        DigiftTransferParams memory params = digiftTransferFromPreconditions(spender, recipientSeed, amountSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSelector(IERC20.transferFrom.selector, address(node), params.to, params.amount),
+            spender
+        );
+        digiftTransferPostconditions(success, returnData, address(node), params);
+    }
+
+    function fuzz_digift_mint(uint256 shareSeed) public {
+        DigiftMintParams memory params = digiftMintPreconditions(shareSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSignature("mint(uint256,address,address)", params.shares, address(node), address(node)),
+            address(node)
+        );
+
+        digiftMintPostconditions(success, returnData, params);
+    }
+
+    function fuzz_digift_withdraw(uint256 assetsSeed) public {
+        DigiftWithdrawParams memory params = digiftWithdrawPreconditions(assetsSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSignature("withdraw(uint256,address,address)", params.assets, address(node), address(node)),
+            address(node)
+        );
+
+        digiftWithdrawPostconditions(success, returnData, params);
+    }
+
+    function fuzz_digift_requestRedeem(uint256 sharesSeed) public {
+        DigiftRequestRedeemParams memory params = digiftRequestRedeemFlowPreconditions(sharesSeed);
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(digiftAdapter),
+            abi.encodeWithSignature(
+                "requestRedeem(uint256,address,address)", params.shares, address(node), address(node)
+            ),
+            address(node)
+        );
+
+        digiftRequestRedeemFlowPostconditions(success, returnData, params);
+    }
+}

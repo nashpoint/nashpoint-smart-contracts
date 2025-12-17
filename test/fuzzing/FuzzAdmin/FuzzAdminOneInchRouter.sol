@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "../helpers/preconditions/PreconditionsOneInch.sol";
+import "../helpers/postconditions/PostconditionsOneInch.sol";
+
+contract FuzzAdminOneInchRouter is PreconditionsOneInch, PostconditionsOneInch {
+    /**
+     * @notice Fuzz handler for OneInch router swap
+     * @dev Exercises:
+     *      - src/routers/OneInchV6RouterV1.sol:111 swap function
+     *      - src/routers/OneInchV6RouterV1.sol:151 _subtractExecutionFee
+     *      - Validates incentive/executor whitelisting
+     *      - Tests swap with proper calldata encoding
+     * @param seed Used to generate test parameters
+     */
+    function fuzz_admin_oneinch_swap(uint256 seed) public {
+        OneInchSwapParams memory params = oneInchSwapPreconditions(seed);
+
+        if (!params.shouldSucceed) {
+            return;
+        }
+
+        _before();
+
+        (bool success, bytes memory returnData) = fl.doFunctionCall(
+            address(routerOneInch),
+            abi.encodeWithSelector(
+                routerOneInch.swap.selector,
+                address(node),
+                params.incentive,
+                params.incentiveAmount,
+                params.minAssetsOut,
+                params.executor,
+                params.swapCalldata
+            ),
+            params.caller
+        );
+
+        oneInchSwapPostconditions(success, returnData, params);
+    }
+}

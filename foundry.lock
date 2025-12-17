@@ -2,6 +2,9 @@
   "lib/forge-std": {
     "rev": "841c3a3e8b7612f76599797b93da5a61899c2aa8"
   },
+  "lib/fuzzlib": {
+    "rev": "00369e5d8f51b71ebbac5f440647a7b5568e7fba"
+  },
   "lib/openzeppelin-contracts": {
     "branch": {
       "name": "release-v5.2",

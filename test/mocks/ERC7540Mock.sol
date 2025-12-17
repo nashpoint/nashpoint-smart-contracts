@@ -88,7 +88,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     // Transferred assets are added to the pendingDepositRequests struct and pendingDeposits variable.
     // PendingDeposits is subtracted from totalAssets until user has minted shares.
 
-    function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256) {
+    function requestDeposit(uint256 assets, address controller, address owner) public virtual returns (uint256) {
         require(assets > 0, "Cannot request deposit of 0 assets");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
 
@@ -138,7 +138,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
     // Called by vault manager to fulfill all the pending deposits in one transaction.
     // note: there is a risk that share price will worsen for depositors if they have not minted pendingDeposit before next time processPendingDeposits is called
-    function processPendingDeposits() external onlyManager {
+    function processPendingDeposits() public virtual onlyManager {
         uint256 totalPendingAssets = pendingAssets;
         uint256 pendingDepositCount = pendingDepositRequests.length;
 
@@ -150,8 +150,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // newly avaiable shares are appended to claimable Shares
         claimableShares += newShares;
 
-        // claimableShares are divided by pendingDeposits to get shares per asset for minting
-        claimableSharePrice = Math.mulDiv(newShares, 1e18, pendingAssets, Math.Rounding.Floor);
+        claimableSharePrice = Math.mulDiv(pendingAssets, 1e18, newShares, Math.Rounding.Floor);
 
         // Move deposits from pending to claimable state
         // Claimable deposits are stored as assets
@@ -166,12 +165,18 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
         // Clear all processed data
         delete pendingDepositRequests;
-        // pendingAssets = 0;
+        pendingAssets = 0;
+
+        _mint(address(this), newShares);
     }
 
     function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {}
 
-    function mint(uint256 shares, address receiver, address /* controller_ */ ) public returns (uint256 assets) {
+    function mint(uint256 shares, address receiver, address /* controller_ */ )
+        public
+        virtual
+        returns (uint256 assets)
+    {
         address controller = msg.sender;
 
         // Check if there's any claimable deposit for the controller
@@ -190,13 +195,11 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // Subtract from claimableShares
         claimableShares -= shares;
 
-        pendingAssets -= assets;
-
         // Update claimable balance
         claimableDepositRequests[controller] -= assets;
 
-        // Mint shares to the receiver
-        _mint(receiver, shares);
+        // transfer shares to the receiver
+        _transfer(address(this), receiver, shares);
 
         emit Deposit(msg.sender, receiver, assets, shares);
         return assets;
@@ -205,7 +208,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     /*//////////////////////////////////////////////////////////////
                             REDEMPTION FLOW
     //////////////////////////////////////////////////////////////*/
-    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256) {
+    function requestRedeem(uint256 shares, address controller, address owner) public virtual returns (uint256) {
         require(shares > 0, "Cannot request redeem of 0 shares");
         require(balanceOf(owner) >= shares, "Insufficient shares");
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
@@ -242,7 +245,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         return claimableRedeemRequests[controller];
     }
 
-    function processPendingRedemptions() external onlyManager {
+    function processPendingRedemptions() public virtual onlyManager {
         uint256 totalPendingShares = 0;
         uint256 pendingRedeemCount = pendingRedeemRequests.length;
 
@@ -273,7 +276,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         delete pendingRedeemRequests;
     }
 
-    function withdraw(uint256 assets, address receiver, address owner) public returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner) public virtual returns (uint256 shares) {
         address controller = msg.sender;
 
         require(owner == msg.sender || isOperator(owner, msg.sender), "Not authorized");
@@ -340,7 +343,10 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     //////////////////////////////////////////////////////////////*/
 
     function totalAssets() public view virtual returns (uint256) {
-        return IERC20(asset).balanceOf(address(this)) - pendingAssets;
+        if (IERC20(asset).balanceOf(address(this)) > pendingAssets) {
+            return IERC20(asset).balanceOf(address(this)) - pendingAssets;
+        }
+        return 0;
     }
 
     function convertToAssets(uint256 shares) public view virtual returns (uint256) {
@@ -393,6 +399,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     // PendingAssets * (totalSupply - claimableShares) / (totalAssets - pendingAssets)
     // Ensure that new shares available to mint account for shares already avaialable to mint but not assets that have been transfered but not minted.
     function convertPendingToShares(uint256 _pendingAssets, Math.Rounding rounding) internal view returns (uint256) {
+        if (totalSupply() == 0) return _pendingAssets; // 1-1 price initially
         return _pendingAssets.mulDiv(totalSupply() + 10 ** _decimalsOffset(), (totalAssets()) + 1, rounding);
     }
 
@@ -427,13 +434,5 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
     function _decimalsOffset() internal view virtual returns (uint8) {
         return 0;
-    }
-
-    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual {
-        // slither-disable-next-line reentrancy-no-eth
-        SafeERC20.safeTransferFrom(IERC20(asset), caller, address(this), assets);
-        _mint(receiver, shares);
-
-        emit Deposit(caller, receiver, assets, shares);
     }
 }

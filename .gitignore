@@ -19,5 +19,11 @@ docs/
 # Cursor
 .cursorrules
 
+# Forge coverage
 coverage
 lcov.info
+
+# Echidna
+/echidna-corpus
+coverage-*.md
+/crytic-export
