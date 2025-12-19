@@ -32,25 +32,24 @@ contract DigiftSepolia is Script {
             18446744073709556890, 99974000, block.timestamp, block.timestamp, 18446744073709556890
         );
 
-        DigiftAdapter digiftAdapter = DigiftAdapterFactory(contracts.digiftAdapterFactory)
-            .deploy(
-                DigiftAdapter.InitArgs(
-                    "iSNR Wrapper",
-                    "wiSNR",
-                    config.usdc,
-                    address(usdcPriceOracle),
-                    config.iSNR,
-                    config.iSNRPriceOracle,
-                    // 0.1%
-                    1e15,
-                    // 1%
-                    1e16,
-                    2 days,
-                    1 days,
-                    1000e6,
-                    1e18
-                )
-            );
+        DigiftAdapter digiftAdapter = DigiftAdapterFactory(contracts.digiftAdapterFactory).deploy(
+            DigiftAdapter.InitArgs(
+                "iSNR Wrapper",
+                "wiSNR",
+                config.usdc,
+                address(usdcPriceOracle),
+                config.iSNR,
+                config.iSNRPriceOracle,
+                // 0.1%
+                1e15,
+                // 1%
+                1e16,
+                2 days,
+                1 days,
+                1000e6,
+                1e18
+            )
+        );
 
         digiftAdapter.setManager(config.protocolOwner, true);
 
