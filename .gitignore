@@ -27,3 +27,12 @@ lcov.info
 /echidna-corpus
 coverage-*.md
 /crytic-export
+*/local.json
+broadcast/local/*
+
+# hardhat
+node_modules
+pnpm-lock.yaml
+artifacts
+cache_hardhat
+typechain-types
