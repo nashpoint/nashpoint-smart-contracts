@@ -71,7 +71,7 @@ cd nashpoint-smart-contracts
 Update Foundry:
 
 ```
-foundryup -v 1.0.0
+foundryup -v 1.3.6
 ```
 
 Install pre-commit:
