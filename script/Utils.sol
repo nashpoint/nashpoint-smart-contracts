@@ -15,6 +15,30 @@ library Environment {
         address fluidRewardsDistributor;
         address protocolOwner;
         address digiftSubRedManagement;
+        address usdc;
+        address iSNR;
+        address iSNRPriceOracle;
+    }
+
+    struct Contracts {
+        address nodeRegistryImplementation;
+        address nodeRegistryProxy;
+        address nodeImplementation;
+        address nodeFactory;
+        address erc4626Router;
+        address erc7540Router;
+        address merklRouter;
+        address oneInchRouter;
+        address incentraRouter;
+        address fluidRewardsRouter;
+        address capPolicy;
+        address gatePolicyBlacklist;
+        address gatePolicyWhitelist;
+        address nodePausingPolicy;
+        address protocolPausingPolicy;
+        address digiftEventVerifier;
+        address digiftAdapterImplementation;
+        address digiftAdapterFactory;
     }
 
     function equal(string memory a, string memory b) internal pure returns (bool) {
@@ -53,6 +77,9 @@ library Environment {
         config.fluidRewardsDistributor = json.readAddressOr(".fluidRewardsDistributor", address(0));
         config.merkl = json.readBoolOr(".merkl", false);
         config.oneInch = json.readBoolOr(".oneInch", false);
+        config.usdc = json.readAddressOr(".usdc", address(0));
+        config.iSNR = json.readAddressOr(".iSNR", address(0));
+        config.iSNRPriceOracle = json.readAddressOr(".iSNRPriceOracle", address(0));
     }
 
     function getContractsPath(VmSafe vmSafe_) internal view returns (string memory) {
@@ -61,6 +88,29 @@ library Environment {
             revert("Environment::FOUNDRY_PROFILE is default");
         }
         return string.concat("deployments/", profile, ".json");
+    }
+
+    function getContracts(VmSafe vmSafe_) internal view returns (Contracts memory contracts) {
+        string memory path = getContractsPath(vmSafe_);
+        string memory json = vmSafe_.readFile(path);
+        contracts.nodeRegistryImplementation = json.readAddress(".nodeRegistryImplementation");
+        contracts.nodeRegistryProxy = json.readAddress(".nodeRegistryProxy");
+        contracts.nodeImplementation = json.readAddress(".nodeImplementation");
+        contracts.nodeFactory = json.readAddress(".nodeFactory");
+        contracts.erc4626Router = json.readAddress(".erc4626Router");
+        contracts.erc7540Router = json.readAddress(".erc7540Router");
+        contracts.merklRouter = json.readAddressOr(".merklRouter", address(0));
+        contracts.oneInchRouter = json.readAddressOr(".oneInchRouter", address(0));
+        contracts.incentraRouter = json.readAddressOr(".incentraRouter", address(0));
+        contracts.fluidRewardsRouter = json.readAddressOr(".fluidRewardsRouter", address(0));
+        contracts.capPolicy = json.readAddress(".capPolicy");
+        contracts.gatePolicyBlacklist = json.readAddress(".gatePolicyBlacklist");
+        contracts.gatePolicyWhitelist = json.readAddress(".gatePolicyWhitelist");
+        contracts.nodePausingPolicy = json.readAddress(".nodePausingPolicy");
+        contracts.protocolPausingPolicy = json.readAddress(".protocolPausingPolicy");
+        contracts.digiftEventVerifier = json.readAddressOr(".digiftEventVerifier", address(0));
+        contracts.digiftAdapterImplementation = json.readAddressOr(".digiftAdapterImplementation", address(0));
+        contracts.digiftAdapterFactory = json.readAddressOr(".digiftAdapterFactory", address(0));
     }
 
     function setRpc(Vm vm_) internal {

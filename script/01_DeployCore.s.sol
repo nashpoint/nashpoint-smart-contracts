@@ -41,33 +41,12 @@ import {DigiftAdapterFactory} from "src/adapters/digift/DigiftAdapterFactory.sol
 contract DeployCore is Script {
     using stdJson for string;
 
-    struct Contracts {
-        address nodeRegistryImplementation;
-        address nodeRegistryProxy;
-        address nodeImplementation;
-        address nodeFactory;
-        address erc4626Router;
-        address erc7540Router;
-        address merklRouter;
-        address oneInchRouter;
-        address incentraRouter;
-        address fluidRewardsRouter;
-        address capPolicy;
-        address gatePolicyBlacklist;
-        address gatePolicyWhitelist;
-        address nodePausingPolicy;
-        address protocolPausingPolicy;
-        address digiftEventVerifier;
-        address digiftAdapterImplementation;
-        address digiftAdapterFactory;
-    }
-
     function run() external {
         string memory path = Environment.getContractsPath(vm);
         uint256 privateKey = Environment.getPrivateKey(vm);
         Environment.Config memory config = Environment.getConfig(vm);
 
-        Contracts memory contracts;
+        Environment.Contracts memory contracts;
 
         vm.startBroadcast(privateKey);
 
