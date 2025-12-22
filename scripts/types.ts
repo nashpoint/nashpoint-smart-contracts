@@ -1,17 +1,23 @@
 export type Contracts = {
-    digiftAdapterFactory?: string;
-    digiftAdapterImplementation?: string;
-    digiftEventVerifier?: string;
+    digift?: {
+        adapterFactory: string;
+        adapterImplementation: string;
+        eventVerifier: string;
+    };
 
-    erc4626Router: string;
-    erc7540Router: string;
-    oneInchRouter?: string;
+    routers: {
+        erc4626Router: string;
+        erc7540Router: string;
+        oneInchRouter?: string;
+    };
 
-    capPolicy: string;
-    gatePolicyBlacklist: string;
-    gatePolicyWhitelist: string;
-    protocolPausingPolicy: string;
-    nodePausingPolicy: string;
+    policies: {
+        capPolicy: string;
+        gatePolicyBlacklist: string;
+        gatePolicyWhitelist: string;
+        protocolPausingPolicy: string;
+        nodePausingPolicy: string;
+    };
 
     nodeFactory: string;
     nodeImplementation: string;
@@ -45,3 +51,11 @@ export type NodeSetup = {
     targetReserveRatio: number;
     policies: Policy[];
 };
+
+export enum RegistryType {
+    UNUSED,
+    NODE,
+    FACTORY,
+    ROUTER,
+    REBALANCER,
+}

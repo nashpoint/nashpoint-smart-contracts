@@ -1,4 +1,6 @@
 import path from 'path';
+import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
+
 import { Contracts } from './types';
 
 export const chainIdToName = (chainId: number) => {
@@ -16,4 +18,13 @@ export const getContracts = async (chainId: number): Promise<Contracts> => {
     return import(
         path.resolve(process.cwd(), 'deployments', `${chainIdToName(chainId)}.json`)
     ).then((f) => f.default);
+};
+
+export const getPoliciesMerkleTree = async (
+    chainId: number,
+): Promise<StandardMerkleTree<[string, string]>> => {
+    const data = await import(
+        path.resolve(process.cwd(), 'policy', `${chainIdToName(chainId)}.json`)
+    ).then((f) => f.default);
+    return StandardMerkleTree.load(data);
 };

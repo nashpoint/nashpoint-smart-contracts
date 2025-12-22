@@ -101,7 +101,7 @@ const buildLeafs = (
 };
 
 const buildPolicy = (policy: Policy, contracts: Contracts) => {
-    return { policy: contracts[policy], sigs: getPolicySigs(policy) };
+    return { policy: contracts.policies[policy], sigs: getPolicySigs(policy) };
 };
 
 async function main() {

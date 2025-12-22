@@ -97,20 +97,20 @@ library Environment {
         contracts.nodeRegistryProxy = json.readAddress(".nodeRegistryProxy");
         contracts.nodeImplementation = json.readAddress(".nodeImplementation");
         contracts.nodeFactory = json.readAddress(".nodeFactory");
-        contracts.erc4626Router = json.readAddress(".erc4626Router");
-        contracts.erc7540Router = json.readAddress(".erc7540Router");
-        contracts.merklRouter = json.readAddressOr(".merklRouter", address(0));
-        contracts.oneInchRouter = json.readAddressOr(".oneInchRouter", address(0));
-        contracts.incentraRouter = json.readAddressOr(".incentraRouter", address(0));
-        contracts.fluidRewardsRouter = json.readAddressOr(".fluidRewardsRouter", address(0));
-        contracts.capPolicy = json.readAddress(".capPolicy");
-        contracts.gatePolicyBlacklist = json.readAddress(".gatePolicyBlacklist");
-        contracts.gatePolicyWhitelist = json.readAddress(".gatePolicyWhitelist");
-        contracts.nodePausingPolicy = json.readAddress(".nodePausingPolicy");
-        contracts.protocolPausingPolicy = json.readAddress(".protocolPausingPolicy");
-        contracts.digiftEventVerifier = json.readAddressOr(".digiftEventVerifier", address(0));
-        contracts.digiftAdapterImplementation = json.readAddressOr(".digiftAdapterImplementation", address(0));
-        contracts.digiftAdapterFactory = json.readAddressOr(".digiftAdapterFactory", address(0));
+        contracts.erc4626Router = json.readAddressOr(".routers.erc4626Router", address(0));
+        contracts.erc7540Router = json.readAddressOr(".routers.erc7540Router", address(0));
+        contracts.merklRouter = json.readAddressOr(".routers.merklRouter", address(0));
+        contracts.oneInchRouter = json.readAddressOr(".routers.oneInchRouter", address(0));
+        contracts.incentraRouter = json.readAddressOr(".routers.incentraRouter", address(0));
+        contracts.fluidRewardsRouter = json.readAddressOr(".routers.fluidRewardsRouter", address(0));
+        contracts.capPolicy = json.readAddressOr(".policies.capPolicy", address(0));
+        contracts.gatePolicyBlacklist = json.readAddressOr(".policies.gatePolicyBlacklist", address(0));
+        contracts.gatePolicyWhitelist = json.readAddressOr(".policies.gatePolicyWhitelist", address(0));
+        contracts.nodePausingPolicy = json.readAddressOr(".policies.nodePausingPolicy", address(0));
+        contracts.protocolPausingPolicy = json.readAddressOr(".policies.protocolPausingPolicy", address(0));
+        contracts.digiftEventVerifier = json.readAddressOr(".digift.digiftEventVerifier", address(0));
+        contracts.digiftAdapterImplementation = json.readAddressOr(".digift.digiftAdapterImplementation", address(0));
+        contracts.digiftAdapterFactory = json.readAddressOr(".digift.digiftAdapterFactory", address(0));
     }
 
     function setRpc(Vm vm_) internal {

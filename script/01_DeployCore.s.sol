@@ -104,39 +104,47 @@ contract DeployCore is Script {
 
         vm.stopBroadcast();
 
-        // Keep the object key constant ("json") across all serializations; only the returned JSON string changes.
         string memory objectKey = "json";
+        string memory routersKey = "routers";
+        string memory policiesKey = "policies";
+        string memory digiftKey = "digift";
         string memory json =
             stdJson.serialize(objectKey, "nodeRegistryImplementation", contracts.nodeRegistryImplementation);
         json = stdJson.serialize(objectKey, "nodeRegistryProxy", contracts.nodeRegistryProxy);
         json = stdJson.serialize(objectKey, "nodeImplementation", contracts.nodeImplementation);
         json = stdJson.serialize(objectKey, "nodeFactory", contracts.nodeFactory);
-        json = stdJson.serialize(objectKey, "erc4626Router", contracts.erc4626Router);
-        json = stdJson.serialize(objectKey, "erc7540Router", contracts.erc7540Router);
+
+        string memory routers = stdJson.serialize(routersKey, "erc4626Router", contracts.erc4626Router);
+        routers = stdJson.serialize(routersKey, "erc7540Router", contracts.erc7540Router);
 
         if (contracts.merklRouter != address(0)) {
-            json = stdJson.serialize(objectKey, "merklRouter", contracts.merklRouter);
+            routers = stdJson.serialize(routersKey, "merklRouter", contracts.merklRouter);
         }
         if (contracts.oneInchRouter != address(0)) {
-            json = stdJson.serialize(objectKey, "oneInchRouter", contracts.oneInchRouter);
+            routers = stdJson.serialize(routersKey, "oneInchRouter", contracts.oneInchRouter);
         }
         if (contracts.incentraRouter != address(0)) {
-            json = stdJson.serialize(objectKey, "incentraRouter", contracts.incentraRouter);
+            routers = stdJson.serialize(routersKey, "incentraRouter", contracts.incentraRouter);
         }
         if (contracts.fluidRewardsRouter != address(0)) {
-            json = stdJson.serialize(objectKey, "fluidRewardsRouter", contracts.fluidRewardsRouter);
+            routers = stdJson.serialize(routersKey, "fluidRewardsRouter", contracts.fluidRewardsRouter);
         }
 
-        json = stdJson.serialize(objectKey, "capPolicy", contracts.capPolicy);
-        json = stdJson.serialize(objectKey, "gatePolicyBlacklist", contracts.gatePolicyBlacklist);
-        json = stdJson.serialize(objectKey, "gatePolicyWhitelist", contracts.gatePolicyWhitelist);
-        json = stdJson.serialize(objectKey, "nodePausingPolicy", contracts.nodePausingPolicy);
-        json = stdJson.serialize(objectKey, "protocolPausingPolicy", contracts.protocolPausingPolicy);
+        json = stdJson.serialize(objectKey, "routers", routers);
+
+        string memory policies = stdJson.serialize(policiesKey, "capPolicy", contracts.capPolicy);
+        policies = stdJson.serialize(policiesKey, "gatePolicyBlacklist", contracts.gatePolicyBlacklist);
+        policies = stdJson.serialize(policiesKey, "gatePolicyWhitelist", contracts.gatePolicyWhitelist);
+        policies = stdJson.serialize(policiesKey, "nodePausingPolicy", contracts.nodePausingPolicy);
+        policies = stdJson.serialize(policiesKey, "protocolPausingPolicy", contracts.protocolPausingPolicy);
+
+        json = stdJson.serialize(objectKey, "policies", policies);
 
         if (contracts.digiftEventVerifier != address(0)) {
-            json = stdJson.serialize(objectKey, "digiftEventVerifier", contracts.digiftEventVerifier);
-            json = stdJson.serialize(objectKey, "digiftAdapterImplementation", contracts.digiftAdapterImplementation);
-            json = stdJson.serialize(objectKey, "digiftAdapterFactory", contracts.digiftAdapterFactory);
+            string memory digift = stdJson.serialize(digiftKey, "eventVerifier", contracts.digiftEventVerifier);
+            digift = stdJson.serialize(digiftKey, "adapterImplementation", contracts.digiftAdapterImplementation);
+            digift = stdJson.serialize(digiftKey, "adapterFactory", contracts.digiftAdapterFactory);
+            json = stdJson.serialize(objectKey, "digift", digift);
         }
 
         stdJson.write(json, path);
