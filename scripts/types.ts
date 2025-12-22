@@ -1,3 +1,7 @@
+export type Config = {
+    rebalancer: string[];
+};
+
 export type Contracts = {
     digift?: {
         adapterFactory: string;

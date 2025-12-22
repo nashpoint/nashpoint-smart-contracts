@@ -2,10 +2,11 @@ import { ContractTransaction } from 'ethers';
 import { ethers, network } from 'hardhat';
 import { NodeRegistry__factory } from '../typechain-types';
 import { RegistryType } from './types';
-import { getContracts, getPoliciesMerkleTree } from './utils';
+import { getConfig, getContracts, getPoliciesMerkleTree } from './utils';
 
 async function main() {
     const [deployer] = await ethers.getSigners();
+    const config = await getConfig(network.config.chainId!);
     const contracts = await getContracts(network.config.chainId!);
 
     const txs: ContractTransaction[] = [];
@@ -35,6 +36,16 @@ async function main() {
         const tx = await nodeRegistry.setRegistryType.populateTransaction(
             router,
             RegistryType.ROUTER,
+            true,
+        );
+        txs.push(tx);
+    }
+
+    // whitelist rebalancers
+    for (const router of config.rebalancer) {
+        const tx = await nodeRegistry.setRegistryType.populateTransaction(
+            router,
+            RegistryType.REBALANCER,
             true,
         );
         txs.push(tx);
