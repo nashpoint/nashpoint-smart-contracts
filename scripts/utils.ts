@@ -1,0 +1,19 @@
+import path from 'path';
+import { Contracts } from './types';
+
+export const chainIdToName = (chainId: number) => {
+    switch (chainId) {
+        case 42161:
+            return 'arbitrum';
+        case 11155111:
+            return 'sepolia';
+        default:
+            throw new Error(`${chainId} not supported`);
+    }
+};
+
+export const getContracts = async (chainId: number): Promise<Contracts> => {
+    return import(
+        path.resolve(process.cwd(), 'deployments', `${chainIdToName(chainId)}.json`)
+    ).then((f) => f.default);
+};

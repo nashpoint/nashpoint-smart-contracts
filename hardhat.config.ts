@@ -1,15 +1,15 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 dotenv.config();
 //
-import "@nomicfoundation/hardhat-foundry";
-import "@nomicfoundation/hardhat-toolbox";
-import {HardhatUserConfig} from "hardhat/config";
+import '@nomicfoundation/hardhat-foundry';
+import '@nomicfoundation/hardhat-toolbox';
+import { HardhatUserConfig } from 'hardhat/config';
 
 const config: HardhatUserConfig = {
     solidity: {
-        version: "0.8.28",
+        version: '0.8.28',
         settings: {
-            evmVersion: "cancun",
+            evmVersion: 'cancun',
             optimizer: {
                 enabled: true,
                 runs: 1000,
