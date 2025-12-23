@@ -151,7 +151,7 @@ async function main() {
                 owner: nodeData.owner,
             },
             nodePayload,
-            [],
+            setupCalls,
             salt,
         );
 
