@@ -1,3 +1,31 @@
+export type ComponentAllocation = {
+    name: string;
+    address: string;
+    allocation: number | string;
+    maxDelta?: number | string;
+};
+
+export type NodeData = {
+    // defined once deployed
+    address?: string;
+    name: string;
+    symbol: string;
+    asset: string;
+    owner: string;
+    rebalancer?: string;
+    salt?: string;
+    components?: {
+        erc7540Router?: ComponentAllocation[];
+        erc4626Router?: ComponentAllocation[];
+    };
+    targetReserveRatio?: number | string;
+    policies?: Policy[];
+    whitelist?: string[];
+    pauser?: string[];
+    rebalanceCooldown?: number;
+    rebalanceWindow?: number;
+};
+
 export type Config = {
     rebalancer: string[];
     components: {
