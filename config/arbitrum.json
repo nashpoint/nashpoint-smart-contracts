@@ -5,5 +5,9 @@
   "incentraDistributor": "0x273d0d19eac2861fcf6b21893ad6d71b018e25ab",
   "fluidRewardsDistributor": "0x94312a608246cecfce6811db84b3ef4b2619054e",
   "protocolOwner": "0x69C2d63BC4Fcd16CD616D22089B58de3796E1F5c",
-  "rebalancer": []
+  "rebalancer": [],
+  "components": {
+    "erc7540Router": [],
+    "erc4626Router": []
+  }
 }

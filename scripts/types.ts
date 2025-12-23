@@ -1,5 +1,13 @@
 export type Config = {
     rebalancer: string[];
+    components: {
+        [k in Router]: [
+            {
+                name: string;
+                address: string;
+            },
+        ];
+    };
 };
 
 export type Contracts = {

@@ -6,8 +6,14 @@
   "iSNR": "0x3c4A0E537ED48430A7574a04b100B27E010Ec700",
   "iSNRPriceOracle": "0x743Be7f24caA96DF8cf27413b43a5D916E4d0C29",
   "usdcPriceOracle": "0x8C549fD544a66C2C951C5F6Cd0243FbDa95CF701",
-  "digiftAdapter": {
-    "iSNR": "0xfC33F2D6427dcb632502f179e7b867f445b8a67C"
-  },
-  "rebalancer": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"]
+  "rebalancer": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "components": {
+    "erc7540Router": [
+      {
+        "name": "iSNR DigiFT Adapter",
+        "address": "0xfC33F2D6427dcb632502f179e7b867f445b8a67C"
+      }
+    ],
+    "erc4626Router": []
+  }
 }

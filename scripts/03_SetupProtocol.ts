@@ -60,8 +60,10 @@ async function main() {
 
     // sepolia
     if (deployer.address.toLowerCase() === owner.toLowerCase()) {
-        for (const tx of txs) {
-            await deployer.sendTransaction(tx).then((t) => t.wait(1));
+        console.log(`${txs.length} txs to send`);
+        for (let i = 0; i < txs.length; i++) {
+            await deployer.sendTransaction(txs[i]).then((t) => t.wait(1));
+            console.log(`Sent ${i + 1}`);
         }
     } else {
         // TODO: Safe propose tx
