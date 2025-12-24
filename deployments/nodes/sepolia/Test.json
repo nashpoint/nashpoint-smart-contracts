@@ -19,5 +19,6 @@
   "whitelist": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
   "pauser": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
   "rebalanceCooldown": 300,
-  "rebalanceWindow": 300
+  "rebalanceWindow": 300,
+  "address": "0x8e825BD556E3dD52Aa17bBEE04042BaeD5f64BfA"
 }

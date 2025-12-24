@@ -36,3 +36,4 @@ pnpm-lock.yaml
 artifacts
 cache_hardhat
 typechain-types
+scripts/local/*
