@@ -32,10 +32,7 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE)
 | Scope                                      | Date          | Report                                                                                     |
 |--------------------------------------------|---------------|--------------------------------------------------------------------------------------------|
 | [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | January 2025 | [Cantina](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)              |
-
-### Additional Code Review
-
-[Guardian Audits](https://guardianaudits.com/) conducted an additional code review and identified recommended bug fixes. Implemented changes are accessable [here](https://github.com/nashpoint/nashpoint-smart-contracts/pull/264).
+| [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | December 2025 | [Guardian](https://github.com/GuardianAudits/Audits/tree/main/Nashpoint)              |
 
 ## Technical Details
 
