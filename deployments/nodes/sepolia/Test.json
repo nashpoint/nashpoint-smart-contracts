@@ -1,0 +1,24 @@
+{
+  "name": "Test Node",
+  "symbol": "TND",
+  "asset": "0xc40fA5d8CF408BAA63019137033D2698377fB243",
+  "owner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+  "rebalancer": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "components": {
+    "erc7540Router": [
+      {
+        "name": "iSNR DigiFT Adapter",
+        "address": "0xfC33F2D6427dcb632502f179e7b867f445b8a67C",
+        "allocation": 95
+      }
+    ],
+    "erc4626Router": []
+  },
+  "targetReserveRatio": 5,
+  "policies": ["gatePolicyWhitelist", "nodePausingPolicy"],
+  "whitelist": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "pauser": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "rebalanceCooldown": 300,
+  "rebalanceWindow": 300,
+  "address": "0x8e825BD556E3dD52Aa17bBEE04042BaeD5f64BfA"
+}

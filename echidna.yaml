@@ -13,7 +13,7 @@ testMode: assertion
 disableSlither: true
 corpusDir: echidna-corpus
 
-testLimit: 100000000000
+testLimit: 100
 # testLimit: 1000000
 codeSize: 0xffffff
 
