@@ -2,6 +2,7 @@ import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import fs from 'fs';
 import path from 'path';
 
+import type { Provider } from 'ethers';
 import { ethers } from 'hardhat';
 import { Node__factory } from '../typechain-types';
 import { Config, Contracts, NodeData, Policy } from './types';
@@ -164,3 +165,21 @@ export const buildPolicy = (policy: Policy, contracts: Contracts) => {
 
 export const percentToWei = (value: string | number) => ethers.parseEther(value.toString()) / 100n;
 export const weiToPercent = (value: bigint) => ethers.formatEther(value * 100n);
+
+export const getGasFee = async (provider: Provider, percentIncrease = 20) => {
+    const feeData = await provider.getFeeData();
+    const result: Record<string, bigint> = {};
+
+    const multiplier = 100n + BigInt(percentIncrease);
+
+    if (feeData.maxFeePerGas) {
+        result.maxFeePerGas = (feeData.maxFeePerGas * multiplier) / 100n;
+    }
+    if (feeData.maxPriorityFeePerGas) {
+        result.maxPriorityFeePerGas = (feeData.maxPriorityFeePerGas * multiplier) / 100n;
+    }
+    if (!result.maxFeePerGas && feeData.gasPrice) {
+        result.gasPrice = (feeData.gasPrice * multiplier) / 100n;
+    }
+    return result;
+};
