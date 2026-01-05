@@ -1,8 +1,9 @@
 import { ContractTransaction } from 'ethers';
 import { ethers, network } from 'hardhat';
 import { NodeRegistry__factory } from '../typechain-types';
-import { RegistryType } from './types';
-import { getConfig, getContracts, getPoliciesMerkleTree } from './utils';
+import { safePropose } from './utils/SafeService';
+import { RegistryType } from './utils/types';
+import { getConfig, getContracts, getPoliciesMerkleTree } from './utils/utils';
 
 async function main() {
     const [deployer] = await ethers.getSigners();
@@ -66,7 +67,7 @@ async function main() {
             console.log(`Sent ${i + 1}`);
         }
     } else {
-        // TODO: Safe propose tx
+        await safePropose(owner, txs);
     }
 }
 

@@ -27,6 +27,7 @@ export type NodeData = {
 };
 
 export type Config = {
+    protocolOwner: string;
     rebalancer: string[];
     components: {
         [k in Router]: [

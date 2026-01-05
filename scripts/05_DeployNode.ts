@@ -14,7 +14,7 @@ import {
     percentToWei,
     weiToPercent,
     writeNodeData,
-} from './utils';
+} from './utils/utils';
 import { SetupCallStruct } from '../typechain-types/src/NodeFactory';
 
 async function main() {

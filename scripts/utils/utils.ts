@@ -4,7 +4,7 @@ import path from 'path';
 
 import type { Provider } from 'ethers';
 import { ethers } from 'hardhat';
-import { Node__factory } from '../typechain-types';
+import { Node__factory } from '../../typechain-types';
 import { Config, Contracts, NodeData, Policy } from './types';
 
 export const chainIdToName = (chainId: number) => {

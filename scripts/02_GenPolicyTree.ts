@@ -1,8 +1,8 @@
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import fs from 'fs';
 import { network } from 'hardhat';
-import { Policy } from './types';
-import { buildLeafs, buildPolicy, chainIdToName, getContracts } from './utils';
+import { Policy } from './utils/types';
+import { buildLeafs, buildPolicy, chainIdToName, getContracts } from './utils/utils';
 
 async function main() {
     const contracts = await getContracts(network.config.chainId!);

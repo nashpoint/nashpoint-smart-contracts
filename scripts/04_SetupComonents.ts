@@ -5,7 +5,8 @@ import {
     ERC7540Router__factory,
     NodeRegistry__factory,
 } from '../typechain-types';
-import { getConfig, getContracts } from './utils';
+import { getConfig, getContracts } from './utils/utils';
+import { safePropose } from './utils/SafeService';
 
 async function main() {
     const [deployer] = await ethers.getSigners();
@@ -54,7 +55,7 @@ async function main() {
             console.log(`Sent ${i + 1}`);
         }
     } else {
-        // TODO: Safe propose tx
+        await safePropose(owner, txs);
     }
 }
 
