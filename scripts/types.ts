@@ -36,6 +36,8 @@ export type Config = {
             },
         ];
     };
+    // for sepolia only
+    usdcPriceOracle?: string;
 };
 
 export type Contracts = {

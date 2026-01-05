@@ -21,8 +21,11 @@ local    = "${LOCAL_RPC_URL}"
 
 [profile.arbitrum]
 optimizer-runs = 1000
-cache_path     = 'cache/arbitrum'
-broadcast      = 'broadcast/arbitrum'
+cache_path = 'cache/arbitrum'
+broadcast = 'broadcast/arbitrum'
+libraries = [
+    "src/libraries/NodeLib.sol:NodeLib:0x0371bed4f23955eec7f6d940b5dee900ae776613",
+]
 
 [profile.sepolia]
 optimizer-runs = 1000

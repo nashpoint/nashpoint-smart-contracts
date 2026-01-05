@@ -1,0 +1,26 @@
+{
+  "digift": {
+    "adapterFactory": "0x98b74cf4ab387691054D2cbE873328bDcAFC79F0",
+    "adapterImplementation": "0xd0aE8aa39f403095Ae53ddA4585711CcD8980bb3",
+    "eventVerifier": "0xDc3913027578165d9624eFB3D774FD4fF92Ee463"
+  },
+  "nodeFactory": "0x012af0b7E4ABe0E6689197C91D879216db159737",
+  "nodeImplementation": "0x70F37BAd9f0a357763ce899583348e5b0E48402f",
+  "nodeRegistryImplementation": "0xB512d72e24446484bf2E95fee1B2D80e089667B9",
+  "nodeRegistryProxy": "0x17E87f2354E5ea196737FEE0B27BF23DB059806a",
+  "policies": {
+    "capPolicy": "0x9e75a24958bE6c95A0F0e0F4071ea3F2b3C76Ffb",
+    "gatePolicyBlacklist": "0xBBe32ac0122C4180499960B81A22C792F7DF6666",
+    "gatePolicyWhitelist": "0x0BB694512042DEAa1c4F26019E1d2175AFc0031E",
+    "nodePausingPolicy": "0xD4B0dF19b98115665650aA4B049d3808131cc926",
+    "protocolPausingPolicy": "0xfc25ca5Dd1b9050Ac4d38dC0FFd99D380656a7C7"
+  },
+  "routers": {
+    "erc4626Router": "0xb52eb21B3B65FE6297426C0d47d45C7ef26DF940",
+    "erc7540Router": "0xC1b7b8677AeEFe970346ffa9c515D4eeE883B425",
+    "fluidRewardsRouter": "0x738a892af3aD7371F9df8E63f87038ebb56498a7",
+    "incentraRouter": "0x3D7fB638CB9B7F5D9CA895e1cdE4923E2a8D9aF9",
+    "merklRouter": "0x206dFD8A97dbE5c29044D2eFAF9470df685a861E",
+    "oneInchRouter": "0xfA0A77F3584a7B3d9276eC04315ab1CE4DA1283A"
+  }
+}
