@@ -4,8 +4,8 @@ pragma solidity 0.8.28;
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
 
 import {MerkleTrie} from "optimism/libraries/trie/MerkleTrie.sol";
-import {RLPReader} from "optimism/libraries/rlp/RLPReader.sol";
-import {Bytes} from "optimism/libraries/Bytes.sol";
+import {RLPReader} from "src/libraries/rlp/RLPReader.sol";
+import {Bytes} from "src/libraries/Bytes.sol";
 
 /**
  * @title DigiftEventVerifier

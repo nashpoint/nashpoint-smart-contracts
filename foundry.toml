@@ -1,30 +1,47 @@
 [profile.default]
-src = "src"
-out = "out"
+src  = "src"
+out  = "out"
 libs = ["lib"]
 
-evm_version = "cancun"
-solc = "0.8.28"
-optimizer = true
+evm_version    = "cancun"
+solc           = "0.8.28"
+optimizer      = true
 optimizer-runs = 200
-via-ir = false
+via-ir         = false
 
-ffi = true
 fs_permissions = [
-  { access = "read", path = "./deployments" }
+    { access = "read-write", path = "./deployments" },
+    { access = "read", path = "./config" },
 ]
 
-[profile.deploy]
-evm_version = "cancun"
-solc = "0.8.28"
-optimizer = true
-optimizer-runs = 50
-via-ir = true
+[rpc_endpoints]
+arbitrum = "${ARBITRUM_RPC_URL}"
+sepolia  = "${SEPOLIA_RPC_URL}"
+local    = "${LOCAL_RPC_URL}"
 
+[profile.arbitrum]
+optimizer-runs = 1000
+cache_path = 'cache/arbitrum'
+broadcast = 'broadcast/arbitrum'
+libraries = [
+    "src/libraries/NodeLib.sol:NodeLib:0x0371bed4f23955eec7f6d940b5dee900ae776613",
+]
+
+[profile.sepolia]
+optimizer-runs = 1000
+cache_path = 'cache/sepolia'
+broadcast = 'broadcast/sepolia'
+libraries = [
+    "src/libraries/NodeLib.sol:NodeLib:0x0371bed4f23955eec7f6d940b5dee900ae776613",
+]
+
+[profile.local]
+optimizer-runs = 1000
+cache_path     = 'cache/local'
+broadcast      = 'broadcast/local'
 
 [fuzz]
 runs = 10
 
 [etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}" } 
-
+mainnet = { key = "${ETHERSCAN_API_KEY}" }

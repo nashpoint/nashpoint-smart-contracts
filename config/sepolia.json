@@ -1,0 +1,19 @@
+{
+  "digiftSubRedManagement": "0x99c967aDa4b3Ab4E011EF2379d58E11816bd219b",
+  "oneInch": true,
+  "protocolOwner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+  "usdc": "0xc40fA5d8CF408BAA63019137033D2698377fB243",
+  "iSNR": "0x3c4A0E537ED48430A7574a04b100B27E010Ec700",
+  "iSNRPriceOracle": "0x743Be7f24caA96DF8cf27413b43a5D916E4d0C29",
+  "usdcPriceOracle": "0x8C549fD544a66C2C951C5F6Cd0243FbDa95CF701",
+  "rebalancer": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "components": {
+    "erc7540Router": [
+      {
+        "name": "iSNR DigiFT Adapter",
+        "address": "0xfC33F2D6427dcb632502f179e7b867f445b8a67C"
+      }
+    ],
+    "erc4626Router": []
+  }
+}
