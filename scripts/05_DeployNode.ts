@@ -186,8 +186,11 @@ async function main() {
         for (const i of interfaces) {
             try {
                 // @ts-ignore
-                console.log(i.parseError(error.data));
-                decoded = true;
+                const parsedError = i.parseError(error.data);
+                if (parsedError) {
+                    console.log(parsedError);
+                    decoded = true;
+                }
                 break;
             } catch (error) {}
         }
