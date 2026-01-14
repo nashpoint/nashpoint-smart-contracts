@@ -89,7 +89,7 @@ export const safePropose = async (safeAddress: string, txs: ContractTransaction[
     await safe.initialize();
     if (txs.length) {
         const safeTxHash = await safe.propose(
-            txs.map((tx) => ({ data: tx.data, to: tx.to, value: '' })),
+            txs.map((tx) => ({ data: tx.data, to: tx.to, value: '0' })),
         );
         console.log(`Proposed: ${safeTxHash}`);
     }
