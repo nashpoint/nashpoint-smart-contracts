@@ -1,0 +1,40 @@
+{
+  "name": "Dummy Node",
+  "symbol": "DMN",
+  "asset": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+  "owner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+  "rebalancer": [
+    "0xB1ce02d5eE676e657BD59D2EE5dFB147a13f56e9"
+  ],
+  "components": {
+    "erc7540Router": [],
+    "erc4626Router": [
+      {
+        "name": "GearboxUSDC",
+        "address": "0x890A69EF363C9c7BdD5E36eb95Ceb569F63ACbF6",
+        "allocation": 40
+      },
+      {
+        "name": "FluidUDC",
+        "address": "0x1A996cb54bb95462040408C06122D45D6Cdb6096",
+        "allocation": 50
+      }
+    ]
+  },
+  "targetReserveRatio": 10,
+  "policies": [
+    "gatePolicyWhitelist",
+    "nodePausingPolicy",
+    "protocolPausingPolicy",
+    "capPolicy"
+  ],
+  "whitelist": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
+  ],
+  "pauser": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
+  ],
+  "rebalanceCooldown": 300,
+  "rebalanceWindow": 300,
+  "address": "0xa99DA9ef7ba2E3F50c935214AE271C81AD63D867"
+}
