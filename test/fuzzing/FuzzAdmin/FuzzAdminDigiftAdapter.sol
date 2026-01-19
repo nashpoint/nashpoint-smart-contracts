@@ -29,9 +29,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
         _before();
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
-            address(digiftAdapter),
-            abi.encodeWithSelector(DigiftAdapter.forwardRequestsToDigift.selector),
-            params.caller
+            address(digiftAdapter), abi.encodeWithSelector(AdapterBase.forwardRequests.selector), params.caller
         );
 
         digiftForwardRequestsPostconditions(success, returnData, params);
@@ -59,7 +57,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
-            abi.encodeWithSelector(DigiftAdapter.settleDeposit.selector, nodes, verifyArgs),
+            abi.encodeWithSelector(AdapterBase.settleDeposit.selector, nodes, verifyArgs),
             params.caller
         );
 
@@ -88,7 +86,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
 
         (bool success, bytes memory returnData) = fl.doFunctionCall(
             address(digiftAdapter),
-            abi.encodeWithSelector(DigiftAdapter.settleRedeem.selector, nodes, verifyArgs),
+            abi.encodeWithSelector(AdapterBase.settleRedeem.selector, nodes, verifyArgs),
             params.caller
         );
 
@@ -101,7 +99,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     // function fuzz_admin_digift_forceUpdateLastPrice() public {
     //     vm.startPrank(owner);
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
-    //         address(digiftAdapter), abi.encodeWithSelector(DigiftAdapter.forceUpdateLastPrice.selector), owner
+    //         address(digiftAdapter), abi.encodeWithSelector(AdapterBase.forceUpdateLastPrice.selector), owner
     //     );
     //     vm.stopPrank();
     //     digiftUpdatePricePostconditions(success, returnData);
@@ -113,7 +111,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     //     params.target = params.target == address(0) ? rebalancer : params.target;
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(digiftAdapter),
-    //         abi.encodeWithSelector(DigiftAdapter.setManager.selector, params.target, params.status),
+    //         abi.encodeWithSelector(AdapterBase.setManager.selector, params.target, params.status),
     //         owner
     //     );
     //     vm.stopPrank();
@@ -125,7 +123,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     //     vm.startPrank(owner);
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(digiftAdapter),
-    //         abi.encodeWithSelector(DigiftAdapter.setMinDepositAmount.selector, params.value),
+    //         abi.encodeWithSelector(AdapterBase.setMinDepositAmount.selector, params.value),
     //         owner
     //     );
     //     vm.stopPrank();
@@ -137,7 +135,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     //     vm.startPrank(owner);
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(digiftAdapter),
-    //         abi.encodeWithSelector(DigiftAdapter.setMinRedeemAmount.selector, params.value),
+    //         abi.encodeWithSelector(AdapterBase.setMinRedeemAmount.selector, params.value),
     //         owner
     //     );
     //     vm.stopPrank();
@@ -150,7 +148,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     //     vm.startPrank(owner);
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(digiftAdapter),
-    //         abi.encodeWithSelector(DigiftAdapter.setNode.selector, params.target, params.status),
+    //         abi.encodeWithSelector(AdapterBase.setNode.selector, params.target, params.status),
     //         owner
     //     );
     //     vm.stopPrank();
@@ -162,7 +160,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     //     vm.startPrank(owner);
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(digiftAdapter),
-    //         abi.encodeWithSelector(DigiftAdapter.setPriceDeviation.selector, params.value),
+    //         abi.encodeWithSelector(AdapterBase.setPriceDeviation.selector, params.value),
     //         owner
     //     );
     //     vm.stopPrank();
@@ -174,7 +172,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     //     vm.startPrank(owner);
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(digiftAdapter),
-    //         abi.encodeWithSelector(DigiftAdapter.setPriceUpdateDeviation.selector, params.value),
+    //         abi.encodeWithSelector(AdapterBase.setPriceUpdateDeviation.selector, params.value),
     //         owner
     //     );
     //     vm.stopPrank();
@@ -186,7 +184,7 @@ contract FuzzAdminDigiftAdapter is PreconditionsDigiftAdapter, PostconditionsDig
     //     vm.startPrank(owner);
     //     (bool success, bytes memory returnData) = fl.doFunctionCall(
     //         address(digiftAdapter),
-    //         abi.encodeWithSelector(DigiftAdapter.setSettlementDeviation.selector, params.value),
+    //         abi.encodeWithSelector(AdapterBase.setSettlementDeviation.selector, params.value),
     //         owner
     //     );
     //     vm.stopPrank();

@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
+import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {INodeRegistry} from "src/interfaces/INodeRegistry.sol";
 
@@ -77,13 +78,13 @@ contract DigiftEventVerifierForkTest is Test {
         vm.startPrank(investor);
         // Verify the settlement event using Merkle proof
         (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(
+            EventVerifierBase.OffchainArgs(
                 BLOCK_NUMBER, // Block number containing the transaction
                 HEADER_RLP, // RLP-encoded block header
                 INDEX_RLP, // Transaction index within the block
                 2, // Log index
-                0, // Investor index
-                PROOF // Merkle proof
+                PROOF, // Merkle proof
+                abi.encode(0) // Investor index
             ),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.SUBSCRIBE, // Event topic for subscriber settlement
@@ -141,13 +142,13 @@ contract DigiftEventVerifierForkTest is Test {
 
         // Verify the redemption settlement event using Merkle proof
         (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(
+            EventVerifierBase.OffchainArgs(
                 vars.blockNumber,
                 vars.header,
                 vars.txIndex,
                 1, // Log index
-                0, // Investor index
-                vars.proof
+                vars.proof,
+                abi.encode(0) // Investor index
             ),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
@@ -162,15 +163,15 @@ contract DigiftEventVerifierForkTest is Test {
         assertTrue(verifier.usedLogs(logHash));
 
         // cannot reuse the event
-        vm.expectRevert(DigiftEventVerifier.LogAlreadyUsed.selector);
+        vm.expectRevert(EventVerifierBase.LogAlreadyUsed.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(
+            EventVerifierBase.OffchainArgs(
                 vars.blockNumber,
                 vars.header,
                 vars.txIndex,
                 1, // Log index
-                0, // Investor index
-                vars.proof
+                vars.proof,
+                abi.encode(0) // Investor index
             ),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
@@ -245,7 +246,7 @@ contract DigiftEventVerifierForkTest is Test {
 
         // Expect the BlockHashSet event to be emitted
         vm.expectEmit(true, false, false, false);
-        emit DigiftEventVerifier.BlockHashSet(blockNumber, blockHash);
+        emit EventVerifierBase.BlockHashSet(blockNumber, blockHash);
 
         // Call setBlockHash function
         verifier.setBlockHash(blockNumber, blockHash);
@@ -285,11 +286,11 @@ contract DigiftEventVerifierForkTest is Test {
         address adapter = address(0xBEEF);
 
         vm.expectEmit(true, false, false, true, address(verifier));
-        emit DigiftEventVerifier.WhitelistChange(adapter, true);
+        emit EventVerifierBase.WhitelistChange(adapter, true);
         verifier.setWhitelist(adapter, true);
 
         vm.expectEmit(true, false, false, true, address(verifier));
-        emit DigiftEventVerifier.WhitelistChange(adapter, false);
+        emit EventVerifierBase.WhitelistChange(adapter, false);
         verifier.setWhitelist(adapter, false);
     }
 
@@ -309,7 +310,7 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.startPrank(owner);
         vm.expectEmit(true, false, false, true, address(verifier));
-        emit DigiftEventVerifier.WhitelistChange(adapter, true);
+        emit EventVerifierBase.WhitelistChange(adapter, true);
         verifier.setWhitelist(adapter, true);
         vm.stopPrank();
     }
@@ -323,9 +324,9 @@ contract DigiftEventVerifierForkTest is Test {
 
         DigiftEventVerifier verifier = new DigiftEventVerifier(address(this));
 
-        vm.expectRevert(DigiftEventVerifier.NotWhitelisted.selector);
+        vm.expectRevert(EventVerifierBase.NotWhitelisted.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(0, hex"01", hex"01", 0, 0, new bytes[](0)),
+            EventVerifierBase.OffchainArgs(0, hex"01", hex"01", 0, new bytes[](0), abi.encode(0)),
             DigiftEventVerifier.OnchainArgs(DigiftEventVerifier.EventType.REDEEM, address(0), address(0), address(0))
         );
     }
@@ -363,13 +364,13 @@ contract DigiftEventVerifierForkTest is Test {
 
         // Verify the redemption settlement event using Merkle proof
         (uint256 stTokenAmount, uint256 assetAmount) = verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(
+            EventVerifierBase.OffchainArgs(
                 vars.blockNumber,
                 vars.header,
                 vars.txIndex,
                 1, // Log index
-                0, // Investor index
-                vars.proof
+                vars.proof,
+                abi.encode(0) // Investor index
             ),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
@@ -401,9 +402,9 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.startPrank(investor);
         // This should revert with MissedWindow since no block hash is available
-        vm.expectRevert(DigiftEventVerifier.MissedWindow.selector);
+        vm.expectRevert(EventVerifierBase.MissedWindow.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(oldBlockNumber, hex"01", hex"01", 0, 0, new bytes[](0)),
+            EventVerifierBase.OffchainArgs(oldBlockNumber, hex"01", hex"01", 0, new bytes[](0), abi.encode(0)),
             DigiftEventVerifier.OnchainArgs(DigiftEventVerifier.EventType.REDEEM, address(0), address(0), address(0))
         );
     }
@@ -423,9 +424,9 @@ contract DigiftEventVerifierForkTest is Test {
         // Impersonate the investor (node) to simulate the correct msg.sender
         vm.startPrank(vars.investor);
 
-        vm.expectRevert(DigiftEventVerifier.BadHeader.selector);
+        vm.expectRevert(EventVerifierBase.BadHeader.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, hex"01", vars.txIndex, 0, 0, vars.proof),
+            EventVerifierBase.OffchainArgs(vars.blockNumber, hex"01", vars.txIndex, 0, vars.proof, abi.encode(0)),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
             )
@@ -448,9 +449,9 @@ contract DigiftEventVerifierForkTest is Test {
         // Impersonate the investor (node) to simulate the correct msg.sender
         vm.startPrank(vars.investor);
 
-        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        vm.expectRevert(EventVerifierBase.NoEvent.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 0, 0, vars.proof),
+            EventVerifierBase.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 0, vars.proof, abi.encode(0)),
             DigiftEventVerifier.OnchainArgs(
                 // wrong signature
                 DigiftEventVerifier.EventType.SUBSCRIBE,
@@ -460,9 +461,9 @@ contract DigiftEventVerifierForkTest is Test {
             )
         );
 
-        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        vm.expectRevert(EventVerifierBase.NoEvent.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 1, 0, vars.proof),
+            EventVerifierBase.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 1, vars.proof, abi.encode(0)),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM,
                 vars.subRedManager,
@@ -472,9 +473,9 @@ contract DigiftEventVerifierForkTest is Test {
             )
         );
 
-        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        vm.expectRevert(EventVerifierBase.NoEvent.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 1, 0, vars.proof),
+            EventVerifierBase.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 1, vars.proof, abi.encode(0)),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM,
                 vars.subRedManager,
@@ -486,9 +487,9 @@ contract DigiftEventVerifierForkTest is Test {
 
         vm.stopPrank();
 
-        vm.expectRevert(DigiftEventVerifier.NoEvent.selector);
+        vm.expectRevert(EventVerifierBase.NoEvent.selector);
         verifier.verifySettlementEvent(
-            DigiftEventVerifier.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 2, 0, vars.proof),
+            EventVerifierBase.OffchainArgs(vars.blockNumber, vars.header, vars.txIndex, 2, vars.proof, abi.encode(0)),
             DigiftEventVerifier.OnchainArgs(
                 DigiftEventVerifier.EventType.REDEEM, vars.subRedManager, vars.stToken, vars.asset
             )

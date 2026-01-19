@@ -17,6 +17,7 @@ import {OneInchV6RouterV1} from "../../../src/routers/OneInchV6RouterV1.sol";
 import {Escrow} from "../../../src/Escrow.sol";
 
 import {DigiftAdapter} from "../../../src/adapters/digift/DigiftAdapter.sol";
+import {AdapterBase} from "../../../src/adapters/AdapterBase.sol";
 import {DigiftAdapterFactory} from "../../../src/adapters/digift/DigiftAdapterFactory.sol";
 import {DigiftEventVerifier} from "../../../src/adapters/digift/DigiftEventVerifier.sol";
 import {DigiftEventVerifierMock} from "../../mocks/DigiftEventVerifierMock.sol";

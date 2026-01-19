@@ -55,26 +55,6 @@ interface ISubRedManagement {
     ) external;
 }
 
-interface IDFeedPriceOracle {
-    function decimals() external view returns (uint8);
-
-    function getPrice() external view returns (uint256);
-
-    function latestRoundData()
-        external
-        view
-        returns (
-            // always zero
-            uint80 roundId,
-            int256 answer,
-            // same as updatedAt
-            uint256 startedAt,
-            uint256 updatedAt,
-            // always zero
-            uint80 answeredInRound
-        );
-}
-
 interface ISecurityToken {
     function issue(address investor, uint256 value) external;
     function redeem(address investor, uint256 value) external;

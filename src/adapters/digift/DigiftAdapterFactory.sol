@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {DigiftAdapter} from "./DigiftAdapter.sol";
+import {AdapterBase} from "src/adapters/AdapterBase.sol";
 
 /**
  * @title DigiftAdapterFactory
@@ -53,7 +54,7 @@ contract DigiftAdapterFactory is UpgradeableBeacon {
         // Deploy a new BeaconProxy that points to this factory
         // The proxy will use the implementation set in this beacon
         address digiftAdapterAddress =
-            address(new BeaconProxy(address(this), abi.encodeWithSelector(DigiftAdapter.initialize.selector, initArgs)));
+            address(new BeaconProxy(address(this), abi.encodeWithSelector(AdapterBase.initialize.selector, initArgs)));
 
         emit Deployed(digiftAdapterAddress);
 
