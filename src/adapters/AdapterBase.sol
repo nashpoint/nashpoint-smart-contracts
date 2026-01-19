@@ -642,7 +642,7 @@ abstract contract AdapterBase is
 
     /**
      * @notice Settle deposit requests for multiple nodes
-     * @dev Verifies Digift settlement event and distributes shares/assets proportionally
+     * @dev Verifies settlement event and distributes shares/assets proportionally
      * @param nodes Array of node addresses to settle
      * @param verifyArgs Offchain arguments for event verification
      */
@@ -778,7 +778,7 @@ abstract contract AdapterBase is
 
     /**
      * @notice Settle redemption requests for multiple nodes
-     * @dev Verifies Digift redemption event and distributes assets/shares proportionally
+     * @dev Verifies redemption event and distributes assets/shares proportionally
      * @param nodes Array of node addresses to settle
      * @param verifyArgs Offchain arguments for event verification
      */
@@ -1027,7 +1027,7 @@ abstract contract AdapterBase is
 
     /**
      * @notice Convert assets to shares using current price
-     * @dev Uses current Digift price for conversion
+     * @dev Uses current fund price for conversion
      * @param assets The amount of assets to convert
      * @return shares The equivalent number of shares
      */
@@ -1037,7 +1037,7 @@ abstract contract AdapterBase is
 
     /**
      * @notice Convert shares to assets using current price
-     * @dev Uses current Digift price for conversion
+     * @dev Uses current fund price for conversion
      * @param shares The number of shares to convert
      * @return assets The equivalent amount of assets
      */

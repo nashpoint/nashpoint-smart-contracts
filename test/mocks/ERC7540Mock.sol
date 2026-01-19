@@ -51,7 +51,6 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
     uint256 public pendingAssets; // represented as assets waiting to be deposited
 
     // @dev claimableSharePrice is defined when manager calls processPendingDeposits
-    // todo: fix this as will not work when you start earning yield
     uint256 public claimableSharePrice; // defined when manager calls processPendingDeposits
 
     // Events

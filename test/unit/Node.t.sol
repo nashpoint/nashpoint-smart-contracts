@@ -1827,7 +1827,6 @@ contract NodeTest is BaseTest {
         assertEq(claimableAssets, node.convertToAssets(sharesToRedeem));
     }
 
-    // todo: fix this test
     function test_getSharesExiting(uint256 depositAmount, uint256 redeemAmount) public {
         _seedNode(100 ether);
         depositAmount = bound(depositAmount, 1 ether, 1e36);

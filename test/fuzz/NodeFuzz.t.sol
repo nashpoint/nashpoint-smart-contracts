@@ -498,15 +498,11 @@ contract NodeFuzzTest is BaseTest {
 
     function test_fuzz_node_total_assets_cache_is_updated() public {}
 
-    //todo: check if cache returns 0
-
     /*//////////////////////////////////////////////////////////////
                         COMPONENT MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
     // figure out what to test here later
-
-    // todo: create a mock token that spits out random stuff and see when it breaks your vault
 
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS

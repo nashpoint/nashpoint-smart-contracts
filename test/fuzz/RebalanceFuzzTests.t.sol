@@ -332,8 +332,6 @@ contract RebalanceFuzzTests is BaseTest {
         }
     }
 
-    // todo: test changing component ratios and rebalancing towards the new ratios
-
     // HELPER FUNCTIONS
 
     function _setInitialComponentRatios(uint64 reserveRatio, uint256 randUint, address[] memory newComponents)
