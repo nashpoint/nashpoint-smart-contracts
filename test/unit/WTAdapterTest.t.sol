@@ -8,7 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BaseTest} from "test/BaseTest.sol";
 import {WTAdapter} from "src/adapters/wt/WTAdapter.sol";
 import {WTAdapterFactory} from "src/adapters/wt/WTAdapterFactory.sol";
-import {WTEventVerifier} from "src/adapters/wt/WTEventVerifier.sol";
+import {TransferEventVerifier} from "src/adapters/TransferEventVerifier.sol";
 import {AdapterBase} from "src/adapters/AdapterBase.sol";
 import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 import {IPriceOracle} from "src/interfaces/external/IPriceOracle.sol";
@@ -19,7 +19,7 @@ import {ERC20Mock} from "test/mocks/ERC20Mock.sol";
 contract WTAdapterTest is BaseTest {
     WTAdapterFactory wtFactory;
     WTAdapter wtAdapter;
-    WTEventVerifier eventVerifier;
+    TransferEventVerifier eventVerifier;
     ERC20Mock fundToken;
 
     address receiver = makeAddr("wtReceiver");
@@ -45,7 +45,7 @@ contract WTAdapterTest is BaseTest {
 
         fundToken = new ERC20Mock("WT Fund", "WTF");
 
-        eventVerifier = new WTEventVerifier(address(registry));
+        eventVerifier = new TransferEventVerifier(address(registry));
         WTAdapter wtImpl = new WTAdapter(address(registry), receiver, sender, eventVerifier);
         wtFactory = new WTAdapterFactory(address(wtImpl), address(this));
 
@@ -114,10 +114,11 @@ contract WTAdapterTest is BaseTest {
 
     function _settleDeposit(uint256 sharesToMint) internal {
         EventVerifierBase.OffchainArgs memory fargs;
-        WTEventVerifier.OnchainArgs memory nargs = WTEventVerifier.OnchainArgs(address(fundToken), address(0));
+        TransferEventVerifier.OnchainArgs memory nargs =
+            TransferEventVerifier.OnchainArgs(address(fundToken), address(0));
         vm.mockCall(
             address(eventVerifier),
-            abi.encodeWithSelector(WTEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+            abi.encodeWithSelector(TransferEventVerifier.verifyEvent.selector, fargs, nargs),
             abi.encode(sharesToMint)
         );
 
@@ -145,10 +146,10 @@ contract WTAdapterTest is BaseTest {
 
     function _settleRedeem(uint256 assetsToReturn) internal {
         EventVerifierBase.OffchainArgs memory fargs;
-        WTEventVerifier.OnchainArgs memory nargs = WTEventVerifier.OnchainArgs(address(asset), sender);
+        TransferEventVerifier.OnchainArgs memory nargs = TransferEventVerifier.OnchainArgs(address(asset), sender);
         vm.mockCall(
             address(eventVerifier),
-            abi.encodeWithSelector(WTEventVerifier.verifySettlementEvent.selector, fargs, nargs),
+            abi.encodeWithSelector(TransferEventVerifier.verifyEvent.selector, fargs, nargs),
             abi.encode(assetsToReturn)
         );
 

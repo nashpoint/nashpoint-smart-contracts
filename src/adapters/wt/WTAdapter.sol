@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {WTEventVerifier} from "src/adapters/wt/WTEventVerifier.sol";
+import {TransferEventVerifier} from "src/adapters/TransferEventVerifier.sol";
 import {AdapterBase} from "src/adapters/AdapterBase.sol";
 import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 
@@ -18,8 +18,8 @@ contract WTAdapter is AdapterBase {
     //         Custom State
     // =============================
 
-    /// @notice WisdomTree EventVerifier
-    WTEventVerifier public immutable eventVerifier;
+    /// @notice Transfer Event Verifier
+    TransferEventVerifier public immutable eventVerifier;
 
     /// @notice WT address receiving assets and funds from this adapter
     address public immutable receiverAddress;
@@ -37,11 +37,14 @@ contract WTAdapter is AdapterBase {
      * @param registry_ Address of the registry contract for access control
      * @param receiverAddress_ WT address receiving assets and funds from this adapter
      * @param senderAddress_ Address sending asset on redemption to this adapter
-     * @param eventVerifier_ Address of the WT EventVerifier contract
+     * @param eventVerifier_ Address of the TransferEventVerifier contract
      */
-    constructor(address registry_, address receiverAddress_, address senderAddress_, WTEventVerifier eventVerifier_)
-        AdapterBase(registry_)
-    {
+    constructor(
+        address registry_,
+        address receiverAddress_,
+        address senderAddress_,
+        TransferEventVerifier eventVerifier_
+    ) AdapterBase(registry_) {
         receiverAddress = receiverAddress_;
         senderAddress = senderAddress_;
         eventVerifier = eventVerifier_;
@@ -57,7 +60,7 @@ contract WTAdapter is AdapterBase {
         returns (uint256 shares, uint256 assets)
     {
         // fund shares are minted, therefore "from" in Transfer event should be address zero
-        shares = eventVerifier.verifySettlementEvent(verifyArgs, WTEventVerifier.OnchainArgs(fund, address(0)));
+        shares = eventVerifier.verifyEvent(verifyArgs, TransferEventVerifier.OnchainArgs(fund, address(0)));
     }
 
     function _verifySettleRedeem(EventVerifierBase.OffchainArgs calldata verifyArgs)
@@ -66,7 +69,7 @@ contract WTAdapter is AdapterBase {
         returns (uint256 shares, uint256 assets)
     {
         // assets are coming from WT Wallet
-        assets = eventVerifier.verifySettlementEvent(verifyArgs, WTEventVerifier.OnchainArgs(asset, senderAddress));
+        assets = eventVerifier.verifyEvent(verifyArgs, TransferEventVerifier.OnchainArgs(asset, senderAddress));
     }
 
     function _fundDeposit(uint256 pendingAssets) internal override {

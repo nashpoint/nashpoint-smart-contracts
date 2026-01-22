@@ -7,10 +7,10 @@ import {MerkleTrie} from "optimism/libraries/trie/MerkleTrie.sol";
 import {RLPReader} from "src/libraries/rlp/RLPReader.sol";
 
 /**
- * @title WTEventVerifier
+ * @title TransferEventVerifier
  * @author ODND Studios
  */
-contract WTEventVerifier is EventVerifierBase {
+contract TransferEventVerifier is EventVerifierBase {
     // ============ Constants ============
     /// @notice Event signature for Transfer event
     bytes32 public constant TRANSFER_TOPIC = keccak256("Transfer(address,address,uint256)");
@@ -69,10 +69,7 @@ contract WTEventVerifier is EventVerifierBase {
 
     // ============ External Functions ============
 
-    function verifySettlementEvent(OffchainArgs calldata fargs, OnchainArgs calldata nargs)
-        external
-        returns (uint256)
-    {
+    function verifyEvent(OffchainArgs calldata fargs, OnchainArgs calldata nargs) external returns (uint256) {
         require(whitelist[msg.sender], NotWhitelisted());
 
         Vars memory vars;
