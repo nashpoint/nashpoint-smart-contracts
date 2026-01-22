@@ -1077,9 +1077,7 @@ abstract contract AdapterBase is
         returns (uint256 assets)
     {
         uint256 num = MathLib.pow10(_assetPriceOracleDecimals);
-        // since stTokenDecimals is 18 there might be no underflow.
-        // TODO:
-        // _assetDecimals can be max 18, but right now only USDC (6 decimals) is supported by DigiFT.
+        // since _fundTokenDecimals is greater or equal to _assetDecimals no underflow is expected
         uint256 den = MathLib.pow10(_fundTokenDecimals + _fundPriceOracleDecimals - _assetDecimals);
         return shares.mulDiv(fundPrice, den).mulDiv(num, assetPrice);
     }

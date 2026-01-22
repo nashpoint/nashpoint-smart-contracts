@@ -105,7 +105,6 @@ contract WTEventVerifier is EventVerifierBase {
         vars.from = address(uint160(uint256(bytes32(RLPReader.readBytes(vars.topics[1])))));
         vars.to = address(uint160(uint256(bytes32(RLPReader.readBytes(vars.topics[2])))));
 
-        // TODO: not clear who on WT side will send us USDC
         // from should match whom adapter expects to be a sender - might be address(0) in case of mint
         require(vars.from == nargs.sender, NoEvent());
         // to should be actual adapter contract
