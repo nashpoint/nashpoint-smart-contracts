@@ -8,6 +8,12 @@ forge coverage \
   --report lcov \
   --no-match-contract "(EthereumForkTest|ArbitrumForkTest|MorphoVaultForTest|SiloVaultForkTest|EulerVaultForTest|DolomiteForkTest)"
 
+lcov --rc branch_coverage=1 \
+  --extract lcov.info \
+  --include "src/*" \
+  -o lcov.info \
+  --ignore-errors inconsistent
+
 genhtml -o coverage lcov.info \
   --branch-coverage \
   --ignore-errors inconsistent
