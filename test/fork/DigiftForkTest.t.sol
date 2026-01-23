@@ -284,7 +284,7 @@ contract DigiftForkTest is BaseTest {
         assertEq(node.totalAssets(), balance);
     }
 
-    function test_forwardRequestsToDigift_one_deposit_only() external {
+    function test_forwardRequests_one_deposit_only() external {
         uint256 depositAmount = _invest();
 
         vm.expectEmit(true, true, true, true, address(subRedManagement));
@@ -413,7 +413,7 @@ contract DigiftForkTest is BaseTest {
         assertApproxEqAbs(node.totalAssets(), balance, 2);
     }
 
-    function test_forwardRequestsToDigift_one_redeem_only() external {
+    function test_forwardRequests_one_redeem_only() external {
         uint256 depositAmount = _invest();
 
         uint256 sharesToMint = digiftAdapter.convertToShares(depositAmount);
