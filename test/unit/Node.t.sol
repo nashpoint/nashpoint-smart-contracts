@@ -217,6 +217,32 @@ contract NodeTest is BaseTest {
         testNode.addComponent(testComponent, allocation.targetWeight, allocation.maxDelta, allocation.router);
     }
 
+    function test_addComponent_revert_InvalidComponentAsset() public {
+        address badComponent = makeAddr("badComponent");
+        address otherAsset = makeAddr("otherAsset");
+
+        vm.mockCall(badComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(otherAsset));
+        vm.mockCall(
+            address(router4626), abi.encodeWithSelector(IRouter.isWhitelisted.selector, badComponent), abi.encode(true)
+        );
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.InvalidComponentAsset.selector);
+        testNode.addComponent(badComponent, 0.2 ether, 0.01 ether, address(router4626));
+    }
+
+    function test_addComponent_revert_RouterNotWhitelisted() public {
+        address badComponent = makeAddr("badComponent2");
+        address newRouter = makeAddr("newRouter");
+
+        vm.mockCall(badComponent, abi.encodeWithSelector(IERC4626.asset.selector), abi.encode(testAsset));
+        vm.mockCall(newRouter, abi.encodeWithSelector(IRouter.isWhitelisted.selector, badComponent), abi.encode(false));
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.addComponent(badComponent, 0.2 ether, 0.01 ether, newRouter);
+    }
+
     function test_removeComponent() public {
         // Add a second component first
         address secondComponent = makeAddr("secondComponent");
@@ -494,6 +520,29 @@ contract NodeTest is BaseTest {
         testNode.updateComponentAllocation(makeAddr("nonexistent"), 0.8 ether, 0.01 ether, address(router4626));
     }
 
+    function test_updateComponentAllocation_revert_RouterNotAllowed() public {
+        address unknownRouter = makeAddr("unknownRouter");
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.updateComponentAllocation(testComponent, 0.8 ether, 0.01 ether, unknownRouter);
+    }
+
+    function test_updateComponentAllocation_revert_RouterNotWhitelistingComponent() public {
+        address newRouter = makeAddr("newRouterForUpdate");
+
+        vm.startPrank(owner);
+        testRegistry.setRegistryType(newRouter, RegistryType.ROUTER, true);
+        testNode.addRouter(newRouter);
+        vm.stopPrank();
+
+        vm.mockCall(newRouter, abi.encodeWithSelector(IRouter.isWhitelisted.selector, testComponent), abi.encode(false));
+
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
+        testNode.updateComponentAllocation(testComponent, 0.8 ether, 0.01 ether, newRouter);
+    }
+
     function test_updateReserveAllocation() public {
         ComponentAllocation memory newAllocation = ComponentAllocation({
             targetWeight: 0.3 ether,
@@ -507,6 +556,12 @@ contract NodeTest is BaseTest {
 
         uint64 reserveAllocation = testNode.targetReserveRatio();
         assertEq(reserveAllocation, newAllocation.targetWeight);
+    }
+
+    function test_updateReserveAllocation_revert_AboveWad() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.InvalidComponentRatios.selector);
+        testNode.updateTargetReserveRatio(1e18 + 1);
     }
 
     function test_addRouter() public {
@@ -735,6 +790,12 @@ contract NodeTest is BaseTest {
         vm.prank(owner);
         testNode.setAnnualManagementFee(newAnnualManagementFee);
         assertEq(testNode.annualManagementFee(), newAnnualManagementFee);
+    }
+
+    function test_setAnnualManagementFee_revert_aboveCap() public {
+        vm.prank(owner);
+        vm.expectRevert(ErrorsLib.InvalidFee.selector);
+        testNode.setAnnualManagementFee(0.05e18 + 1);
     }
 
     function test_setAnnualManagementFee_revert_notOwner() public {
@@ -1485,6 +1546,26 @@ contract NodeTest is BaseTest {
         assertFalse(node.supportsInterface(unsupportedInterfaceId));
     }
 
+    function test_share_returnsSelf() public view {
+        assertEq(testNode.share(), address(testNode));
+    }
+
+    function test_getUncachedTotalAssets_includesRouterHoldings() public {
+        uint256 nodeBalance = 10 ether;
+        uint256 componentAssets = 7 ether;
+
+        testToken.mint(address(testNode), nodeBalance);
+
+        vm.mockCall(
+            address(router4626),
+            abi.encodeWithSelector(IRouter.getComponentAssets.selector, address(testNode), testComponent, false),
+            abi.encode(componentAssets)
+        );
+
+        uint256 assets = testNode.getUncachedTotalAssets();
+        assertEq(assets, nodeBalance + componentAssets);
+    }
+
     // ERC-4626 FUNCTIONS
 
     function test_deposit(uint256 assets) public {
@@ -1514,6 +1595,18 @@ contract NodeTest is BaseTest {
         vm.expectRevert(ErrorsLib.ExceedsMaxDeposit.selector);
         node.deposit(maxDeposit + 1, user);
         vm.stopPrank();
+    }
+
+    function test_deposit_returnsShares() public {
+        uint256 assets = 100 ether;
+        deal(address(asset), address(user), assets);
+        vm.startPrank(user);
+        asset.approve(address(node), assets);
+        uint256 expectedShares = node.convertToShares(assets);
+        uint256 returnedShares = node.deposit(assets, user);
+        vm.stopPrank();
+
+        assertEq(returnedShares, expectedShares);
     }
 
     function test_mint(uint256 assets) public {
@@ -1546,6 +1639,19 @@ contract NodeTest is BaseTest {
         vm.expectRevert(ErrorsLib.ExceedsMaxMint.selector);
         node.mint(maxDeposit + 1, user);
         vm.stopPrank();
+    }
+
+    function test_mint_returnsAssets() public {
+        uint256 shares = 50 ether;
+        deal(address(asset), address(user), shares * 2);
+
+        vm.startPrank(user);
+        asset.approve(address(node), type(uint256).max);
+        uint256 expectedAssets = node.convertToAssets(shares);
+        uint256 returnedAssets = node.mint(shares, user);
+        vm.stopPrank();
+
+        assertEq(returnedAssets, expectedAssets);
     }
 
     function test_withdraw_base(uint256 depositAmount, uint256 seedAmount) public {

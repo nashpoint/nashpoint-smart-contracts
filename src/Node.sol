@@ -752,15 +752,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         }
     }
 
-    function _validateNoDuplicateComponents(address[] memory componentArray) internal pure {
-        uint256 len = componentArray.length;
-        if (len == 0) return;
-        Arrays.sort(componentArray);
-        for (uint256 i = 0; i < len - 1; i++) {
-            if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
-        }
-    }
-
     function _validateNewComponent(address component, address router) internal view {
         if (_isComponent(component)) revert ErrorsLib.AlreadySet();
         if (!(IERC7575(component).asset() == asset)) revert ErrorsLib.InvalidComponentAsset();
