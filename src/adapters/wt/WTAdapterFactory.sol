@@ -8,6 +8,7 @@ import {AdapterBase} from "src/adapters/AdapterBase.sol";
 
 /**
  * @title WTAdapterFactory
+ * @author ODND Studios
  * @notice Factory contract for deploying WTAdapter instances using beacon proxy pattern
  * @dev Extends UpgradeableBeacon to enable upgradeable WTAdapter deployments
  * @dev All deployed adapters share the same implementation but have independent storage
@@ -41,8 +42,8 @@ contract WTAdapterFactory is UpgradeableBeacon {
 
     /**
      * @notice Deploy a new WTAdapter instance
-     * @dev Creates a new BeaconProxy pointing to this factory and initializes it
-     * @dev Only callable by the factory owner
+     * @dev Creates a new BeaconProxy pointing to this factory and initializes it via AdapterBase.initialize
+     * @dev Only callable by the beacon (factory) owner
      * @param initArgs The initialization arguments for the new WTAdapter
      * @return wtAdapter The newly deployed and initialized WTAdapter instance
      */

@@ -62,13 +62,21 @@ contract TransferEventVerifier is EventVerifierBase {
     // ============ Constructor ============
 
     /**
-     * @notice Initializes the WTEventVerifier contract
+     * @notice Initializes the TransferEventVerifier contract
      * @param registry_ The address of the registry contract for access control
      */
     constructor(address registry_) EventVerifierBase(registry_) {}
 
     // ============ External Functions ============
 
+    /**
+     * @notice Verifies an ERC20 `Transfer` log and returns the transferred amount
+     * @dev Reverts if msg.sender is not whitelisted, the block header proof is invalid,
+     *      the log does not match the expected token/from/to, or the log was already used.
+     * @param fargs Offchain block/receipt proof data
+     * @param nargs Onchain expectations for token and sender address
+     * @return amount The transfer amount from the verified log
+     */
     function verifyEvent(OffchainArgs calldata fargs, OnchainArgs calldata nargs) external returns (uint256) {
         require(whitelist[msg.sender], NotWhitelisted());
 

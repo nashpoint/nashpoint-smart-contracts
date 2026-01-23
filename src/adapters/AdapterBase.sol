@@ -57,6 +57,7 @@ struct GlobalState {
 
 /**
  * @title AdapterBase
+ * @author ODND Studios
  * @notice ERC7540-compatible adapter for funds with simple ERC20 transfers
  */
 abstract contract AdapterBase is
@@ -701,6 +702,13 @@ abstract contract AdapterBase is
         _globalState.pendingDepositRequest = 0;
     }
 
+    /**
+     * @notice Verify deposit settlement event and return shares minted plus any reimbursed assets
+     * @dev Implementations must validate `verifyArgs` proofs; may revert on invalid proofs or mismatched settlement data
+     * @param verifyArgs Offchain arguments for event verification
+     * @return shares Amount of fund shares minted to this adapter
+     * @return assets Amount of asset tokens returned (if any) to this adapter
+     */
     function _verifySettleDeposit(EventVerifierBase.OffchainArgs calldata verifyArgs)
         internal
         virtual
@@ -836,6 +844,13 @@ abstract contract AdapterBase is
         _globalState.pendingRedeemRequest = 0;
     }
 
+    /**
+     * @notice Verify redemption settlement event and return assets received plus any reimbursed shares
+     * @dev Implementations must validate `verifyArgs` proofs; may revert on invalid proofs or mismatched settlement data
+     * @param verifyArgs Offchain arguments for event verification
+     * @return shares Amount of fund shares returned (if any) to this adapter
+     * @return assets Amount of underlying assets delivered to this adapter
+     */
     function _verifySettleRedeem(EventVerifierBase.OffchainArgs calldata verifyArgs)
         internal
         virtual
@@ -917,8 +932,16 @@ abstract contract AdapterBase is
         }
     }
 
+    /**
+     * @notice Deposit pending deposit assets into fund
+     * @param pendingAssets Asset amount aggregated from nodes
+     */
     function _fundDeposit(uint256 pendingAssets) internal virtual;
 
+    /**
+     * @notice Redeem fund shares from fund
+     * @param pendingShares Shares aggregated for redemption
+     */
     function _fundRedeem(uint256 pendingShares) internal virtual;
 
     // =============================

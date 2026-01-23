@@ -8,6 +8,7 @@ import {AdapterBase} from "src/adapters/AdapterBase.sol";
 
 /**
  * @title DigiftAdapterFactory
+ * @author ODND Studios
  * @notice Factory contract for deploying DigiftAdapter instances using beacon proxy pattern
  * @dev Extends UpgradeableBeacon to enable upgradeable DigiftAdapter deployments
  * @dev All deployed adapters share the same implementation but have independent storage

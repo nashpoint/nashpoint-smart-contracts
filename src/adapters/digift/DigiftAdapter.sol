@@ -10,6 +10,7 @@ import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 
 /**
  * @title DigiftAdapter
+ * @author ODND Studios
  * @notice ERC7540-compatible adapter for Digift stToken operations
  */
 contract DigiftAdapter is AdapterBase {
@@ -42,15 +43,17 @@ contract DigiftAdapter is AdapterBase {
     }
 
     // =============================
-    //         Admin Functions
+    //         Overrides
     // =============================
 
+    /**
+     * @inheritdoc AdapterBase
+     */
     function _verifySettleDeposit(EventVerifierBase.OffchainArgs calldata verifyArgs)
         internal
         override
         returns (uint256 shares, uint256 assets)
     {
-        // Verify the Digift settlement event and get shares/assets amounts
         (shares, assets) = digiftEventVerifier.verifySettlementEvent(
             verifyArgs,
             DigiftEventVerifier.OnchainArgs(
@@ -59,12 +62,14 @@ contract DigiftAdapter is AdapterBase {
         );
     }
 
+    /**
+     * @inheritdoc AdapterBase
+     */
     function _verifySettleRedeem(EventVerifierBase.OffchainArgs calldata verifyArgs)
         internal
         override
         returns (uint256 shares, uint256 assets)
     {
-        // Verify the Digift redemption event and get shares/assets amounts
         (shares, assets) = digiftEventVerifier.verifySettlementEvent(
             verifyArgs,
             DigiftEventVerifier.OnchainArgs(
@@ -73,14 +78,18 @@ contract DigiftAdapter is AdapterBase {
         );
     }
 
+    /**
+     * @inheritdoc AdapterBase
+     */
     function _fundDeposit(uint256 pendingAssets) internal override {
-        // Approve and subscribe to Digift
         IERC20(asset).safeIncreaseAllowance(address(subRedManagement), pendingAssets);
         subRedManagement.subscribe(fund, asset, pendingAssets, block.timestamp + 1);
     }
 
+    /**
+     * @inheritdoc AdapterBase
+     */
     function _fundRedeem(uint256 pendingShares) internal override {
-        // Approve and redeem from Digift
         IERC20(fund).safeIncreaseAllowance(address(subRedManagement), pendingShares);
         subRedManagement.redeem(fund, asset, pendingShares, block.timestamp + 1);
     }

@@ -9,6 +9,7 @@ import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 
 /**
  * @title WisdomTree Adapter
+ * @author ODND Studios
  * @notice ERC7540-compatible adapter for Wisdom Tree Funds interactions
  */
 contract WTAdapter is AdapterBase {
@@ -51,31 +52,44 @@ contract WTAdapter is AdapterBase {
     }
 
     // =============================
-    //         Admin Functions
+    //   Overrides
     // =============================
 
+    /**
+     * @inheritdoc AdapterBase
+     */
     function _verifySettleDeposit(EventVerifierBase.OffchainArgs calldata verifyArgs)
         internal
         override
         returns (uint256 shares, uint256 assets)
     {
-        // fund shares are minted, therefore "from" in Transfer event should be address zero
+        // no assets are returned on WT deposit
+        // fund shares are minted, therefore "from" in Transfer event should be zero address
         shares = eventVerifier.verifyEvent(verifyArgs, TransferEventVerifier.OnchainArgs(fund, address(0)));
     }
 
+    /**
+     * @inheritdoc AdapterBase
+     */
     function _verifySettleRedeem(EventVerifierBase.OffchainArgs calldata verifyArgs)
         internal
         override
         returns (uint256 shares, uint256 assets)
     {
-        // assets are coming from WT Wallet
+        // no shares are returned on WT redeem; assets are coming from WT wallet
         assets = eventVerifier.verifyEvent(verifyArgs, TransferEventVerifier.OnchainArgs(asset, senderAddress));
     }
 
+    /**
+     * @inheritdoc AdapterBase
+     */
     function _fundDeposit(uint256 pendingAssets) internal override {
         IERC20(asset).safeTransfer(receiverAddress, pendingAssets);
     }
 
+    /**
+     * @inheritdoc AdapterBase
+     */
     function _fundRedeem(uint256 pendingShares) internal override {
         IERC20(fund).safeTransfer(receiverAddress, pendingShares);
     }
