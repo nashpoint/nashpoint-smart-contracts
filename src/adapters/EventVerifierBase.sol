@@ -118,6 +118,8 @@ abstract contract EventVerifierBase is RegistryAccessControl {
      * @dev Reverts if the block hash is not available and not stored
      */
     function _getBlockHash(uint256 blockNumber) internal returns (bytes32) {
+        // TODO: Once OpenZeppelin v5.6.0 is stable, migrate to Blockhash.sol for trustless
+        // historical blockhash retrieval (EIP-2935).
         bytes32 blockHash = blockhash(blockNumber);
         if (blockHash == 0) {
             blockHash = blockHashes[blockNumber];
