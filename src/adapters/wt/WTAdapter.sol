@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {TransferEventVerifier} from "src/adapters/TransferEventVerifier.sol";
 import {AdapterBase} from "src/adapters/AdapterBase.sol";
 import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
 /**
  * @title WisdomTree Adapter
@@ -19,14 +20,21 @@ contract WTAdapter is AdapterBase {
     //         Custom State
     // =============================
 
-    /// @notice Transfer Event Verifier
+    /// @notice Transfer Event Verifier (shared/immutable)
     TransferEventVerifier public immutable eventVerifier;
 
     /// @notice WT address receiving assets and funds from this adapter
-    address public immutable receiverAddress;
+    address public receiverAddress;
 
     /// @notice Address sending asset on redemption to this adapter
-    address public immutable senderAddress;
+    address public senderAddress;
+
+    // =============================
+    //            Events
+    // =============================
+
+    event ReceiverAddressChange(address indexed previousReceiver, address indexed newReceiver);
+    event SenderAddressChange(address indexed previousSender, address indexed newSender);
 
     // =============================
     //         Constructor
@@ -34,21 +42,45 @@ contract WTAdapter is AdapterBase {
 
     /**
      * @notice Constructor for Adapter
-     * @dev Sets up immutable dependencies
      * @param registry_ Address of the registry contract for access control
-     * @param receiverAddress_ WT address receiving assets and funds from this adapter
-     * @param senderAddress_ Address sending asset on redemption to this adapter
-     * @param eventVerifier_ Address of the TransferEventVerifier contract
+     * @param eventVerifier_ Address of the TransferEventVerifier contract (immutable)
      */
-    constructor(
-        address registry_,
-        address receiverAddress_,
-        address senderAddress_,
-        TransferEventVerifier eventVerifier_
-    ) AdapterBase(registry_) {
+    constructor(address registry_, address eventVerifier_) AdapterBase(registry_) {
+        eventVerifier = TransferEventVerifier(eventVerifier_);
+    }
+
+    function _initialize(bytes memory customInitData) internal override {
+        // receiverAddress_ WT address receiving assets and funds from this adapter
+        // senderAddress_ Address sending asset on redemption to this adapter
+        (address receiverAddress_, address senderAddress_) = abi.decode(customInitData, (address, address));
         receiverAddress = receiverAddress_;
         senderAddress = senderAddress_;
-        eventVerifier = eventVerifier_;
+    }
+
+    // =============================
+    //         Admin Functions
+    // =============================
+
+    /**
+     * @notice Update the WT receiver wallet
+     * @dev Only callable by registry owner; rejects zero address and emits ReceiverAddressChange
+     * @param newReceiver New receiver address for deposits/redemptions
+     */
+    function setReceiverAddress(address newReceiver) external onlyRegistryOwner {
+        if (newReceiver == address(0)) revert ErrorsLib.ZeroAddress();
+        emit ReceiverAddressChange(receiverAddress, newReceiver);
+        receiverAddress = newReceiver;
+    }
+
+    /**
+     * @notice Update the WT sender wallet used to return assets on redemption
+     * @dev Only callable by registry owner; rejects zero address and emits SenderAddressChange
+     * @param newSender New sender address expected in redemption transfers
+     */
+    function setSenderAddress(address newSender) external onlyRegistryOwner {
+        if (newSender == address(0)) revert ErrorsLib.ZeroAddress();
+        emit SenderAddressChange(senderAddress, newSender);
+        senderAddress = newSender;
     }
 
     // =============================

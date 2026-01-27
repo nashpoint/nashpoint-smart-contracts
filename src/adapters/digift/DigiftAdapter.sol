@@ -42,6 +42,8 @@ contract DigiftAdapter is AdapterBase {
         digiftEventVerifier = DigiftEventVerifier(digiftEventVerifier_);
     }
 
+    function _initialize(bytes memory) internal override {}
+
     // =============================
     //         Overrides
     // =============================

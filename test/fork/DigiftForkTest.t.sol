@@ -64,7 +64,8 @@ contract DigiftForkTest is BaseTest {
                 // set 100 USDC instead of 1000
                 100e6,
                 // set 1 stToken instead of 10
-                1e18
+                1e18,
+                ""
             )
         );
 

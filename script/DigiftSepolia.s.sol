@@ -48,7 +48,8 @@ contract DigiftSepolia is Script {
                 2 days,
                 1 days,
                 1000e6,
-                1e18
+                1e18,
+                ""
             )
         );
 

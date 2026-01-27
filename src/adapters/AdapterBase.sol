@@ -328,6 +328,8 @@ abstract contract AdapterBase is
         uint256 minDepositAmount;
         /// @notice Minimum redeem amount allowed for node actions
         uint256 minRedeemAmount;
+        /// @notice Custom initialization data
+        bytes customInitData;
     }
 
     /**
@@ -414,7 +416,11 @@ abstract contract AdapterBase is
         // Initialize price cache with current price
         (, int256 answer,,,) = fundPriceOracle.latestRoundData();
         lastFundPrice = uint256(answer);
+
+        _initialize(args.customInitData);
     }
+
+    function _initialize(bytes memory customInitData) internal virtual;
 
     // =============================
     //         Admin Functions

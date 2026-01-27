@@ -255,7 +255,8 @@ contract FuzzSetup is HelperFunctions {
             priceUpdateDeviationFund: 4 days,
             priceUpdateDeviationAsset: 4 days,
             minDepositAmount: 1_000e6,
-            minRedeemAmount: 10e18
+            minRedeemAmount: 10e18,
+            customInitData: ""
         });
 
         vm.startPrank(owner);

@@ -11,6 +11,7 @@ import {WTAdapterFactory} from "src/adapters/wt/WTAdapterFactory.sol";
 import {TransferEventVerifier} from "src/adapters/TransferEventVerifier.sol";
 import {AdapterBase} from "src/adapters/AdapterBase.sol";
 import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
+import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 import {IPriceOracle} from "src/interfaces/external/IPriceOracle.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
 import {IERC7575} from "src/interfaces/IERC7575.sol";
@@ -46,7 +47,7 @@ contract WTAdapterTest is BaseTest {
         fundToken = new ERC20Mock("WT Fund", "WTF");
 
         eventVerifier = new TransferEventVerifier(address(registry));
-        WTAdapter wtImpl = new WTAdapter(address(registry), receiver, sender, eventVerifier);
+        WTAdapter wtImpl = new WTAdapter(address(registry), address(eventVerifier));
         wtFactory = new WTAdapterFactory(address(wtImpl), address(this));
 
         // price oracle mocks
@@ -78,7 +79,8 @@ contract WTAdapterTest is BaseTest {
                         10 days,
                         10 days,
                         100e6,
-                        1e18
+                        1e18,
+                        abi.encode(receiver, sender)
                     )
                 )
             )
@@ -167,6 +169,42 @@ contract WTAdapterTest is BaseTest {
         vm.startPrank(rebalancer);
         router7540.executeAsyncWithdrawal(address(node), address(wtAdapter), assets);
         vm.stopPrank();
+    }
+
+    function test_setReceiverAddress_onlyRegistryOwner() external {
+        address newReceiver = makeAddr("newReceiver");
+
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
+        wtAdapter.setReceiverAddress(newReceiver);
+
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.ZeroAddress.selector));
+        vm.prank(owner);
+        wtAdapter.setReceiverAddress(address(0));
+
+        vm.expectEmit(true, true, true, true, address(wtAdapter));
+        emit WTAdapter.ReceiverAddressChange(receiver, newReceiver);
+        vm.prank(owner);
+        wtAdapter.setReceiverAddress(newReceiver);
+
+        assertEq(wtAdapter.receiverAddress(), newReceiver);
+    }
+
+    function test_setSenderAddress_onlyRegistryOwner() external {
+        address newSender = makeAddr("newSender");
+
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.NotRegistryOwner.selector));
+        wtAdapter.setSenderAddress(newSender);
+
+        vm.expectRevert(abi.encodeWithSelector(ErrorsLib.ZeroAddress.selector));
+        vm.prank(owner);
+        wtAdapter.setSenderAddress(address(0));
+
+        vm.expectEmit(true, true, true, true, address(wtAdapter));
+        emit WTAdapter.SenderAddressChange(sender, newSender);
+        vm.prank(owner);
+        wtAdapter.setSenderAddress(newSender);
+
+        assertEq(wtAdapter.senderAddress(), newSender);
     }
 
     function test_deposit_settle_and_mint() external {

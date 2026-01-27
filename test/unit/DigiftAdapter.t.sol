@@ -90,7 +90,8 @@ contract DigiftForkTest is BaseTest {
                         4 days,
                         4 days,
                         1000e6,
-                        10e18
+                        10e18,
+                        ""
                     )
                 )
             )
@@ -121,7 +122,8 @@ contract DigiftForkTest is BaseTest {
                 4 days,
                 4 days,
                 1000e6,
-                10e18
+                10e18,
+                ""
             )
         );
 
@@ -139,7 +141,8 @@ contract DigiftForkTest is BaseTest {
                 4 days,
                 4 days,
                 1000e6,
-                10e18
+                10e18,
+                ""
             )
         );
     }
