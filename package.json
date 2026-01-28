@@ -1,6 +1,11 @@
 {
   "scripts": {
-    "deploy:node": "npx hardhat run scripts/05_DeployNode.ts --network arbitrum"
+    "deploy:node": "FILE=Demo npx hardhat run scripts/05_DeployNode.ts --network arbitrum",
+    "rebalance:start": "npx hardhat run scripts/startRebalance.ts --network arbitrum",
+    "redeem": "npx hardhat run scripts/requestRedeem.ts --network arbitrum",
+    "fulfill": "npx hardhat run scripts/fulfill.ts --network arbitrum",
+    "withdraw": "npx hardhat run scripts/withdraw.ts --network arbitrum",
+    "back": "npm run redeem && npm run fulfill && npm run withdraw"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-foundry": "1.2.0",

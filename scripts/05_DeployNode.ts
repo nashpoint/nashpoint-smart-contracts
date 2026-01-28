@@ -1,10 +1,15 @@
 import { ethers, network } from 'hardhat';
 import {
+    ERC20__factory,
     ErrorsLib__factory,
     GatePolicyWhitelist__factory,
+    IERC20__factory,
+    IERC20PermitHardhat__factory,
     Node__factory,
     NodeFactory__factory,
 } from '../typechain-types';
+import { SetupCallStruct } from '../typechain-types/src/NodeFactory';
+import { signPermit } from './utils/permit';
 import {
     buildLeafs,
     buildPolicy,
@@ -15,7 +20,6 @@ import {
     weiToPercent,
     writeNodeData,
 } from './utils/utils';
-import { SetupCallStruct } from '../typechain-types/src/NodeFactory';
 
 async function main() {
     const fileName = process.env.FILE;
@@ -48,6 +52,44 @@ async function main() {
         salt,
         deployer.address,
     );
+
+    if (nodeData.seedValue) {
+        const decimals = await ERC20__factory.connect(nodeData.asset, ethers.provider).decimals();
+        const { payload, signature } = await signPermit(
+            deployer,
+            contracts.nodeFactory,
+            nodeData.asset,
+            ethers.parseUnits(nodeData.seedValue.toString(), decimals),
+        );
+        const { owner, spender, value, deadline } = payload;
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: IERC20PermitHardhat__factory.createInterface().encodeFunctionData(
+                'permit(address,address,uint256,uint256,bytes)',
+                [owner, spender, value, deadline, signature],
+            ),
+        });
+
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: IERC20__factory.createInterface().encodeFunctionData('transferFrom', [
+                owner,
+                contracts.nodeFactory,
+                value,
+            ]),
+        });
+
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: IERC20__factory.createInterface().encodeFunctionData('approve', [
+                nodeAddressPredicted,
+                value,
+            ]),
+        });
+
+        // TODO: receiver might be configurable
+        nodePayload.push(node.encodeFunctionData('deposit', [value, deployer.address]));
+    }
 
     if (nodeData.rebalancer) {
         for (const r of nodeData.rebalancer) {

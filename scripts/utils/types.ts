@@ -24,6 +24,8 @@ export type NodeData = {
     pauser?: string[];
     rebalanceCooldown?: number;
     rebalanceWindow?: number;
+    // TODO: will be in decimal value
+    seedValue?: number;
 };
 
 export type Config = {
