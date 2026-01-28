@@ -51,7 +51,7 @@ async function main() {
     if (deployer.address.toLowerCase() === owner.toLowerCase()) {
         console.log(`${txs.length} txs to send`);
         for (let i = 0; i < txs.length; i++) {
-            await deployer.sendTransaction(txs[i]).then((t) => t.wait(1));
+            await deployer.sendTransaction(txs[i]).then((t) => t.wait(4));
             console.log(`Sent ${i + 1}`);
         }
     } else {
