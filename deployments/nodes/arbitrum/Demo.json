@@ -1,11 +1,10 @@
 {
-  "name": "Dummy Node",
+  "name": "Demo Node",
+  "salt": "dmn-1",
   "symbol": "DMN",
   "asset": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
   "owner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
-  "rebalancer": [
-    "0xB1ce02d5eE676e657BD59D2EE5dFB147a13f56e9"
-  ],
+  "rebalancer": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
   "components": {
     "erc7540Router": [],
     "erc4626Router": [
@@ -22,19 +21,10 @@
     ]
   },
   "targetReserveRatio": 10,
-  "policies": [
-    "gatePolicyWhitelist",
-    "nodePausingPolicy",
-    "protocolPausingPolicy",
-    "capPolicy"
-  ],
-  "whitelist": [
-    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
-  ],
-  "pauser": [
-    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
-  ],
-  "rebalanceCooldown": 300,
-  "rebalanceWindow": 300,
-  "address": "0xa99DA9ef7ba2E3F50c935214AE271C81AD63D867"
+  "policies": ["gatePolicyWhitelist", "nodePausingPolicy", "protocolPausingPolicy", "capPolicy"],
+  "whitelist": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "pauser": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "rebalanceCooldown": 60,
+  "rebalanceWindow": 60,
+  "address": "0x98a35A24e1429ce2c456D9f71B445eb8E502c0ce"
 }

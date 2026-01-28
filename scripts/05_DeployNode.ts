@@ -39,11 +39,11 @@ async function main() {
     const nodePayload = [];
     const setupCalls: SetupCallStruct[] = [];
     let totalAllocation = 0n;
-    const salt =
-        nodeData.salt ||
-        ethers.keccak256(
-            ethers.toUtf8Bytes(`${nodeData.name}-${nodeData.symbol}-${nodeData.asset}`),
-        );
+    const salt = ethers.keccak256(
+        ethers.toUtf8Bytes(
+            nodeData.salt || `${nodeData.name}-${nodeData.symbol}-${nodeData.asset}`,
+        ),
+    );
     const nodeAddressPredicted = await nodeFactory.predictDeterministicAddress(
         salt,
         deployer.address,
@@ -175,6 +175,7 @@ async function main() {
             nodeData.address = logs[0].args.node;
             writeNodeData(network.config.chainId!, fileName, nodeData);
             console.log(`Node is deployed at ${nodeData.address}`);
+            console.log(`Check out tx: https://arbiscan.io/tx/${tx.hash}`);
         }
     } catch (error) {
         const interfaces = [
