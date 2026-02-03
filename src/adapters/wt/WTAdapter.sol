@@ -2,9 +2,10 @@
 pragma solidity 0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {TransferEventVerifier} from "src/adapters/TransferEventVerifier.sol";
-import {AdapterBase} from "src/adapters/AdapterBase.sol";
+import {AdapterBase, NodeState} from "src/adapters/AdapterBase.sol";
 import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
 
@@ -13,7 +14,7 @@ import {ErrorsLib} from "src/libraries/ErrorsLib.sol";
  * @author ODND Studios
  * @notice ERC7540-compatible adapter for Wisdom Tree Funds interactions
  */
-contract WTAdapter is AdapterBase {
+contract WTAdapter is AdapterBase, IERC721Receiver {
     using SafeERC20 for IERC20;
 
     // =============================
@@ -35,6 +36,7 @@ contract WTAdapter is AdapterBase {
 
     event ReceiverAddressChange(address indexed previousReceiver, address indexed newReceiver);
     event SenderAddressChange(address indexed previousSender, address indexed newSender);
+    event DividendSettled(uint256 fundShares, uint256 adapterSharesMinted);
 
     // =============================
     //         Constructor
@@ -81,6 +83,72 @@ contract WTAdapter is AdapterBase {
         if (newSender == address(0)) revert ErrorsLib.ZeroAddress();
         emit SenderAddressChange(senderAddress, newSender);
         senderAddress = newSender;
+    }
+
+    // =============================
+    //   Custom operations
+    // =============================
+
+    /**
+     * @notice Settle a WT dividend paid as fund-share mint to the adapter and distribute fairly to nodes
+     * @dev Only allowed when no deposit/redemption cycle is in-flight to avoid log mix-ups
+     * @param nodes List of node addresses to receive their pro-rata share of the dividend
+     * @param verifyArgs Offchain arguments for event verification
+     */
+    function settleDividend(address[] calldata nodes, EventVerifierBase.OffchainArgs calldata verifyArgs)
+        external
+        onlyManager
+        nonReentrant
+    {
+        // Ensure no async cycle is active to avoid consuming logs in the wrong flow
+        require(_globalState.pendingDepositRequest == 0, DepositRequestPending());
+        require(_globalState.pendingRedeemRequest == 0, RedeemRequestPending());
+        require(nodes.length > 0, NothingToSettle());
+
+        uint256 dividends = eventVerifier.verifyEvent(verifyArgs, TransferEventVerifier.OnchainArgs(fund, address(0)));
+        require(dividends > 0, NothingToSettle());
+
+        uint256[] memory weights = new uint256[](nodes.length);
+        uint256 totalWeight;
+        uint256 totalMaxMint;
+
+        for (uint256 i; i < nodes.length; i++) {
+            NodeState memory node = _nodeState[nodes[i]];
+            uint256 weight =
+                balanceOf(nodes[i]) + node.pendingRedeemRequest + node.claimableRedeemRequest + node.maxMint;
+            weights[i] = weight;
+            totalWeight += weight;
+            totalMaxMint += node.maxMint;
+        }
+
+        // Expected supply = existing supply (includes parked redeem shares) + unminted deposit entitlements
+        require(totalWeight == totalSupply() + totalMaxMint, NotAllNodesSettled());
+
+        uint256 minted;
+        for (uint256 i; i < nodes.length; i++) {
+            uint256 shareOut = dividends * weights[i] / totalWeight;
+            // last index gets any dust
+            if (i == nodes.length - 1 && minted + shareOut < dividends) {
+                shareOut += dividends - minted - shareOut;
+            }
+            minted += shareOut;
+            if (shareOut > 0) {
+                _mint(nodes[i], shareOut);
+            }
+        }
+        require(minted == dividends, NotAllNodesSettled());
+
+        emit DividendSettled(dividends, minted);
+    }
+
+    /**
+     * @notice Allows the adapter to receive WT soulbound ERC721 token
+     * @dev Returns the ERC721 receiver magic value so `safeMint`/`safeTransferFrom` do not revert.
+     *      No state is updated because the token is only used as a receipt on-chain.
+     * @return The selector required by ERC721 to confirm receipt.
+     */
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
     }
 
     // =============================
