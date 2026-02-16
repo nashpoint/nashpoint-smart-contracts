@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../FuzzSetup.sol";
 import {DigiftAdapter} from "../../../src/adapters/digift/DigiftAdapter.sol";
+import {WTAdapter} from "../../../src/adapters/wt/WTAdapter.sol";
 import {IIncentraDistributor} from "../../../src/interfaces/external/IIncentraDistributor.sol";
 import {DigiftEventVerifier} from "../../../src/adapters/digift/DigiftEventVerifier.sol";
 import {RegistryType} from "../../../src/interfaces/INodeRegistry.sol";
@@ -677,5 +678,58 @@ contract FuzzStructs is FuzzSetup {
         bytes4 selector;
         bool isGlobal;
         bool pause;
+    }
+
+    // ==============================================================
+    // WT ADAPTER STRUCTS
+    // ==============================================================
+
+    struct WTForwardRequestParams {
+        address caller;
+        WTPendingDepositRecord[] deposits;
+        WTPendingRedemptionRecord[] redemptions;
+        uint256 accumulatedDepositBefore;
+        uint256 accumulatedRedeemBefore;
+        bool shouldSucceed;
+    }
+
+    struct WTSettleDepositParams {
+        address caller;
+        WTPendingDepositRecord[] records;
+        uint256 sharesExpected;
+        bool shouldSucceed;
+    }
+
+    struct WTSettleRedeemParams {
+        address caller;
+        WTPendingRedemptionRecord[] records;
+        uint256 assetsExpected;
+        bool shouldSucceed;
+    }
+
+    struct WTMintParams {
+        uint256 shares;
+        bool shouldSucceed;
+    }
+
+    struct WTWithdrawParams {
+        uint256 assets;
+        uint256 nodeBalanceBefore;
+        uint256 maxWithdrawBefore;
+        bool shouldSucceed;
+    }
+
+    struct WTRequestRedeemParams {
+        uint256 shares;
+        uint256 balanceBefore;
+        uint256 pendingBefore;
+        bool shouldSucceed;
+    }
+
+    struct WTSettleDividendParams {
+        address caller;
+        address[] nodes;
+        uint256 dividendAmount;
+        bool shouldSucceed;
     }
 }

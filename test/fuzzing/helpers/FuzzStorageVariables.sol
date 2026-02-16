@@ -24,6 +24,10 @@ import {DigiftEventVerifierMock} from "../../mocks/DigiftEventVerifierMock.sol";
 import {SubRedManagementMock} from "../../mocks/SubRedManagementMock.sol";
 import {PriceOracleMock} from "../../mocks/PriceOracleMock.sol";
 
+import {WTAdapter} from "../../../src/adapters/wt/WTAdapter.sol";
+import {WTAdapterFactory} from "../../../src/adapters/wt/WTAdapterFactory.sol";
+import {TransferEventVerifierMock} from "../../mocks/TransferEventVerifierMock.sol";
+
 import {CapPolicy} from "../../../src/policies/CapPolicy.sol";
 import {GatePolicyWhitelist} from "../../../src/policies/GatePolicyWhitelist.sol";
 import {GatePolicyBlacklist} from "../../../src/policies/GatePolicyBlacklist.sol";
@@ -51,6 +55,18 @@ contract FuzzStorageVariables is FuzzActors {
     }
 
     struct DigiftPendingRedemptionRecord {
+        address node;
+        address component;
+        uint256 shares;
+    }
+
+    struct WTPendingDepositRecord {
+        address node;
+        address component;
+        uint256 assets;
+    }
+
+    struct WTPendingRedemptionRecord {
         address node;
         address component;
         uint256 shares;
@@ -112,6 +128,14 @@ contract FuzzStorageVariables is FuzzActors {
     SubRedManagementMock internal subRedManagement;
     DigiftEventVerifierMock internal digiftEventVerifier;
 
+    WTAdapterFactory internal wtFactory;
+    WTAdapter internal wtAdapter;
+    TransferEventVerifierMock internal wtEventVerifier;
+    PriceOracleMock internal wtPriceOracleMock;
+    ERC20Mock internal wtFundToken;
+    address internal wtReceiverAddress;
+    address internal wtSenderAddress;
+
     ERC20Mock internal assetToken;
     IERC20 internal asset;
     ERC4626 internal vault;
@@ -159,6 +183,15 @@ contract FuzzStorageVariables is FuzzActors {
     DigiftPendingDepositRecord[] internal DIGIFT_FORWARDED_DEPOSITS;
     DigiftPendingRedemptionRecord[] internal DIGIFT_PENDING_REDEMPTIONS;
     DigiftPendingRedemptionRecord[] internal DIGIFT_FORWARDED_REDEMPTIONS;
+
+    // ==============================================================
+    // WT FLOW TRACKING
+    // ==============================================================
+
+    WTPendingDepositRecord[] internal WT_PENDING_DEPOSITS;
+    WTPendingDepositRecord[] internal WT_FORWARDED_DEPOSITS;
+    WTPendingRedemptionRecord[] internal WT_PENDING_REDEMPTIONS;
+    WTPendingRedemptionRecord[] internal WT_FORWARDED_REDEMPTIONS;
 
     bool internal testNodeOverrideEnabled;
     uint256 internal testNodeOverrideIndex;

@@ -731,7 +731,7 @@ contract PostconditionsNode is PostconditionsBase {
             uint256 assetsRequested = abi.decode(returnData, (uint256));
             invariant_ROUTER7540_01(assetsRequested);
 
-            if (params.component != address(digiftAdapter)) {
+            if (params.component != address(digiftAdapter) && params.component != address(wtAdapter)) {
                 uint256 pendingAfter = ERC7540Mock(params.component).pendingAssets();
                 invariant_ROUTER7540_02(pendingAfter, params.pendingDepositBefore);
             }
@@ -741,6 +741,8 @@ contract PostconditionsNode is PostconditionsBase {
 
             if (params.component == address(digiftAdapter)) {
                 _recordDigiftPendingDeposit(address(node), params.component, assetsRequested);
+            } else if (params.component == address(wtAdapter)) {
+                _recordWTPendingDeposit(address(node), params.component, assetsRequested);
             }
 
             invariant_NODE_07();
@@ -790,6 +792,8 @@ contract PostconditionsNode is PostconditionsBase {
 
             if (params.component == address(digiftAdapter)) {
                 _recordDigiftPendingRedemption(address(node), params.component, params.shares);
+            } else if (params.component == address(wtAdapter)) {
+                _recordWTPendingRedemption(address(node), params.component, params.shares);
             }
 
             onSuccessInvariantsGeneral(returnData);

@@ -100,6 +100,9 @@ contract PreconditionsBase is FuzzStructs {
         if (address(digiftPriceOracleMock) != address(0)) {
             digiftPriceOracleMock.setLatestRoundData(1, 2e10, block.timestamp, block.timestamp, 1);
         }
+        if (address(wtPriceOracleMock) != address(0)) {
+            wtPriceOracleMock.setLatestRoundData(1, 1e10, block.timestamp, block.timestamp, 1);
+        }
     }
 
     /// @notice Wrapper for vm.warp that also refreshes oracle timestamps

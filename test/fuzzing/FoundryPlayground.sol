@@ -3,6 +3,8 @@ pragma solidity ^0.8.0;
 
 import "./FuzzGuided.sol";
 import {INode} from "src/interfaces/INode.sol";
+import {WTAdapter} from "src/adapters/wt/WTAdapter.sol";
+import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 
 /**
  * @notice Tests removed due to handler deletion:
@@ -359,6 +361,215 @@ contract FoundryPlayground is FuzzGuided {
     function test_oneinch_swap() public {
         setActor(rebalancer);
         fuzz_admin_oneinch_swap(42);
+    }
+
+    // ==================== WT ADAPTER TESTS ====================
+
+    /**
+     * @notice Test WT deposit flow: deposit → invest → forward → settle → mint
+     * @dev Covers:
+     *      - WTAdapter._fundDeposit (asset transfer to receiverAddress)
+     *      - WTAdapter._verifySettleDeposit (Transfer event from address(0))
+     *      - AdapterBase.settleDeposit loop
+     *      - AdapterBase.mint (share claiming)
+     * Events checked: DepositSettled, ReceiverAddressChange (setup), FundDeposited
+     */
+    function test_wt_deposit_flow() public {
+        setActor(USERS[0]);
+        fuzz_deposit(5e18);
+
+        uint256 wtSeed = _wtComponentSeed();
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(wtSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(1);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleDeposit(2);
+
+        fuzz_wt_mint(3);
+    }
+
+    /**
+     * @notice Test WT redemption flow: deposit → full cycle → redeem cycle → withdraw
+     * @dev Covers:
+     *      - WTAdapter._fundRedeem (fund share transfer to receiverAddress)
+     *      - WTAdapter._verifySettleRedeem (Transfer event from senderAddress)
+     *      - AdapterBase.settleRedeem loop
+     *      - AdapterBase.withdraw (asset claiming)
+     * Events checked: RedeemSettled, FundRedeemed
+     */
+    function test_wt_redemption_flow() public {
+        setActor(USERS[0]);
+        fuzz_deposit(6e18);
+
+        uint256 wtSeed = _wtComponentSeed();
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(wtSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(1);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleDeposit(2);
+
+        fuzz_wt_mint(3);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(wtSeed, 0);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(4);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleRedeem(6);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_executeAsyncWithdrawal(wtSeed, 0);
+    }
+
+    /**
+     * @notice Test WT settle dividend: ensures DividendSettled event is emitted
+     * @dev Covers:
+     *      - WTAdapter.settleDividend (pro-rata share distribution)
+     *      - TransferEventVerifier.verifyEvent via mock
+     * Events checked: DividendSettled(fundShares, adapterSharesMinted)
+     */
+    function test_wt_settle_dividend() public {
+        setActor(USERS[0]);
+        fuzz_deposit(5e18);
+
+        uint256 wtSeed = _wtComponentSeed();
+
+        // Build shares in the WT adapter first
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(wtSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(1);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleDeposit(2);
+
+        fuzz_wt_mint(3);
+
+        // Now settle dividend
+        setActor(rebalancer);
+        fuzz_admin_wt_settleDividend(7);
+    }
+
+    /**
+     * @notice Test WT adapter settleRedeem + withdraw coverage
+     * @dev Covers:
+     *      - AdapterBase.settleRedeem loop body
+     *      - AdapterBase.withdraw function body
+     *      Uses ONLY handlers - no direct contract calls
+     * Events checked: RedeemSettled, Transfer (withdraw)
+     */
+    function test_wt_settleRedeem_withdraw_coverage() public {
+        setActor(USERS[1]);
+        fuzz_deposit(8e18);
+
+        uint256 wtSeed = _wtComponentSeed();
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(wtSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(1);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleDeposit(2);
+
+        fuzz_wt_mint(3);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(wtSeed, 0);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(4);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleRedeem(6);
+
+        fuzz_wt_withdraw(1);
+    }
+
+    /**
+     * @notice Test WT claimable shares via router7540 flow
+     * @dev Covers:
+     *      - ERC7540Router.mintClaimable for WT adapter
+     * Events checked: Transfer (mint to node)
+     */
+    function test_wt_router7540_claimable_shares_flow() public {
+        setActor(USERS[0]);
+        fuzz_deposit(7e18);
+
+        uint256 wtSeed = _wtComponentSeed();
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(wtSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(3);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleDeposit(4);
+
+        uint256 sharesBefore = wtAdapter.balanceOf(address(node));
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_mintClaimable(wtSeed);
+
+        uint256 sharesAfter = wtAdapter.balanceOf(address(node));
+        assertGt(sharesAfter, sharesBefore, "node should hold wt shares after minting");
+    }
+
+    /**
+     * @notice Test WT execute async withdrawal lifecycle
+     * @dev Covers full async withdrawal: invest → forward → settle deposit → mint → request withdrawal → forward → settle redeem → execute
+     * Events checked: DepositSettled, RedeemSettled, Transfer events throughout
+     */
+    function test_wt_router7540_execute_async_withdrawal_lifecycle() public {
+        setActor(USERS[1]);
+        fuzz_deposit(9e18);
+
+        uint256 wtSeed = _wtComponentSeed();
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_invest(wtSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(7);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleDeposit(8);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_mintClaimable(wtSeed);
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_requestAsyncWithdrawal(wtSeed, 0);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_forwardRequests(11);
+
+        setActor(rebalancer);
+        fuzz_admin_wt_settleRedeem(13);
+
+        uint256 assetsBefore = asset.balanceOf(address(node));
+
+        setActor(rebalancer);
+        fuzz_admin_router7540_executeAsyncWithdrawal(wtSeed, 0);
+
+        uint256 assetsAfter = asset.balanceOf(address(node));
+        assertGe(assetsAfter, assetsBefore, "node should not lose assets after wt withdraw");
+    }
+
+    function _wtComponentSeed() internal view returns (uint256) {
+        return _componentSeed(address(wtAdapter));
     }
 
     function _digiftComponentSeed() internal view returns (uint256) {

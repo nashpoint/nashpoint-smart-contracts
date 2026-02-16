@@ -4,9 +4,11 @@ pragma solidity ^0.8.0;
 import "./FuzzNode.sol";
 import "./FuzzDonate.sol";
 import "./FuzzDigiftAdapter.sol";
+import "./FuzzWTAdapter.sol";
 import "./FuzzNodeFactory.sol";
 import "./FuzzAdmin/FuzzAdminNode.sol";
 import "./FuzzAdmin/FuzzAdminDigiftAdapter.sol";
+import "./FuzzAdmin/FuzzAdminWTAdapter.sol";
 import "./FuzzRewardRouters.sol";
 import {Node} from "../../src/Node.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -24,6 +26,8 @@ contract FuzzGuided is
     FuzzDonate,
     FuzzDigiftAdapter,
     FuzzAdminDigiftAdapter,
+    FuzzWTAdapter,
+    FuzzAdminWTAdapter,
     FuzzNodeFactory,
     FuzzRewardRouters
 {

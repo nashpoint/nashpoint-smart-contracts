@@ -233,6 +233,135 @@ contract HelperFunctions is FuzzStorageVariables {
         DIGIFT_FORWARDED_REDEMPTIONS.pop();
     }
 
+    // ==============================================================
+    // WT QUEUE MANAGEMENT
+    // ==============================================================
+
+    function _recordWTPendingDeposit(address nodeAddr, address component, uint256 assets) internal {
+        if (nodeAddr == address(0) || component == address(0) || assets == 0) {
+            return;
+        }
+        WT_PENDING_DEPOSITS.push(WTPendingDepositRecord({node: nodeAddr, component: component, assets: assets}));
+    }
+
+    function _pendingWTDepositCount() internal view returns (uint256) {
+        return WT_PENDING_DEPOSITS.length;
+    }
+
+    function _getWTPendingDeposit(uint256 index) internal view returns (WTPendingDepositRecord memory) {
+        if (index >= WT_PENDING_DEPOSITS.length) {
+            return WTPendingDepositRecord({node: address(0), component: address(0), assets: 0});
+        }
+        return WT_PENDING_DEPOSITS[index];
+    }
+
+    function _consumeWTPendingDeposit(uint256 index) internal returns (WTPendingDepositRecord memory record) {
+        uint256 length = WT_PENDING_DEPOSITS.length;
+        if (length == 0 || index >= length) {
+            return WTPendingDepositRecord({node: address(0), component: address(0), assets: 0});
+        }
+        record = WT_PENDING_DEPOSITS[index];
+        if (index != length - 1) {
+            WT_PENDING_DEPOSITS[index] = WT_PENDING_DEPOSITS[length - 1];
+        }
+        WT_PENDING_DEPOSITS.pop();
+    }
+
+    function _recordWTForwardedDeposit(WTPendingDepositRecord memory record) internal {
+        if (record.node == address(0) || record.component == address(0) || record.assets == 0) {
+            return;
+        }
+        WT_FORWARDED_DEPOSITS.push(record);
+    }
+
+    function _forwardedWTDepositCount() internal view returns (uint256) {
+        return WT_FORWARDED_DEPOSITS.length;
+    }
+
+    function _getWTForwardedDeposit(uint256 index) internal view returns (WTPendingDepositRecord memory) {
+        if (index >= WT_FORWARDED_DEPOSITS.length) {
+            return WTPendingDepositRecord({node: address(0), component: address(0), assets: 0});
+        }
+        return WT_FORWARDED_DEPOSITS[index];
+    }
+
+    function _consumeWTForwardedDeposit(uint256 index) internal returns (WTPendingDepositRecord memory record) {
+        uint256 length = WT_FORWARDED_DEPOSITS.length;
+        if (length == 0 || index >= length) {
+            return WTPendingDepositRecord({node: address(0), component: address(0), assets: 0});
+        }
+        record = WT_FORWARDED_DEPOSITS[index];
+        if (index != length - 1) {
+            WT_FORWARDED_DEPOSITS[index] = WT_FORWARDED_DEPOSITS[length - 1];
+        }
+        WT_FORWARDED_DEPOSITS.pop();
+    }
+
+    function _recordWTPendingRedemption(address nodeAddr, address component, uint256 shares) internal {
+        if (nodeAddr == address(0) || component == address(0) || shares == 0) {
+            return;
+        }
+        WT_PENDING_REDEMPTIONS.push(
+            WTPendingRedemptionRecord({node: nodeAddr, component: component, shares: shares})
+        );
+    }
+
+    function _pendingWTRedemptionCount() internal view returns (uint256) {
+        return WT_PENDING_REDEMPTIONS.length;
+    }
+
+    function _getWTPendingRedemption(uint256 index) internal view returns (WTPendingRedemptionRecord memory) {
+        if (index >= WT_PENDING_REDEMPTIONS.length) {
+            return WTPendingRedemptionRecord({node: address(0), component: address(0), shares: 0});
+        }
+        return WT_PENDING_REDEMPTIONS[index];
+    }
+
+    function _consumeWTPendingRedemption(uint256 index) internal returns (WTPendingRedemptionRecord memory record) {
+        uint256 length = WT_PENDING_REDEMPTIONS.length;
+        if (length == 0 || index >= length) {
+            return WTPendingRedemptionRecord({node: address(0), component: address(0), shares: 0});
+        }
+        record = WT_PENDING_REDEMPTIONS[index];
+        if (index != length - 1) {
+            WT_PENDING_REDEMPTIONS[index] = WT_PENDING_REDEMPTIONS[length - 1];
+        }
+        WT_PENDING_REDEMPTIONS.pop();
+    }
+
+    function _recordWTForwardedRedemption(WTPendingRedemptionRecord memory record) internal {
+        if (record.node == address(0) || record.component == address(0) || record.shares == 0) {
+            return;
+        }
+        WT_FORWARDED_REDEMPTIONS.push(record);
+    }
+
+    function _forwardedWTRedemptionCount() internal view returns (uint256) {
+        return WT_FORWARDED_REDEMPTIONS.length;
+    }
+
+    function _getWTForwardedRedemption(uint256 index) internal view returns (WTPendingRedemptionRecord memory) {
+        if (index >= WT_FORWARDED_REDEMPTIONS.length) {
+            return WTPendingRedemptionRecord({node: address(0), component: address(0), shares: 0});
+        }
+        return WT_FORWARDED_REDEMPTIONS[index];
+    }
+
+    function _consumeWTForwardedRedemption(uint256 index)
+        internal
+        returns (WTPendingRedemptionRecord memory record)
+    {
+        uint256 length = WT_FORWARDED_REDEMPTIONS.length;
+        if (length == 0 || index >= length) {
+            return WTPendingRedemptionRecord({node: address(0), component: address(0), shares: 0});
+        }
+        record = WT_FORWARDED_REDEMPTIONS[index];
+        if (index != length - 1) {
+            WT_FORWARDED_REDEMPTIONS[index] = WT_FORWARDED_REDEMPTIONS[length - 1];
+        }
+        WT_FORWARDED_REDEMPTIONS.pop();
+    }
+
     function _managedNodeCount() internal view returns (uint256) {
         return MANAGED_NODES.length;
     }

@@ -248,4 +248,21 @@ contract PropertiesDescriptions {
     string constant DIGIFT_10 = "DIGIFT_10: Max Withdraw Must Be Zero After Withdraw";
     string constant DIGIFT_11 = "DIGIFT_11: Pending Redeem Must Increase After Request";
     string constant DIGIFT_12 = "DIGIFT_12: Balance Must Not Increase After Request Redeem";
+
+    // ==============================================================
+    // WT Properties (WT_01 - WT_12)
+    // ==============================================================
+
+    string constant WT_01 = "WT_01: Global Pending Deposit Must Match Forwarded Amount";
+    string constant WT_02 = "WT_02: Global Pending Redeem Must Match Forwarded Amount";
+    string constant WT_03 = "WT_03: No Pending Deposits Must Remain After Settle";
+    string constant WT_04 = "WT_04: No Pending Redemptions Must Remain After Settle";
+    string constant WT_05 = "WT_05: Max Mintable Shares Must Be Non-Zero After Settle Deposit";
+    string constant WT_06 = "WT_06: Max Withdrawable Assets Must Be Non-Zero After Settle Redeem";
+    string constant WT_07 = "WT_07: Total Max Withdrawable Must Match Expected Assets";
+    string constant WT_08 = "WT_08: Withdraw Assets Must Match Max Withdraw Before";
+    string constant WT_09 = "WT_09: Node Balance Must Not Decrease After Withdraw";
+    string constant WT_10 = "WT_10: Max Withdraw Must Be Zero After Withdraw";
+    string constant WT_11 = "WT_11: Pending Redeem Must Increase After Request";
+    string constant WT_12 = "WT_12: Balance Must Not Increase After Request Redeem";
 }

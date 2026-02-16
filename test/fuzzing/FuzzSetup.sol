@@ -16,6 +16,10 @@ import {ERC7540Mock} from "../mocks/ERC7540Mock.sol";
 import {AggregationRouterV6Mock} from "../mocks/AggregationRouterV6Mock.sol";
 import {SimpleProxy} from "./mocks/SimpleProxy.sol";
 import {SetupCall} from "../../src/interfaces/INodeFactory.sol";
+import {WTAdapter} from "../../src/adapters/wt/WTAdapter.sol";
+import {WTAdapterFactory} from "../../src/adapters/wt/WTAdapterFactory.sol";
+import {TransferEventVerifier} from "../../src/adapters/TransferEventVerifier.sol";
+import {EventVerifierBase} from "../../src/adapters/EventVerifierBase.sol";
 
 /**
  * @title FuzzSetup
@@ -126,6 +130,13 @@ contract FuzzSetup is HelperFunctions {
         assetPriceOracleMock = new PriceOracleMock(8);
         digiftPriceOracleMock = new PriceOracleMock(8);
         digiftEventVerifier = new DigiftEventVerifierMock(owner);
+
+        // WT infrastructure
+        wtFundToken = new ERC20Mock("WT Fund Token", "WTF");
+        wtPriceOracleMock = new PriceOracleMock(8);
+        wtEventVerifier = new TransferEventVerifierMock(owner);
+        wtReceiverAddress = makeAddr("WTReceiver");
+        wtSenderAddress = makeAddr("WTSender");
 
         capPolicy = new CapPolicy(address(registry));
         gatePolicyWhitelist = new GatePolicyWhitelist(address(registry));
@@ -276,6 +287,49 @@ contract FuzzSetup is HelperFunctions {
         digiftEventVerifier.configureSettlement(DigiftEventVerifier.EventType.SUBSCRIBE, 1e18, 0);
         digiftEventVerifier.configureSettlement(DigiftEventVerifier.EventType.REDEEM, 0, 1e18);
         vm.stopPrank();
+
+        // --- WT Adapter deployment ---
+        wtPriceOracleMock.setLatestRoundData(1, 1e10, block.timestamp, block.timestamp, 1);
+
+        WTAdapter wtImplementation = new WTAdapter(address(registry), address(wtEventVerifier));
+        wtFactory = new WTAdapterFactory(address(wtImplementation), owner);
+
+        AdapterBase.InitArgs memory wtInitArgs = AdapterBase.InitArgs({
+            name: "WT Adapter",
+            symbol: "WTA",
+            asset: address(assetToken),
+            assetPriceOracle: address(assetPriceOracleMock),
+            fund: address(wtFundToken),
+            fundPriceOracle: address(wtPriceOracleMock),
+            priceDeviation: 1e15,
+            settlementDeviation: 1e16,
+            priceUpdateDeviationFund: 4 days,
+            priceUpdateDeviationAsset: 4 days,
+            minDepositAmount: 1_000e6,
+            minRedeemAmount: 10e18,
+            customInitData: abi.encode(wtReceiverAddress, wtSenderAddress)
+        });
+
+        vm.startPrank(owner);
+        wtAdapter = WTAdapter(wtFactory.deploy(wtInitArgs));
+        router7540.setWhitelistStatus(address(wtAdapter), true);
+        wtEventVerifier.setWhitelist(address(wtAdapter), true);
+        wtAdapter.setManager(rebalancer, true);
+        wtAdapter.setNode(address(node), true);
+        node.addComponent(address(wtAdapter), 0.05 ether, 0.01 ether, address(router7540));
+        node.updateTargetReserveRatio(0.05 ether);
+        vm.stopPrank();
+
+        // Approve WT adapter from node
+        vm.startPrank(address(node));
+        assetToken.approve(address(wtAdapter), type(uint256).max);
+        wtAdapter.approve(address(wtAdapter), type(uint256).max);
+        vm.stopPrank();
+
+        // Configure default transfer amount for verifier mock
+        vm.startPrank(owner);
+        wtEventVerifier.configureTransferAmount(1e18);
+        vm.stopPrank();
     }
 
     // ==============================================================
@@ -324,6 +378,7 @@ contract FuzzSetup is HelperFunctions {
             TOKENS.push(address(liquidityPoolSecondary));
             TOKENS.push(address(liquidityPoolTertiary));
             TOKENS.push(address(stToken));
+            TOKENS.push(address(wtFundToken));
         }
 
         if (COMPONENTS.length == 0) {
@@ -334,6 +389,7 @@ contract FuzzSetup is HelperFunctions {
             COMPONENTS.push(address(liquidityPoolSecondary));
             COMPONENTS.push(address(liquidityPoolTertiary));
             COMPONENTS.push(address(digiftAdapter));
+            COMPONENTS.push(address(wtAdapter));
         }
 
         if (COMPONENTS_ERC4626.length == 0) {
@@ -347,6 +403,7 @@ contract FuzzSetup is HelperFunctions {
             COMPONENTS_ERC7540.push(address(liquidityPoolSecondary));
             COMPONENTS_ERC7540.push(address(liquidityPoolTertiary));
             COMPONENTS_ERC7540.push(address(digiftAdapter));
+            COMPONENTS_ERC7540.push(address(wtAdapter));
         }
 
         if (POLICIES.length == 0) {
@@ -427,6 +484,14 @@ contract FuzzSetup is HelperFunctions {
         vm.label(address(digiftPriceOracleMock), "DigiftPriceOracle");
         vm.label(address(stToken), "SecurityToken");
         vm.label(poolManager, "PoolManager");
+
+        vm.label(address(wtAdapter), "WTAdapter");
+        vm.label(address(wtFactory), "WTAdapterFactory");
+        vm.label(address(wtEventVerifier), "WTEventVerifier");
+        vm.label(address(wtPriceOracleMock), "WTPriceOracle");
+        vm.label(address(wtFundToken), "WTFundToken");
+        vm.label(wtReceiverAddress, "WTReceiver");
+        vm.label(wtSenderAddress, "WTSender");
 
         vm.label(USER1, "USER1");
         vm.label(USER2, "USER2");
