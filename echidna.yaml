@@ -6,15 +6,15 @@ deployContracts: [["0x10", "NodeLib"],["0x11", "PolicyLib"],["0x13", "ErrorsLib"
 cryticArgs: ["--foundry-compile-all", "--compile-libraries=(NodeLib,0x10),(PolicyLib,0x11),(ErrorsLib,0x13),(MathLib,0x14),(RegistryAccessControl,0x15),(BaseComponentRouter,0x16),(EventsLib,0x17)"]
 
 # cryticArgs: ["--solc-remaps", "@synthetixio/=node_modules/@synthetixio/ @openzeppelin/=node_modules/@openzeppelin/ lib/=lib/ @perimetersec/=node_modules/@perimetersec/"]
-workers: 6
+workers: 4
 allowFFI: true
 
 testMode: assertion
 disableSlither: true
 corpusDir: echidna-corpus
 
-testLimit: 100
-# testLimit: 1000000
+# testLimit: 100
+testLimit: 10000000000
 codeSize: 0xffffff
 
 shrinkLimit: 1000
