@@ -147,6 +147,7 @@ contract PreconditionsWTAdapter is PreconditionsBase {
             if (seed % 5 == 0) {
                 params.shouldSucceed = false;
                 params.assetsExpected = assetsExpected / 2 + 1;
+                params.caller = randomUser;
             }
             return params;
         } else if (queueLength == 0 || pendingRedeemGlobal == 0) {
@@ -204,6 +205,7 @@ contract PreconditionsWTAdapter is PreconditionsBase {
         if (seed % 5 == 0) {
             params.shouldSucceed = false;
             params.assetsExpected = assetsExpected / 2 + 1;
+            params.caller = randomUser; // Added this
         }
     }
 
