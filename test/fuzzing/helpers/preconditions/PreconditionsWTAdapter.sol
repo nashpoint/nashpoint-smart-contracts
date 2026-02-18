@@ -303,6 +303,11 @@ contract PreconditionsWTAdapter is PreconditionsBase {
 
         params.nodes = new address[](1);
         params.nodes[0] = address(node);
+        params.totalSupplyBefore = wtAdapter.totalSupply();
+        params.nodeBalancesBefore = new uint256[](params.nodes.length);
+        for (uint256 i = 0; i < params.nodes.length; i++) {
+            params.nodeBalancesBefore[i] = wtAdapter.balanceOf(params.nodes[i]);
+        }
 
         if (_hasPreferredAdminActor) {
             params.caller = _preferredAdminActor;

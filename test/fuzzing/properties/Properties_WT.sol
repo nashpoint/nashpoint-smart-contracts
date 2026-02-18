@@ -55,4 +55,13 @@ contract Properties_WT is Properties_Digift {
     function invariant_WT_12(uint256 balanceAfter, uint256 balanceBefore) internal {
         fl.t(balanceAfter <= balanceBefore, WT_12);
     }
+
+    function invariant_WT_13(uint256 totalSupplyBefore, uint256 totalSupplyAfter, uint256 dividendAmount) internal {
+        fl.t(totalSupplyAfter >= totalSupplyBefore, WT_13);
+        fl.eq(totalSupplyAfter - totalSupplyBefore, dividendAmount, WT_13);
+    }
+
+    function invariant_WT_14(uint256 totalMintedToNodes, uint256 dividendAmount) internal {
+        fl.eq(totalMintedToNodes, dividendAmount, WT_14);
+    }
 }

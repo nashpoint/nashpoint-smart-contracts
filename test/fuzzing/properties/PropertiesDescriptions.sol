@@ -265,4 +265,6 @@ contract PropertiesDescriptions {
     string constant WT_10 = "WT_10: Max Withdraw Must Be Zero After Withdraw";
     string constant WT_11 = "WT_11: Pending Redeem Must Increase After Request";
     string constant WT_12 = "WT_12: Balance Must Not Increase After Request Redeem";
+    string constant WT_13 = "WT_13: Adapter Total Supply Increase Must Equal Dividend Amount";
+    string constant WT_14 = "WT_14: Sum Of Node Dividend Shares Must Equal Dividend Amount";
 }

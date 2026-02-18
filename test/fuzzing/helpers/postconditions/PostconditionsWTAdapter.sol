@@ -171,6 +171,19 @@ contract PostconditionsWTAdapter is PostconditionsBase {
     ) internal {
         if (success) {
             _after();
+
+            uint256 totalSupplyAfter = wtAdapter.totalSupply();
+            invariant_WT_13(params.totalSupplyBefore, totalSupplyAfter, params.dividendAmount);
+
+            uint256 totalMintedToNodes;
+            for (uint256 i = 0; i < params.nodes.length; i++) {
+                uint256 balanceBefore = i < params.nodeBalancesBefore.length ? params.nodeBalancesBefore[i] : 0;
+                uint256 balanceAfter = wtAdapter.balanceOf(params.nodes[i]);
+                fl.t(balanceAfter >= balanceBefore, WT_14);
+                totalMintedToNodes += balanceAfter - balanceBefore;
+            }
+            invariant_WT_14(totalMintedToNodes, params.dividendAmount);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

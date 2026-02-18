@@ -730,6 +730,8 @@ contract FuzzStructs is FuzzSetup {
         address caller;
         address[] nodes;
         uint256 dividendAmount;
+        uint256 totalSupplyBefore;
+        uint256[] nodeBalancesBefore;
         bool shouldSucceed;
     }
 }
