@@ -4,7 +4,8 @@ pragma solidity 0.8.28;
 import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 
 import {MerkleTrie} from "optimism/libraries/trie/MerkleTrie.sol";
-import {RLPReader} from "src/libraries/rlp/RLPReader.sol";
+import {RLP} from "@openzeppelin/contracts/utils/RLP.sol";
+import {Memory} from "@openzeppelin/contracts/utils/Memory.sol";
 
 /**
  * @title TransferEventVerifier
@@ -52,9 +53,9 @@ contract TransferEventVerifier is EventVerifierBase {
         bytes32 blockHash;
         bytes32 receiptsRoot;
         bytes32 logHash;
-        RLPReader.RLPItem[] logs;
-        RLPReader.RLPItem[] log;
-        RLPReader.RLPItem[] topics;
+        Memory.Slice[] logs;
+        Memory.Slice[] log;
+        Memory.Slice[] topics;
         address from;
         address to;
     }
@@ -89,26 +90,28 @@ contract TransferEventVerifier is EventVerifierBase {
         if (_getBlockHash(fargs.blockNumber) != vars.blockHash) revert BadHeader();
 
         // Extract the receipts root from the block header (index 5 in RLP-encoded header)
-        vars.receiptsRoot = bytes32(RLPReader.readBytes(RLPReader.readList(fargs.headerRlp)[5]));
+        vars.receiptsRoot = bytes32(RLP.readBytes(RLP.readList(Memory.asSlice(fargs.headerRlp))[5]));
 
         // Get the transaction receipt using Merkle proof and extract logs
         // The receipt structure is: [status, cumulativeGasUsed, logsBloom, logs]
         // We need index 3 which contains the logs array
-        vars.logs = RLPReader.readList(
-            RLPReader.readList(_stripTypedPrefix(MerkleTrie.get(fargs.txIndex, fargs.proof, vars.receiptsRoot)))[3]
+        vars.logs = RLP.readList(
+            RLP.readList(
+                Memory.asSlice(_stripTypedPrefix(MerkleTrie.get(fargs.txIndex, fargs.proof, vars.receiptsRoot)))
+            )[3]
         );
 
-        vars.log = RLPReader.readList(vars.logs[fargs.logIndex]);
+        vars.log = RLP.readList(vars.logs[fargs.logIndex]);
 
         // Check if this log was emitted by the expected contract address
-        require(address(bytes20(RLPReader.readBytes(vars.log[0]))) == nargs.token, NoEvent());
+        require(address(bytes20(RLP.readBytes(vars.log[0]))) == nargs.token, NoEvent());
 
         // Extract and validate the log topics (indexed parameters)
-        vars.topics = RLPReader.readList(vars.log[1]);
-        require(bytes32(RLPReader.readBytes(vars.topics[0])) == TRANSFER_TOPIC, NoEvent());
+        vars.topics = RLP.readList(vars.log[1]);
+        require(bytes32(RLP.readBytes(vars.topics[0])) == TRANSFER_TOPIC, NoEvent());
         // decode indexed params
-        vars.from = address(uint160(uint256(bytes32(RLPReader.readBytes(vars.topics[1])))));
-        vars.to = address(uint160(uint256(bytes32(RLPReader.readBytes(vars.topics[2])))));
+        vars.from = address(uint160(uint256(bytes32(RLP.readBytes(vars.topics[1])))));
+        vars.to = address(uint160(uint256(bytes32(RLP.readBytes(vars.topics[2])))));
 
         // from should match whom adapter expects to be a sender - might be address(0) in case of mint
         require(vars.from == nargs.sender, NoEvent());
@@ -116,7 +119,7 @@ contract TransferEventVerifier is EventVerifierBase {
         require(vars.to == msg.sender, NoEvent());
 
         // Decode the log data (non-indexed parameters)
-        (uint256 amount) = abi.decode(RLPReader.readBytes(vars.log[2]), (uint256));
+        (uint256 amount) = abi.decode(RLP.readBytes(vars.log[2]), (uint256));
 
         // Generate unique log hash to prevent double-spending
         vars.logHash = _hashLog(vars.blockHash, nargs.token, fargs.txIndex, fargs.logIndex);

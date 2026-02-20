@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import {Blockhash} from "@openzeppelin/contracts/utils/Blockhash.sol";
+
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
 
-import {Bytes} from "src/libraries/Bytes.sol";
+import {Bytes} from "@openzeppelin/contracts/utils/Bytes.sol";
 
 /**
  * @title EventVerifierBase
@@ -111,16 +113,15 @@ abstract contract EventVerifierBase is RegistryAccessControl {
 
     /**
      * @notice Retrieves a block hash, falling back to stored hashes for historical blocks
-     * @dev First tries to get the block hash using blockhash() opcode, then falls back
-     *      to the stored blockHashes mapping for blocks older than 256 blocks
+     * @dev Tries `Blockhash.blockHash(blockNumber)` first (BLOCKHASH for <=256 blocks,
+     *      or EIP-2935 history storage up to ~8191 blocks when available), then falls
+     *      back to the `blockHashes` mapping if the onchain lookup returns zero.
      * @param blockNumber The block number to get the hash for
      * @return blockHash The hash of the specified block
      * @dev Reverts if the block hash is not available and not stored
      */
     function _getBlockHash(uint256 blockNumber) internal returns (bytes32) {
-        // TODO: Once OpenZeppelin v5.6.0 is stable, migrate to Blockhash.sol for trustless
-        // historical blockhash retrieval (EIP-2935).
-        bytes32 blockHash = blockhash(blockNumber);
+        bytes32 blockHash = Blockhash.blockHash(blockNumber);
         if (blockHash == 0) {
             blockHash = blockHashes[blockNumber];
         }

@@ -392,7 +392,7 @@ contract DigiftEventVerifierForkTest is Test {
     function test_getBlockHash_missedWindow() external {
         vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
         uint256 currentBlock = block.number;
-        uint256 oldBlockNumber = currentBlock - 300; // Far enough in past so blockhash() returns 0
+        uint256 oldBlockNumber = currentBlock - 8192; // Far enough in past so blockhash() returns 0
 
         address investor = address(0x123);
         vm.mockCall(address(this), abi.encodeWithSignature("owner()"), abi.encode(address(this)));

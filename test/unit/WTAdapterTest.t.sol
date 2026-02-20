@@ -156,12 +156,11 @@ contract WTAdapterTest is BaseTest {
             abi.encodeWithSelector(TransferEventVerifier.verifyEvent.selector, fargs, nargs),
             abi.encode(sharesToMint)
         );
+        fundToken.mint(address(wtAdapter), sharesToMint);
 
         vm.startPrank(manager);
         wtAdapter.settleDeposit(nodes, fargs);
         vm.stopPrank();
-
-        fundToken.mint(address(wtAdapter), sharesToMint);
     }
 
     function _mint() internal {
@@ -203,12 +202,11 @@ contract WTAdapterTest is BaseTest {
             abi.encodeWithSelector(TransferEventVerifier.verifyEvent.selector, fargs, nargs),
             abi.encode(assetsToReturn)
         );
+        ERC20Mock(address(asset)).mint(address(wtAdapter), assetsToReturn);
 
         vm.startPrank(manager);
         wtAdapter.settleRedeem(nodes, fargs);
         vm.stopPrank();
-
-        ERC20Mock(address(asset)).mint(address(wtAdapter), assetsToReturn);
     }
 
     function _mockDividend(uint256 divShares) internal returns (EventVerifierBase.OffchainArgs memory fargs) {
@@ -219,6 +217,14 @@ contract WTAdapterTest is BaseTest {
             address(eventVerifier),
             abi.encodeWithSelector(TransferEventVerifier.verifyEvent.selector, fargs, nargs),
             abi.encode(divShares)
+        );
+    }
+
+    function _mockFundPrice(int256 price) internal {
+        vm.mockCall(
+            fundPriceOracle,
+            abi.encodeWithSelector(IPriceOracle.latestRoundData.selector),
+            abi.encode(0, price, 0, block.timestamp, 0)
         );
     }
 
@@ -261,8 +267,7 @@ contract WTAdapterTest is BaseTest {
     }
 
     function _weight(address nodeAddr) internal view returns (uint256) {
-        return wtAdapter.balanceOf(nodeAddr) + wtAdapter.pendingRedeemRequest(0, nodeAddr)
-            + wtAdapter.claimableRedeemRequest(0, nodeAddr) + wtAdapter.maxMint(nodeAddr);
+        return wtAdapter.balanceOf(nodeAddr) + wtAdapter.pendingRedeemRequest(0, nodeAddr) + wtAdapter.maxMint(nodeAddr);
     }
 
     function _proRataMint(uint256[] memory weights, uint256 amount) internal pure returns (uint256[] memory out) {
@@ -280,6 +285,17 @@ contract WTAdapterTest is BaseTest {
             }
             out[i] = shareOut;
             minted += shareOut;
+        }
+    }
+
+    function _sortAddressesAsc(address[] memory addrs) internal pure {
+        uint256 len = addrs.length;
+        for (uint256 i; i < len; i++) {
+            for (uint256 j = i + 1; j < len; j++) {
+                if (addrs[i] > addrs[j]) {
+                    (addrs[i], addrs[j]) = (addrs[j], addrs[i]);
+                }
+            }
         }
     }
 
@@ -317,6 +333,104 @@ contract WTAdapterTest is BaseTest {
         wtAdapter.setSenderAddress(newSender);
 
         assertEq(wtAdapter.senderAddress(), newSender);
+    }
+
+    function test_priceFreeze_keeps_cached_price_then_refreshes_on_end() external {
+        vm.prank(owner);
+        wtAdapter.setPriceDeviation(1e18);
+
+        uint256 shares = 10e18;
+        uint256 assetsBefore = wtAdapter.convertToAssets(shares);
+
+        vm.prank(manager);
+        wtAdapter.startPriceFreeze(2 days);
+        assertTrue(wtAdapter.priceFreezeActive());
+        assertEq(wtAdapter.priceFreezeUntil(), block.timestamp + 2 days);
+
+        _mockFundPrice(1e10);
+        uint256 assetsDuringFreeze = wtAdapter.convertToAssets(shares);
+        assertEq(assetsDuringFreeze, assetsBefore, "frozen conversion must use cached price");
+
+        vm.prank(manager);
+        wtAdapter.endPriceFreeze();
+        assertFalse(wtAdapter.priceFreezeActive());
+        assertEq(wtAdapter.priceFreezeUntil(), 0);
+
+        uint256 assetsAfter = wtAdapter.convertToAssets(shares);
+        assertLt(assetsAfter, assetsBefore, "ending freeze must refresh lastFundPrice");
+    }
+
+    function test_priceFreeze_guards() external {
+        uint64 maxDuration = wtAdapter.maxPriceFreezeDuration();
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.PriceFreezeNotActive.selector));
+        wtAdapter.endPriceFreeze();
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.InvalidPriceFreezeDuration.selector, 0, maxDuration));
+        wtAdapter.startPriceFreeze(0);
+
+        vm.prank(manager);
+        vm.expectRevert(
+            abi.encodeWithSelector(WTAdapter.InvalidPriceFreezeDuration.selector, uint256(maxDuration) + 1, maxDuration)
+        );
+        wtAdapter.startPriceFreeze(maxDuration + 1);
+
+        vm.prank(manager);
+        wtAdapter.startPriceFreeze(1 days);
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.PriceFreezeAlreadyActive.selector));
+        wtAdapter.startPriceFreeze(1 days);
+    }
+
+    function test_priceFreeze_blocks_forwardRequests_until_explicit_end() external {
+        _invest();
+
+        vm.prank(manager);
+        wtAdapter.startPriceFreeze(1 days);
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.PriceFreezeActive.selector));
+        wtAdapter.forwardRequests();
+
+        vm.warp(block.timestamp + 2 days);
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.PriceFreezeAlreadyActive.selector));
+        wtAdapter.startPriceFreeze(1 days);
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.PriceFreezeActive.selector));
+        wtAdapter.forwardRequests();
+
+        vm.prank(manager);
+        wtAdapter.endPriceFreeze();
+
+        _forward();
+        assertGt(wtAdapter.globalPendingDepositRequest(), 0, "forward should work after explicit freeze end");
+    }
+
+    function test_priceFreeze_blocks_updateLastPrice_until_explicit_end() external {
+        vm.prank(manager);
+        wtAdapter.startPriceFreeze(1 days);
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.PriceFreezeActive.selector));
+        wtAdapter.updateLastPrice();
+
+        vm.warp(block.timestamp + 2 days);
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.PriceFreezeActive.selector));
+        wtAdapter.updateLastPrice();
+
+        vm.prank(manager);
+        wtAdapter.endPriceFreeze();
+
+        vm.prank(manager);
+        wtAdapter.updateLastPrice();
     }
 
     function test_deposit_settle_and_mint() external {
@@ -419,6 +533,10 @@ contract WTAdapterTest is BaseTest {
 
         vm.startPrank(manager);
         address[] memory nodesArr = _toArray(address(node));
+        vm.expectEmit(true, true, true, true, address(wtAdapter));
+        emit WTAdapter.DividendPaid(address(node), divShares);
+        vm.expectEmit(true, true, true, true, address(wtAdapter));
+        emit WTAdapter.DividendSettled(divShares, divShares);
         wtAdapter.settleDividend(nodesArr, fargs);
         vm.stopPrank();
 
@@ -427,7 +545,10 @@ contract WTAdapterTest is BaseTest {
     }
 
     function test_dividend_three_nodes_mixed_states_after_settlements() external {
-        address[3] memory ns = [user, user2, user3];
+        address[] memory ns = new address[](3);
+        ns[0] = user;
+        ns[1] = user2;
+        ns[2] = user3;
         for (uint256 i; i < ns.length; i++) {
             _addNode(ns[i]);
         }
@@ -442,11 +563,7 @@ contract WTAdapterTest is BaseTest {
 
         uint256 totalDep = deps[0] + deps[1] + deps[2];
         uint256 totalShares = wtAdapter.convertToShares(totalDep);
-        address[] memory nodesAll = new address[](3);
-        nodesAll[0] = ns[0];
-        nodesAll[1] = ns[1];
-        nodesAll[2] = ns[2];
-        _settleDepositFor(nodesAll, totalShares);
+        _settleDepositFor(ns, totalShares);
 
         uint256 shares1 = wtAdapter.maxMint(ns[0]);
         vm.prank(ns[0]);
@@ -468,6 +585,7 @@ contract WTAdapterTest is BaseTest {
         uint256 divShares = 900e18;
         EventVerifierBase.OffchainArgs memory fargsDiv = _mockDividend(divShares);
         fundToken.mint(address(wtAdapter), divShares);
+        _sortAddressesAsc(ns);
 
         uint256[] memory weights = new uint256[](3);
         weights[0] = _weight(ns[0]);
@@ -480,17 +598,25 @@ contract WTAdapterTest is BaseTest {
         beforeBals[1] = wtAdapter.balanceOf(ns[1]);
         beforeBals[2] = wtAdapter.balanceOf(ns[2]);
 
+        for (uint256 i; i < ns.length; i++) {
+            if (expected[i] > 0) {
+                vm.expectEmit(true, true, true, true, address(wtAdapter));
+                emit WTAdapter.DividendPaid(ns[i], expected[i]);
+            }
+        }
+        vm.expectEmit(true, true, true, true, address(wtAdapter));
+        emit WTAdapter.DividendSettled(divShares, divShares);
         vm.prank(manager);
-        wtAdapter.settleDividend(nodesAll, fargsDiv);
+        wtAdapter.settleDividend(ns, fargsDiv);
 
         uint256[] memory afterBals = new uint256[](3);
         afterBals[0] = wtAdapter.balanceOf(ns[0]);
         afterBals[1] = wtAdapter.balanceOf(ns[1]);
         afterBals[2] = wtAdapter.balanceOf(ns[2]);
 
-        assertApproxEqAbs(afterBals[0] - beforeBals[0], expected[0], 1e18);
-        assertApproxEqAbs(afterBals[1] - beforeBals[1], expected[1], 1e18);
-        assertApproxEqAbs(afterBals[2] - beforeBals[2], expected[2], 1e18);
+        assertEq(afterBals[0] - beforeBals[0], expected[0]);
+        assertEq(afterBals[1] - beforeBals[1], expected[1]);
+        assertEq(afterBals[2] - beforeBals[2], expected[2]);
         assertEq(
             (afterBals[0] - beforeBals[0]) + (afterBals[1] - beforeBals[1]) + (afterBals[2] - beforeBals[2]), divShares
         );
@@ -532,6 +658,7 @@ contract WTAdapterTest is BaseTest {
         address[] memory nodesArr = new address[](2);
         nodesArr[0] = n1;
         nodesArr[1] = n2;
+        _sortAddressesAsc(nodesArr);
         wtAdapter.settleDividend(nodesArr, fargs);
 
         assertEq(wtAdapter.balanceOf(n1), sharesAll + divShares, "pending depositor should not get dividend");
@@ -540,7 +667,7 @@ contract WTAdapterTest is BaseTest {
     }
 
     function test_dividend_reverts_when_pending_deposit() external {
-        uint256 depositAmount = _invest();
+        _invest();
         vm.prank(manager);
         wtAdapter.forwardRequests(); // creates pendingDepositRequest
 
@@ -587,6 +714,53 @@ contract WTAdapterTest is BaseTest {
         wtAdapter.settleDividend(new address[](0), fargs);
     }
 
+    function test_dividend_reverts_when_nodes_duplicate() external {
+        EventVerifierBase.OffchainArgs memory fargs = _mockDividend(1e18);
+        fundToken.mint(address(wtAdapter), 1e18);
+
+        address[] memory duplicateNodes = new address[](2);
+        duplicateNodes[0] = user;
+        duplicateNodes[1] = user;
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.NodesNotStrictlySorted.selector));
+        wtAdapter.settleDividend(duplicateNodes, fargs);
+    }
+
+    function test_dividend_reverts_when_nodes_unsorted() external {
+        EventVerifierBase.OffchainArgs memory fargs = _mockDividend(1e18);
+        fundToken.mint(address(wtAdapter), 1e18);
+
+        // Force descending order to violate strict ascending ordering.
+        address first = user;
+        address second = user2;
+        if (first < second) {
+            (first, second) = (second, first);
+        }
+
+        address[] memory unsortedNodes = new address[](2);
+        unsortedNodes[0] = first;
+        unsortedNodes[1] = second;
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.NodesNotStrictlySorted.selector));
+        wtAdapter.settleDividend(unsortedNodes, fargs);
+    }
+
+    function test_dividend_reverts_when_nodes_include_adapter_address() external {
+        EventVerifierBase.OffchainArgs memory fargs = _mockDividend(1e18);
+        fundToken.mint(address(wtAdapter), 1e18);
+
+        address[] memory nodes = new address[](2);
+        nodes[0] = address(node);
+        nodes[1] = address(wtAdapter);
+        _sortAddressesAsc(nodes);
+
+        vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(WTAdapter.AdapterAddressInNodeList.selector));
+        wtAdapter.settleDividend(nodes, fargs);
+    }
+
     function test_dividend_reverts_when_weights_mismatch() external {
         // give supply to node
         uint256 depositAmount = _invest();
@@ -621,6 +795,7 @@ contract WTAdapterTest is BaseTest {
         address[] memory nodesAll = new address[](2);
         nodesAll[0] = n1;
         nodesAll[1] = n2;
+        _sortAddressesAsc(nodesAll);
         _settleDepositFor(nodesAll, totalShares);
         uint256 maxMint1 = wtAdapter.maxMint(n1);
         vm.prank(n1);
@@ -634,18 +809,18 @@ contract WTAdapterTest is BaseTest {
         fundToken.mint(address(wtAdapter), divShares);
 
         uint256[] memory before = new uint256[](2);
-        before[0] = wtAdapter.balanceOf(n1);
-        before[1] = wtAdapter.balanceOf(n2);
+        before[0] = wtAdapter.balanceOf(nodesAll[0]);
+        before[1] = wtAdapter.balanceOf(nodesAll[1]);
 
         vm.prank(manager);
         wtAdapter.settleDividend(nodesAll, fargs);
 
         uint256[] memory afterBals = new uint256[](2);
-        afterBals[0] = wtAdapter.balanceOf(n1);
-        afterBals[1] = wtAdapter.balanceOf(n2);
+        afterBals[0] = wtAdapter.balanceOf(nodesAll[0]);
+        afterBals[1] = wtAdapter.balanceOf(nodesAll[1]);
 
         assertEq((afterBals[0] - before[0]) + (afterBals[1] - before[1]), divShares);
-        // dust should end up at last node (n2)
+        // Dust should end up at last node in the sorted list.
         assertEq(afterBals[0] - before[0], 2);
         assertEq(afterBals[1] - before[1], 3);
     }
@@ -680,8 +855,20 @@ contract WTAdapterTest is BaseTest {
         uint256 divShares = 7e18;
         EventVerifierBase.OffchainArgs memory fargs = _mockDividend(divShares);
         fundToken.mint(address(wtAdapter), divShares);
+        _sortAddressesAsc(nodes);
+
+        uint256[] memory weights = new uint256[](2);
+        weights[0] = _weight(nodes[0]);
+        weights[1] = _weight(nodes[1]);
+        uint256[] memory expected = _proRataMint(weights, divShares);
 
         uint256 supplyBefore = wtAdapter.totalSupply();
+        for (uint256 i; i < nodes.length; i++) {
+            if (expected[i] > 0) {
+                vm.expectEmit(true, true, true, true, address(wtAdapter));
+                emit WTAdapter.DividendPaid(nodes[i], expected[i]);
+            }
+        }
         vm.expectEmit(true, true, true, true, address(wtAdapter));
         emit WTAdapter.DividendSettled(divShares, divShares);
         vm.prank(manager);
@@ -689,7 +876,7 @@ contract WTAdapterTest is BaseTest {
         assertEq(wtAdapter.totalSupply(), supplyBefore + divShares);
     }
 
-    function test_onERC721Received_accepts_soulbound_token() external {
+    function test_onERC721Received_accepts_soulbound_token() external view {
         bytes4 result = wtAdapter.onERC721Received(address(this), address(0xBEEF), 1, bytes(""));
         assertEq(result, IERC721Receiver.onERC721Received.selector, "must return magic value");
     }
