@@ -10,6 +10,9 @@ contract,source,total,comment
  src/routers/OneInchV6RouterV1.sol,66,148,52
  src/quoters/QuoterV1.sol,69,163,66
  src/libraries/BaseComponentRouter.sol,86,186,72
- src/adapters/digift/DigiftAdapter.sol,459,1166,523
- src/adapters/digift/DigiftAdapterFactory.sol,14,58,35
- test/mocks/DigiftEventVerifierMock.sol,135,332,147
+ src/adapters/AdapterBase.sol,512,1249,547
+ src/adapters/digift/DigiftAdapter.sol,49,98,36
+ src/adapters/digift/DigiftAdapterFactory.sol,15,60,36
+ src/adapters/wt/WTAdapter.sol,94,196,74
+ src/adapters/wt/WTAdapterFactory.sol,15,60,36
+ test/mocks/DigiftEventVerifierMock.sol,57,73,5

@@ -6,15 +6,15 @@
     "rev": "00369e5d8f51b71ebbac5f440647a7b5568e7fba"
   },
   "lib/openzeppelin-contracts": {
-    "branch": {
-      "name": "release-v5.2",
-      "rev": "acd4ff74de833399287ed6b31b4debf6b2b35527"
+    "tag": {
+      "name": "v5.5.0",
+      "rev": "fcbae5394ae8ad52d8e580a3477db99814b9d565"
     }
   },
   "lib/openzeppelin-contracts-upgradeable": {
-    "branch": {
-      "name": "release-v5.2",
-      "rev": "3d5fa5c24c411112bab47bec25cfa9ad0af0e6e8"
+    "tag": {
+      "name": "v5.5.0",
+      "rev": "aa677e9d28ed78fc427ec47ba2baef2030c58e7c"
     }
   },
   "lib/optimism": {

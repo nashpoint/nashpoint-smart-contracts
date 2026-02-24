@@ -5,7 +5,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {MulticallUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 import {IERC7540, IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
@@ -62,7 +63,8 @@ struct GlobalState {
  */
 abstract contract AdapterBase is
     ERC20Upgradeable,
-    ReentrancyGuardUpgradeable,
+    MulticallUpgradeable,
+    ReentrancyGuard,
     RegistryAccessControl,
     IERC7540,
     IERC7575
@@ -375,7 +377,9 @@ abstract contract AdapterBase is
      * @dev Sets up immutable dependencies
      * @param registry_ Address of the registry contract for access control
      */
-    constructor(address registry_) RegistryAccessControl(registry_) {}
+    constructor(address registry_) RegistryAccessControl(registry_) {
+        _disableInitializers();
+    }
 
     // =============================
     //         Initialization
@@ -390,7 +394,7 @@ abstract contract AdapterBase is
         require(args.priceDeviation <= WAD, InvalidPercentage());
         require(args.settlementDeviation <= WAD, InvalidPercentage());
         __ERC20_init(args.name, args.symbol);
-        __ReentrancyGuard_init();
+        __Multicall_init();
 
         // Set up asset token and its oracle
         asset = args.asset;
@@ -415,6 +419,7 @@ abstract contract AdapterBase is
 
         // Initialize price cache with current price
         (, int256 answer,,,) = fundPriceOracle.latestRoundData();
+        require(answer > 0, BadPriceOracle(address(fundPriceOracle)));
         lastFundPrice = uint256(answer);
 
         _initialize(args.customInitData);
@@ -569,6 +574,7 @@ abstract contract AdapterBase is
      */
     function forceUpdateLastPrice() external onlyRegistryOwner {
         (, int256 answer,,,) = fundPriceOracle.latestRoundData();
+        require(answer > 0, BadPriceOracle(address(fundPriceOracle)));
         lastFundPrice = uint256(answer);
         emit LastPriceUpdate(uint256(answer));
     }
@@ -577,7 +583,7 @@ abstract contract AdapterBase is
      * @notice Update the last price with deviation checks
      * @dev Only callable by whitelisted managers, enforces price deviation limits
      */
-    function updateLastPrice() external onlyManager {
+    function updateLastPrice() public virtual onlyManager {
         uint256 price = _getFundPrice();
         lastFundPrice = price;
         emit LastPriceUpdate(price);
@@ -912,10 +918,8 @@ abstract contract AdapterBase is
      * @dev Subscribes accumulated deposits and redeems accumulated redemptions
      * @dev Only callable by whitelisted managers when no pending requests exist
      */
-    function forwardRequests() external onlyManager nonReentrant {
-        // Ensure no pending requests exist before forwarding
-        require(_globalState.pendingDepositRequest == 0, DepositRequestPending());
-        require(_globalState.pendingRedeemRequest == 0, RedeemRequestPending());
+    function forwardRequests() public virtual onlyManager nonReentrant {
+        _noPendingForwardRequests();
 
         // Handle accumulated deposits
         uint256 pendingAssets = _globalState.accumulatedDeposit;
@@ -936,6 +940,15 @@ abstract contract AdapterBase is
             _fundRedeem(pendingShares);
             emit FundRedeemed(pendingShares);
         }
+    }
+
+    /**
+     * @dev Ensure no forwarded global requests are awaiting settlement.
+     * @dev Reverts with {DepositRequestPending} or {RedeemRequestPending} when a pending batch exists.
+     */
+    function _noPendingForwardRequests() internal view {
+        require(_globalState.pendingDepositRequest == 0, DepositRequestPending());
+        require(_globalState.pendingRedeemRequest == 0, RedeemRequestPending());
     }
 
     /**
@@ -1060,7 +1073,7 @@ abstract contract AdapterBase is
      * @param assets The amount of assets to convert
      * @return shares The equivalent number of shares
      */
-    function convertToShares(uint256 assets) public view returns (uint256 shares) {
+    function convertToShares(uint256 assets) public view virtual returns (uint256 shares) {
         return _convertToShares(assets, _getAssetPrice(), _getFundPrice());
     }
 
@@ -1070,7 +1083,7 @@ abstract contract AdapterBase is
      * @param shares The number of shares to convert
      * @return assets The equivalent amount of assets
      */
-    function convertToAssets(uint256 shares) public view returns (uint256 assets) {
+    function convertToAssets(uint256 shares) public view virtual returns (uint256 assets) {
         return _convertToAssets(shares, _getAssetPrice(), _getFundPrice());
     }
 

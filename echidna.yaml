@@ -14,7 +14,7 @@ disableSlither: true
 corpusDir: echidna-corpus
 
 # testLimit: 100
-testLimit: 10000000000
+testLimit: 100000000000
 codeSize: 0xffffff
 
 shrinkLimit: 100000

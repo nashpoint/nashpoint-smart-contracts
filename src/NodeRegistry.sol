@@ -46,7 +46,6 @@ contract NodeRegistry is INodeRegistry, OwnableUpgradeable, UUPSUpgradeable {
         initializer
     {
         __Ownable_init(owner);
-        __UUPSUpgradeable_init();
 
         _setProtocolFeeAddress(feeAddress_);
         _setProtocolManagementFee(managementFee_);
