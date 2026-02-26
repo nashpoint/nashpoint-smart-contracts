@@ -52,6 +52,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
     // @dev claimableSharePrice is defined when manager calls processPendingDeposits
     uint256 public claimableSharePrice; // defined when manager calls processPendingDeposits
+    uint256 public assetPerShareWhenProcess; // defined when manager calls processPendingRedemptions
 
     // Events
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
@@ -259,13 +260,16 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // Calculate share/asset ratio
         uint256 assetPerShare = Math.mulDiv(_totalAssets, 1e18, totalPendingShares);
 
+        // @audit Store assetsPerShare at the time of redemption process to use it later in withdraw flow
+        assetPerShareWhenProcess = assetPerShare;
+
         // Allocate shares to each depositor
         for (uint256 i = 0; i < pendingRedeemCount; i++) {
             PendingRequest memory request = pendingRedeemRequests[i];
 
             uint256 assets = Math.mulDiv(request.amount, assetPerShare, 1e18);
 
-            claimableRedeemRequests[request.controller] += assets;
+            claimableRedeemRequests[request.controller] += request.amount; //@audit store as shares
 
             // Clear the controllerToIndex entry for this controller
             delete controllerToRedeemIndex[request.controller];
@@ -285,16 +289,16 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
             revert ERC7540Mock_NoClaimableRedeemAvailable();
         }
 
+        // @audit calculate share amount from stored assetPerShare value
+        shares = Math.mulDiv(assets, 1e18, assetPerShareWhenProcess, Math.Rounding.Ceil);
+
         // check if the requested assets exceed the claimable amount
-        if (assets > claimableRedeemRequests[controller]) {
+        if (shares > claimableRedeemRequests[controller]) {
             revert ERC7540Mock_ExceedsPendingRedeem();
         }
 
-        // calculate shares to burn
-        shares = convertToShares(assets);
-
         // update claimable balance
-        claimableRedeemRequests[controller] -= assets;
+        claimableRedeemRequests[controller] -= shares;
 
         // burn excess shares
         _burn(address(this), shares);
@@ -383,7 +387,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
     function maxWithdraw(address controller) public view returns (uint256 maxAssets) {
         uint256 redeemableShares = claimableRedeemRequests[controller];
-        maxAssets = convertToAssets(redeemableShares);
+        maxAssets = Math.mulDiv(redeemableShares, assetPerShareWhenProcess, 1e18, Math.Rounding.Floor);
     }
 
     function maxRedeem(address controller) public view returns (uint256 maxShares) {
