@@ -12,11 +12,9 @@ import {AdapterBase} from "src/adapters/AdapterBase.sol";
 import {DigiftAdapterFactory} from "src/adapters/digift/DigiftAdapterFactory.sol";
 import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
 
-import {PriceOracleMock} from "test/mocks/PriceOracleMock.sol";
+// source .env && FOUNDRY_PROFILE=arbitrum forge script script/DigiftArbitrum.s.sol:DigiftArbitrum --broadcast -vvv --verify
 
-// source .env && FOUNDRY_PROFILE=sepolia forge script script/DigiftSepolia.s.sol:DigiftSepolia --broadcast -vvv --verify
-
-contract DigiftSepolia is Script {
+contract DigiftArbitrum is Script {
     using stdJson for string;
 
     function run() external {
@@ -28,29 +26,24 @@ contract DigiftSepolia is Script {
         uint256 privateKey = Environment.getPrivateKey(vm);
 
         vm.startBroadcast(privateKey);
-        PriceOracleMock usdcPriceOracle = new PriceOracleMock(8);
-        usdcPriceOracle.setLatestRoundData(
-            18446744073709556890, 99974000, block.timestamp, block.timestamp, 18446744073709556890
-        );
-
         DigiftAdapter digiftAdapter = DigiftAdapterFactory(contracts.digiftAdapterFactory).deploy(
-            AdapterBase.InitArgs(
-                "iSNR Wrapper",
-                "wiSNR",
-                config.usdc,
-                address(usdcPriceOracle),
-                config.digift.iSNR,
-                config.digift.iSNRPriceOracle,
-                // 0.1%
-                1e15,
-                // 1%
-                1e16,
-                2 days,
-                1 days,
-                1000e6,
-                1e18,
-                ""
-            )
+            AdapterBase.InitArgs({
+                name: "iSNR Wrapper",
+                symbol: "wiSNR",
+                asset: config.usdc,
+                assetPriceOracle: config.usdcPriceOracle,
+                fund: config.digift.iSNR,
+                fundPriceOracle: config.digift.iSNRPriceOracle,
+                priceDeviation: 1e15, // 0.1%
+                settlementDeviation: 1e16, // 1%
+                priceUpdateDeviationFund: 1 days,
+                priceUpdateDeviationAsset: 1 days,
+                // TODO: double check
+                minDepositAmount: 10000e6,
+                // TODO: double check
+                minRedeemAmount: 1e18,
+                customInitData: ""
+            })
         );
 
         digiftAdapter.setManager(config.protocolOwner, true);
@@ -60,6 +53,5 @@ contract DigiftSepolia is Script {
         vm.stopBroadcast();
 
         console.log("iSNR digiftAdapter", address(digiftAdapter));
-        console.log("usdcPriceOracle", address(usdcPriceOracle));
     }
 }

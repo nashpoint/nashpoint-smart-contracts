@@ -1,20 +1,37 @@
 {
-  "digiftSubRedManagement": "0x3DAd21A73a63bBd186f57f733d271623467b6c78",
-  "merkl": true,
-  "oneInch": true,
+  "digift": {
+    "subRedManagement": "0x3DAd21A73a63bBd186f57f733d271623467b6c78",
+    "iSNRPriceOracle": "0x67aE0CAAC7f6995d8B24d415F584e5625cdEe048",
+    "iSNR": "0x37EC21365dC39B0b74ea7b6FabFfBcB277568AC4"
+  },
+  "wt": {
+    "receiverAddress": "0xc24d277eedc174b764c822a6965740f8c22cf95a",
+    "senderAddress": "0x463f5d63e5a5edb8615b0e485a090a18aba08578",
+    "CRDYX": "0x6116715dc9c7116b01c38485df55c25eedf26bc0"
+  },
+  "merkl": false,
+  "oneInch": false,
   "usdc": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+  "usdcPriceOracle": "0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3",
   "incentraDistributor": "0x273d0d19eac2861fcf6b21893ad6d71b018e25ab",
   "fluidRewardsDistributor": "0x94312a608246cecfce6811db84b3ef4b2619054e",
   "protocolOwner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
-  "rebalancer": [
-    "0xB1ce02d5eE676e657BD59D2EE5dFB147a13f56e9",
-    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
-  ],
+  "rebalancer": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
   "components": {
-    "erc7540Router": [],
-    "erc4626Router": [
-      { "name": "GearboxUSDC", "address": "0x890A69EF363C9c7BdD5E36eb95Ceb569F63ACbF6" },
-      { "name": "FluidUDC", "address": "0x1A996cb54bb95462040408C06122D45D6Cdb6096" }
-    ]
+    "erc7540Router": [
+      {
+        "name": "DigiFT - Invesco US Senior Loan Strategy (iSNR)",
+        "address": "0x77c2662628428E3fFa7Da3Cae66D05f3Eb8a962E"
+      },
+      {
+        "name": "WisdomTree - Private Credit and Alternative Income Digital Fund (CRDYX)",
+        "address": "0xa51744cdbe3bed6b5f5fdc04b66b765ba108f5da"
+      },
+      {
+        "name": "Centrifuge - Janus Henderson Anemoy AAA CLO Fund (deJAAA)",
+        "address": "0xe897E7F16e8F4ed568A62955b17744bCB3207d6E"
+      }
+    ],
+    "erc4626Router": []
   }
 }
