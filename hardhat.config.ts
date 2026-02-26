@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ quiet: true });
 //
 import '@nomicfoundation/hardhat-foundry';
 import '@nomicfoundation/hardhat-toolbox';

@@ -4,7 +4,7 @@ import path from 'path';
 
 import type { Provider } from 'ethers';
 import { ethers } from 'hardhat';
-import { Node__factory } from '../../typechain-types';
+import { ErrorsLib__factory, Node__factory, NodeFactory__factory } from '../../typechain-types';
 import { Config, Contracts, NodeData, Policy } from './types';
 
 export const chainIdToName = (chainId: number) => {
@@ -182,4 +182,29 @@ export const getGasFee = async (provider: Provider, percentIncrease = 20) => {
         result.gasPrice = (feeData.gasPrice * multiplier) / 100n;
     }
     return result;
+};
+
+export const decodeError = (error: unknown) => {
+    const interfaces = [
+        ErrorsLib__factory.createInterface(),
+        Node__factory.createInterface(),
+        NodeFactory__factory.createInterface(),
+    ];
+    let decoded = false;
+    for (const i of interfaces) {
+        // @ts-ignore
+        // console.log(error.data);
+        try {
+            // @ts-ignore
+            const parsedError = i.parseError(error.data);
+            if (parsedError) {
+                console.log(parsedError);
+                decoded = true;
+            }
+            break;
+        } catch (error) {}
+    }
+    if (!decoded) {
+        console.log(error);
+    }
 };
