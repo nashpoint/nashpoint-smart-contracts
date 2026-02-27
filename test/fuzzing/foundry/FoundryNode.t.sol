@@ -416,10 +416,11 @@ contract FoundryNode is FuzzNode {
         ERC7540Mock(liquidityPoolSecondary).processPendingRedemptions();
 
         uint256 claimable = ERC7540Mock(liquidityPoolSecondary).claimableRedeemRequest(0, user);
+        uint256 withdrawableAssets = ERC7540Mock(liquidityPoolSecondary).maxWithdraw(user);
         vm.prank(user);
-        uint256 redeemed = ERC7540Mock(liquidityPoolSecondary).withdraw(claimable, user, user);
+        uint256 redeemed = ERC7540Mock(liquidityPoolSecondary).withdraw(withdrawableAssets, user, user);
 
-        assertGt(claimable, amount, "Async linear vault should grow principal");
+        assertGt(withdrawableAssets, amount, "Async linear vault should grow principal");
 
         clearNodeContextOverrideForTest();
     }
@@ -454,10 +455,11 @@ contract FoundryNode is FuzzNode {
         ERC7540Mock(liquidityPoolTertiary).processPendingRedemptions();
 
         uint256 claimable = ERC7540Mock(liquidityPoolTertiary).claimableRedeemRequest(0, user);
+        uint256 withdrawableAssets = ERC7540Mock(liquidityPoolTertiary).maxWithdraw(user);
         vm.prank(user);
-        uint256 redeemed = ERC7540Mock(liquidityPoolTertiary).withdraw(claimable, user, user);
+        uint256 redeemed = ERC7540Mock(liquidityPoolTertiary).withdraw(withdrawableAssets, user, user);
 
-        assertLt(redeemed, amount, "Async negative vault should erode principal");
+        assertLt(withdrawableAssets, amount, "Async negative vault should erode principal");
 
         clearNodeContextOverrideForTest();
     }
