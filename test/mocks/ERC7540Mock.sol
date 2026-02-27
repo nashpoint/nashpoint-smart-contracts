@@ -260,7 +260,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
         // Calculate share/asset ratio
         uint256 assetPerShare = Math.mulDiv(_totalAssets, 1e18, totalPendingShares);
 
-        // @audit Store assetsPerShare at the time of redemption process to use it later in withdraw flow
+        // Store assetsPerShare at the time of redemption process to use it later in withdraw flow
         assetPerShareWhenProcess = assetPerShare;
 
         // Allocate shares to each depositor
@@ -269,7 +269,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
 
             uint256 assets = Math.mulDiv(request.amount, assetPerShare, 1e18);
 
-            claimableRedeemRequests[request.controller] += request.amount; //@audit store as shares
+            claimableRedeemRequests[request.controller] += request.amount; // store as shares
 
             // Clear the controllerToIndex entry for this controller
             delete controllerToRedeemIndex[request.controller];
@@ -289,7 +289,7 @@ contract ERC7540Mock is IERC7540Deposit, IERC7540Redeem, ERC20, ERC165 {
             revert ERC7540Mock_NoClaimableRedeemAvailable();
         }
 
-        // @audit calculate share amount from stored assetPerShare value
+        // Calculate share amount from stored assetPerShare value
         shares = Math.mulDiv(assets, 1e18, assetPerShareWhenProcess, Math.Rounding.Ceil);
 
         // check if the requested assets exceed the claimable amount
