@@ -26,8 +26,11 @@ import {NodePausingPolicy} from "src/policies/NodePausingPolicy.sol";
 import {ProtocolPausingPolicy} from "src/policies/ProtocolPausingPolicy.sol";
 
 import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
+import {TransferEventVerifier} from "src/adapters/TransferEventVerifier.sol";
 import {DigiftAdapter} from "src/adapters/digift/DigiftAdapter.sol";
+import {WTAdapter} from "src/adapters/wt/WTAdapter.sol";
 import {DigiftAdapterFactory} from "src/adapters/digift/DigiftAdapterFactory.sol";
+import {WTAdapterFactory} from "src/adapters/wt/WTAdapterFactory.sol";
 
 // NOTE: --rpc-url should be specified since deployment of the Node contract implies the creation of external NodeLib library
 // according to https://github.com/foundry-rs/foundry/issues/8410 it is not supported
@@ -91,15 +94,25 @@ contract DeployCore is Script {
 
         // Digift
 
-        if (config.digiftSubRedManagement != address(0)) {
+        if (config.digift.subRedManagement != address(0)) {
             contracts.digiftEventVerifier = address(new DigiftEventVerifier(contracts.nodeRegistryProxy));
             contracts.digiftAdapterImplementation = address(
                 new DigiftAdapter(
-                    contracts.nodeRegistryProxy, config.digiftSubRedManagement, contracts.digiftEventVerifier
+                    contracts.nodeRegistryProxy, config.digift.subRedManagement, contracts.digiftEventVerifier
                 )
             );
             contracts.digiftAdapterFactory =
                 address(new DigiftAdapterFactory(contracts.digiftAdapterImplementation, config.protocolOwner));
+        }
+
+        // WT
+
+        if (config.wt.receiverAddress != address(0) && config.wt.senderAddress != address(0)) {
+            contracts.transferEventVerifier = address(new TransferEventVerifier(contracts.nodeRegistryProxy));
+            contracts.wtAdapterImplementation =
+                address(new WTAdapter(contracts.nodeRegistryProxy, contracts.transferEventVerifier));
+            contracts.wtAdapterFactory =
+                address(new WTAdapterFactory(contracts.wtAdapterImplementation, config.protocolOwner));
         }
 
         vm.stopBroadcast();
@@ -108,6 +121,7 @@ contract DeployCore is Script {
         string memory routersKey = "routers";
         string memory policiesKey = "policies";
         string memory digiftKey = "digift";
+        string memory wtKey = "wt";
         string memory json =
             stdJson.serialize(objectKey, "nodeRegistryImplementation", contracts.nodeRegistryImplementation);
         json = stdJson.serialize(objectKey, "nodeRegistryProxy", contracts.nodeRegistryProxy);
@@ -117,18 +131,19 @@ contract DeployCore is Script {
         string memory routers = stdJson.serialize(routersKey, "erc4626Router", contracts.erc4626Router);
         routers = stdJson.serialize(routersKey, "erc7540Router", contracts.erc7540Router);
 
-        if (contracts.merklRouter != address(0)) {
-            routers = stdJson.serialize(routersKey, "merklRouter", contracts.merklRouter);
-        }
-        if (contracts.oneInchRouter != address(0)) {
-            routers = stdJson.serialize(routersKey, "oneInchRouter", contracts.oneInchRouter);
-        }
-        if (contracts.incentraRouter != address(0)) {
-            routers = stdJson.serialize(routersKey, "incentraRouter", contracts.incentraRouter);
-        }
-        if (contracts.fluidRewardsRouter != address(0)) {
-            routers = stdJson.serialize(routersKey, "fluidRewardsRouter", contracts.fluidRewardsRouter);
-        }
+        // TODO: uncomment
+        // if (contracts.merklRouter != address(0)) {
+        //     routers = stdJson.serialize(routersKey, "merklRouter", contracts.merklRouter);
+        // }
+        // if (contracts.oneInchRouter != address(0)) {
+        //     routers = stdJson.serialize(routersKey, "oneInchRouter", contracts.oneInchRouter);
+        // }
+        // if (contracts.incentraRouter != address(0)) {
+        //     routers = stdJson.serialize(routersKey, "incentraRouter", contracts.incentraRouter);
+        // }
+        // if (contracts.fluidRewardsRouter != address(0)) {
+        //     routers = stdJson.serialize(routersKey, "fluidRewardsRouter", contracts.fluidRewardsRouter);
+        // }
 
         json = stdJson.serialize(objectKey, "routers", routers);
 
@@ -145,6 +160,13 @@ contract DeployCore is Script {
             digift = stdJson.serialize(digiftKey, "adapterImplementation", contracts.digiftAdapterImplementation);
             digift = stdJson.serialize(digiftKey, "adapterFactory", contracts.digiftAdapterFactory);
             json = stdJson.serialize(objectKey, "digift", digift);
+        }
+
+        if (contracts.wtAdapterImplementation != address(0)) {
+            string memory wt = stdJson.serialize(wtKey, "transferEventVerifier", contracts.transferEventVerifier);
+            wt = stdJson.serialize(wtKey, "adapterImplementation", contracts.wtAdapterImplementation);
+            wt = stdJson.serialize(wtKey, "adapterFactory", contracts.wtAdapterFactory);
+            json = stdJson.serialize(objectKey, "wt", wt);
         }
 
         stdJson.write(json, path);

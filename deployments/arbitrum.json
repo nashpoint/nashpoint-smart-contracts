@@ -1,26 +1,29 @@
 {
   "digift": {
-    "adapterFactory": "0x98b74cf4ab387691054D2cbE873328bDcAFC79F0",
-    "adapterImplementation": "0xd0aE8aa39f403095Ae53ddA4585711CcD8980bb3",
-    "eventVerifier": "0xDc3913027578165d9624eFB3D774FD4fF92Ee463"
+    "adapterFactory": "0x4EaB4119A070E6aB850f3E196d73350F55c16c93",
+    "adapterImplementation": "0xABF2BD193A6CFb3122A6A4470f01E5F3CE75226b",
+    "eventVerifier": "0x5e48b0D097442576736EE7d04c9eb04074549b0B",
+    "wiSNR": "0x77c2662628428E3fFa7Da3Cae66D05f3Eb8a962E"
   },
-  "nodeFactory": "0x012af0b7E4ABe0E6689197C91D879216db159737",
-  "nodeImplementation": "0x70F37BAd9f0a357763ce899583348e5b0E48402f",
-  "nodeRegistryImplementation": "0xB512d72e24446484bf2E95fee1B2D80e089667B9",
-  "nodeRegistryProxy": "0x17E87f2354E5ea196737FEE0B27BF23DB059806a",
+  "nodeFactory": "0x327c46DEC9e4ac0865D92e8085E77EF4D4DA8083",
+  "nodeImplementation": "0x8C549fD544a66C2C951C5F6Cd0243FbDa95CF701",
+  "nodeRegistryImplementation": "0x321c904B74DD68eBc2da139A23928D8BC18CF926",
+  "nodeRegistryProxy": "0x9bd72BF03f0f791e424786765a8f72c3B13F08F3",
   "policies": {
-    "capPolicy": "0x9e75a24958bE6c95A0F0e0F4071ea3F2b3C76Ffb",
-    "gatePolicyBlacklist": "0xBBe32ac0122C4180499960B81A22C792F7DF6666",
-    "gatePolicyWhitelist": "0x0BB694512042DEAa1c4F26019E1d2175AFc0031E",
-    "nodePausingPolicy": "0xD4B0dF19b98115665650aA4B049d3808131cc926",
-    "protocolPausingPolicy": "0xfc25ca5Dd1b9050Ac4d38dC0FFd99D380656a7C7"
+    "capPolicy": "0xe0645c9eF4C682785b6868414698d9F70a8F678b",
+    "gatePolicyBlacklist": "0x4df1e043D38FaB547c8ab0e8e0Db06F053646e5D",
+    "gatePolicyWhitelist": "0xb41329F1850E5e4d87403a65f1FeB7Cf5a168388",
+    "nodePausingPolicy": "0x1fD6CDeAB113F6a04E9f0Dde4088afA7a0ea9ED0",
+    "protocolPausingPolicy": "0xE83bc3b972CEC54Bc26A2C27770b315F60A817C5"
   },
   "routers": {
-    "erc4626Router": "0xb52eb21B3B65FE6297426C0d47d45C7ef26DF940",
-    "erc7540Router": "0xC1b7b8677AeEFe970346ffa9c515D4eeE883B425",
-    "fluidRewardsRouter": "0x738a892af3aD7371F9df8E63f87038ebb56498a7",
-    "incentraRouter": "0x3D7fB638CB9B7F5D9CA895e1cdE4923E2a8D9aF9",
-    "merklRouter": "0x206dFD8A97dbE5c29044D2eFAF9470df685a861E",
-    "oneInchRouter": "0xfA0A77F3584a7B3d9276eC04315ab1CE4DA1283A"
+    "erc4626Router": "0x3D875F780e5DDBaF9A46949C08bd30C9ee92d0dd",
+    "erc7540Router": "0x89F978da171732e4E033A6cA7Fb6a0114Cb5422c"
+  },
+  "wt": {
+    "adapterFactory": "0x9A573d80fE0fa919506A8198628b4a108eEE7081",
+    "adapterImplementation": "0xe654118c6609fACC8bE32F0c5D3EcAd13Dd7FcC4",
+    "transferEventVerifier": "0x61A24B766aBf67a3fE4e6E0a6F4372cEdb496c3c",
+    "wCRDYX": "0xa51744cdbe3bed6b5f5fdc04b66b765ba108f5da"
   }
 }

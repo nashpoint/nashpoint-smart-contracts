@@ -21,9 +21,13 @@ export type NodeData = {
     targetReserveRatio?: number | string;
     policies?: Policy[];
     whitelist?: string[];
+    blacklist?: string[];
     pauser?: string[];
     rebalanceCooldown?: number;
     rebalanceWindow?: number;
+    // TODO: will be in decimal value
+    seedValue?: number;
+    cap?: number;
 };
 
 export type Config = {
@@ -37,6 +41,7 @@ export type Config = {
             },
         ];
     };
+    usdc: string;
     // for sepolia only
     usdcPriceOracle?: string;
 };

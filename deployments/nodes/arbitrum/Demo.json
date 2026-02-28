@@ -1,0 +1,34 @@
+{
+  "name": "Nashpoint RWA Fund",
+  "symbol": "nRWA",
+  "asset": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+  "components": {
+    "erc7540Router": [
+      {
+        "name": "Centrifuge - Janus Henderson Anemoy AAA CLO Fund (deJAAA)",
+        "address": "0xe897E7F16e8F4ed568A62955b17744bCB3207d6E",
+        "allocation": 30
+      },
+      {
+        "name": "DigiFT - Invesco US Senior Loan Strategy (iSNR)",
+        "address": "0x77c2662628428E3fFa7Da3Cae66D05f3Eb8a962E",
+        "allocation": 30
+      },
+      {
+        "name": "WisdomTree - Private Credit and Alternative Income Digital Fund (CRDYX)",
+        "address": "0xa51744cdbe3bed6b5f5fdc04b66b765ba108f5da",
+        "allocation": 30
+      }
+    ]
+  },
+  "targetReserveRatio": 10,
+  "policies": ["gatePolicyWhitelist", "gatePolicyBlacklist", "capPolicy"],
+  "whitelist": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "blacklist": ["0x04DBA1194ee10112fE6C3207C0687DEf0e78baCf"],
+  "owner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+  "rebalancer": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "rebalanceCooldown": 60,
+  "rebalanceWindow": 60,
+  "seedValue": 1,
+  "cap": 1
+}

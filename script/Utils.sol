@@ -8,16 +8,28 @@ import {stdJson} from "forge-std/StdJson.sol";
 library Environment {
     using stdJson for string;
 
+    struct DigiftConfig {
+        address subRedManagement;
+        address iSNRPriceOracle;
+        address iSNR;
+    }
+
+    struct WTConfig {
+        address receiverAddress;
+        address senderAddress;
+        address CRDYX;
+    }
+
     struct Config {
         bool merkl;
         bool oneInch;
         address incentraDistributor;
         address fluidRewardsDistributor;
         address protocolOwner;
-        address digiftSubRedManagement;
         address usdc;
-        address iSNR;
-        address iSNRPriceOracle;
+        address usdcPriceOracle;
+        DigiftConfig digift;
+        WTConfig wt;
     }
 
     struct Contracts {
@@ -39,6 +51,9 @@ library Environment {
         address digiftEventVerifier;
         address digiftAdapterImplementation;
         address digiftAdapterFactory;
+        address transferEventVerifier;
+        address wtAdapterImplementation;
+        address wtAdapterFactory;
     }
 
     function equal(string memory a, string memory b) internal pure returns (bool) {
@@ -72,14 +87,18 @@ library Environment {
         string memory configPath = string.concat("config/", profile, ".json");
         string memory json = vmSafe_.readFile(configPath);
         config.protocolOwner = json.readAddress(".protocolOwner");
-        config.digiftSubRedManagement = json.readAddressOr(".digiftSubRedManagement", address(0));
+        config.wt.receiverAddress = json.readAddressOr(".wt.receiverAddress", address(0));
+        config.wt.senderAddress = json.readAddressOr(".wt.senderAddress", address(0));
+        config.wt.CRDYX = json.readAddressOr(".wt.CRDYX", address(0));
+        config.digift.subRedManagement = json.readAddressOr(".digift.subRedManagement", address(0));
+        config.digift.iSNR = json.readAddressOr(".digift.iSNR", address(0));
+        config.digift.iSNRPriceOracle = json.readAddressOr(".digift.iSNRPriceOracle", address(0));
         config.incentraDistributor = json.readAddressOr(".incentraDistributor", address(0));
         config.fluidRewardsDistributor = json.readAddressOr(".fluidRewardsDistributor", address(0));
         config.merkl = json.readBoolOr(".merkl", false);
         config.oneInch = json.readBoolOr(".oneInch", false);
         config.usdc = json.readAddressOr(".usdc", address(0));
-        config.iSNR = json.readAddressOr(".iSNR", address(0));
-        config.iSNRPriceOracle = json.readAddressOr(".iSNRPriceOracle", address(0));
+        config.usdcPriceOracle = json.readAddressOr(".usdcPriceOracle", address(0));
     }
 
     function getContractsPath(VmSafe vmSafe_) internal view returns (string memory) {
@@ -108,9 +127,12 @@ library Environment {
         contracts.gatePolicyWhitelist = json.readAddressOr(".policies.gatePolicyWhitelist", address(0));
         contracts.nodePausingPolicy = json.readAddressOr(".policies.nodePausingPolicy", address(0));
         contracts.protocolPausingPolicy = json.readAddressOr(".policies.protocolPausingPolicy", address(0));
-        contracts.digiftEventVerifier = json.readAddressOr(".digift.digiftEventVerifier", address(0));
-        contracts.digiftAdapterImplementation = json.readAddressOr(".digift.digiftAdapterImplementation", address(0));
-        contracts.digiftAdapterFactory = json.readAddressOr(".digift.digiftAdapterFactory", address(0));
+        contracts.digiftEventVerifier = json.readAddressOr(".digift.eventVerifier", address(0));
+        contracts.digiftAdapterImplementation = json.readAddressOr(".digift.adapterImplementation", address(0));
+        contracts.digiftAdapterFactory = json.readAddressOr(".digift.adapterFactory", address(0));
+        contracts.transferEventVerifier = json.readAddressOr(".wt.transferEventVerifier", address(0));
+        contracts.wtAdapterImplementation = json.readAddressOr(".wt.adapterImplementation", address(0));
+        contracts.wtAdapterFactory = json.readAddressOr(".wt.adapterFactory", address(0));
     }
 
     function setRpc(Vm vm_) internal {

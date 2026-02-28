@@ -1,13 +1,20 @@
 import { ethers, network } from 'hardhat';
 import {
-    ErrorsLib__factory,
+    CapPolicy__factory,
+    ERC20__factory,
+    GatePolicyBlacklist__factory,
     GatePolicyWhitelist__factory,
+    IERC20__factory,
+    IERC20PermitHardhat__factory,
     Node__factory,
     NodeFactory__factory,
 } from '../typechain-types';
+import { SetupCallStruct } from '../typechain-types/src/NodeFactory';
+import { signPermit } from './utils/permit';
 import {
     buildLeafs,
     buildPolicy,
+    decodeError,
     getContracts,
     getNodeData,
     getPoliciesMerkleTree,
@@ -15,7 +22,6 @@ import {
     weiToPercent,
     writeNodeData,
 } from './utils/utils';
-import { SetupCallStruct } from '../typechain-types/src/NodeFactory';
 
 async function main() {
     const fileName = process.env.FILE;
@@ -39,15 +45,53 @@ async function main() {
     const nodePayload = [];
     const setupCalls: SetupCallStruct[] = [];
     let totalAllocation = 0n;
-    const salt =
-        nodeData.salt ||
-        ethers.keccak256(
-            ethers.toUtf8Bytes(`${nodeData.name}-${nodeData.symbol}-${nodeData.asset}`),
-        );
+    const salt = ethers.keccak256(
+        ethers.toUtf8Bytes(
+            nodeData.salt || `${nodeData.name}-${nodeData.symbol}-${nodeData.asset}`,
+        ),
+    );
     const nodeAddressPredicted = await nodeFactory.predictDeterministicAddress(
         salt,
         deployer.address,
     );
+
+    const decimals = await ERC20__factory.connect(nodeData.asset, ethers.provider).decimals();
+    if (nodeData.seedValue) {
+        const { payload, signature } = await signPermit(
+            deployer,
+            contracts.nodeFactory,
+            nodeData.asset,
+            ethers.parseUnits(nodeData.seedValue.toString(), decimals),
+        );
+        const { owner, spender, value, deadline } = payload;
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: IERC20PermitHardhat__factory.createInterface().encodeFunctionData(
+                'permit(address,address,uint256,uint256,bytes)',
+                [owner, spender, value, deadline, signature],
+            ),
+        });
+
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: IERC20__factory.createInterface().encodeFunctionData('transferFrom', [
+                owner,
+                contracts.nodeFactory,
+                value,
+            ]),
+        });
+
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: IERC20__factory.createInterface().encodeFunctionData('approve', [
+                nodeAddressPredicted,
+                value,
+            ]),
+        });
+
+        // TODO: receiver might be configurable
+        nodePayload.push(node.encodeFunctionData('deposit', [value, deployer.address]));
+    }
 
     if (nodeData.rebalancer) {
         for (const r of nodeData.rebalancer) {
@@ -85,12 +129,30 @@ async function main() {
             ]),
         });
     }
+    if (nodeData.blacklist) {
+        setupCalls.push({
+            target: contracts.policies.gatePolicyBlacklist,
+            payload: GatePolicyBlacklist__factory.createInterface().encodeFunctionData('add', [
+                nodeAddressPredicted,
+                nodeData.blacklist,
+            ]),
+        });
+    }
     if (nodeData.pauser) {
         setupCalls.push({
             target: contracts.policies.nodePausingPolicy,
             payload: GatePolicyWhitelist__factory.createInterface().encodeFunctionData('add', [
                 nodeAddressPredicted,
                 nodeData.pauser,
+            ]),
+        });
+    }
+    if (nodeData.cap) {
+        setupCalls.push({
+            target: contracts.policies.capPolicy,
+            payload: CapPolicy__factory.createInterface().encodeFunctionData('setCap', [
+                nodeAddressPredicted,
+                ethers.parseUnits(nodeData.cap.toString(), decimals),
             ]),
         });
     }
@@ -174,29 +236,10 @@ async function main() {
             }
             nodeData.address = logs[0].args.node;
             writeNodeData(network.config.chainId!, fileName, nodeData);
-            console.log(`Node is deployed at ${nodeData.address}`);
+            console.log(`Node is deployed at https://arbiscan.io/address/${nodeData.address}`);
         }
     } catch (error) {
-        const interfaces = [
-            NodeFactory__factory.createInterface(),
-            Node__factory.createInterface(),
-            ErrorsLib__factory.createInterface(),
-        ];
-        let decoded = false;
-        for (const i of interfaces) {
-            try {
-                // @ts-ignore
-                const parsedError = i.parseError(error.data);
-                if (parsedError) {
-                    console.log(parsedError);
-                    decoded = true;
-                }
-                break;
-            } catch (error) {}
-        }
-        if (!decoded) {
-            console.log(error);
-        }
+        decodeError(error);
     }
 }
 

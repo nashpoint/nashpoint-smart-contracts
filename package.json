@@ -1,15 +1,26 @@
 {
-    "devDependencies": {
-        "@nomicfoundation/hardhat-foundry": "1.2.0",
-        "@nomicfoundation/hardhat-toolbox": "6.1.0",
-        "@openzeppelin/merkle-tree": "1.0.8",
-        "@safe-global/api-kit": "4.0.1",
-        "@safe-global/protocol-kit": "6.1.2",
-        "@safe-global/types-kit": "3.0.0",
-        "dotenv": "17.2.3",
-        "hardhat": "2.28.0",
-        "prettier": "3.7.4",
-        "ts-node": "10.9.2",
-        "typescript": "5.9.3"
-    }
+  "scripts": {
+    "node:deploy": "FILE=Demo hardhat run scripts/05_DeployNode.ts --network arbitrum",
+    "node:ofac": "hardhat run scripts/local/arbitrum/ofac_setOperator.ts --network arbitrum",
+    "node:deposit": "hardhat run scripts/local/arbitrum/deposit.ts --network arbitrum",
+    "node:withdraw": "hardhat run scripts/local/arbitrum/withdraw.ts --network arbitrum",
+    "rebalance:start": "hardhat run scripts/startRebalance.ts --network arbitrum",
+    "redeem": "hardhat run scripts/requestRedeem.ts --network arbitrum",
+    "fulfill": "hardhat run scripts/fulfill.ts --network arbitrum",
+    "withdraw": "hardhat run scripts/withdraw.ts --network arbitrum",
+    "back": "pnpm run redeem && pnpm run fulfill && pnpm run withdraw"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-foundry": "1.2.0",
+    "@nomicfoundation/hardhat-toolbox": "6.1.0",
+    "@openzeppelin/merkle-tree": "1.0.8",
+    "@safe-global/api-kit": "4.0.1",
+    "@safe-global/protocol-kit": "6.1.2",
+    "@safe-global/types-kit": "3.0.0",
+    "dotenv": "17.2.3",
+    "hardhat": "2.28.0",
+    "prettier": "3.7.4",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
+  }
 }
