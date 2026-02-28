@@ -1,26 +1,26 @@
 {
   "digift": {
-    "adapterFactory": "0x98b74cf4ab387691054D2cbE873328bDcAFC79F0",
-    "adapterImplementation": "0xd0aE8aa39f403095Ae53ddA4585711CcD8980bb3",
-    "eventVerifier": "0xDc3913027578165d9624eFB3D774FD4fF92Ee463"
+    "adapterFactory": "0x5A24559a617f2253437d7938a60541aE578c05c2",
+    "adapterImplementation": "0x56810435fCBd03aEc1af86a6a88252C7ff623e10",
+    "eventVerifier": "0xf36cc38Ec0b1aF75c4295c5D928eD08b0B6444A8"
   },
-  "nodeFactory": "0x012af0b7E4ABe0E6689197C91D879216db159737",
-  "nodeImplementation": "0x70F37BAd9f0a357763ce899583348e5b0E48402f",
-  "nodeRegistryImplementation": "0xB512d72e24446484bf2E95fee1B2D80e089667B9",
-  "nodeRegistryProxy": "0x17E87f2354E5ea196737FEE0B27BF23DB059806a",
+  "nodeFactory": "0xa62fe99d92143fE5fd53406A737Cf55Ce2359846",
+  "nodeImplementation": "0xf79EBEf3A29dA038086DDae0C92A404cB8204F06",
+  "nodeRegistryImplementation": "0x9c76C038C920D970daA887864cC8B3ecAe9624f0",
+  "nodeRegistryProxy": "0xC0eEdf3980784fCF4576f139244D20F31BAaDF6E",
   "policies": {
-    "capPolicy": "0x9e75a24958bE6c95A0F0e0F4071ea3F2b3C76Ffb",
-    "gatePolicyBlacklist": "0xBBe32ac0122C4180499960B81A22C792F7DF6666",
-    "gatePolicyWhitelist": "0x0BB694512042DEAa1c4F26019E1d2175AFc0031E",
-    "nodePausingPolicy": "0xD4B0dF19b98115665650aA4B049d3808131cc926",
-    "protocolPausingPolicy": "0xfc25ca5Dd1b9050Ac4d38dC0FFd99D380656a7C7"
+    "capPolicy": "0xd23984021920Dcc34dEC7fE963FFC2126A8dfA69",
+    "gatePolicyBlacklist": "0x26Ca49976CE458bD64F19404A8B6679F4199fa26",
+    "gatePolicyWhitelist": "0x14489865fEbAe558F68a3434876480F2DA777ACc",
+    "nodePausingPolicy": "0x523f235A208f315B71cAc1487E6695Bca7B106DB",
+    "protocolPausingPolicy": "0x98eEbA266259b190f40F428db62b305E1Ae0BE53"
   },
   "routers": {
-    "erc4626Router": "0xb52eb21B3B65FE6297426C0d47d45C7ef26DF940",
-    "erc7540Router": "0xC1b7b8677AeEFe970346ffa9c515D4eeE883B425",
-    "fluidRewardsRouter": "0x738a892af3aD7371F9df8E63f87038ebb56498a7",
-    "incentraRouter": "0x3D7fB638CB9B7F5D9CA895e1cdE4923E2a8D9aF9",
-    "merklRouter": "0x206dFD8A97dbE5c29044D2eFAF9470df685a861E",
-    "oneInchRouter": "0xfA0A77F3584a7B3d9276eC04315ab1CE4DA1283A"
+    "erc4626Router": "0x3e1d7D333438b7dD6C4c3447a1eF804D3C7d2600",
+    "erc7540Router": "0x7406D3D27ebCa7Cd75b959bF1A984f7D489425A0",
+    "fluidRewardsRouter": "0xc6AddC690ef15653E36738412801265f3b82bdD3",
+    "incentraRouter": "0xc5f31F095825aD336Ec773F02a02aF62aB013526",
+    "merklRouter": "0x54c1040d94D8eEB6ad0FF1BFF9ED4dd164b49761",
+    "oneInchRouter": "0xA339280c6a451361Cd0cF217B3533f3628EE90f9"
   }
 }
