@@ -240,22 +240,23 @@ contract FuzzSetup is HelperFunctions {
         digiftPriceOracleMock.setLatestRoundData(1, 2e10, block.timestamp, block.timestamp, 1);
 
         DigiftAdapter implementation =
-            new DigiftAdapter(address(subRedManagement), address(registry), address(digiftEventVerifier));
+            new DigiftAdapter(address(registry), address(subRedManagement), address(digiftEventVerifier));
         digiftFactory = new DigiftAdapterFactory(address(implementation), owner);
 
-        DigiftAdapter.InitArgs memory initArgs = DigiftAdapter.InitArgs({
+        DigiftAdapter.InitArgs memory initArgs = AdapterBase.InitArgs({
             name: "Digift Adapter",
             symbol: "dGIF",
             asset: address(assetToken),
             assetPriceOracle: address(assetPriceOracleMock),
-            stToken: address(stToken),
-            dFeedPriceOracle: address(digiftPriceOracleMock),
+            fund: address(stToken),
+            fundPriceOracle: address(digiftPriceOracleMock),
             priceDeviation: 1e15,
             settlementDeviation: 1e16,
-            priceUpdateDeviationDigift: 4 days,
+            priceUpdateDeviationFund: 4 days,
             priceUpdateDeviationAsset: 4 days,
             minDepositAmount: 1_000e6,
-            minRedeemAmount: 10e18
+            minRedeemAmount: 10e18,
+            customInitData: ""
         });
 
         vm.startPrank(owner);

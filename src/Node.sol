@@ -14,14 +14,15 @@ import {NodeLib} from "src/libraries/NodeLib.sol";
 import {MulticallUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Arrays} from "@openzeppelin/contracts/utils/Arrays.sol";
 
-contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, MulticallUpgradeable {
+contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuard, MulticallUpgradeable {
     using Address for address;
     using SafeERC20 for IERC20;
     using Math for uint256;
@@ -76,7 +77,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         __ERC20_init(args.name, args.symbol);
         // ownership will be transferred in Factory after setting up the Node (routers, component, etc)
         __Ownable_init(msg.sender);
-        __ReentrancyGuard_init();
         __Multicall_init();
 
         asset = args.asset;
@@ -749,15 +749,6 @@ contract Node is INode, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function _validateOwner(address owner, uint256 shares) internal {
         if (owner != msg.sender && !isOperator[owner][msg.sender]) {
             _spendAllowance(owner, msg.sender, shares);
-        }
-    }
-
-    function _validateNoDuplicateComponents(address[] memory componentArray) internal pure {
-        uint256 len = componentArray.length;
-        if (len == 0) return;
-        Arrays.sort(componentArray);
-        for (uint256 i = 0; i < len - 1; i++) {
-            if (componentArray[i] == componentArray[i + 1]) revert ErrorsLib.DuplicateComponent();
         }
     }
 

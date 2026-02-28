@@ -95,7 +95,7 @@ contract DeployCore is Script {
             contracts.digiftEventVerifier = address(new DigiftEventVerifier(contracts.nodeRegistryProxy));
             contracts.digiftAdapterImplementation = address(
                 new DigiftAdapter(
-                    config.digiftSubRedManagement, contracts.nodeRegistryProxy, contracts.digiftEventVerifier
+                    contracts.nodeRegistryProxy, config.digiftSubRedManagement, contracts.digiftEventVerifier
                 )
             );
             contracts.digiftAdapterFactory =

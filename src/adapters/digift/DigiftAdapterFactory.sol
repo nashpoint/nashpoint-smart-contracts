@@ -4,9 +4,11 @@ pragma solidity 0.8.28;
 import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {DigiftAdapter} from "./DigiftAdapter.sol";
+import {AdapterBase} from "src/adapters/AdapterBase.sol";
 
 /**
  * @title DigiftAdapterFactory
+ * @author ODND Studios
  * @notice Factory contract for deploying DigiftAdapter instances using beacon proxy pattern
  * @dev Extends UpgradeableBeacon to enable upgradeable DigiftAdapter deployments
  * @dev All deployed adapters share the same implementation but have independent storage
@@ -45,15 +47,11 @@ contract DigiftAdapterFactory is UpgradeableBeacon {
      * @param initArgs The initialization arguments for the new DigiftAdapter
      * @return digiftAdapter The newly deployed and initialized DigiftAdapter instance
      */
-    function deploy(DigiftAdapter.InitArgs calldata initArgs)
-        external
-        onlyOwner
-        returns (DigiftAdapter digiftAdapter)
-    {
+    function deploy(AdapterBase.InitArgs calldata initArgs) external onlyOwner returns (DigiftAdapter digiftAdapter) {
         // Deploy a new BeaconProxy that points to this factory
         // The proxy will use the implementation set in this beacon
         address digiftAdapterAddress =
-            address(new BeaconProxy(address(this), abi.encodeWithSelector(DigiftAdapter.initialize.selector, initArgs)));
+            address(new BeaconProxy(address(this), abi.encodeWithSelector(AdapterBase.initialize.selector, initArgs)));
 
         emit Deployed(digiftAdapterAddress);
 

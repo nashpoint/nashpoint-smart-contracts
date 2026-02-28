@@ -7,7 +7,7 @@
 	branch = release-v4
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
-	url = https://github.com/openzeppelin/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
 	branch = release-v5.2
 [submodule "lib/optimism"]
 	path = lib/optimism

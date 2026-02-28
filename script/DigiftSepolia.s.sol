@@ -8,6 +8,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {Environment} from "./Utils.sol";
 
 import {DigiftAdapter} from "src/adapters/digift/DigiftAdapter.sol";
+import {AdapterBase} from "src/adapters/AdapterBase.sol";
 import {DigiftAdapterFactory} from "src/adapters/digift/DigiftAdapterFactory.sol";
 import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
 
@@ -33,7 +34,7 @@ contract DigiftSepolia is Script {
         );
 
         DigiftAdapter digiftAdapter = DigiftAdapterFactory(contracts.digiftAdapterFactory).deploy(
-            DigiftAdapter.InitArgs(
+            AdapterBase.InitArgs(
                 "iSNR Wrapper",
                 "wiSNR",
                 config.usdc,
@@ -47,7 +48,8 @@ contract DigiftSepolia is Script {
                 2 days,
                 1 days,
                 1000e6,
-                1e18
+                1e18,
+                ""
             )
         );
 

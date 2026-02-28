@@ -9,7 +9,10 @@ import {BaseTest} from "test/BaseTest.sol";
 import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
 import {DigiftAdapterFactory} from "src/adapters/digift/DigiftAdapterFactory.sol";
 import {DigiftAdapter} from "src/adapters/digift/DigiftAdapter.sol";
-import {ISubRedManagement, IDFeedPriceOracle, IManagement, ISecurityToken} from "src/interfaces/external/IDigift.sol";
+import {AdapterBase} from "src/adapters/AdapterBase.sol";
+import {ISubRedManagement, IManagement, ISecurityToken} from "src/interfaces/external/IDigift.sol";
+import {IPriceOracle} from "src/interfaces/external/IPriceOracle.sol";
+
 import {RegistryType} from "src/interfaces/INodeRegistry.sol";
 import {ComponentAllocation, INode, NodeInitArgs} from "src/interfaces/INode.sol";
 import {IERC7540Deposit, IERC7540Redeem} from "src/interfaces/IERC7540.sol";
@@ -32,7 +35,7 @@ contract DigiftForkTest is BaseTest {
     address usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
     ISubRedManagement constant subRedManagement = ISubRedManagement(0x3DAd21A73a63bBd186f57f733d271623467b6c78);
-    IDFeedPriceOracle constant dFeedPriceOracle = IDFeedPriceOracle(0x67aE0CAAC7f6995d8B24d415F584e5625cdEe048);
+    IPriceOracle constant dFeedPriceOracle = IPriceOracle(0x67aE0CAAC7f6995d8B24d415F584e5625cdEe048);
     ISecurityToken constant stToken = ISecurityToken(0x37EC21365dC39B0b74ea7b6FabFfBcB277568AC4);
 
     function setUp() public override {
@@ -40,12 +43,12 @@ contract DigiftForkTest is BaseTest {
         super.setUp();
 
         address digiftAdapterImpl =
-            address(new DigiftAdapter(address(subRedManagement), address(registry), digiftEventVerifier));
+            address(new DigiftAdapter(address(registry), address(subRedManagement), digiftEventVerifier));
 
         DigiftAdapterFactory dFactory = new DigiftAdapterFactory(digiftAdapterImpl, address(this));
 
         digiftAdapter = dFactory.deploy(
-            DigiftAdapter.InitArgs(
+            AdapterBase.InitArgs(
                 "stToken Adapter",
                 "wst",
                 address(asset),
@@ -61,7 +64,8 @@ contract DigiftForkTest is BaseTest {
                 // set 100 USDC instead of 1000
                 100e6,
                 // set 1 stToken instead of 10
-                1e18
+                1e18,
+                ""
             )
         );
 
@@ -167,7 +171,7 @@ contract DigiftForkTest is BaseTest {
 
     function _forward() internal {
         vm.startPrank(manager);
-        digiftAdapter.forwardRequestsToDigift();
+        digiftAdapter.forwardRequests();
         vm.stopPrank();
     }
 
@@ -281,7 +285,7 @@ contract DigiftForkTest is BaseTest {
         assertEq(node.totalAssets(), balance);
     }
 
-    function test_forwardRequestsToDigift_one_deposit_only() external {
+    function test_forwardRequests_one_deposit_only() external {
         uint256 depositAmount = _invest();
 
         vm.expectEmit(true, true, true, true, address(subRedManagement));
@@ -289,12 +293,12 @@ contract DigiftForkTest is BaseTest {
             address(subRedManagement), address(stToken), address(asset), address(digiftAdapter), INVEST_AMOUNT
         );
         vm.expectEmit(true, true, true, true, address(digiftAdapter));
-        emit DigiftAdapter.DigiftSubscribed(depositAmount);
+        emit AdapterBase.FundDeposited(depositAmount);
         _forward();
 
         assertEq(digiftAdapter.globalPendingDepositRequest(), depositAmount, "Pending whole deposit amount");
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.DepositRequestPending.selector));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.DepositRequestPending.selector));
         _forward();
     }
 
@@ -307,7 +311,7 @@ contract DigiftForkTest is BaseTest {
         _settleSubscription(sharesToMint, 0, 0);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftAdapter.DepositSettled(address(node), sharesToMint, 0);
+        emit AdapterBase.DepositSettled(address(node), sharesToMint, 0);
         _settleDeposit(node, sharesToMint, 0);
 
         assertEq(digiftAdapter.globalPendingDepositRequest(), 0, "After settle there is nothing pending");
@@ -359,7 +363,7 @@ contract DigiftForkTest is BaseTest {
         assertEq(digiftAdapter.balanceOf(address(node)), 0, "Node has no shares initially");
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftAdapter.DepositSettled(address(node), partialShares, assetsToReimburse);
+        emit AdapterBase.DepositSettled(address(node), partialShares, assetsToReimburse);
         _settleDeposit(node, partialShares, assetsToReimburse);
 
         assertEq(digiftAdapter.pendingDepositRequest(0, address(node)), 0, "No pending assets to deposit");
@@ -410,7 +414,7 @@ contract DigiftForkTest is BaseTest {
         assertApproxEqAbs(node.totalAssets(), balance, 2);
     }
 
-    function test_forwardRequestsToDigift_one_redeem_only() external {
+    function test_forwardRequests_one_redeem_only() external {
         uint256 depositAmount = _invest();
 
         uint256 sharesToMint = digiftAdapter.convertToShares(depositAmount);
@@ -429,7 +433,7 @@ contract DigiftForkTest is BaseTest {
         _forward();
         assertEq(digiftAdapter.globalPendingRedeemRequest(), toLiquidate);
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.RedeemRequestPending.selector));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.RedeemRequestPending.selector));
         _forward();
     }
 
@@ -448,7 +452,7 @@ contract DigiftForkTest is BaseTest {
         _settleRedemption(0, assetsToReturn, 0);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftAdapter.RedeemSettled(address(node), 0, assetsToReturn);
+        emit AdapterBase.RedeemSettled(address(node), 0, assetsToReturn);
         _settleRedeem(node, assetsToReturn, 0);
 
         assertEq(digiftAdapter.pendingRedeemRequest(0, address(node)), 0);
@@ -511,7 +515,7 @@ contract DigiftForkTest is BaseTest {
         _settleRedemption(sharesToReimburse, partialAssets, 0);
 
         vm.expectEmit(true, true, true, true);
-        emit DigiftAdapter.RedeemSettled(address(node), sharesToReimburse, partialAssets);
+        emit AdapterBase.RedeemSettled(address(node), sharesToReimburse, partialAssets);
         _settleRedeem(node, partialAssets, sharesToReimburse);
 
         assertEq(digiftAdapter.pendingRedeemRequest(0, address(node)), 0, "No pending shares to redeem");
@@ -535,26 +539,26 @@ contract DigiftForkTest is BaseTest {
     // =============================
 
     function test_requestDeposit_BelowLimit() external {
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.BelowLimit.selector, 100e6, 0));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.BelowLimit.selector, 100e6, 0));
         vm.prank(address(node));
         digiftAdapter.requestDeposit(0, address(node), address(node));
     }
 
     function test_requestDeposit_ControllerNotSender() external {
-        vm.expectRevert(DigiftAdapter.ControllerNotSender.selector);
+        vm.expectRevert(AdapterBase.ControllerNotSender.selector);
         vm.prank(address(node));
         digiftAdapter.requestDeposit(DEPOSIT_AMOUNT, address(this), address(node));
     }
 
     function test_requestDeposit_OwnerNotSender() external {
-        vm.expectRevert(DigiftAdapter.OwnerNotSender.selector);
+        vm.expectRevert(AdapterBase.OwnerNotSender.selector);
         vm.prank(address(node));
         digiftAdapter.requestDeposit(DEPOSIT_AMOUNT, address(node), address(this));
     }
 
     function test_requestDeposit_DepositRequestPending() external {
         _invest();
-        vm.expectRevert(DigiftAdapter.DepositRequestPending.selector);
+        vm.expectRevert(AdapterBase.DepositRequestPending.selector);
         vm.prank(address(node));
         digiftAdapter.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
     }
@@ -569,7 +573,7 @@ contract DigiftForkTest is BaseTest {
         _mint(node);
         _liquidate(sharesToMint / 2);
 
-        vm.expectRevert(DigiftAdapter.RedeemRequestPending.selector);
+        vm.expectRevert(AdapterBase.RedeemRequestPending.selector);
         vm.prank(address(node));
         digiftAdapter.requestDeposit(1000e6, address(node), address(node));
     }
@@ -582,7 +586,7 @@ contract DigiftForkTest is BaseTest {
         _settleSubscription(sharesToMint, 0, 0);
         _settleDeposit(node, sharesToMint, 0);
 
-        vm.expectRevert(DigiftAdapter.DepositRequestNotClaimed.selector);
+        vm.expectRevert(AdapterBase.DepositRequestNotClaimed.selector);
         vm.prank(address(node));
         digiftAdapter.requestDeposit(DEPOSIT_AMOUNT, address(node), address(node));
     }
@@ -602,25 +606,25 @@ contract DigiftForkTest is BaseTest {
         _settleRedemption(0, assetsToReturn, 0);
         _settleRedeem(node, assetsToReturn, 0);
 
-        vm.expectRevert(DigiftAdapter.RedeemRequestNotClaimed.selector);
+        vm.expectRevert(AdapterBase.RedeemRequestNotClaimed.selector);
         vm.prank(address(node));
         digiftAdapter.requestDeposit(1000e6, address(node), address(node));
     }
 
     function test_requestRedeem_BelowLimit() external {
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.BelowLimit.selector, 1e18, 0));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.BelowLimit.selector, 1e18, 0));
         vm.prank(address(node));
         digiftAdapter.requestRedeem(0, address(node), address(node));
     }
 
     function test_requestRedeem_ControllerNotSender() external {
-        vm.expectRevert(DigiftAdapter.ControllerNotSender.selector);
+        vm.expectRevert(AdapterBase.ControllerNotSender.selector);
         vm.prank(address(node));
         digiftAdapter.requestRedeem(1000e18, address(this), address(node));
     }
 
     function test_requestRedeem_OwnerNotSender() external {
-        vm.expectRevert(DigiftAdapter.OwnerNotSender.selector);
+        vm.expectRevert(AdapterBase.OwnerNotSender.selector);
         vm.prank(address(node));
         digiftAdapter.requestRedeem(1000e18, address(node), address(this));
     }
@@ -635,7 +639,7 @@ contract DigiftForkTest is BaseTest {
         _mint(node);
         _liquidate(sharesToMint / 2);
 
-        vm.expectRevert(DigiftAdapter.RedeemRequestPending.selector);
+        vm.expectRevert(AdapterBase.RedeemRequestPending.selector);
         vm.prank(address(node));
         digiftAdapter.requestRedeem(1000e6, address(node), address(node));
     }
@@ -655,32 +659,32 @@ contract DigiftForkTest is BaseTest {
         _settleRedemption(0, assetsToReturn, 0);
         _settleRedeem(node, assetsToReturn, 0);
 
-        vm.expectRevert(DigiftAdapter.RedeemRequestNotClaimed.selector);
+        vm.expectRevert(AdapterBase.RedeemRequestNotClaimed.selector);
         vm.prank(address(node));
         digiftAdapter.requestRedeem(1000e6, address(node), address(node));
     }
 
     function test_mint_BelowLimit() external {
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.BelowLimit.selector, 1, 0));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.BelowLimit.selector, 1, 0));
 
         vm.prank(address(node));
         digiftAdapter.mint(0, address(node), address(node));
     }
 
     function test_mint_ControllerNotSender() external {
-        vm.expectRevert(DigiftAdapter.ControllerNotSender.selector);
+        vm.expectRevert(AdapterBase.ControllerNotSender.selector);
         vm.prank(address(node));
         digiftAdapter.mint(1000e6, address(node), address(this));
     }
 
     function test_mint_OwnerNotSender() external {
-        vm.expectRevert(DigiftAdapter.OwnerNotSender.selector);
+        vm.expectRevert(AdapterBase.OwnerNotSender.selector);
         vm.prank(address(node));
         digiftAdapter.mint(1000e6, address(this), address(node));
     }
 
     function test_mint_DepositRequestNotFulfilled() external {
-        vm.expectRevert(DigiftAdapter.DepositRequestNotFulfilled.selector);
+        vm.expectRevert(AdapterBase.DepositRequestNotFulfilled.selector);
         vm.prank(address(node));
         digiftAdapter.mint(1000e6, address(node), address(node));
     }
@@ -693,31 +697,31 @@ contract DigiftForkTest is BaseTest {
         _settleSubscription(sharesToMint, 0, 0);
         _settleDeposit(node, sharesToMint, 0);
 
-        vm.expectRevert(DigiftAdapter.MintAllSharesOnly.selector);
+        vm.expectRevert(AdapterBase.MintAllSharesOnly.selector);
         vm.prank(address(node));
         digiftAdapter.mint(sharesToMint / 2, address(node), address(node));
     }
 
     function test_withdraw_BelowLimit() external {
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.BelowLimit.selector, 1, 0));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.BelowLimit.selector, 1, 0));
         vm.prank(address(node));
         digiftAdapter.withdraw(0, address(node), address(node));
     }
 
     function test_withdraw_ControllerNotSender() external {
-        vm.expectRevert(DigiftAdapter.ControllerNotSender.selector);
+        vm.expectRevert(AdapterBase.ControllerNotSender.selector);
         vm.prank(address(node));
         digiftAdapter.withdraw(1000e6, address(node), address(this));
     }
 
     function test_withdraw_OwnerNotSender() external {
-        vm.expectRevert(DigiftAdapter.OwnerNotSender.selector);
+        vm.expectRevert(AdapterBase.OwnerNotSender.selector);
         vm.prank(address(node));
         digiftAdapter.withdraw(1000e6, address(this), address(node));
     }
 
     function test_withdraw_RedeemRequestNotFulfilled() external {
-        vm.expectRevert(DigiftAdapter.RedeemRequestNotFulfilled.selector);
+        vm.expectRevert(AdapterBase.RedeemRequestNotFulfilled.selector);
         vm.prank(address(node));
         digiftAdapter.withdraw(1000e6, address(node), address(node));
     }
@@ -737,13 +741,13 @@ contract DigiftForkTest is BaseTest {
         _settleRedemption(0, assetsToReturn, 0);
         _settleRedeem(node, assetsToReturn, 0);
 
-        vm.expectRevert(DigiftAdapter.WithdrawAllAssetsOnly.selector);
+        vm.expectRevert(AdapterBase.WithdrawAllAssetsOnly.selector);
         vm.prank(address(node));
         digiftAdapter.withdraw(assetsToReturn / 2, address(node), address(node));
     }
 
     function test_settleDeposit_NothingToSettle() external {
-        vm.expectRevert(DigiftAdapter.NothingToSettle.selector);
+        vm.expectRevert(AdapterBase.NothingToSettle.selector);
         _settleDeposit(node, 1000e6, 0);
     }
 
@@ -768,7 +772,7 @@ contract DigiftForkTest is BaseTest {
         // pass two times the same node
         nodes[0] = address(node);
         nodes[1] = address(node);
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NoPendingDepositRequest.selector, address(node)));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.NoPendingDepositRequest.selector, address(node)));
         digiftAdapter.settleDeposit(nodes, fargs);
         vm.stopPrank();
     }
@@ -784,7 +788,7 @@ contract DigiftForkTest is BaseTest {
             uint256 insufficientShares = sharesToMint * 98 / 100;
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    DigiftAdapter.SettlementNotInRange.selector,
+                    AdapterBase.SettlementNotInRange.selector,
                     depositAmount,
                     digiftAdapter.convertToAssets(insufficientShares)
                 )
@@ -796,7 +800,7 @@ contract DigiftForkTest is BaseTest {
             uint256 insufficientShares = (sharesToMint / 2) * 99 / 100;
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    DigiftAdapter.SettlementNotInRange.selector,
+                    AdapterBase.SettlementNotInRange.selector,
                     depositAmount,
                     insufficientAssets + digiftAdapter.convertToAssets(insufficientShares)
                 )
@@ -812,7 +816,7 @@ contract DigiftForkTest is BaseTest {
     }
 
     function test_settleRedeem_NothingToSettle() external {
-        vm.expectRevert(DigiftAdapter.NothingToSettle.selector);
+        vm.expectRevert(AdapterBase.NothingToSettle.selector);
         _settleRedeem(node, 1000e6, 0);
     }
 
@@ -844,7 +848,7 @@ contract DigiftForkTest is BaseTest {
         address[] memory nodes = new address[](2);
         nodes[0] = address(node);
         nodes[1] = address(node);
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NoPendingRedeemRequest.selector, address(node)));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.NoPendingRedeemRequest.selector, address(node)));
         digiftAdapter.settleRedeem(nodes, fargs);
         vm.stopPrank();
     }
@@ -867,7 +871,7 @@ contract DigiftForkTest is BaseTest {
             uint256 insufficientAssets = assetsToReturn * 98 / 100;
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    DigiftAdapter.SettlementNotInRange.selector,
+                    AdapterBase.SettlementNotInRange.selector,
                     toLiquidate,
                     digiftAdapter.convertToShares(insufficientAssets)
                 )
@@ -879,7 +883,7 @@ contract DigiftForkTest is BaseTest {
             uint256 insufficientShares = (toLiquidate / 2) * 99 / 100;
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    DigiftAdapter.SettlementNotInRange.selector,
+                    AdapterBase.SettlementNotInRange.selector,
                     toLiquidate,
                     insufficientShares + digiftAdapter.convertToShares(insufficientAssets)
                 )
@@ -899,62 +903,62 @@ contract DigiftForkTest is BaseTest {
     // =============================
 
     function test_deposit_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.deposit(1000e6, address(node), address(node));
     }
 
     function test_deposit_single_param_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.deposit(1000e6, address(node));
     }
 
     function test_mint_single_param_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.mint(1000e6, address(node));
     }
 
     function test_redeem_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.redeem(1000e6, address(node), address(node));
     }
 
     function test_previewDeposit_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.previewDeposit(1000e6);
     }
 
     function test_previewMint_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.previewMint(1000e6);
     }
 
     function test_previewWithdraw_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.previewWithdraw(1000e6);
     }
 
     function test_previewRedeem_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.previewRedeem(1000e6);
     }
 
     function test_maxRedeem_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.maxRedeem(address(node));
     }
 
     function test_maxDeposit_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.maxDeposit(address(node));
     }
 
     function test_setOperator_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.setOperator(address(this), true);
     }
 
     function test_isOperator_Unsupported() external {
-        vm.expectRevert(DigiftAdapter.Unsupported.selector);
+        vm.expectRevert(AdapterBase.Unsupported.selector);
         digiftAdapter.isOperator(address(node), address(this));
     }
 
@@ -1067,7 +1071,7 @@ contract DigiftForkTest is BaseTest {
         _forward();
         _settleSubscription(sharesSum, 0, 0);
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotAllNodesSettled.selector));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.NotAllNodesSettled.selector));
         _settleDeposit(node, sharesSum, 0);
 
         {
@@ -1086,9 +1090,9 @@ contract DigiftForkTest is BaseTest {
             nodes[1] = address(node2);
             // check correct dust handling
             vm.expectEmit(true, true, true, true);
-            emit DigiftAdapter.DepositSettled(address(node), shares1 - 1, 0);
+            emit AdapterBase.DepositSettled(address(node), shares1 - 1, 0);
             vm.expectEmit(true, true, true, true);
-            emit DigiftAdapter.DepositSettled(address(node2), shares2 + 1, 0);
+            emit AdapterBase.DepositSettled(address(node2), shares2 + 1, 0);
             digiftAdapter.settleDeposit(nodes, fargs);
             vm.stopPrank();
         }
@@ -1129,9 +1133,9 @@ contract DigiftForkTest is BaseTest {
             nodes[1] = address(node2);
             // check correct dust handling
             vm.expectEmit(true, true, true, true);
-            emit DigiftAdapter.DepositSettled(address(node), shares1 - 1, 0);
+            emit AdapterBase.DepositSettled(address(node), shares1 - 1, 0);
             vm.expectEmit(true, true, true, true);
-            emit DigiftAdapter.DepositSettled(address(node2), shares2 + 1, 0);
+            emit AdapterBase.DepositSettled(address(node2), shares2 + 1, 0);
             digiftAdapter.settleDeposit(nodes, fargs);
             vm.stopPrank();
         }
@@ -1145,7 +1149,7 @@ contract DigiftForkTest is BaseTest {
 
         _settleRedemption(0, assetsToReturn, 0);
 
-        vm.expectRevert(abi.encodeWithSelector(DigiftAdapter.NotAllNodesSettled.selector));
+        vm.expectRevert(abi.encodeWithSelector(AdapterBase.NotAllNodesSettled.selector));
         _settleRedeem(node, assetsToReturn, 0);
 
         {
@@ -1164,9 +1168,9 @@ contract DigiftForkTest is BaseTest {
             nodes[1] = address(node2);
             // check correct dust handling
             vm.expectEmit(true, true, true, true);
-            emit DigiftAdapter.RedeemSettled(address(node), 0, assets1);
+            emit AdapterBase.RedeemSettled(address(node), 0, assets1);
             vm.expectEmit(true, true, true, true);
-            emit DigiftAdapter.RedeemSettled(address(node2), 0, assets2 + 1);
+            emit AdapterBase.RedeemSettled(address(node2), 0, assets2 + 1);
             digiftAdapter.settleRedeem(nodes, fargs);
             vm.stopPrank();
         }

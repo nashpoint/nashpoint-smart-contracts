@@ -199,7 +199,7 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
 
                 // Now forward can succeed
                 vm.prank(rebalancer);
-                try digiftAdapter.forwardRequestsToDigift() {} catch {}
+                try digiftAdapter.forwardRequests() {} catch {}
 
                 // Re-check pending after forward
                 pendingRedeemGlobal = digiftAdapter.globalPendingRedeemRequest();
@@ -461,7 +461,7 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         _recordDigiftPendingDeposit(address(node), address(digiftAdapter), assetsAmount);
 
         vm.prank(rebalancer);
-        try digiftAdapter.forwardRequestsToDigift() {} catch {}
+        try digiftAdapter.forwardRequests() {} catch {}
 
         _flushPendingDeposits();
 
@@ -512,7 +512,7 @@ contract PreconditionsDigiftAdapter is PreconditionsBase {
         }
 
         vm.prank(rebalancer);
-        try digiftAdapter.forwardRequestsToDigift() {} catch {}
+        try digiftAdapter.forwardRequests() {} catch {}
 
         _flushPendingRedemptions();
 

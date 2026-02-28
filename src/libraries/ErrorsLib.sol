@@ -133,9 +133,6 @@ library ErrorsLib {
     /// @notice Thrown when the assets requested are more than the available reserve  asset of the node
     error ExceedsAvailableReserve();
 
-    /// @notice Thrown when the component is already in the queue.
-    error DuplicateComponent();
-
     /// @notice Thrown when the cooldown is active.
     error CooldownActive();
 

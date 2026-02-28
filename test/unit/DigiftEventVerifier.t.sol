@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
+import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 
 contract DigiftEventVerifierHarness is DigiftEventVerifier {
     constructor(address registry_) DigiftEventVerifier(registry_) {}
@@ -51,7 +52,7 @@ contract DigiftEventVerifierTest is Test {
     }
 
     function test_stripTypedPrefix_ZeroBytes() external {
-        vm.expectRevert(DigiftEventVerifier.ZeroBytes.selector);
+        vm.expectRevert(EventVerifierBase.ZeroBytes.selector);
         harness.stripTypedPrefix("");
     }
 }
