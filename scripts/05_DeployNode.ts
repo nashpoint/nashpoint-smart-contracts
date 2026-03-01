@@ -1,13 +1,19 @@
 import { ethers, network } from 'hardhat';
 import {
-    ErrorsLib__factory,
+    ERC20__factory,
     GatePolicyWhitelist__factory,
+    IERC20PermitHardhat__factory,
     Node__factory,
     NodeFactory__factory,
+    NodePausingPolicy__factory,
 } from '../typechain-types';
+import { SetupCallStruct } from '../typechain-types/src/NodeFactory';
+import { signPermit } from './utils/permit';
 import {
     buildLeafs,
     buildPolicy,
+    decodeError,
+    functionNamesToSignatures,
     getContracts,
     getNodeData,
     getPoliciesMerkleTree,
@@ -15,7 +21,6 @@ import {
     weiToPercent,
     writeNodeData,
 } from './utils/utils';
-import { SetupCallStruct } from '../typechain-types/src/NodeFactory';
 
 async function main() {
     const fileName = process.env.FILE;
@@ -49,6 +54,44 @@ async function main() {
         deployer.address,
     );
 
+    const decimals = await ERC20__factory.connect(nodeData.asset, ethers.provider).decimals();
+    if (nodeData.seedValue) {
+        const { payload, signature } = await signPermit(
+            deployer,
+            contracts.nodeFactory,
+            nodeData.asset,
+            ethers.parseUnits(nodeData.seedValue.toString(), decimals),
+        );
+        const { owner, spender, value, deadline } = payload;
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: IERC20PermitHardhat__factory.createInterface().encodeFunctionData(
+                'permit(address,address,uint256,uint256,bytes)',
+                [owner, spender, value, deadline, signature],
+            ),
+        });
+
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: ERC20__factory.createInterface().encodeFunctionData('transferFrom', [
+                owner,
+                contracts.nodeFactory,
+                value,
+            ]),
+        });
+
+        setupCalls.push({
+            target: nodeData.asset,
+            payload: ERC20__factory.createInterface().encodeFunctionData('approve', [
+                nodeAddressPredicted,
+                value,
+            ]),
+        });
+
+        // TODO: receiver might be configurable
+        nodePayload.push(node.encodeFunctionData('deposit', [value, deployer.address]));
+    }
+
     if (nodeData.rebalancer) {
         for (const r of nodeData.rebalancer) {
             nodePayload.push(node.encodeFunctionData('addRebalancer', [r]));
@@ -61,6 +104,11 @@ async function main() {
     }
     if (nodeData.rebalanceWindow) {
         nodePayload.push(node.encodeFunctionData('setRebalanceWindow', [nodeData.rebalanceWindow]));
+    }
+    if (nodeData.nodeOwnerFeeAddress) {
+        nodePayload.push(
+            node.encodeFunctionData('setNodeOwnerFeeAddress', [nodeData.nodeOwnerFeeAddress]),
+        );
     }
     if (nodeData.policies) {
         const policiesToUse = nodeData.policies.map((p) => buildPolicy(p, contracts));
@@ -88,9 +136,35 @@ async function main() {
     if (nodeData.pauser) {
         setupCalls.push({
             target: contracts.policies.nodePausingPolicy,
-            payload: GatePolicyWhitelist__factory.createInterface().encodeFunctionData('add', [
+            payload: NodePausingPolicy__factory.createInterface().encodeFunctionData('add', [
                 nodeAddressPredicted,
                 nodeData.pauser,
+            ]),
+        });
+    }
+    if (nodeData.pauseFunctions) {
+        // whitelist nodeFactory for one tx
+        setupCalls.push({
+            target: contracts.policies.nodePausingPolicy,
+            payload: NodePausingPolicy__factory.createInterface().encodeFunctionData('add', [
+                nodeAddressPredicted,
+                [contracts.nodeFactory],
+            ]),
+        });
+        // pause functions
+        setupCalls.push({
+            target: contracts.policies.nodePausingPolicy,
+            payload: NodePausingPolicy__factory.createInterface().encodeFunctionData('pauseSigs', [
+                nodeAddressPredicted,
+                functionNamesToSignatures(nodeData.pauseFunctions),
+            ]),
+        });
+        // de-whitelist nodeFactory after pausing
+        setupCalls.push({
+            target: contracts.policies.nodePausingPolicy,
+            payload: NodePausingPolicy__factory.createInterface().encodeFunctionData('remove', [
+                nodeAddressPredicted,
+                [contracts.nodeFactory],
             ]),
         });
     }
@@ -177,26 +251,7 @@ async function main() {
             console.log(`Node is deployed at ${nodeData.address}`);
         }
     } catch (error) {
-        const interfaces = [
-            NodeFactory__factory.createInterface(),
-            Node__factory.createInterface(),
-            ErrorsLib__factory.createInterface(),
-        ];
-        let decoded = false;
-        for (const i of interfaces) {
-            try {
-                // @ts-ignore
-                const parsedError = i.parseError(error.data);
-                if (parsedError) {
-                    console.log(parsedError);
-                    decoded = true;
-                }
-                break;
-            } catch (error) {}
-        }
-        if (!decoded) {
-            console.log(error);
-        }
+        decodeError(error);
     }
 }
 

@@ -1,0 +1,30 @@
+{
+  "name": "Axal RealYield Vault",
+  "symbol": "ARYV",
+  "asset": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+  "owner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+  "nodeOwnerFeeAddress": "0xdcf22941352853cA5140C8Df579E00DB7Ed8C3EB",
+  "rebalancer": [
+    "0xB1ce02d5eE676e657BD59D2EE5dFB147a13f56e9"
+  ],
+  "components": {
+    "erc7540Router": [],
+    "erc4626Router": []
+  },
+  "targetReserveRatio": 100,
+  "policies": [
+    "nodePausingPolicy",
+    "protocolPausingPolicy"
+  ],
+  "pauser": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
+  ],
+  "pauseFunctions": [
+    "transfer",
+    "transferFrom",
+    "approve"
+  ],
+  "rebalanceCooldown": 10800,
+  "rebalanceWindow": 3600,
+  "address": "0x06B8E4abd868F39293ab0d2232473E35aeb39a11"
+}

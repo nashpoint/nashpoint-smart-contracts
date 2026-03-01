@@ -1,3 +1,13 @@
+import { NodeInterface } from './../../typechain-types/src/Node';
+
+export type InterfaceFunctionName<I> = I extends {
+    getFunction(nameOrSignature: infer Name): { selector: string };
+}
+    ? Extract<Name, string>
+    : never;
+
+export type NodeFunctionName = InterfaceFunctionName<NodeInterface>;
+
 export type ComponentAllocation = {
     name: string;
     address: string;
@@ -24,6 +34,10 @@ export type NodeData = {
     pauser?: string[];
     rebalanceCooldown?: number;
     rebalanceWindow?: number;
+    nodeOwnerFeeAddress?: string;
+    pauseFunctions?: NodeFunctionName[];
+    // decimal value
+    seedValue?: number;
 };
 
 export type Config = {
