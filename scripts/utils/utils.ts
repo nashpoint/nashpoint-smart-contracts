@@ -1,11 +1,20 @@
+import { ProtocolPausingPolicy__factory } from './../../typechain-types/factories/src/policies/ProtocolPausingPolicy__factory';
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import fs from 'fs';
 import path from 'path';
 
 import type { Provider } from 'ethers';
 import { ethers } from 'hardhat';
-import { Node__factory } from '../../typechain-types';
-import { Config, Contracts, NodeData, Policy } from './types';
+import {
+    CapPolicy__factory,
+    ErrorsLib__factory,
+    GatePolicyBlacklist__factory,
+    GatePolicyWhitelist__factory,
+    Node__factory,
+    NodeFactory__factory,
+    NodePausingPolicy__factory,
+} from '../../typechain-types';
+import { Config, Contracts, NodeData, NodeFunctionName, Policy } from './types';
 
 export const chainIdToName = (chainId: number) => {
     switch (chainId) {
@@ -66,19 +75,22 @@ export const writeNodeData = (chainId: number, nodeFile: string, nodeData: NodeD
 
 const i = Node__factory.createInterface();
 
-function s<T extends string, I extends { getFunction(name: T): { selector: string } }>(
-    i: I,
-    functions: readonly T[],
-): string[] {
-    return functions.map((f) => i.getFunction(f).selector);
-}
+export const functionNamesToSignatures = (functionNames: readonly NodeFunctionName[]) => {
+    return functionNames.map((f) => {
+        const fun = i.getFunction(f);
+        if (!fun) {
+            throw new Error(`None valid Node function: ${f}`);
+        }
+        return fun.selector;
+    });
+};
 
 export const getPolicySigs = (policy: Policy) => {
     switch (policy) {
         case 'capPolicy':
-            return s(i, ['deposit', 'mint']);
+            return functionNamesToSignatures(['deposit', 'mint']);
         case 'gatePolicyBlacklist':
-            return s(i, [
+            return functionNamesToSignatures([
                 'deposit',
                 'mint',
                 'setOperator',
@@ -90,7 +102,7 @@ export const getPolicySigs = (policy: Policy) => {
                 'transferFrom',
             ]);
         case 'gatePolicyWhitelist':
-            return s(i, [
+            return functionNamesToSignatures([
                 'deposit',
                 'mint',
                 'setOperator',
@@ -102,7 +114,7 @@ export const getPolicySigs = (policy: Policy) => {
                 'transferFrom',
             ]);
         case 'protocolPausingPolicy':
-            return s(i, [
+            return functionNamesToSignatures([
                 'deposit',
                 'mint',
                 'withdraw',
@@ -121,7 +133,7 @@ export const getPolicySigs = (policy: Policy) => {
                 'transferFrom',
             ]);
         case 'nodePausingPolicy':
-            return s(i, [
+            return functionNamesToSignatures([
                 'deposit',
                 'mint',
                 'withdraw',
@@ -182,4 +194,33 @@ export const getGasFee = async (provider: Provider, percentIncrease = 20) => {
         result.gasPrice = (feeData.gasPrice * multiplier) / 100n;
     }
     return result;
+};
+
+const interfaces = [
+    NodeFactory__factory.createInterface(),
+    Node__factory.createInterface(),
+    ErrorsLib__factory.createInterface(),
+    NodePausingPolicy__factory.createInterface(),
+    ProtocolPausingPolicy__factory.createInterface(),
+    CapPolicy__factory.createInterface(),
+    GatePolicyWhitelist__factory.createInterface(),
+    GatePolicyBlacklist__factory.createInterface(),
+];
+
+export const decodeError = (error: unknown) => {
+    let decoded = false;
+    for (const i of interfaces) {
+        try {
+            // @ts-ignore
+            const parsedError = i.parseError(error.data);
+            if (parsedError) {
+                console.log(parsedError);
+                decoded = true;
+                break;
+            }
+        } catch (error) {}
+    }
+    if (!decoded) {
+        console.log(error);
+    }
 };
