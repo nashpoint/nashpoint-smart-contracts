@@ -1,7 +1,7 @@
-# NashPoint 
+# NashPoint
+
 [![Foundry](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml) [![Slither Analysis](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/slither-actions.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/slither-actions.yml)
 [![License: BUSL 1.1](https://img.shields.io/badge/License-BUSL%201.1-blue.svg)](LICENSE)
-
 
 NashPoint enables flexible deployment of investment nodes that can manage positions across multiple ERC4626 and ERC7540 vaults. The protocol was designed to provide a standardized way to manage complex investment strategies. Investors can deposit using ERC4626 synchronous functions, and redeem using the ERC7540 asynchronous tokenized vault standard.
 
@@ -15,10 +15,11 @@ NashPoint enables flexible deployment of investment nodes that can manage positi
 - **Escrow**: Securely holds assets during pending deposit and redemption operations.
 
 - **Routers**: Specialized contracts that execute operations on component vaults:
-  - ERC4626Router: Manages interactions with standard ERC4626 vaults
-  - ERC7540Router: Manages interactions with asynchronous ERC7540 vaults
+    - ERC4626Router: Manages interactions with standard ERC4626 vaults
+    - ERC7540Router: Manages interactions with asynchronous ERC7540 vaults
 
 ### Key Roles:
+
 **Owner:** Owns the node. Sets the strategy by selecting the underlying assets and what proportions to allocate into them. Also sets the parameters for features like rebalancing frequency.
 **Rebalancer:** Address set by the owner. Has allowances to execute asset management functions such as investing to a strategy or processing a user withdrawal according to the parameters defined by the owner.
 
@@ -27,12 +28,14 @@ NashPoint enables flexible deployment of investment nodes that can manage positi
 This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE) file for details.
 
 ## Audits
+
 [![](images/black-NashPoint.svg)](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)
 
-| Scope                                      | Date          | Report                                                                                     |
-|--------------------------------------------|---------------|--------------------------------------------------------------------------------------------|
-| [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | January 2025 | [Cantina](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)              |
-| [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | December 2025 | [Guardian](https://github.com/GuardianAudits/Audits/tree/main/Nashpoint)              |
+| Scope                                                                               | Date          | Report                                                                                                                |
+| ----------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | January 2025  | [Cantina](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)                                         |
+| [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | December 2025 | [Guardian](https://github.com/GuardianAudits/Audits/blob/main/Nashpoint/Nashpoint_Contracts_Review_report.pdf)        |
+| [nashpoint-smart-contracts](https://github.com/nashpoint/nashpoint-smart-contracts) | February 2026 | [Guardian](https://github.com/GuardianAudits/Audits/blob/main/Nashpoint/Nashpoint_Contract_Updates_Review_report.pdf) |
 
 ## Technical Details
 
@@ -92,18 +95,17 @@ pre-commit install
 ```
 
 #### Building
+
 Compile the contracts:
+
 ```
 forge build
 ```
 
 #### Testing
+
 Run the test suite locally with anvil:
+
 ```
 forge test
 ```
-
-
-
-
-
