@@ -976,6 +976,9 @@ contract PostconditionsNode is PostconditionsBase {
             uint256 executorIncentiveBalance = IERC20(params.incentive).balanceOf(executorAddr);
             invariant_ONEINCH_05(executorIncentiveBalance, params.incentiveAmount);
 
+            invariant_ONEINCH_01();
+            invariant_ONEINCH_02(params);
+
             onSuccessInvariantsGeneral(returnData);
         } else {
             onFailInvariantsGeneral(returnData);

@@ -6,7 +6,6 @@ import "./Properties_OneInch.sol";
 import "./Properties_Node.sol";
 import "./Properties_Digift.sol";
 import "./Properties_WT.sol";
-import "./Properties_Registry.sol";
 import "./Properties_Factory.sol";
 import "./Properties_Reward.sol";
 import "../logicalCoverage/LogicalCoverageBase.sol";
@@ -17,7 +16,6 @@ contract Properties is
     Properties_Node,
     Properties_Digift,
     Properties_WT,
-    Properties_Registry,
     Properties_Factory,
     Properties_Reward,
     LogicalCoverageBase

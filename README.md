@@ -12,14 +12,16 @@ This suite provides comprehensive fuzzing coverage for Nashpoint's core protocol
 
 | Contract | Handlers | Focus Areas |
 |----------|----------|-------------|
-| **Node** | 15+ | Deposits, withdrawals, rebalancing, router management, claims |
-| **NodeFactory** | 5+ | Node creation, configuration, upgrades |
-| **DigiftAdapter** | 8+ | Cross-chain operations, event verification, liquidity management |
-| **RewardRouters** | 4+ | Reward distribution, router configuration |
-| **NodeRegistry** | 5+ | Node registration, whitelisting, operator management |
-| **OneInch** | 3+ | DEX integration, swap operations |
+| **Node** | 13 | Deposits, mints, redemptions, withdrawals, transfers, approvals, policies, component backing |
+| **Node Admin** | 17 | Rebalancing, fulfill redeem, router4626/7540 operations, pool management, OneInch swap |
+| **NodeFactory** | 1 | Full node deployment with escrow and configuration |
+| **DigiftAdapter** | 9 | Approvals, transfers, minting, withdrawals, request redeem, settlement |
+| **WTAdapter** | 7 | Minting, withdrawals, redemption requests, settlement, dividends |
+| **RewardRouters** | 3 | Fluid, Incentra, Merkl reward claims |
+| **Donate** | 1 | Unexpected token transfers |
+| **Guided Scenarios** | 5 | Multi-step withdrawal and async router flows |
 
-**Total:** 40+ handlers testing complex multi-contract interactions
+**Total:** 56 handlers testing complex multi-contract interactions
 
 ### Key Features
 
@@ -43,63 +45,15 @@ This suite provides comprehensive fuzzing coverage for Nashpoint's core protocol
 
 ### Prerequisites
 
-```bash
-# Required
 - Foundry (latest)
 - Echidna 2.2.7+
-- Python 3.8+ (for analysis tools)
-```
 
 ### Installation
 
-**✅ The Setup One-Liner**
-
 ```bash
-git clone -b fuzz-suite https://github.com/GuardianOrg/nashpoint-smart-contracts-fuzz-1761255023649.git && \
-cd nashpoint-smart-contracts-fuzz-1761255023649 && \
+git clone -b fuzz-suite https://github.com/nashpoint/nashpoint-smart-contracts.git && \
+cd nashpoint-smart-contracts && \
 git submodule update --init --recursive && \
-forge install perimetersec/fuzzlib --no-git && \
-./patch-optimism.sh && \
-forge build
-```
-
-**📋 Step-by-Step Instructions**
-
-1. **Clone repository**
-
-```bash
-git clone -b fuzz-suite https://github.com/GuardianOrg/nashpoint-smart-contracts-fuzz-1761255023649.git
-cd nashpoint-smart-contracts-fuzz-1761255023649
-```
-
-2. **Verify branch**
-
-```bash
-git branch --show-current
-# Output: fuzz-suite
-```
-
-3. **Initialize submodules**
-
-```bash
-git submodule update --init --recursive
-```
-
-4. **Install fuzzlib**
-
-```bash
-forge install perimetersec/fuzzlib --no-git
-```
-
-5. **Patch Optimism library** *(required for Echidna compatibility)*
-
-```bash
-./patch-optimism.sh
-```
-
-6. **Build contracts**
-
-```bash
 forge build
 ```
 
@@ -113,22 +67,8 @@ echidna test/fuzzing/Fuzz.sol --contract Fuzz --config echidna.yaml
 ### Foundry Reproductions
 
 ```bash
-# Run the reproducer
-forge test --mt test_coverage_ -vvvv
-```
-
-## Guardian Fuzz Central
-
-### Custom command
-
-```bash
-pip install crytic-compile && git submodule update --init --recursive && forge install perimetersec/fuzzlib --no-git && ./patch-optimism.sh
-```
-
-### Path
-
-```bash
-test/fuzzing/Fuzz.sol --contract Fuzz
+# Run all handler tests
+forge test --mc Foundry -vvvv
 ```
 
 ---
@@ -146,14 +86,15 @@ test/fuzzing/
 ├── Handler Contracts (Operation-specific)
 │   ├── FuzzNode.sol                  # Node operations (deposits/withdrawals)
 │   ├── FuzzNodeFactory.sol           # Node creation & configuration
-│   ├── FuzzDigiftAdapter.sol         # Cross-chain operations
-│   ├── FuzzDigiftEventVerifier.sol   # Event verification
+│   ├── FuzzDigiftAdapter.sol         # Digift cross-chain operations
+│   ├── FuzzWTAdapter.sol             # WT adapter operations & dividends
 │   ├── FuzzRewardRouters.sol         # Reward distribution
 │   ├── FuzzDonate.sol                # Unexpected token transfers
 │   │
 │   └── FuzzAdmin/                    # Admin operations
-│       ├── FuzzNodeRegistry.sol      # Node registration
-│       └── FuzzOneInch.sol           # DEX integration
+│       ├── FuzzAdminNode.sol         # Node admin operations (incl. OneInch swap)
+│       ├── FuzzAdminDigiftAdapter.sol # Digift adapter settlement
+│       └── FuzzAdminWTAdapter.sol    # WT adapter settlement & dividends
 │
 ├── helpers/
 │   ├── FuzzStorageVariables.sol      # Global state & config
@@ -166,10 +107,8 @@ test/fuzzing/
 │   │   ├── PreconditionsNode.sol
 │   │   ├── PreconditionsNodeFactory.sol
 │   │   ├── PreconditionsDigiftAdapter.sol
-│   │   ├── PreconditionsDigiftEventVerifier.sol
+│   │   ├── PreconditionsWTAdapter.sol
 │   │   ├── PreconditionsRewardRouters.sol
-│   │   ├── PreconditionsNodeRegistry.sol
-│   │   ├── PreconditionsOneInch.sol
 │   │   └── PreconditionsDonate.sol
 │   │
 │   └── Postconditions/               # State validation & invariants
@@ -177,27 +116,40 @@ test/fuzzing/
 │       ├── PostconditionsNode.sol
 │       ├── PostconditionsNodeFactory.sol
 │       ├── PostconditionsDigiftAdapter.sol
-│       ├── PostconditionsDigiftEventVerifier.sol
+│       ├── PostconditionsWTAdapter.sol
 │       ├── PostconditionsRewardRouters.sol
-│       ├── PostconditionsNodeRegistry.sol
-│       ├── PostconditionsOneInch.sol
 │       └── PostconditionsDonate.sol
 │
 ├── properties/
 │   ├── Properties.sol                # All protocol invariants
 │   ├── PropertiesBase.sol            # Base property helpers
 │   ├── PropertiesDescriptions.sol    # Human-readable descriptions
+│   ├── Properties_Node.sol           # Node invariant implementations
+│   ├── Properties_Digift.sol         # Digift invariant implementations
+│   ├── Properties_WT.sol             # WT adapter invariant implementations
+│   ├── Properties_Factory.sol        # Factory invariant implementations
+│   ├── Properties_OneInch.sol        # OneInch invariant implementations
+│   ├── Properties_Reward.sol         # Reward invariant implementations
 │   ├── Properties_ERR.sol            # Error allowlist configuration
 │   └── RevertHandler.sol             # Revert categorization engine
 │
 ├── mocks/
-│   └── MockERC20.sol                 # Test tokens
+│   ├── MockERC20.sol                 # Test tokens
+│   ├── SimpleProxy.sol               # Proxy mock
+│   └── interfaces/IERC20.sol         # ERC20 interface
+│
+├── logicalCoverage/
+│   └── LogicalCoverageBase.sol       # Logical coverage tracking
 │
 ├── utils/
 │   ├── FuzzActors.sol                # User management
 │   └── FuzzConstants.sol             # Protocol constants
 │
-├── foundry/                          # Foundry-specific tests
+├── foundry/                          # Foundry handler tests
+│   ├── FoundryNode.t.sol
+│   ├── FoundryNodeFactory.t.sol
+│   ├── FoundryDigiftAdapter.t.sol
+│   └── FoundryFullLifecycle.t.sol
 │
 └── FoundryPlayground.sol             # Failure reproductions
 ```
@@ -211,7 +163,7 @@ Single entry point for Echidna campaigns:
 ```solidity
 contract Fuzz is FuzzGuided {
     constructor() payable {
-        fuzzSetup(true);  # Deploy Nashpoint
+        fuzzSetup(true);  // Deploy Nashpoint
     }
 }
 ```
@@ -221,16 +173,21 @@ contract Fuzz is FuzzGuided {
 Deploys complete Nashpoint protocol:
 
 ```solidity
-function fuzzSetup(bool deployProtocol) internal {
+function fuzzSetup(bool isEchidna) internal {
+    if (protocolSet) return;
+
     _initUsers();                          // Create test users
-    if (deployProtocol) {
-        deployNashpointLocal();            // Deploy all contracts
-    }
-    setupFuzzingArrays();                  // DONATEES, TOKENS arrays
-    mintTokensToUsers();                   // Fund users with assets
-    setupInitialDeposits();                // Initial node deposits
-    configureRewardRouters();              // Set up reward distribution
-    labelAll();                            // VM labels for debugging
+    vm.warp(block.timestamp + 1 days);
+    _deployCoreInfrastructure(isEchidna);  // Deploy all contracts
+    _configureRegistry();                  // Registry setup
+    _deployNode();                         // Deploy node & escrow
+    _seedUserBalancesAndApprovals();       // Fund users with assets
+    _setupFuzzingArrays();                 // DONATEES, TOKENS arrays
+    _labelAddresses();                     // VM labels for debugging
+
+    vm.warp(block.timestamp + 1 days);
+    vm.prank(rebalancer);
+    node.startRebalance();                 // Enable deposits/mints
 }
 ```
 
@@ -246,36 +203,22 @@ All operations follow the same structure:
 
 ```solidity
 // In FuzzNode.sol
-function fuzz_deposit(
-    uint256 assetsSeed,
-    uint256 receiverSeed
-) public setCurrentActor {
+function fuzz_deposit(uint256 amountSeed) public setCurrentActor(amountSeed) {
     // 1. PRECONDITIONS - Validate & clamp inputs
-    NodeDepositParams memory params = depositPreconditions(
-        assetsSeed, receiverSeed
-    );
+    DepositParams memory params = depositPreconditions(amountSeed);
 
-    // 2. SETUP ACTORS - Track affected addresses
-    address[] memory actorsToUpdate = new address[](2);
-    actorsToUpdate[0] = currentActor;
-    actorsToUpdate[1] = params.receiver;
+    // 2. BEFORE SNAPSHOT - Save state
+    _before();
 
-    // 3. BEFORE SNAPSHOT - Save state
-    _before(actorsToUpdate);
-
-    // 4. EXECUTE - Call via FuzzLib proxy
+    // 3. EXECUTE - Call via FuzzLib proxy
     (bool success, bytes memory returnData) = fl.doFunctionCall(
         address(node),
-        abi.encodeWithSelector(
-            node.deposit.selector,
-            params.assets,
-            params.receiver
-        ),
+        abi.encodeWithSelector(IERC7575.deposit.selector, params.assets, params.receiver),
         currentActor
     );
 
-    // 5. POSTCONDITIONS - Validate results
-    depositPostconditions(success, returnData, actorsToUpdate, params);
+    // 4. POSTCONDITIONS - Validate results
+    depositPostconditions(success, returnData, params);
 }
 ```
 
@@ -284,34 +227,25 @@ function fuzz_deposit(
 Captures comprehensive state snapshots:
 
 ```solidity
-struct StateSnapshot {
-    // Per-actor state
+struct State {
     mapping(address => ActorState) actorStates;
-
-    // Node state
-    mapping(address => uint256) nodeTotalAssets;
-    mapping(address => uint256) nodeTotalSupply;
-    mapping(address => uint256) nodeSharesExiting;
-
-    // Token balances
-    mapping(address => mapping(address => uint256)) tokenBalances;
-
-    // Reward state
-    mapping(address => uint256) pendingRewards;
+    uint256 nodeAssetBalance;
+    uint256 nodeEscrowAssetBalance;
+    uint256 nodeTotalAssets;
+    uint256 nodeTotalSupply;
+    uint256 sharesExiting;
+    uint256 nodeEscrowShareBalance;
 }
 
 struct ActorState {
-    // Node shares
-    mapping(address => uint256) nodeShares;
-
-    // Withdrawal state
-    uint256 pendingWithdrawals;
-
-    // Nonces
-    uint256 depositNonce;
+    uint256 assetBalance;
+    uint256 shareBalance;
+    uint256 pendingRedeem;
+    uint256 claimableRedeem;
+    uint256 claimableAssets;
 }
 
-StateSnapshot[2] internal states;  // [0]=before, [1]=after
+mapping(uint8 => State) internal states;  // 0=before, 1=after
 ```
 
 #### 5. Error Management (`RevertHandler.sol`)
@@ -320,28 +254,35 @@ Sophisticated error categorization:
 
 ```solidity
 function invariant_ERR(bytes memory returnData) internal {
+    // Handle empty reverts
     if (returnData.length == 0) {
         if (CATCH_EMPTY_REVERTS) {
-            fl.t(false, ERR_01);  // "Unexpected Error"
+            fl.t(false, "Empty revert data not allowed");
+        } else {
+            fl.t(true, "Revert data is empty, allowed by config");
         }
         return;
     }
 
-    bytes4 errorSelector;
+    bytes4 returnedError;
     assembly {
-        errorSelector := mload(add(returnData, 0x20))
+        returnedError := mload(add(returnData, 0x20))
     }
 
-    // Route to appropriate handler
-    if (errorSelector == bytes4(keccak256("Panic(uint256)"))) {
+    // Handle Panic errors
+    if (returnedError == bytes4(keccak256("Panic(uint256)"))) {
         _handlePanic(returnData);
-    } else if (errorSelector == bytes4(keccak256("Error(string)"))) {
-        _handleError(returnData);
-    } else if (returnData.length == 4) {
-        _handleSoladyError(returnData);
-    } else {
-        _handleCustomError(returnData);
+        return;
     }
+
+    // Handle Error(string) errors
+    if (returnedError == bytes4(keccak256("Error(string)"))) {
+        _handleError(returnData);
+        return;
+    }
+
+    // Handle custom protocol errors
+    _handleCustomError(returnData);
 }
 ```
 
@@ -351,14 +292,14 @@ function invariant_ERR(bytes memory returnData) internal {
 
 ### Contracts Under Test
 
-| Contract | Functions Fuzzed | Handlers | Key Operations |
-|----------|-----------------|----------|----------------|
-| **Node** | 15+ | 15+ | `deposit`, `mint`, `withdraw`, `redeem`, `claimYield`, `rebalance`, `addRouter`, `removeRouter` |
-| **NodeFactory** | 5+ | 5+ | `createNode`, `upgradeNode`, `setImplementation`, `configureNode` |
-| **DigiftAdapter** | 8+ | 8+ | `initiateCrossChain`, `verifyEvent`, `executeLiquidity`, `claimCrossChain` |
-| **RewardRouters** | 4+ | 4+ | `distributeRewards`, `configureRouter`, `claimRewards` |
-| **NodeRegistry** | 5+ | 5+ | `registerNode`, `whitelistOperator`, `deregisterNode` |
-| **OneInch** | 3+ | 3+ | `swap`, `configureAggregator` |
+| Contract | Handlers | Key Operations |
+|----------|----------|----------------|
+| **Node** | 13 | `deposit`, `mint`, `requestRedeem`, `withdraw`, `redeem`, `transfer`, `transferFrom`, `approve`, `setOperator`, `submitPolicyData`, `multicall`, `gainBacking`, `loseBacking` |
+| **Node Admin** | 17 | `startRebalance`, `fulfillRedeem`, `updateTotalAssets`, router4626/7540 invest/liquidate/fulfill, pool processing, OneInch `swap` |
+| **NodeFactory** | 1 | `deploy` (full node + escrow creation) |
+| **DigiftAdapter** | 9 | `approve`, `transfer`, `transferFrom`, `mint`, `withdraw`, `requestRedeem`, `forwardRequests`, `settleDeposit`, `settleRedeem` |
+| **WTAdapter** | 7 | `mint`, `withdraw`, `requestRedeem`, `forwardRequests`, `settleDeposit`, `settleRedeem`, `settleDividend` |
+| **RewardRouters** | 3 | Fluid `claimRewards`, Incentra `claimRewards`, Merkl `claimRewards` |
 
 ### Foundry Testing
 
@@ -369,22 +310,21 @@ Repository for reproducing Echidna findings:
 ```solidity
 contract FoundryPlayground is FuzzGuided {
     function setUp() public {
-        fuzzSetup(true);
+        vm.warp(1524785992);  // Echidna starting time
+        fuzzSetup();
     }
 
-    // Reproduce specific scenarios
-    function test_coverage_deposit() public {
+    function test_handler_deposit() public {
         setActor(USERS[0]);
-        fuzz_deposit(1000e18, 0);
+        fuzz_deposit(1e18);
     }
 
-    function test_coverage_withdraw() public {
+    function test_handler_requestRedeem() public {
         setActor(USERS[0]);
-        fuzz_deposit(5000e18, 0);
+        fuzz_deposit(2e18);
 
-        vm.warp(block.timestamp + 1 days);
-
-        fuzz_withdraw(1000e18, 0, 0);
+        setActor(USERS[0]);
+        fuzz_requestRedeem(1e18);
     }
 }
 ```
@@ -400,18 +340,20 @@ contract FoundryPlayground is FuzzGuided {
 | Entry point | `test/fuzzing/Fuzz.sol` |
 | Setup | `test/fuzzing/FuzzSetup.sol` |
 | Handlers | `test/fuzzing/Fuzz*.sol` |
-| Preconditions | `helpers/preconditions/*.sol` |
-| Postconditions | `helpers/postconditions/*.sol` |
-| Properties | `properties/Properties.sol` |
-| Error config | `properties/Properties_ERR.sol` |
-| Reproductions | `FoundryPlayground.sol` |
+| Admin handlers | `test/fuzzing/FuzzAdmin/FuzzAdmin*.sol` |
+| Preconditions | `test/fuzzing/helpers/preconditions/*.sol` |
+| Postconditions | `test/fuzzing/helpers/postconditions/*.sol` |
+| Properties | `test/fuzzing/properties/Properties*.sol` |
+| Error config | `test/fuzzing/properties/Properties_ERR.sol` |
+| Foundry tests | `test/fuzzing/foundry/*.t.sol` |
+| Reproductions | `test/fuzzing/FoundryPlayground.sol` |
 | Config | `echidna.yaml`, `foundry.toml` |
 
 ---
 
 ## Protocol Invariants
 
-The suite validates **100+ protocol invariants** across all components. Below is the complete catalog:
+The suite validates **121 protocol invariants** across all components. Below is the complete catalog:
 
 ### Global Invariants
 
@@ -428,9 +370,9 @@ The suite validates **100+ protocol invariants** across all components. Below is
 | NODE_02 | Escrow Share Balance Must Increase By The Redemption Request Amount |
 | NODE_03 | Escrow Share Balance Must Decrease After A Redeem Is Finalized |
 | NODE_04 | User Asset Balance Must Increase By Requested Asset Amount After Withdraw |
-| NODE_05 | Escrow Asset Balance Must Be ≥ Sum Of All claimableAssets |
-| NODE_06 | Component's Asset Ratio Should Not Exceed Target After Invest |
-| NODE_07 | Node's Reserve Should Not Decrease Below Target After Invest |
+| NODE_05 | Escrow Asset Balance Must Be Greater Than Or Equal To Sum Of All claimableAssets of All Requests |
+| NODE_06 | A Component's Asset Holding Ratio Against Total Should Not Exceed Component's Target After Invest |
+| NODE_07 | A Node's Reserve Should Not Decrease Below Target Reserve After Invest |
 
 #### Deposit (NODE_08 - NODE_11)
 | ID | Description |
@@ -576,6 +518,25 @@ The suite validates **100+ protocol invariants** across all components. Below is
 | DIGIFT_11 | Pending Redeem Must Increase After Request |
 | DIGIFT_12 | Balance Must Not Increase After Request Redeem |
 
+### WT Adapter Invariants (WT_01 - WT_14)
+
+| ID | Description |
+|----|-------------|
+| WT_01 | Global Pending Deposit Must Match Forwarded Amount |
+| WT_02 | Global Pending Redeem Must Match Forwarded Amount |
+| WT_03 | No Pending Deposits Must Remain After Settle |
+| WT_04 | No Pending Redemptions Must Remain After Settle |
+| WT_05 | Max Mintable Shares Must Be Non-Zero After Settle Deposit |
+| WT_06 | Max Withdrawable Assets Must Be Non-Zero After Settle Redeem |
+| WT_07 | Total Max Withdrawable Must Match Expected Assets |
+| WT_08 | Withdraw Assets Must Match Max Withdraw Before |
+| WT_09 | Node Balance Must Not Decrease After Withdraw |
+| WT_10 | Max Withdraw Must Be Zero After Withdraw |
+| WT_11 | Pending Redeem Must Increase After Request |
+| WT_12 | Balance Must Not Increase After Request Redeem |
+| WT_13 | Adapter Total Supply Increase Must Equal Dividend Amount |
+| WT_14 | Sum Of Node Dividend Shares Must Equal Dividend Amount |
+
 ### Factory Invariants (FACTORY_01 - FACTORY_07)
 
 | ID | Description |
@@ -587,17 +548,6 @@ The suite validates **100+ protocol invariants** across all components. Below is
 | FACTORY_05 | Node Owner Must Match Init Args Owner |
 | FACTORY_06 | Node Total Supply Must Be Zero After Deploy |
 | FACTORY_07 | Node Must Be Registered In Registry After Deploy |
-
-### Registry Invariants (REGISTRY_01 - REGISTRY_06)
-
-| ID | Description |
-|----|-------------|
-| REGISTRY_01 | Protocol Fee Address Must Match Set Value |
-| REGISTRY_02 | Protocol Management Fee Must Match Set Value |
-| REGISTRY_03 | Protocol Execution Fee Must Match Set Value |
-| REGISTRY_04 | Policies Root Must Match Set Value |
-| REGISTRY_05 | Registry Type Status Must Match Set Value |
-| REGISTRY_06 | Owner Must Match After Transfer |
 
 ### OneInch Invariants (ONEINCH_01 - ONEINCH_05)
 
@@ -652,7 +602,7 @@ The suite validates **100+ protocol invariants** across all components. Below is
 Use Foundry's verbose output for detailed traces:
 
 ```bash
-forge test --mt test_coverage_ -vvvvv
+forge test --mc Foundry -vvvvv
 ```
 
 ---

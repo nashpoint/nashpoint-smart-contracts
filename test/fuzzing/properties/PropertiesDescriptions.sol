@@ -116,17 +116,6 @@ contract PropertiesDescriptions {
     string constant DIGIFT_04 = "DIGIFT_04: No Pending Redemptions Must Remain After Settle";
 
     // ==============================================================
-    // REGISTRY Properties (REGISTRY_01 - REGISTRY_06)
-    // ==============================================================
-
-    string constant REGISTRY_01 = "REGISTRY_01: Protocol Fee Address Must Match Set Value";
-    string constant REGISTRY_02 = "REGISTRY_02: Protocol Management Fee Must Match Set Value";
-    string constant REGISTRY_03 = "REGISTRY_03: Protocol Execution Fee Must Match Set Value";
-    string constant REGISTRY_04 = "REGISTRY_04: Policies Root Must Match Set Value";
-    string constant REGISTRY_05 = "REGISTRY_05: Registry Type Status Must Match Set Value";
-    string constant REGISTRY_06 = "REGISTRY_06: Owner Must Match After Transfer";
-
-    // ==============================================================
     // FACTORY Properties (FACTORY_01 - FACTORY_07)
     // ==============================================================
 
