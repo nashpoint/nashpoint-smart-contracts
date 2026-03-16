@@ -22,13 +22,24 @@
     ]
   },
   "targetReserveRatio": 10,
-  "policies": ["gatePolicyWhitelist", "gatePolicyBlacklist", "capPolicy"],
-  "whitelist": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
-  "blacklist": ["0x04DBA1194ee10112fE6C3207C0687DEf0e78baCf"],
+  "policies": [
+    "gatePolicyWhitelist",
+    "gatePolicyBlacklist",
+    "capPolicy"
+  ],
+  "whitelist": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
+  ],
+  "blacklist": [
+    "0x04DBA1194ee10112fE6C3207C0687DEf0e78baCf"
+  ],
   "owner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
-  "rebalancer": ["0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"],
+  "rebalancer": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
+  ],
   "rebalanceCooldown": 60,
   "rebalanceWindow": 60,
-  "seedValue": 1,
-  "cap": 1
+  "seedValue": 0,
+  "cap": 1,
+  "address": "0xb46C97eafa6cA4a784a6C810CaA893d8D2d53A41"
 }

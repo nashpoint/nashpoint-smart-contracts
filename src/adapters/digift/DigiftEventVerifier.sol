@@ -4,8 +4,7 @@ pragma solidity 0.8.28;
 import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 
 import {MerkleTrie} from "optimism/libraries/trie/MerkleTrie.sol";
-import {RLP} from "@openzeppelin/contracts/utils/RLP.sol";
-import {Memory} from "@openzeppelin/contracts/utils/Memory.sol";
+import {RLPReader} from "src/libraries/rlp/RLPReader.sol";
 
 /**
  * @title DigiftEventVerifier
@@ -82,9 +81,9 @@ contract DigiftEventVerifier is EventVerifierBase {
         bytes32 receiptsRoot;
         bytes32 logHash;
         uint256 investorIndex;
-        Memory.Slice[] logs;
-        Memory.Slice[] log;
-        Memory.Slice[] topics;
+        RLPReader.RLPItem[] logs;
+        RLPReader.RLPItem[] log;
+        RLPReader.RLPItem[] topics;
     }
 
     enum EventType {
@@ -133,25 +132,25 @@ contract DigiftEventVerifier is EventVerifierBase {
         if (_getBlockHash(fargs.blockNumber) != vars.blockHash) revert BadHeader();
 
         // Extract the receipts root from the block header (index 5 in RLP-encoded header)
-        vars.receiptsRoot = bytes32(RLP.readBytes(RLP.readList(Memory.asSlice(fargs.headerRlp))[5]));
+        vars.receiptsRoot = bytes32(RLPReader.readBytes(RLPReader.readList(fargs.headerRlp)[5]));
 
         // Get the transaction receipt using Merkle proof and extract logs
         // The receipt structure is: [status, cumulativeGasUsed, logsBloom, logs]
         // We need index 3 which contains the logs array
-        vars.logs = RLP.readList(
-            RLP.readList(
-                Memory.asSlice(_stripTypedPrefix(MerkleTrie.get(fargs.txIndex, fargs.proof, vars.receiptsRoot)))
+        vars.logs = RLPReader.readList(
+            RLPReader.readList(
+                _stripTypedPrefix(MerkleTrie.get(fargs.txIndex, fargs.proof, vars.receiptsRoot))
             )[3]
         );
 
-        vars.log = RLP.readList(vars.logs[fargs.logIndex]);
+        vars.log = RLPReader.readList(vars.logs[fargs.logIndex]);
 
         // Check if this log was emitted by the expected contract address
-        require(address(bytes20(RLP.readBytes(vars.log[0]))) == nargs.emittingAddress, NoEvent());
+        require(address(bytes20(RLPReader.readBytes(vars.log[0]))) == nargs.emittingAddress, NoEvent());
 
         // Extract and validate the log topics (indexed parameters)
-        vars.topics = RLP.readList(vars.log[1]);
-        require(bytes32(RLP.readBytes(vars.topics[0])) == vars.eventSignature, NoEvent());
+        vars.topics = RLPReader.readList(vars.log[1]);
+        require(bytes32(RLPReader.readBytes(vars.topics[0])) == vars.eventSignature, NoEvent());
 
         // Decode the log data (non-indexed parameters)
         // Structure: (stToken, investorList, quantityList, currencyTokenList, amountList, feeList)
@@ -161,7 +160,7 @@ contract DigiftEventVerifier is EventVerifierBase {
             uint256[] memory quantityList,
             address[] memory currencyTokenList,
             uint256[] memory amountList,
-        ) = abi.decode(RLP.readBytes(vars.log[2]), (address, address[], uint256[], address[], uint256[], uint256[]));
+        ) = abi.decode(RLPReader.readBytes(vars.log[2]), (address, address[], uint256[], address[], uint256[], uint256[]));
 
         // Verify the security token matches
         require(stToken == nargs.securityToken, NoEvent());

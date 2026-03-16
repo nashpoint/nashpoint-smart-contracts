@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {Blockhash} from "@openzeppelin/contracts/utils/Blockhash.sol";
-
 import {RegistryAccessControl} from "src/libraries/RegistryAccessControl.sol";
 
 import {Bytes} from "@openzeppelin/contracts/utils/Bytes.sol";
@@ -121,7 +119,7 @@ abstract contract EventVerifierBase is RegistryAccessControl {
      * @dev Reverts if the block hash is not available and not stored
      */
     function _getBlockHash(uint256 blockNumber) internal returns (bytes32) {
-        bytes32 blockHash = Blockhash.blockHash(blockNumber);
+        bytes32 blockHash = blockhash(blockNumber);
         if (blockHash == 0) {
             blockHash = blockHashes[blockNumber];
         }
