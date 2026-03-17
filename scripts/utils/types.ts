@@ -53,8 +53,10 @@ export type Config = {
             },
         ];
     };
-    // for sepolia only
-    usdcPriceOracle?: string;
+    usdc: string;
+    usdcPriceOracle: string;
+    iSNR: string;
+    iSNRPriceOracle: string;
 };
 
 export type Contracts = {

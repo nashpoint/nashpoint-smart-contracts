@@ -16,6 +16,7 @@ library Environment {
         address protocolOwner;
         address digiftSubRedManagement;
         address usdc;
+        address usdcPriceOracle;
         address iSNR;
         address iSNRPriceOracle;
     }
@@ -78,6 +79,7 @@ library Environment {
         config.merkl = json.readBoolOr(".merkl", false);
         config.oneInch = json.readBoolOr(".oneInch", false);
         config.usdc = json.readAddressOr(".usdc", address(0));
+        config.usdcPriceOracle = json.readAddressOr(".usdcPriceOracle", address(0));
         config.iSNR = json.readAddressOr(".iSNR", address(0));
         config.iSNRPriceOracle = json.readAddressOr(".iSNRPriceOracle", address(0));
     }
@@ -108,9 +110,9 @@ library Environment {
         contracts.gatePolicyWhitelist = json.readAddressOr(".policies.gatePolicyWhitelist", address(0));
         contracts.nodePausingPolicy = json.readAddressOr(".policies.nodePausingPolicy", address(0));
         contracts.protocolPausingPolicy = json.readAddressOr(".policies.protocolPausingPolicy", address(0));
-        contracts.digiftEventVerifier = json.readAddressOr(".digift.digiftEventVerifier", address(0));
-        contracts.digiftAdapterImplementation = json.readAddressOr(".digift.digiftAdapterImplementation", address(0));
-        contracts.digiftAdapterFactory = json.readAddressOr(".digift.digiftAdapterFactory", address(0));
+        contracts.digiftEventVerifier = json.readAddressOr(".digift.eventVerifier", address(0));
+        contracts.digiftAdapterImplementation = json.readAddressOr(".digift.adapterImplementation", address(0));
+        contracts.digiftAdapterFactory = json.readAddressOr(".digift.adapterFactory", address(0));
     }
 
     function setRpc(Vm vm_) internal {
