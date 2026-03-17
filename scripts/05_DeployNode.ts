@@ -110,6 +110,13 @@ async function main() {
             node.encodeFunctionData('setNodeOwnerFeeAddress', [nodeData.nodeOwnerFeeAddress]),
         );
     }
+    if (nodeData.nodeFee) {
+        nodePayload.push(
+            node.encodeFunctionData('setAnnualManagementFee', [
+                ethers.parseEther(String(nodeData.nodeFee)) / 100n,
+            ]),
+        );
+    }
     if (nodeData.policies) {
         const policiesToUse = nodeData.policies.map((p) => buildPolicy(p, contracts));
         const multiProof = policyTree.getMultiProof(buildLeafs(policiesToUse));

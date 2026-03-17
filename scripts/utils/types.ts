@@ -35,6 +35,8 @@ export type NodeData = {
     rebalanceCooldown?: number;
     rebalanceWindow?: number;
     nodeOwnerFeeAddress?: string;
+    // decimal value
+    nodeFee?: number;
     pauseFunctions?: NodeFunctionName[];
     // decimal value
     seedValue?: number;
