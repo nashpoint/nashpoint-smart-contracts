@@ -2,7 +2,8 @@
   "digift": {
     "adapterFactory": "0x5A24559a617f2253437d7938a60541aE578c05c2",
     "adapterImplementation": "0x56810435fCBd03aEc1af86a6a88252C7ff623e10",
-    "eventVerifier": "0xf36cc38Ec0b1aF75c4295c5D928eD08b0B6444A8"
+    "eventVerifier": "0xf36cc38Ec0b1aF75c4295c5D928eD08b0B6444A8",
+    "wiSNR": "0x42eBf0BA14716BA01307B1f6506bE84d7579E643"
   },
   "nodeFactory": "0xa62fe99d92143fE5fd53406A737Cf55Ce2359846",
   "nodeImplementation": "0xf79EBEf3A29dA038086DDae0C92A404cB8204F06",

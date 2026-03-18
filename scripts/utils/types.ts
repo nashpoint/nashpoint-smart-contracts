@@ -64,6 +64,7 @@ export type Contracts = {
         adapterFactory: string;
         adapterImplementation: string;
         eventVerifier: string;
+        wiSNR?: string;
     };
 
     routers: {
