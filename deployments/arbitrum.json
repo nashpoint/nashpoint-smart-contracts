@@ -23,5 +23,11 @@
     "incentraRouter": "0xc5f31F095825aD336Ec773F02a02aF62aB013526",
     "merklRouter": "0x54c1040d94D8eEB6ad0FF1BFF9ED4dd164b49761",
     "oneInchRouter": "0xA339280c6a451361Cd0cF217B3533f3628EE90f9"
+  },
+  "wt": {
+    "adapterFactory": "0x52058e4f12f1c40698E843eaD1D701a98024fD57",
+    "adapterImplementation": "0x31C8692916C0F4910a1D8cD3ADE01741AF0995b8",
+    "crdyxPriceOracle": "0xE867111639f337e2620384FC4b609E09d5e6f7aC",
+    "eventVerifier": "0x4f071F0Eb715eE2403b26c9e071dCCc3C26bD4E8"
   }
 }
