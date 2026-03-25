@@ -1,0 +1,42 @@
+{
+  "name": "Nashpoint JAAA CLO Vault",
+  "symbol": "npJAAA",
+  "asset": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+  "owner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+  "nodeOwnerFeeAddress": "0x8d1A519326724b18A6F5877a082aae19394D0f67",
+  "rebalancer": [
+    "0x8d1A519326724b18A6F5877a082aae19394D0f67",
+    "0xB1ce02d5eE676e657BD59D2EE5dFB147a13f56e9"
+  ],
+  "components": {
+    "erc7540Router": [
+      {
+        "name": "Centrifuge - Janus Henderson Anemoy AAA CLO Fund (deJAAA)",
+        "address": "0xe897E7F16e8F4ed568A62955b17744bCB3207d6E",
+        "allocation": 99
+      }
+    ],
+    "erc4626Router": []
+  },
+  "targetReserveRatio": 1,
+  "policies": [
+    "gatePolicyWhitelist",
+    "nodePausingPolicy",
+    "protocolPausingPolicy"
+  ],
+  "whitelist": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+    "0x1FC65AC3448f225ba073a59eDfE51e1e3699F597"
+  ],
+  "pauser": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
+  ],
+  "pauseFunctions": [
+    "transfer",
+    "transferFrom",
+    "approve"
+  ],
+  "rebalanceCooldown": 82800,
+  "rebalanceWindow": 3600,
+  "address": "0x2bEcbB52355a7DDcD8cEbE695Ed370b765A31E6F"
+}

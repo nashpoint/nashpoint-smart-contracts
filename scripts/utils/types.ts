@@ -35,6 +35,8 @@ export type NodeData = {
     rebalanceCooldown?: number;
     rebalanceWindow?: number;
     nodeOwnerFeeAddress?: string;
+    // decimal value
+    nodeFee?: number;
     pauseFunctions?: NodeFunctionName[];
     // decimal value
     seedValue?: number;
@@ -51,8 +53,10 @@ export type Config = {
             },
         ];
     };
-    // for sepolia only
-    usdcPriceOracle?: string;
+    usdc: string;
+    usdcPriceOracle: string;
+    iSNR: string;
+    iSNRPriceOracle: string;
 };
 
 export type Contracts = {
@@ -60,6 +64,7 @@ export type Contracts = {
         adapterFactory: string;
         adapterImplementation: string;
         eventVerifier: string;
+        wiSNR?: string;
     };
 
     routers: {
