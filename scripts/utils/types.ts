@@ -57,6 +57,7 @@ export type Config = {
     usdcPriceOracle: string;
     iSNR: string;
     iSNRPriceOracle: string;
+    CRDYX: string;
 };
 
 export type Contracts = {
