@@ -13,6 +13,7 @@
   "iSNR": "0x37EC21365dC39B0b74ea7b6FabFfBcB277568AC4",
   "iSNRPriceOracle": "0x67aE0CAAC7f6995d8B24d415F584e5625cdEe048",
   "usdcPriceOracle": "0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3",
+  "CRDYX": "0x6116715dc9c7116b01c38485df55c25eedf26bc0",
   "components": {
     "erc7540Router": [
       {
