@@ -1,0 +1,53 @@
+{
+  "name": "Nashpoint TEST Vault",
+  "symbol": "npTEST",
+  "asset": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+  "owner": "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+  "nodeOwnerFeeAddress": "0x8d1A519326724b18A6F5877a082aae19394D0f67",
+  "nodeFee": 0.25,
+  "rebalancer": [
+    "0x8d1A519326724b18A6F5877a082aae19394D0f67",
+    "0xB1ce02d5eE676e657BD59D2EE5dFB147a13f56e9"
+  ],
+  "components": {
+    "erc7540Router": [
+      {
+        "name": "Centrifuge - Janus Henderson Anemoy AAA CLO Fund (deJAAA)",
+        "address": "0xe897E7F16e8F4ed568A62955b17744bCB3207d6E",
+        "allocation": 30
+      },
+      {
+        "name": "DigiFT - Invesco US Senior Loan Strategy (wiSNR)",
+        "address": "0x42eBf0BA14716BA01307B1f6506bE84d7579E643",
+        "allocation": 30
+      },
+      {
+        "name": "WisdomTree - CRDYX (wCRDYX)",
+        "address": "0xB27ce46A6f355D1d29D42bbDE2451251b7C5DD76",
+        "allocation": 30
+      }
+    ],
+    "erc4626Router": []
+  },
+  "targetReserveRatio": 10,
+  "policies": [
+    "gatePolicyWhitelist",
+    "nodePausingPolicy",
+    "protocolPausingPolicy"
+  ],
+  "whitelist": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310",
+    "0x1FC65AC3448f225ba073a59eDfE51e1e3699F597"
+  ],
+  "pauser": [
+    "0xfaBEa8C75Fe29bAafCDC0Afb3413cb5DFA11E310"
+  ],
+  "pauseFunctions": [
+    "transfer",
+    "transferFrom",
+    "approve"
+  ],
+  "rebalanceCooldown": 82800,
+  "rebalanceWindow": 3600,
+  "address": "0xCB1146B1E4aB1c956a88b73b1d0ff848032AF6aD"
+}
