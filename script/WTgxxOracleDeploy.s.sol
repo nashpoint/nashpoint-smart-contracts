@@ -47,9 +47,8 @@ contract WTgxxOracleDeploy is Script {
         );
         wt = stdJson.serialize(wtKey, "adapterFactory", existingJson.readAddressOr(".wt.adapterFactory", address(0)));
         wt = stdJson.serialize(wtKey, "wCRDYX", existingJson.readAddressOr(".wt.wCRDYX", address(0)));
-        wt = stdJson.serialize(
-            wtKey, "crdyxPriceOracle", existingJson.readAddressOr(".wt.crdyxPriceOracle", address(0))
-        );
+        wt =
+            stdJson.serialize(wtKey, "crdyxPriceOracle", existingJson.readAddressOr(".wt.crdyxPriceOracle", address(0)));
         wt = stdJson.serialize(wtKey, "wtgxxPriceOracle", address(wtgxxPriceOracle));
 
         string memory jsonKey = "json";
