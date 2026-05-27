@@ -1,0 +1,56 @@
+{
+  "name": "Inveniam RWA Test Vault",
+  "symbol": "tivRWA",
+  "asset": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+  "owner": "0x45fD333D2CAae3c544f315ee1d7cc247E9D986b9",
+  "nodeFee": 1,
+  "rebalancer": [
+    "0x8d1A519326724b18A6F5877a082aae19394D0f67"
+  ],
+  "components": {
+    "erc7540Router": [
+      {
+        "name": "Centrifuge - Janus Henderson Anemoy Treasury Fund (deJTRSY)",
+        "address": "0x3a7d08B8B8E22251eFb112868A1640DF2FDBCb83",
+        "allocation": 23
+      },
+      {
+        "name": "Centrifuge - Janus Henderson Anemoy AAA CLO Fund (deJAAA)",
+        "address": "0xe897E7F16e8F4ed568A62955b17744bCB3207d6E",
+        "allocation": 23
+      },
+      {
+        "name": "DigiFT - Invesco US Senior Loan Strategy (wiSNR)",
+        "address": "0x42eBf0BA14716BA01307B1f6506bE84d7579E643",
+        "allocation": 22
+      },
+      {
+        "name": "WisdomTree - CRDYX (wCRDYX)",
+        "address": "0xB27ce46A6f355D1d29D42bbDE2451251b7C5DD76",
+        "allocation": 22
+      }
+    ],
+    "erc4626Router": []
+  },
+  "targetReserveRatio": 10,
+  "policies": [
+    "gatePolicyWhitelist",
+    "nodePausingPolicy",
+    "protocolPausingPolicy"
+  ],
+  "whitelist": [
+    "0x45fD333D2CAae3c544f315ee1d7cc247E9D986b9",
+    "0xDd8A250d7575bBA0e07270B1516af5A18644371C",
+    "0x0000054208f796A10636298ac6D60DA1eD93D039",
+    "0x65C4De6E6B1eb9484FA49eDCC8Ea571A61c60D3e"
+  ],
+  "pauser": [
+    "0x45fD333D2CAae3c544f315ee1d7cc247E9D986b9"
+  ],
+  "pauseFunctions": [
+    "transfer",
+    "transferFrom",
+    "approve"
+  ],
+  "address": "0x6DAcA1e808C46E18F32e736E0AeB45c3824e073c"
+}
