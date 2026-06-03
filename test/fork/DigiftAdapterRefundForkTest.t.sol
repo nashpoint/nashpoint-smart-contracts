@@ -10,6 +10,7 @@ import {AdapterBase} from "src/adapters/AdapterBase.sol";
 import {DigiftEventVerifier} from "src/adapters/digift/DigiftEventVerifier.sol";
 import {EventVerifierBase} from "src/adapters/EventVerifierBase.sol";
 import {ISubRedManagement} from "src/interfaces/external/IDigift.sol";
+import {INode, ComponentAllocation} from "src/interfaces/INode.sol";
 
 /**
  * @title DigiftAdapterRefundForkTest
@@ -47,6 +48,9 @@ contract DigiftAdapterRefundForkTest is Test {
     // The node with the stuck deposit ("Inveniam RWA Test Vault" / tivRWA).
     address constant NODE = 0x6DAcA1e808C46E18F32e736E0AeB45c3824e073c;
 
+    // The node owner (can add/remove components and set the reserve ratio).
+    address constant NODE_OWNER = 0x45fD333D2CAae3c544f315ee1d7cc247E9D986b9;
+
     // Whitelisted manager (rebalancer) able to call forwardRequests/settle.
     address constant MANAGER = 0xB1ce02d5eE676e657BD59D2EE5dFB147a13f56e9;
 
@@ -58,12 +62,34 @@ contract DigiftAdapterRefundForkTest is Test {
     // Documented expected stuck amount: 19.821999 USDC (6 decimals).
     uint256 constant EXPECTED_REFUND = 19_821_999;
 
+    /// @dev True only if the pinned fork could be created (requires an archive RPC that still
+    ///      serves FORK_BLOCK). When false, fork tests are skipped rather than failed.
+    bool internal forkReady;
+
     function setUp() public {
+        // createSelectFork reverts if the RPC cannot serve historical state at FORK_BLOCK
+        // (e.g. non-archive endpoint, or the block has aged out of the provider's retention).
+        // Doing it via an external call lets us catch that and skip instead of hard-failing.
+        try this._initFork() {
+            forkReady = true;
+        } catch {
+            forkReady = false;
+        }
+    }
+
+    /// @dev External wrapper so the fork creation can be used with try/catch.
+    function _initFork() external {
         vm.createSelectFork(vm.envString("ARBITRUM_RPC_URL"), FORK_BLOCK);
     }
 
+    /// @dev Skips the test when the pinned fork state is unavailable.
+    modifier forkOrSkip() {
+        vm.skip(!forkReady);
+        _;
+    }
+
     /// @dev Sanity-check the live stuck state is what we expect before fixing it.
-    function test_forkState_depositIsStuck() external view {
+    function test_forkState_depositIsStuck() external forkOrSkip {
         assertEq(adapter.asset(), address(USDC), "asset is USDC");
         assertEq(adapter.pendingDepositRequest(0, NODE), EXPECTED_REFUND, "node has stuck pending deposit");
         assertEq(adapter.globalPendingDepositRequest(), EXPECTED_REFUND, "global pending matches");
@@ -72,7 +98,7 @@ contract DigiftAdapterRefundForkTest is Test {
     }
 
     /// @dev Upgrade the beacon to V2 and refund the stuck deposit; USDC ends up back in tivRWA.
-    function test_settleDepositRefund_returnsUsdcToNode() external {
+    function test_settleDepositRefund_returnsUsdcToNode() external forkOrSkip {
         // Pre-state captured from the live fork.
         uint256 nodePendingBefore = adapter.pendingDepositRequest(0, NODE);
         uint256 globalPendingBefore = adapter.globalPendingDepositRequest();
@@ -111,7 +137,7 @@ contract DigiftAdapterRefundForkTest is Test {
     }
 
     /// @dev Access control: only the registry owner may trigger the manual refund.
-    function test_settleDepositRefund_onlyRegistryOwner() external {
+    function test_settleDepositRefund_onlyRegistryOwner() external forkOrSkip {
         _upgradeToV2();
 
         vm.prank(address(0xBAD));
@@ -120,7 +146,7 @@ contract DigiftAdapterRefundForkTest is Test {
     }
 
     /// @dev After the refund, the adapter accepts new deposits and forwards them normally again.
-    function test_depositForwardUnblockedAfterRefund() external {
+    function test_depositForwardUnblockedAfterRefund() external forkOrSkip {
         _upgradeToV2();
 
         // Before the refund, the stuck global pending deposit blocks forwarding entirely.
@@ -160,7 +186,7 @@ contract DigiftAdapterRefundForkTest is Test {
     }
 
     /// @dev After the refund, a full deposit -> mint -> redeem -> withdraw cycle works end-to-end.
-    function test_fullDepositAndRedeemCycleAfterRefund() external {
+    function test_fullDepositAndRedeemCycleAfterRefund() external forkOrSkip {
         _upgradeToV2();
         vm.prank(OWNER);
         adapter.settleDepositRefund(NODE);
@@ -212,6 +238,53 @@ contract DigiftAdapterRefundForkTest is Test {
         assertEq(adapter.balanceOf(NODE), 0, "node shares burned");
     }
 
+    /// @dev Post-refund owner cleanup: remove the wiSNR component and roll its weight into the reserve.
+    ///      Demonstrates the exact order of operations the node owner must execute.
+    function test_ownerRemovesComponentAndReallocatesReserveAfterRefund() external forkOrSkip {
+        // ---- Precondition: clear the stuck deposit (registry owner) ----
+        _upgradeToV2();
+        vm.prank(OWNER);
+        adapter.settleDepositRefund(NODE);
+
+        INode node = INode(NODE);
+
+        // The component must be empty for a non-forced removal; the refund made it so.
+        assertEq(adapter.pendingDepositRequest(0, NODE), 0, "no pending deposit left in adapter");
+        assertEq(adapter.balanceOf(NODE), 0, "node holds no wiSNR shares");
+        assertTrue(node.isComponent(address(adapter)), "wiSNR is still a component pre-cleanup");
+        assertTrue(node.validateComponentRatios(), "ratios sum to WAD before cleanup");
+
+        // Capture the values needed for the reserve roll-up before we delete the allocation.
+        uint64 reserveBefore = node.targetReserveRatio();
+        uint64 wiSNRWeight = node.getComponentAllocation(address(adapter)).targetWeight;
+        uint256 componentsBefore = node.getComponents().length;
+
+        // Owner maintenance must happen outside the rebalance window.
+        INodeRebalanceView rb = INodeRebalanceView(NODE);
+        uint256 windowEnds = uint256(rb.lastRebalance()) + rb.rebalanceWindow();
+        if (block.timestamp < windowEnds) {
+            vm.warp(windowEnds + 1);
+        }
+
+        // ---- Step 1: node owner removes the wiSNR component (balance is 0, no force needed) ----
+        vm.prank(NODE_OWNER);
+        node.removeComponent(address(adapter), false);
+
+        assertFalse(node.isComponent(address(adapter)), "wiSNR removed as a component");
+        assertEq(node.getComponents().length, componentsBefore - 1, "component count decreased by one");
+
+        // After removal, the freed 22% weight leaves the ratios short of WAD until reallocated.
+        assertFalse(node.validateComponentRatios(), "ratios no longer sum to WAD until reserve absorbs delta");
+
+        // ---- Step 2: node owner rolls the freed weight into the reserve ----
+        uint64 newReserve = reserveBefore + wiSNRWeight;
+        vm.prank(NODE_OWNER);
+        node.updateTargetReserveRatio(newReserve);
+
+        assertEq(node.targetReserveRatio(), newReserve, "reserve absorbed the wiSNR weight");
+        assertTrue(node.validateComponentRatios(), "ratios sum back to WAD; node can rebalance again");
+    }
+
     // =============================
     //          Helpers
     // =============================
@@ -247,4 +320,10 @@ contract DigiftAdapterRefundForkTest is Test {
             adapter.settleRedeem(nodes, fargs);
         }
     }
+}
+
+/// @dev Minimal view of the Node's rebalance-window state (not exposed on INode).
+interface INodeRebalanceView {
+    function lastRebalance() external view returns (uint64);
+    function rebalanceWindow() external view returns (uint64);
 }
