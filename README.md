@@ -1,9 +1,9 @@
-# NashPoint
+# Nashpoint
 
 [![Foundry](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/foundry.yml) [![Slither Analysis](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/slither-actions.yml/badge.svg)](https://github.com/nashpoint/nashpoint-smart-contracts/actions/workflows/slither-actions.yml)
 [![License: BUSL 1.1](https://img.shields.io/badge/License-BUSL%201.1-blue.svg)](LICENSE)
 
-NashPoint enables flexible deployment of investment nodes that can manage positions across multiple ERC4626 and ERC7540 vaults. The protocol was designed to provide a standardized way to manage complex investment strategies. Investors can deposit using ERC4626 synchronous functions, and redeem using the ERC7540 asynchronous tokenized vault standard.
+Nashpoint enables flexible deployment of investment nodes that can manage positions across multiple ERC4626 and ERC7540 vaults. The protocol was designed to provide a standardized way to manage complex investment strategies. Investors can deposit using ERC4626 synchronous functions, and redeem using the ERC7540 asynchronous tokenized vault standard.
 
 ## Architecture
 
@@ -29,7 +29,7 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE)
 
 ## Audits
 
-[![](images/black-NashPoint.svg)](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)
+[![](images/black-Nashpoint.svg)](https://cantina.xyz/portfolio/16ca9765-fc97-471e-aece-ef52f5bbc877)
 
 | Scope                                                                               | Date          | Report                                                                                                                |
 | ----------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -48,7 +48,7 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE)
 
 ## Documentation
 
-For a full protocol overview and detailed information see the [NashPoint Documentation](https://nashpoint.gitbook.io/nashpoint)
+For a full protocol overview and detailed information see the [Nashpoint Documentation](https://nashpoint.gitbook.io/nashpoint)
 
 ## Development
 
